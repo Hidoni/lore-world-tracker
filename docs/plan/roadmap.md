@@ -107,6 +107,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #5 | M0-05 | Security and request middleware baseline (host allowlist, CSRF header guard, security headers/CSP, request ids, logging) | M | P0 | #1 |
 | #6 | M0-06 | CI workflow (GitHub Actions), e2e smoke harness and Dependabot | M | P0 | #4, #5 |
 | #7 | M0-07 | Dockerfile, docker compose and container smoke test in CI | M | P0 | #6 |
+| #167 | M0-08 | Adopt shadcn's cn package so shadcn components add without rewrites | S | P2 | – |
 
 ### M1: Chronology engine
 

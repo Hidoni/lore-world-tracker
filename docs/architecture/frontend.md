@@ -273,6 +273,14 @@ supports keyboard navigation between items (arrow keys) and announces focused it
 
 - shadcn/ui components live in `src/components/ui` (generated with the shadcn CLI, then owned).
   Theme tokens are CSS variables with light and dark themes (system default, user toggle).
+  - Files in `components/ui` stay **byte-identical to upstream** (Prettier ignores that folder),
+    so `npx shadcn add <name>` adds components unchanged and `--diff` shows only real changes.
+  - The class-name helper is shadcn's `cn` package (Tailwind v4 merging, replaces `clsx` +
+    `tailwind-merge`), as upstream components import it. Own code imports it from
+    `@/lib/utils`.
+  - **Local edit:** `components/ui/sonner.tsx` reads the theme from `@/lib/theme` (Zustand
+    store) instead of `next-themes`. Re-adding it with `--overwrite` brings `next-themes` back,
+    so reapply the edit.
 - Kind colors and icons come from the registry. Icons are lucide names mapped by a curated
   `iconMap`. Custom kinds pick from that set.
 - Typography: a UI sans plus an optional serif reading font for bodies in reader mode.
