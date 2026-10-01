@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
+.eslintcache

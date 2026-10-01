@@ -1,0 +1,12 @@
+# Prettier formats the TypeScript side only; the backend uses ruff, docs are hand-wrapped.
+backend/
+docs/
+spec/
+*.md
+package-lock.json
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.gen.ts

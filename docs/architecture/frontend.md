@@ -46,6 +46,22 @@ frontend/src/
 frontend/e2e/       # Playwright
 ```
 
+Each top-level folder of `src/` is an element for eslint-plugin-boundaries (root
+`eslint.config.js`). The enforced rules are:
+
+- `core` never imports `modules` (modules.md §3).
+- `lib` and `components` never import `app`, `core`, `modules`, `data` or `editor`.
+- Only `app` imports `app`.
+
+`frontend/src/test/boundaries.test.ts` lints synthetic imports against the real config, so a
+boundary that silently stops matching fails the test suite.
+
+`@lore/chronology` is consumed from source (its `exports` points at `src/index.ts`, see
+`packages/chronology/README.md`), so no build step runs before the frontend.
+
+TypeScript is pinned to `~6.0` because typescript-eslint supports `<6.1`. ESLint stays on 9
+until eslint-plugin-jsx-a11y supports 10.
+
 ## 3. App shell
 
 - **Top bar:** vault switcher · dimension switcher · timeline switcher (only when branches exist) ·
