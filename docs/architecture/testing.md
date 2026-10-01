@@ -25,7 +25,7 @@
   a vault), builders (`make_dimension(preset="gregorian")`, `make_event(...)`, `make_character(...)`).
   Builders call services, never raw inserts, so invariants (history, search, dependencies)
   hold.
-- Sample world generator: `backend/scripts/make_sample_vault.py --size small|medium|large` builds
+- Sample world generator: `backend/scripts/make_sample_vault.py --size tiny|small|medium|large` builds
   the demo world "Aetheria" (every calendar feature, recurring events, branches, worldlines,
   correspondences, private content, media). It is used for manual testing, e2e, perf and fixture
   vaults. `large` ≈ 100k entities / 100k events / 500k links.

@@ -102,8 +102,11 @@ The reader UI may only use these read operations (DataSource methods). The post-
 
 `meta`, `registry`, `entities` (list/filter), `entity` (+ `state` as-of), `tree`, `children`,
 `links`, `backlinks`, `timelineWindow`, `eventTree`, `occurrences`, `search`, `quickSearch`,
-`graph`, `familyTree`, `orgChart`, `locationTree`, `lexicon`, `languageFamilyTree`, `maps`/`pins`,
-`mediaFile`, `correspondenceMap`, `personalTimeline`, `timelines` (tree).
+`graph`, `characterRelationships`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
+`orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
+`speciesDescentTree`, `lexicon`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaFile`,
+`gallery`, `correspondenceMap`, `personalTimeline`, `presence`, `timelines` (tree),
+`timelineDiff`, `timelineNotes`.
 
 Adding a reader-facing endpoint means adding it here, adding a leak-test recipe, and (post-MVP)
 implementing it in `StaticDataSource`.

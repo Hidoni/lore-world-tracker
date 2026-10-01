@@ -305,6 +305,8 @@ others may reference the slot.
 | Record type | Table | Slots | Referenceable |
 |-------------|-------|-------|---------------|
 | `event` | `events` | `start`, `end` | yes (incl. occurrences) |
+| `event` (series) | `events` | `recurrence_until`, `exclusion:<i>.from`, `exclusion:<i>.to` | no |
+| `entity_field` | `entity_time_fields` | `<field key>` (time-point fields), `fact:<fact id>` | no |
 | `timeline` | `timelines` | `branch_point` | yes |
 | `fact` | `entity_facts` | `valid_from`, `valid_to` | yes |
 | `link` | `links` | `valid_from`, `valid_to` | yes |

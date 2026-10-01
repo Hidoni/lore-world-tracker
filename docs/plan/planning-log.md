@@ -79,10 +79,23 @@ Other instructions from the product owner:
 - [x] `docs/plan/workflow.md` (agent workflow, definition of done)
 - [x] `CLAUDE.md`, `README.md`, `docs/README.md`
 - [x] `.github/` issue + PR templates
-- [ ] GitHub labels + milestones
-- [ ] GitHub issues (full backlog, with dependencies)
-- [ ] `docs/plan/roadmap.md` with issue index
+- [x] GitHub labels + milestones
+- [x] GitHub issues (full backlog, with dependencies)
+- [x] `docs/plan/roadmap.md` with issue index
 - [ ] Final review pass + push
+
+## Backlog creation progress
+
+Issue sources are written in the planning session's scratchpad (`backlog/Mxx.md`) and created with a
+script that records `key → issue number`. Every issue body ends with its backlog key
+(e.g. `M1-04`), so the mapping can be rebuilt from GitHub if the scratchpad is lost.
+
+- Labels and milestones (M0–M13) created.
+- M0: #1–#7. M1: #8–#29. M2: #30–#43. M3: #44–#57. M4: #58–#71. M5: #72–#88. M6: #89–#99.
+  M7: #100–#108. M8: #109–#113. M9: #114–#125. M10: #126–#132. M11: #133–#137. M12: #138–#146.
+  M13: #147–#162. **All 162 issues created**, and native "blocked by" relationships are mirrored for each.
+- `tools/backlog.py` helper written and tested. `docs/plan/roadmap.md` generated (issue index +
+  requirement traceability; every requirement traces to at least one issue).
 
 ## Resume notes
 

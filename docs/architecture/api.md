@@ -48,6 +48,7 @@
 | GET/POST | `/vaults/{v}/backups` | list / create backup |
 | GET | `/vaults/{v}/backups/{id}/download` | download zip |
 | POST | `/vaults/restore` | restore a backup zip into a new vault |
+| POST | `/vaults/{v}/publish` | write a published snapshot into `LORE_PUBLISH_DIR` (author mode; `visibility-and-sharing.md` §4) |
 
 ### Entities (generic, all kinds)
 
@@ -69,6 +70,7 @@
 | GET/POST | `/vaults/{v}/entities/{id}/facts` | list/create temporal facts (`field`, `timeline`) |
 | PATCH/DELETE | `/vaults/{v}/facts/{id}` | update/trash a fact |
 | GET | `/vaults/{v}/trash` | trashed entities |
+| GET | `/vaults/{v}/entities/field-values` | distinct values of a text field (`kind, field, q`) for autocomplete |
 
 ### Links & link types
 
@@ -129,9 +131,10 @@
 
 | Module | Endpoints |
 |--------|-----------|
-| characters | `GET /m/characters/{id}/family-tree?depth=`, `GET /m/characters/{id}/relationships?timeline=&at=` |
-| groups | `GET /m/groups/{id}/org-chart?timeline=&at=`, `GET /m/groups/{id}/members?timeline=&at=` |
-| locations | `GET /m/locations/tree?dimension=` |
+| characters | `GET /m/characters/{id}/family-tree?up=&down=&include_spouses=&include_siblings=&timeline=`, `GET /m/characters/{id}/relationships?timeline=&at=` |
+| groups | `GET /m/groups/{id}/org-chart?timeline=&at=&depth=`, `GET /m/groups/{id}/members?timeline=&at=&include_subgroups=`, `GET /m/groups/{id}/leaders?timeline=`, `GET /m/groups/{id}/territory?timeline=&at=` |
+| locations | `GET /m/locations/tree?dimension=&root=&depth=`, `GET /m/locations/{id}/events?include_descendants=&timeline=&from=&to=`, `GET /m/locations/{id}/residents?timeline=&at=` |
+| species | `GET /m/species/{id}/members?timeline=&at=`, `GET /m/species/descent-tree?dimension=` |
 | languages | CRUD `/m/languages/{language_id}/lexicon`, `POST …/lexicon/import` (CSV), `GET …/lexicon/export`, `GET /m/languages/family-tree?dimension=` |
 | media | `POST /m/media/items` (upload), `GET /m/media/items`, `GET /m/media/items/{id}/file?size=`, `PATCH/DELETE /m/media/items/{id}`, gallery CRUD |
 | maps | CRUD `/m/maps/maps`, CRUD `/m/maps/maps/{id}/pins`, `GET /m/maps/maps/{id}?timeline=&at=` |
