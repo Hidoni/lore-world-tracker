@@ -1,0 +1,197 @@
+# Module system
+
+> The brief asks for every non-core feature to be designed "as if [it is] in togglable modules"
+> that "might be expanded upon or removed in the future". This document defines what a module is,
+> how it plugs into both tiers, what toggling does, and which features are core vs modules.
+
+## 1. Core vs modules
+
+**Core** (always on, cannot be disabled):
+
+- vaults, settings, backups, read-only mode, security
+- entities, fields, links (incl. user-defined link types), facts/existence, aliases, tags
+- dimensions, timelines (data model + `TimelineView`), calendars, time points, propagation,
+  events (incl. sub-events, causality, participants, recurrence and materialized occurrences)
+- the chronology engines
+- rich text + mentions/backlinks, search, history/undo, visibility, consistency framework and core
+  rules
+- frontend shell, navigation, entity pages, editor, command palette, timeline view, causality and
+  event-outline views, settings UI
+
+**Modules** (toggleable per vault; the ids are used on both tiers):
+
+| Module id | Provides | Depends on | Default |
+|-----------|----------|------------|---------|
+| `misc` | kind `misc` (category; parent of anything) | – | on |
+| `locations` | kind `location`; spatial link types; location tree view | – | on |
+| `species` | kind `species`; descent/origin link types | – | on |
+| `characters` | kind `character`; relationship link types; relationship + family-tree views | – | on |
+| `groups` | kind `group`; membership/relations/territory link types; org chart | – | on |
+| `languages` | kinds `language`, `writing_system`; lexicon; language family view | – | on |
+| `media` | uploads, media library, image nodes, covers, galleries | – | on |
+| `maps` | image maps on locations, pins, drill-down, time-aware pins | `locations`, `media` | on |
+| `custom_fields` | custom fields on any kind, custom kinds, relation-field sugar | – | on |
+| `graph` | global graph view + local graph panel | – | on |
+| `branches` | alternate-timeline UI/API (create branches, overrides, comparison) | – | on |
+| `correspondences` | cross-dimension correspondences UI/API, concurrent-time display | – | on |
+| `worldlines` | personal timelines (segments, subjective time, personal timeline view) | – | on |
+
+Notes:
+
+- `branches`, `correspondences` and `worldlines` are modules over **core data structures**.
+  Timeline awareness, override resolution and the slot registry are core because every time query
+  depends on them. The modules own the APIs, UI and module-specific consistency rules. Disabling
+  `branches` hides branch timelines (data preserved). Disabling `worldlines` falls back to implicit
+  worldlines.
+- Cross-module link types live in the module that owns the **semantics**. For example,
+  `groups.controls` (group → location) belongs to `groups` and requires `locations` to be enabled
+  to be offered. A link type whose source/target kinds are unavailable is hidden.
+- Future modules (post-MVP): `static_export`, `markdown_export`, `json_io`, `mcp` (AI access to
+  the vault), `territories` (map regions over time), `scripts` (custom fonts for writing systems).
+
+## 2. Backend module anatomy
+
+```
+backend/src/lore/modules/<id>/
+  __init__.py
+  module.py        # MODULE = ModuleSpec(...)
+  kinds.py         # KindDef(s) and FieldDef(s)
+  links.py         # LinkTypeDef(s)
+  models.py        # SQLAlchemy models for module tables (if any; prefixed table names)
+  schemas.py       # Pydantic API schemas
+  service.py       # business logic
+  router.py        # APIRouter mounted at /api/v1/vaults/{vault_id}/m/<id>/
+  rules.py         # consistency rules
+  search.py        # search contributors (optional)
+  api.py           # PUBLIC API for dependent modules (the only file other modules may import)
+```
+
+### 2.1 `ModuleSpec`
+
+```python
+@dataclass(frozen=True)
+class ModuleSpec:
+    id: str                                   # ^[a-z][a-z0-9_]*$
+    name: str
+    description: str
+    depends_on: tuple[str, ...] = ()
+    default_enabled: bool = True
+    kinds: tuple[KindDef, ...] = ()
+    field_contributions: tuple[FieldContribution, ...] = ()   # fields added to other modules' kinds
+    link_types: tuple[LinkTypeDef, ...] = ()                  # keys must start with "<id>."
+    routers: tuple[APIRouter, ...] = ()
+    slot_providers: tuple[SlotProvider, ...] = ()             # module records with time slots
+    timeline_tables: tuple[TimelineTableSpec, ...] = ()       # module tables readable through TimelineView
+    search_contributors: tuple[SearchContributor, ...] = ()
+    graph_contributors: tuple[GraphContributor, ...] = ()
+    consistency_rules: tuple[RuleDef, ...] = ()               # ids must start with "<id>."
+    visibility_filters: tuple[VisibilityFilter, ...] = ()     # how module rows are filtered for readers
+    richtext_nodes: tuple[RichTextNodeHandler, ...] = ()      # extraction/filtering for module node types
+    backup_contributors: tuple[BackupContributor, ...] = ()   # extra files (e.g. media blobs)
+    publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
+    settings_model: type[BaseModel] | None = None
+    on_enable: Callable[[VaultContext], None] | None = None
+    on_disable: Callable[[VaultContext], None] | None = None
+```
+
+### 2.2 Registration
+
+- `lore/modules/__init__.py` defines `ALL_MODULES: list[ModuleSpec]`. The list is explicit and
+  ordered: no entry points and no dynamic discovery.
+- At startup `ModuleRegistry.validate()` checks: unique ids; dependencies exist and are acyclic;
+  kind/link/rule keys are unique and correctly prefixed; table names are prefixed with the
+  module id.
+- Routers are always mounted. A FastAPI dependency (`require_module("<id>")`) returns
+  `404 {code: "module_disabled"}` when the module is disabled for the vault.
+
+### 2.3 Boundaries (enforced by import-linter)
+
+- `lore.chronology` imports nothing from `lore`.
+- `lore.core` never imports `lore.modules`.
+- `lore.modules.<a>` may import `lore.core.*` (public APIs) and `lore.modules.<b>.api` only if
+  `<b>` is in `<a>.depends_on`.
+
+## 3. Frontend module anatomy
+
+```
+frontend/src/modules/<id>/
+  index.ts         # export default defineModule({...})
+  kinds.tsx        # kind UI config (icons, panels, list columns)
+  routes.tsx       # route factories (lazy-loaded components)
+  panels/          # entity page panels
+  views/           # module views (family tree, lexicon, map…)
+  api.ts           # data hooks for module endpoints (via DataSource)
+  public.ts        # PUBLIC API for dependent modules
+```
+
+```ts
+defineModule({
+  id: 'characters',
+  kinds: { character: { icon, color, panels: [...], listColumns: [...], createDefaults } },
+  routes: (vaultRoute) => [...],                 // attached under /v/$vault
+  navSections: [...],                            // sidebar sections
+  entityPanels: [{ id, kinds, title, component, placement: 'main' | 'side', order }],
+  linkTypeRenderers: { 'groups.member_of': MembershipRow },
+  fieldTypeRenderers: { 'media': MediaFieldEditor },
+  timelineLayers: [...],                         // extra lanes/overlays on the timeline view
+  graphStyles: { nodes: {...}, edges: {...} },
+  editorExtensions: [...],                       // TipTap extensions (e.g. lexicon word reference)
+  commands: [...],                               // command-palette actions
+  settingsPages: [...],
+  searchResultRenderers: { 'languages.lexicon_entry': LexiconHit },
+})
+```
+
+- `frontend/src/modules/index.ts` lists all module definitions. After loading the vault registry
+  (`GET /registry`), the app activates the enabled ones. Route components are lazy-loaded, so
+  disabled modules cost almost nothing.
+- Generic UI covers what a module does not customize. A module with only kinds, fields and link
+  types needs **no** frontend code beyond `defineModule({id, kinds: {…icons…}})`.
+- Boundaries (eslint-plugin-boundaries): `core` never imports `modules`; module `a` imports
+  `core` public APIs and `modules/b/public.ts` only for declared dependencies.
+
+## 4. Enabling and disabling
+
+- Settings: `vault_meta.settings.modules.<id>.enabled`. New vaults enable every module with
+  `default_enabled`.
+- `PATCH /api/v1/vaults/{v}/modules/{id} {enabled}`:
+  - enabling a module also enables its dependencies (the response lists them);
+  - disabling a module with enabled dependents fails with `409` unless `cascade: true`.
+- Effects of disabling (data is **never** deleted):
+  - entities of the module's kinds are hidden from lists, search, graph, timeline and navigation,
+    and direct reads return `404 module_disabled`;
+  - its link types, field contributions, consistency rules, search docs, routes and UI disappear.
+    Links touching hidden entities are hidden;
+  - `on_disable` may clean caches, but must not delete authored data.
+- Re-enabling restores everything as it was.
+
+## 5. Schema ownership and migrations
+
+- There is one global, linear Alembic history (`persistence-and-migrations.md`). A module's
+  tables are created by migrations whose filename and docstring name the module
+  (`…_maps_create_pins.py`, `"""[module: maps] create pins"""`).
+- Module tables exist in every vault, even when the module is disabled (cheap, and keeps the
+  migration history linear).
+- JSON data owned by a module (its fields in `entities.fields`, its link `data`) is migrated with
+  data migrations in the same history.
+
+## 6. Adding a module (checklist)
+
+1. Write `docs/modules/<id>.md` from `docs/modules/_template.md`, and get the design right first.
+2. Backend package (§2), registered in `ALL_MODULES`. Migrations for any tables.
+3. Frontend module (§3), registered in `modules/index.ts`.
+4. Tests: service/API tests, consistency rule tests, visibility leak tests for every new read path,
+   frontend component tests, and an e2e smoke test if the module adds a page.
+5. Update `docs/architecture/modules.md` §1 (catalog) and `docs/plan/roadmap.md`.
+
+## 7. Removing a module from the codebase
+
+Removal is a data-affecting change and must be deliberate:
+
+1. Release N: set `default_enabled = False`, and add a **conversion** data migration path, e.g.
+   entities of the module's kinds become `misc` with the category set to the old kind label,
+   module link types become `core.related` with the old label kept in `role`, and module fields
+   are copied into custom fields where possible.
+2. Release N+1: a migration runs the conversion and drops the module's tables (after the automatic
+   pre-migration backup). Then remove the code, registry entries and docs.
+3. Never drop data without a conversion or an explicit export path documented in the PR.
