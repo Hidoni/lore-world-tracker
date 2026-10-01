@@ -1,0 +1,113 @@
+[project]
+name = "lore-world-tracker"
+version = "0.0.0"
+description = "A living wiki for fictional worlds with exact, arbitrary-precision in-world time."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.142.2",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.1.1",
+    "typer>=0.27.2",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+lore = "lore.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "hypothesis>=6.168.3",
+    "import-linter>=2.15",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "lore"
+
+# --- ruff ---------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "SIM", "RUF", "C4", "N", "PT", "PTH",
+    "PLC", "PLE", "PLR", "PLW",
+]
+ignore = [
+    "PLR0913", # too many arguments: services and builders take many keyword arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004"]
+
+# --- mypy ---------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+files = ["src", "tests"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# --- pytest / coverage --------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-m", "not perf",
+    "--cov=lore",
+    "--cov-report=term-missing:skip-covered",
+]
+markers = [
+    "perf: performance budget tests (nightly, or with `-m perf`)",
+    "slow: slow tests (large fixtures, many hypothesis examples)",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["lore"]
+
+[tool.coverage.report]
+fail_under = 85
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+# --- import-linter ------------------------------------------------------------
+
+[tool.importlinter]
+root_package = "lore"
+
+[[tool.importlinter.contracts]]
+id = "chronology-is-pure"
+name = "lore.chronology imports nothing else from lore"
+type = "forbidden"
+source_modules = ["lore.chronology"]
+forbidden_modules = ["lore.app", "lore.cli", "lore.config", "lore.core", "lore.modules"]
+
+[[tool.importlinter.contracts]]
+id = "core-does-not-import-modules"
+name = "lore.core does not import lore.modules"
+type = "forbidden"
+source_modules = ["lore.core"]
+forbidden_modules = ["lore.modules"]
