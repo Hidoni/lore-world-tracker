@@ -1,0 +1,59 @@
+# Security
+
+> Single-user, locally hosted, no authentication. The main risks are (1) other websites in the
+> author's browser attacking the local server (CSRF, DNS rebinding), (2) leaking private lore
+> through shared read-only deployments, and (3) malicious uploads or content. This document lists
+> the mitigations implementations must keep.
+
+## 1. Threat model
+
+| Asset | Threat | Mitigation |
+|-------|--------|------------|
+| Author instance (writes) | CSRF from a malicious website (simple POST to `localhost`) | Mutations require the custom header `X-Lore-Client` (a cross-origin request with a custom header triggers a CORS preflight, which we never approve); no CORS allowed by default; `Origin` checked on mutations. |
+| Author instance | DNS rebinding (attacker domain resolving to 127.0.0.1) | `Host` header allowlist (`LORE_ALLOWED_HOSTS`, default `localhost,127.0.0.1,[::1]` plus the configured host); others get `421`/`400`. |
+| Author instance | Exposure to the LAN/internet | Binds to `127.0.0.1` by default. Docker compose publishes `127.0.0.1:8080:8080`. Exposing author mode publicly is unsupported and documented as such. |
+| Private lore | Leaks through reader deployments | Published snapshots + visibility enforcement + leak test suite (`visibility-and-sharing.md`). |
+| Browser (XSS) | Malicious rich text / names / SVG / links | Rich text is rendered from JSON by TipTap/React (no `dangerouslySetInnerHTML`). Allowed node types are validated server-side. Link marks are restricted to `http(s)`/`mailto`. CSP header. SVG uploads are not rendered inline (§3). |
+| Server | Malicious uploads (zip bombs, path traversal, huge files) | Size limits, type allowlist, content sniffing, content-addressed paths, safe zip extraction for restores (§3). |
+| Data | Accidental destruction | Trash, history/undo, pre-migration and scheduled backups, no in-place restore. |
+
+## 2. HTTP hardening (backend middleware, M0)
+
+- `TrustedHostMiddleware`-like check using `LORE_ALLOWED_HOSTS`.
+- Mutation guard: non-GET/HEAD/OPTIONS requires `X-Lore-Client` and, if `Origin` is present, it
+  must match an allowed host.
+- No CORS middleware unless `LORE_CORS_ORIGINS` is set (development only).
+- Headers on every response: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`,
+  `X-Frame-Options: DENY`, and for the SPA a CSP:
+  `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'`
+  (adjust in one place if a dependency needs it, and document why).
+- Request size limits (JSON body ≤ 10 MB; uploads per `LORE_MAX_UPLOAD_MB`, default 50).
+- Errors never include stack traces outside development.
+
+## 3. Files
+
+- Uploads: an allowlist of MIME types (images: png, jpeg, webp, gif, avif; documents: pdf, txt,
+  md; fonts for the future scripts module). Type is verified by magic bytes, and images are
+  decoded with Pillow (the dimension limit protects against decompression bombs). Files are stored
+  by SHA-256 and never by user-provided names.
+- SVG: accepted only as an attachment (`Content-Disposition: attachment`) and never rendered inline
+  until a sanitizer is added (post-MVP).
+- Serving: `Content-Type` from the stored record, `X-Content-Type-Options: nosniff`,
+  `Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'` on
+  media responses.
+- Restore/import zips: reject absolute paths and `..`, cap the total uncompressed size and file
+  count, verify checksums from the manifest before use.
+- Vault ids/folder names are validated (`^[a-z0-9-]+$`) before touching the filesystem.
+
+## 4. Dependencies and supply chain
+
+- Lockfiles are committed (`uv.lock`, `package-lock.json`). CI installs with frozen lockfiles
+  (`uv sync --frozen`, `npm ci`).
+- Dependabot (or Renovate) for both ecosystems, weekly and grouped (M0 issue).
+- No runtime fetching of code. External calls are absent by default. Any future integration
+  (AI/MCP) must be opt-in per vault.
+
+## 5. Secrets
+
+The app stores no secrets in the MVP. Future modules that need API keys read them from env vars or
+a local secrets file outside vaults, never from vault data (vaults get shared and backed up).
