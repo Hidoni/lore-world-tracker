@@ -125,6 +125,7 @@ Narrative, default `warning`:
 | `species.member_before_emergence` | species | an entity of a species exists before the species emerged |
 | `languages.speaker_outside_existence` | languages | speaker link outside the language's existence |
 | `maps.pin_target_missing` | maps | pin points to a trashed/hidden entity |
+| `languages.entry_outside_existence` | languages | lexicon attestation period outside the language's existence |
 | `worldlines.absent_participant` | worldlines | participation not covered by any segment |
 | `worldlines.ambiguous_participation` | worldlines | several segments cover the participation and none is chosen |
 | `worldlines.jump_event_mismatch` | worldlines | departure/arrival events don't match segment ends/starts |
@@ -138,6 +139,13 @@ Informational (default `off`, can be enabled):
 | `worldlines.self_encounter` | worldlines | an entity's segments overlap in the same timeline (meets itself) |
 | `worldlines.causal_loop` | worldlines | an event chain causes an event in its own past (bootstrap paradox) |
 | `core.event.duplicate_name_same_time` | core | two events with the same name overlapping in time |
+| `groups.leader_not_member` | groups | leader without an overlapping membership |
+| `maps.pin_outside_map_location` | maps | pinned location is not inside the map's location tree |
 
-New rules are added by the issue that implements the related feature. Every rule ships with
-incremental and scan tests, including precision-aware cases.
+Additional hard rule owned by a module: `branches.override_start_changed` (an override's start
+differs from its root's; catches bad imports).
+
+**Module docs (`docs/modules/*.md`) are authoritative for module rules.** This catalog is the
+initial overview and must be updated when module docs add rules. New rules are added by the issue
+that implements the related feature. Every rule ships with incremental and scan tests, including
+precision-aware cases.
