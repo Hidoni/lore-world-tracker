@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Runs against an already running app at E2E_BASE_URL. The harness that builds and starts the
-// app arrives in #6 (M0-06); journeys arrive in M4.
+// Runs against an already running app at E2E_BASE_URL. `make e2e` (scripts/e2e.sh) builds the SPA,
+// starts the backend on a temp data dir and sets it; journeys arrive in M4.
 const baseURL = process.env.E2E_BASE_URL
 
 export default defineConfig({
