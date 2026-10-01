@@ -114,7 +114,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['frontend/e2e/**', '**/*.test.{ts,tsx}'],
+    files: ['frontend/e2e/**', 'frontend/scripts/**', '**/*.test.{ts,tsx}'],
     languageOptions: { globals: globals.node },
   },
 )

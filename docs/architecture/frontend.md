@@ -142,9 +142,17 @@ interface Mutations { /* author-only writes; absent in read-only/static contexts
 
 ### 5.2 Generated API types
 
-`npm run gen:api` runs `uv run lore openapi` (dumps the OpenAPI JSON), then `openapi-typescript`,
-which writes `src/api/schema.gen.ts`. CI regenerates and fails on diff. Never edit generated
-files.
+`make gen` (`npm run gen:api -w frontend`, i.e. `frontend/scripts/gen-api.ts`) runs
+`uv run lore openapi` (dumps the OpenAPI JSON), then `openapi-typescript`, which writes
+`src/api/schema.gen.ts` (committed, excluded from ESLint and Prettier). `make check-contract`
+(part of `make check`, `npm run check:api`) regenerates it in memory and fails on diff. Never edit
+generated files.
+
+`src/api/client.ts` wraps it in an `openapi-fetch` client with two middlewares: non-GET/HEAD/OPTIONS
+requests get `X-Lore-Client: web` (`security.md` §2), and every non-2xx response is thrown as an
+`ApiError` (`src/api/errors.ts`: `status`, `code`, `title`, `detail`, `errors`, `context` from the
+problem body; non-problem responses get `code: http_<status>`). `unwrap(api.GET(…))` returns the
+body. Only the data layer calls the client.
 
 ## 6. Rich-text editor (TipTap)
 

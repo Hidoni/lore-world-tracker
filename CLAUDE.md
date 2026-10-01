@@ -85,12 +85,12 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make help` | list the targets (the default goal) |
 | `make setup` | install backend (uv) + frontend (npm workspaces) deps, Playwright's Chromium |
 | `make dev` | backend on :8000 (reload) + Vite on :5173 (proxies `/api`), data in `./data`; Ctrl-C stops both |
-| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build). Conformance (both engines) and drift checks (OpenAPI types, chronology schemas, `lore db check`) join with #4, #8 and #31 |
-| `make check-backend` / `make check-frontend` | one half of `make check` |
+| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build) + `check-contract` (OpenAPI types drift). Conformance (both engines) and the other drift checks (chronology schemas, `lore db check`) join with #8 and #31 |
+| `make check-backend` / `make check-frontend` / `make check-contract` | one part of `make check` |
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology` is a placeholder until #8) |
 | `make e2e` | Playwright journeys against the built app (placeholder until #6) |
-| `make gen` | regenerate OpenAPI TS types and chronology schemas/types (placeholder until #4) |
+| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`); chronology schemas/types join with #8 |
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image (placeholder until #7) |
 | `make sample-vault SIZE=small` | generate the demo world into `./data` (placeholder until #43) |

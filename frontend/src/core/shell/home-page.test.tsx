@@ -20,17 +20,22 @@ describe('HomePage', () => {
   })
 
   it('shows the server version from /api/v1/meta', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({ app_version: '1.2.3', api_version: 'v1', read_only: false }),
-      )
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        app_version: '1.2.3',
+        api_version: 'v1',
+        read_only: false,
+        exposed_vaults: [],
+        features: [],
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     renderHomePage()
 
     expect(await screen.findByText('1.2.3')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/meta', expect.anything())
+    const [request] = fetchMock.mock.lastCall as [Request]
+    expect(new URL(request.url).pathname).toBe('/api/v1/meta')
     expect(screen.getByText(ENGINE_VERSION)).toBeInTheDocument()
   })
 

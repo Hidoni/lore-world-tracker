@@ -16,7 +16,7 @@ define placeholder
 endef
 
 .PHONY: help setup dev check check-backend check-frontend test test-backend test-frontend \
-	test-chronology e2e gen fmt docker sample-vault
+	test-chronology e2e gen check-contract fmt docker sample-vault
 
 help: ## List the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z][a-zA-Z0-9_-]*:.*## / { printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -33,7 +33,7 @@ dev: ## Backend on :8000 (reload) + Vite on :5173 (proxies /api); data in ./data
 	npm run dev -w frontend & frontend=$$!; \
 	while kill -0 $$backend 2>/dev/null && kill -0 $$frontend 2>/dev/null; do sleep 1; done
 
-check: check-backend check-frontend ## Everything CI runs except e2e/docker: lint, format, types, imports, tests, build
+check: check-backend check-frontend check-contract ## Everything CI runs except e2e/docker: lint, format, types, imports, tests, build, drift
 
 check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, pytest
 	$(UV) run ruff check
@@ -62,8 +62,11 @@ test-chronology: ## Conformance vectors against both chronology engines
 e2e: ## Build the SPA, serve it from the backend on a temp data dir, run Playwright
 	$(call placeholder,#6)
 
-gen: ## Regenerate OpenAPI TS types and chronology JSON Schemas/TS types
-	$(call placeholder,#4)
+gen: ## Regenerate OpenAPI TS types (chronology JSON Schemas/TS types arrive with #8)
+	npm run gen:api -w frontend
+
+check-contract: ## Fail if frontend/src/api/schema.gen.ts drifted from the backend's OpenAPI (run make gen)
+	npm run check:api -w frontend
 
 fmt: ## ruff format + prettier
 	$(UV) run ruff format
