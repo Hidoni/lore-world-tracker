@@ -59,13 +59,13 @@ Other instructions from the product owner:
 ## Deliverables checklist
 
 - [x] Q&A with product owner (decisions above)
-- [ ] `docs/product/` — vision, requirements (+ traceability), glossary
-- [ ] `docs/architecture/overview.md`
-- [ ] `docs/architecture/time-model.md`
-- [ ] `docs/architecture/chronology-engine.md` (calendars)
-- [ ] `docs/architecture/recurrence.md`
-- [ ] `docs/architecture/data-model.md`
-- [ ] `docs/architecture/modules.md`
+- [x] `docs/product/` — vision, requirements (+ traceability), glossary
+- [x] `docs/architecture/overview.md`
+- [x] `docs/architecture/time-model.md`
+- [x] `docs/architecture/chronology-engine.md` (calendars)
+- [x] `docs/architecture/recurrence.md`
+- [x] `docs/architecture/data-model.md`
+- [x] `docs/architecture/modules.md`
 - [ ] `docs/architecture/persistence-and-migrations.md`
 - [ ] `docs/architecture/api.md`
 - [ ] `docs/architecture/frontend.md`
