@@ -101,9 +101,10 @@ Docker (optional, for image builds/e2e parity).
 
 | Command | Does |
 |---------|------|
-| `make setup` | `uv sync` (backend) + `npm ci` (workspaces) + Playwright browsers |
-| `make dev` | backend `uv run lore serve --reload` on :8000 **and** Vite on :5173 (proxy `/api` → :8000), data in `./data` |
-| `make check` | everything CI runs except e2e/docker: lint, format check, types, import contracts, tests, conformance, drift checks |
+| `make help` | list the targets (default goal) |
+| `make setup` | `uv sync` (backend) + `npm ci` (workspaces) + Playwright's Chromium |
+| `make dev` | backend `uv run lore serve --reload` on :8000 **and** Vite on :5173 (proxy `/api` → :8000), data in `./data` (`LORE_DATA_DIR`); Ctrl-C, or either server exiting, stops both |
+| `make check` | everything CI runs except e2e/docker: lint, format check, types, import contracts, tests, build, conformance, drift checks (= `make check-backend` + `make check-frontend`) |
 | `make test` / `make test-backend` / `make test-frontend` / `make test-chronology` | tests |
 | `make e2e` | build the SPA, start the backend serving it on a temp data dir, run Playwright |
 | `make gen` | regenerate OpenAPI TS types and chronology JSON Schema/TS types |
