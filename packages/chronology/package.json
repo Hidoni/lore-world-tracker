@@ -1,0 +1,20 @@
+{
+  "name": "@lore/chronology",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lore time engine: calendars, recurrence, correspondences, viewport/tick math (bigint-exact).",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}
