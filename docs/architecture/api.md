@@ -11,7 +11,7 @@
 | Base path | `/api/v1`. Vault-scoped resources live under `/api/v1/vaults/{vault_id}/…`. Module routes under `/api/v1/vaults/{vault_id}/m/{module_id}/…`. |
 | Format | JSON (`application/json`), `snake_case` field names end to end (the TS client uses the generated types as-is). Uploads are `multipart/form-data`; downloads are files. |
 | IDs | UUID strings. |
-| Big integers | **Decimal strings** (moments, durations, counts, field integers). OpenAPI: `type: string`, `format: bigint`, with a `pattern`. |
+| Big integers | **Decimal strings** (moments, durations, counts, field integers). OpenAPI: `type: string`, `format: bigint`, with a `pattern`. Pydantic models declare them as `lore.core.types.BigIntStr`: an `int` in Python, a canonical decimal string (`^(0\|-?[1-9][0-9]*)$`) on the wire. Integers are tolerated on input but never advertised. |
 | Time context | Optional query params on reads: `timeline=<id>` (default: the dimension's prime timeline) and `at=<moment>` (as-of). |
 | Pagination | Cursor based: `?limit=50&cursor=…` returns `{items, next_cursor}`. `limit` ≤ 500. |
 | Sorting/filtering | Query params documented per endpoint. Unknown params are rejected (`422`). |
