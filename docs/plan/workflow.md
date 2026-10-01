@@ -78,6 +78,10 @@ The body follows `.github/pull_request_template.md`: `Closes #42`, a summary, th
 criteria checklist copied from the issue (ticked), spec/ADR changes, test evidence, and
 follow-ups.
 
+If `git push` fails with "could not read Username for 'https://github.com'", git has no
+credential helper. Run `gh auth setup-git` once, or push with
+`git -c credential.helper='!gh auth git-credential' push -u origin HEAD`.
+
 ## 7. CI, merge, clean up
 
 ```bash

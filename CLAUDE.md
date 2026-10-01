@@ -44,9 +44,9 @@ PR.
 6. **Writes go through services:** one request = one transaction = one changeset. Time
    propagation, search indexing, mentions and consistency findings update in that transaction.
    Bulk SQL must call `history.record_bulk`.
-7. **Schema change ⇒ Alembic migration in the same PR.** There is a single linear head. Never edit a
-   merged migration. Migrations don't import ORM models. JSON documents carry versions with
-   upgraders (`persistence-and-migrations.md`).
+7. **Schema change ⇒ Alembic migration in the same PR.** There is a single linear head. Never
+   edit a merged migration. Migrations don't import ORM models. JSON documents carry versions
+   with upgraders (`persistence-and-migrations.md`).
 8. **Module boundaries:** `lore.chronology` imports nothing from `lore`; core never imports
    modules; a module imports only core public APIs and the `api.py`/`public.ts` of modules it
    declares in `depends_on`. Enforced by import-linter and eslint-boundaries.
@@ -75,7 +75,8 @@ packages/chronology/  @lore/chronology: TS time engine + viewport/tick math
 frontend/         @lore/web: React SPA (src/app, api, data, core, editor, components/ui, modules), e2e/
 spec/chronology/  JSON Schemas (exported), presets, conformance vectors: shared by both engines
 docs/             product/, architecture/, modules/, adr/, plan/
-tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclaim`
+tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclaim|stats`
+.claude/skills/next-issue/  project skill: take the next ready issue through the whole workflow
 ```
 
 ## Commands
@@ -102,9 +103,10 @@ Pydantic v2, sync FastAPI path operations, services own transactions, routers st
 place. Tests use builders that call services (never raw inserts).
 
 **TypeScript:** strict mode (+ `noUncheckedIndexedAccess`). Components use data hooks backed by
-the `DataSource` (never `fetch`). Moments are `bigint` after the data layer. Use `floorDiv`/`floorMod`
-from `@lore/chronology` (bigint `%` truncates). `JSON.stringify` can't serialize `bigint`, so use the data-layer
-serializers. shadcn components live in `components/ui`. Don't edit generated code.
+the `DataSource` (never `fetch`). Moments are `bigint` after the data layer. Use
+`floorDiv`/`floorMod` from `@lore/chronology` (bigint `%` truncates). `JSON.stringify` can't
+serialize `bigint`, so use the data-layer serializers. shadcn components live in `components/ui`.
+Don't edit generated code.
 
 **Naming:** glossary terms everywhere. Module tables are prefixed `<module>_`. Link-type and
 consistency-rule ids are prefixed by their owner (`core.`, `characters.`). Field keys:

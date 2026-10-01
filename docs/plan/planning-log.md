@@ -6,7 +6,7 @@ issues/milestones, not here. See `docs/plan/roadmap.md` for the implementation r
 
 ## Status
 
-- Phase: **planning in progress**
+- Phase: **planning complete** (implementation starts with #1 and #2, which can run in parallel)
 - Started: 2026-10-01
 - Planner model: Claude Opus 5.5 (Claude Code)
 
@@ -82,7 +82,7 @@ Other instructions from the product owner:
 - [x] GitHub labels + milestones
 - [x] GitHub issues (full backlog, with dependencies)
 - [x] `docs/plan/roadmap.md` with issue index
-- [ ] Final review pass + push
+- [x] Final review pass + push (link check, section-reference check, traceability check)
 
 ## Backlog creation progress
 
@@ -96,6 +96,12 @@ script that records `key → issue number`. Every issue body ends with its backl
   M13: #147–#162. **All 162 issues created**, and native "blocked by" relationships are mirrored for each.
 - `tools/backlog.py` helper written and tested. `docs/plan/roadmap.md` generated (issue index +
   requirement traceability; every requirement traces to at least one issue).
+
+## Extras produced
+
+- `tools/backlog.py`: ready/show/claim/unclaim/stats helper for agents.
+- `.claude/skills/next-issue/SKILL.md`: project skill that takes the next ready issue through the workflow.
+- Memory notes for future planning sessions (Claude Code project memory).
 
 ## Resume notes
 
