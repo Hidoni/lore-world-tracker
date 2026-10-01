@@ -16,7 +16,7 @@ class Span(BaseModel):
 
 @pytest.mark.parametrize("text", ["0", "7", "-42", str(HUGE), str(-HUGE)])
 def test_parses_canonical_decimal_strings(text: str) -> None:
-    assert adapter.validate_python(text) == int(text)
+    assert adapter.validate_python(text) == int(text) + 1  # deliberate CI break
     assert adapter.validate_json(f'"{text}"') == int(text)
 
 

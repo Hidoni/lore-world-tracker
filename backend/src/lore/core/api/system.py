@@ -23,6 +23,7 @@ class MetaResponse(BaseModel):
     read_only: bool
     exposed_vaults: list[str]
     features: list[str]
+    drift_probe: int = 0
 
 
 @router.get("/health")
