@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.conftest import AppFactory
+from tests.conftest import AppFactory, local_client
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def static_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(make_app: AppFactory, static_dir: Path) -> TestClient:
-    return TestClient(make_app(static_dir=static_dir))
+    return local_client(make_app(static_dir=static_dir))
 
 
 def test_serves_index_at_root(client: TestClient) -> None:
@@ -56,11 +56,11 @@ def test_does_not_escape_static_dir(client: TestClient) -> None:
 
 
 def test_without_static_dir_root_is_not_found(make_app: AppFactory) -> None:
-    response = TestClient(make_app()).get("/")
+    response = local_client(make_app()).get("/")
     assert response.status_code == 404
     assert response.json()["code"] == "not_found"
 
 
 def test_missing_index_is_not_found(make_app: AppFactory, tmp_path: Path) -> None:
-    response = TestClient(make_app(static_dir=tmp_path)).get("/anything")
+    response = local_client(make_app(static_dir=tmp_path)).get("/anything")
     assert response.status_code == 404

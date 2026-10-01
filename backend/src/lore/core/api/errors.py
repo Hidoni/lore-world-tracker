@@ -1,6 +1,7 @@
 """The one place where exceptions become RFC 9457 ``application/problem+json`` responses."""
 
 import logging
+import traceback
 from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any
@@ -23,6 +24,7 @@ _FASTAPI_VALIDATION_REF = "#/components/schemas/HTTPValidationError"
 _HTTP_STATUS_CODES = {
     404: "not_found",
     405: "method_not_allowed",
+    413: "payload_too_large",
 }
 
 
@@ -145,13 +147,25 @@ def _handle_http_exception(_request: Request, exc: Exception) -> JSONResponse:
     )
 
 
-def _handle_unexpected(_request: Request, exc: Exception) -> JSONResponse:
+def internal_error_response(exc: BaseException, *, debug: bool = False) -> JSONResponse:
+    """The ``internal_error`` problem. The traceback is included only with ``LORE_DEBUG=true``.
+
+    Unexpected exceptions are caught by ``RequestContextMiddleware`` (inside the request context,
+    so the response still carries the request id and security headers) and rendered here.
+    """
     logger.error("unhandled exception", exc_info=exc)
+    context = None
+    if debug:
+        context = {
+            "exception": type(exc).__qualname__,
+            "traceback": traceback.format_exception(exc),
+        }
     return problem_response(
         status=500,
         code="internal_error",
         title="Internal error",
         detail="An unexpected error occurred.",
+        context=context,
     )
 
 
@@ -159,4 +173,3 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(LoreError, _handle_lore_error)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, _handle_http_exception)
-    app.add_exception_handler(Exception, _handle_unexpected)

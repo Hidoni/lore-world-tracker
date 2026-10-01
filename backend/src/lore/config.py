@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     publish_dir: Path | None = None
     log_level: Literal["critical", "error", "warning", "info", "debug"] = "info"
     log_format: Literal["text", "json"] = "text"
+    debug: bool = False
 
     @field_validator("exposed_vaults", "allowed_hosts", "cors_origins", mode="before")
     @classmethod
