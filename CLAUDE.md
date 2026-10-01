@@ -8,10 +8,9 @@ shipped as a Docker image.
 ## Project status
 
 Planning finished on 2026-10-01. Implementation happens through **GitHub issues** grouped in
-milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). Until the M0
-scaffold issues are merged, the source tree and the `make` targets below don't exist yet. M0
-creates them exactly as documented here. If reality and this file diverge, fix this file in your
-PR.
+milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). The M0
+scaffold is landing: `make` targets whose tooling isn't in place yet are placeholders that print
+which issue adds them. If reality and this file diverge, fix this file in your PR.
 
 ## Read before you work
 
@@ -83,14 +82,18 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 
 | Command | Purpose |
 |---------|---------|
-| `make setup` | install backend (uv) + frontend (npm workspaces) deps, Playwright browsers |
-| `make dev` | backend on :8000 (reload) + Vite on :5173 (proxies `/api`), data in `./data` |
-| `make check` | **run before every PR**: ruff, mypy, import-linter, pytest, eslint, tsc, vitest, conformance (both engines), drift checks (OpenAPI types, chronology schemas, `lore db check`) |
-| `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs |
-| `make e2e` | Playwright journeys against the built app |
-| `make gen` | regenerate OpenAPI TS types and chronology schemas/types |
+| `make help` | list the targets (the default goal) |
+| `make setup` | install backend (uv) + frontend (npm workspaces) deps, Playwright's Chromium |
+| `make dev` | backend on :8000 (reload) + Vite on :5173 (proxies `/api`), data in `./data`; Ctrl-C stops both |
+| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build). Conformance (both engines) and drift checks (OpenAPI types, chronology schemas, `lore db check`) join with #4, #8 and #31 |
+| `make check-backend` / `make check-frontend` | one half of `make check` |
+| `make test` | `test-backend` + `test-frontend` + `test-chronology` |
+| `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology` is a placeholder until #8) |
+| `make e2e` | Playwright journeys against the built app (placeholder until #6) |
+| `make gen` | regenerate OpenAPI TS types and chronology schemas/types (placeholder until #4) |
 | `make fmt` | ruff format + prettier |
-| `make docker` | build the image |
+| `make docker` | build the image (placeholder until #7) |
+| `make sample-vault SIZE=small` | generate the demo world into `./data` (placeholder until #43) |
 | `uv run lore …` (in `backend/`) | CLI: `serve`, `vault …`, `db revision -m …`, `db check`, `openapi` |
 
 Node version: see `.nvmrc`. Python version: see `backend/.python-version` (3.14).

@@ -1,7 +1,50 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.import_linter_cache/
+
+# Node
 node_modules/
-dist/
-coverage/
 *.tsbuildinfo
-frontend/playwright-report/
-frontend/test-results/
 .eslintcache
+
+# Build output and coverage
+dist/
+build/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Local data: vaults (`make dev` uses ./data; `lore serve` from backend/ defaults to backend/data),
+# published reader sites, SQLite files. Anchored so frontend/src/data stays tracked.
+/data/
+/backend/data/
+/published/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+!**/fixtures/**/*.db
+
+# Environment and editors
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
+.claude/worktrees/

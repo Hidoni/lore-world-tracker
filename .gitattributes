@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Generated files: never edit by hand (`make gen`); collapsed in GitHub diffs.
+*.gen.ts linguist-generated=true
+spec/chronology/schema/*.json linguist-generated=true
+package-lock.json linguist-generated=true
+backend/uv.lock linguist-generated=true
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.db binary
+*.sqlite binary
