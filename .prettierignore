@@ -10,3 +10,5 @@ coverage/
 playwright-report/
 test-results/
 *.gen.ts
+# shadcn/ui components stay byte-identical to upstream so `shadcn add --diff` shows only real changes.
+frontend/src/components/ui/
