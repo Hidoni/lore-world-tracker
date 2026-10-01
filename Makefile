@@ -59,8 +59,8 @@ test-frontend: ## vitest in every npm workspace
 test-chronology: ## Conformance vectors against both chronology engines
 	$(call placeholder,#8)
 
-e2e: ## Build the SPA, serve it from the backend on a temp data dir, run Playwright
-	$(call placeholder,#6)
+e2e: ## Build the SPA, serve it from the backend on a temp data dir, run Playwright (scripts/e2e.sh)
+	scripts/e2e.sh
 
 gen: ## Regenerate OpenAPI TS types (chronology JSON Schemas/TS types arrive with #8)
 	npm run gen:api -w frontend

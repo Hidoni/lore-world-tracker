@@ -92,6 +92,12 @@ gh pr merge <pr> --squash --delete-branch --subject "<PR title> (#<pr>)"
 git switch main && git pull --ff-only
 ```
 
+**Required checks:** every job of `.github/workflows/ci.yml` (`backend`, `frontend`, `contract`,
+`chronology`, `e2e`, plus `docker` once #7 adds it). The repository is private on the free plan,
+so GitHub can't enforce branch protection: agents must treat **every** check as required and
+merge only when `gh pr checks` shows all of them passed (never on pending, skipped-by-failure or
+cancelled runs). If no checks are reported at all, CI didn't run: find out why instead of merging.
+
 The squash commit title must be the PR title, so always pass `--subject`. Without it, GitHub
 titles a single-commit PR's squash commit with that commit's message. Write every branch commit as
 a Conventional Commit anyway. The issue closes automatically via `Closes #N`. Confirm it closed.

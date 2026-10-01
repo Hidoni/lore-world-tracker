@@ -74,6 +74,7 @@ packages/chronology/  @lore/chronology: TS time engine + viewport/tick math
 frontend/         @lore/web: React SPA (src/app, api, data, core, editor, components/ui, modules), e2e/
 spec/chronology/  JSON Schemas (exported), presets, conformance vectors: shared by both engines
 docs/             product/, architecture/, modules/, adr/, plan/
+scripts/e2e.sh    e2e harness behind `make e2e` (CI: .github/workflows/ci.yml)
 tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclaim|stats`
 .claude/skills/next-issue/  project skill: take the next ready issue through the whole workflow
 ```
@@ -89,7 +90,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make check-backend` / `make check-frontend` / `make check-contract` | one part of `make check` |
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology` is a placeholder until #8) |
-| `make e2e` | Playwright journeys against the built app (placeholder until #6) |
+| `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
 | `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`); chronology schemas/types join with #8 |
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image (placeholder until #7) |

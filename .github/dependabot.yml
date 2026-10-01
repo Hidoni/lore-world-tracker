@@ -1,0 +1,27 @@
+# Weekly, grouped dependency updates (one PR per ecosystem). Dependabot PRs go through the same CI
+# gate; they are not issues, so a human or agent reviews and merges them when green.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      backend:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ['*']
