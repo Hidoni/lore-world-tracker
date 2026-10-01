@@ -1,9 +1,9 @@
 """The import-linter contracts that guard module boundaries exist and hold."""
 
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
-
-from importlinter import cli as importlinter_cli
 
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
@@ -30,4 +30,9 @@ def test_core_does_not_import_modules_contract_present() -> None:
 
 
 def test_contracts_hold() -> None:
-    assert importlinter_cli.lint_imports(config_filename=str(PYPROJECT)) == 0
+    # In a subprocess: import-linter reconfigures logging and would disable existing loggers.
+    lint_imports = Path(sys.executable).parent / "lint-imports"
+    result = subprocess.run(
+        [lint_imports, "--config", PYPROJECT], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

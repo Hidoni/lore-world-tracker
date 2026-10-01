@@ -23,6 +23,7 @@ def test_defaults() -> None:
     assert settings.publish_dir is None
     assert settings.log_level == "info"
     assert settings.log_format == "text"
+    assert settings.debug is False
 
 
 def test_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -41,6 +42,7 @@ def test_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
         "LORE_PUBLISH_DIR": str(tmp_path / "published"),
         "LORE_LOG_LEVEL": "DEBUG",
         "LORE_LOG_FORMAT": "json",
+        "LORE_DEBUG": "true",
     }
     for name, value in env.items():
         monkeypatch.setenv(name, value)
@@ -61,6 +63,7 @@ def test_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     assert settings.publish_dir == tmp_path / "published"
     assert settings.log_level == "debug"
     assert settings.log_format == "json"
+    assert settings.debug is True
 
 
 def test_empty_values_mean_unset(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -18,7 +18,9 @@
 | Concurrency | Mutable resources return `revision`. `PATCH` requires `revision` in the body, and a mismatch returns `409 revision_conflict` with the current resource. |
 | Composite writes | Create/patch of an entity accepts inline `aliases`, `tags`, `links_add`, `links_remove` and kind extension data (`ext`), so common UI actions are **one transaction = one changeset**. |
 | Errors | RFC 9457 `application/problem+json`: `{type, title, status, detail, code, errors?: [{path, code, message}], context?}`. `code` is a stable machine identifier (§3) and `type` is `urn:lore:problem:<code>`. Services raise `lore.core.errors.LoreError` subclasses; `lore.core.api.errors` maps them, request validation errors and framework HTTP errors to problems in one place. Every route documents a `default` problem response (FastAPI's own `422 HTTPValidationError` is removed from the OpenAPI document). |
-| CSRF guard | Every non-GET request must send `X-Lore-Client: web` (or `cli`), otherwise `403 missing_client_header` (see `security.md`). |
+| CSRF guard | Every request other than GET/HEAD/OPTIONS must send `X-Lore-Client: web` (or `cli`, `test`), otherwise `403 missing_client_header`. A present `Origin` must match an allowed host, otherwise `403 bad_origin`. Wrong `Host` → `400 invalid_host` (see `security.md` §2). |
+| Request ids | Clients may send `X-Request-Id`. Every response returns one (generated if absent or unsafe), and it appears in the server logs. |
+| Body size | Non-multipart request bodies ≤ 10 MB, otherwise `413 payload_too_large`. |
 | Read-only mode | Every non-GET request returns `403 read_only`. Reads are visibility-filtered (`visibility-and-sharing.md`). |
 | Reader preview | Author mode accepts `?as_reader=true` on reads to apply reader filtering. |
 | OpenAPI hygiene | Explicit `operation_id` (`<area>_<action>`, e.g. `entities_get`): generated as `<first tag>_<route function name>`, so name path-operation functions after the action. Tags per area/module, response models for every route, examples for time-related schemas. The document is served at `/api/v1/openapi.json` and printed by `lore openapi`. |
@@ -142,8 +144,8 @@
 
 ## 3. Error codes (initial set)
 
-`not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, never returned), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
-`missing_client_header`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
+`not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, and returned only with `LORE_DEBUG=true`), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
+`missing_client_header`, `bad_origin`, `invalid_host`, `payload_too_large`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
 `vault_newer_than_app`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,

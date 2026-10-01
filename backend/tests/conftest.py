@@ -1,5 +1,6 @@
 import os
 from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -24,6 +25,13 @@ def _clean_lore_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 type AppFactory = Callable[..., FastAPI]
 
+BASE_URL = "http://localhost"
+
+
+def local_client(app: FastAPI, **kwargs: Any) -> TestClient:
+    """A TestClient whose requests carry an allowed Host (``localhost``)."""
+    return TestClient(app, base_url=BASE_URL, **kwargs)
+
 
 @pytest.fixture
 def make_app() -> AppFactory:
@@ -35,5 +43,5 @@ def make_app() -> AppFactory:
 
 @pytest.fixture
 def client(make_app: AppFactory) -> Iterator[TestClient]:
-    with TestClient(make_app()) as test_client:
+    with local_client(make_app()) as test_client:
         yield test_client

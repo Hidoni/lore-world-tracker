@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 from lore import __version__
@@ -13,7 +14,18 @@ from lore.core.api.errors import (
     install_error_handlers,
     use_problem_media_type,
 )
+from lore.core.api.middleware import (
+    CLIENT_HEADER,
+    REQUEST_ID_HEADER,
+    BodySizeLimitMiddleware,
+    HostCheckMiddleware,
+    MutationGuardMiddleware,
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+    allowed_hosts,
+)
 from lore.core.api.spa import spa_router
+from lore.core.logging import configure_logging
 
 API_BASE_PATH = "/api/v1"
 
@@ -52,9 +64,30 @@ def create_app(settings: Settings) -> FastAPI:
         return app.openapi_schema
 
     app.openapi = openapi  # type: ignore[method-assign]
+    install_middleware(app, settings)
     return app
+
+
+def install_middleware(app: FastAPI, settings: Settings) -> None:
+    """Add the middleware stack (``lore.core.api.middleware``). The last one added runs first."""
+    hosts = allowed_hosts(settings)
+    app.add_middleware(BodySizeLimitMiddleware)
+    app.add_middleware(MutationGuardMiddleware, hosts=hosts, cors_origins=settings.cors_origins)
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_methods=["*"],
+            allow_headers=[CLIENT_HEADER, REQUEST_ID_HEADER, "Content-Type"],
+            expose_headers=[REQUEST_ID_HEADER],
+        )
+    app.add_middleware(HostCheckMiddleware, hosts=hosts)
+    app.add_middleware(RequestContextMiddleware, debug=settings.debug)
+    app.add_middleware(SecurityHeadersMiddleware)
 
 
 def create_app_from_env() -> FastAPI:
     """Uvicorn factory for ``--reload``, where each worker process reads the environment."""
-    return create_app(Settings())
+    settings = Settings()
+    configure_logging(settings.log_level, settings.log_format)
+    return create_app(settings)

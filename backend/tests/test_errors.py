@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from lore.core.api.errors import use_problem_media_type
 from lore.core.errors import ConflictError, ErrorItem, ForbiddenError, LoreError, NotFoundError
-from tests.conftest import AppFactory
+from tests.conftest import AppFactory, local_client
 
 PROBLEM = "application/problem+json"
 
@@ -43,7 +43,7 @@ def app(make_app: AppFactory) -> FastAPI:
 
 @pytest.fixture
 def client(app: FastAPI) -> TestClient:
-    return TestClient(app, raise_server_exceptions=False)
+    return local_client(app, raise_server_exceptions=False)
 
 
 def test_custom_lore_error(client: TestClient) -> None:
@@ -84,7 +84,7 @@ def test_unknown_route_is_not_found_problem(client: TestClient) -> None:
 
 
 def test_wrong_method_is_problem(client: TestClient) -> None:
-    response = client.delete("/api/v1/health")
+    response = client.delete("/api/v1/health", headers={"X-Lore-Client": "test"})
     assert response.status_code == 405
     assert response.headers["content-type"] == PROBLEM
     assert response.json()["code"] == "method_not_allowed"
@@ -115,7 +115,23 @@ def test_unexpected_exception_hides_details(client: TestClient) -> None:
     assert response.headers["content-type"] == PROBLEM
     body = response.json()
     assert body["code"] == "internal_error"
+    assert "context" not in body
     assert "secret" not in response.text
+    assert response.headers["x-request-id"]
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_debug_mode_includes_traceback(make_app: AppFactory) -> None:
+    app = make_app(debug=True)
+
+    @app.get("/api/v1/_test/boom")
+    def boom() -> None:
+        raise RuntimeError("visible internals")
+
+    body = local_client(app).get("/api/v1/_test/boom").json()
+    assert body["code"] == "internal_error"
+    assert body["context"]["exception"] == "RuntimeError"
+    assert "visible internals" in "".join(body["context"]["traceback"])
 
 
 @pytest.mark.parametrize(

@@ -9,6 +9,7 @@ import uvicorn
 
 from lore.app import create_app
 from lore.config import Settings
+from lore.core.logging import configure_logging
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
 
@@ -23,7 +24,9 @@ def serve(
     settings = Settings()
     bind_host = host or settings.host
     bind_port = port if port is not None else settings.port
-    # Per-vault engines and caches live in-process: never more than one worker.
+    configure_logging(settings.log_level, settings.log_format)
+    # Per-vault engines and caches live in-process: never more than one worker. Logging is
+    # configured above (log_config=None), and the access log comes from lore.access.
     if reload:
         uvicorn.run(
             "lore.app:create_app_from_env",
@@ -32,6 +35,8 @@ def serve(
             host=bind_host,
             port=bind_port,
             log_level=settings.log_level,
+            log_config=None,
+            access_log=False,
             workers=1,
         )
     else:
@@ -40,6 +45,8 @@ def serve(
             host=bind_host,
             port=bind_port,
             log_level=settings.log_level,
+            log_config=None,
+            access_log=False,
             workers=1,
         )
 

@@ -19,16 +19,35 @@
 
 ## 2. HTTP hardening (backend middleware, M0)
 
-- `TrustedHostMiddleware`-like check using `LORE_ALLOWED_HOSTS`.
-- Mutation guard: non-GET/HEAD/OPTIONS requires `X-Lore-Client` and, if `Origin` is present, it
-  must match an allowed host.
-- No CORS middleware unless `LORE_CORS_ORIGINS` is set (development only).
-- Headers on every response: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`,
-  `X-Frame-Options: DENY`, and for the SPA a CSP:
+Implemented as pure ASGI middlewares in `lore.core.api.middleware` (outermost first: security
+headers → request context → host check → CORS (optional) → mutation guard → body size limit).
+
+- **Host allowlist** (DNS rebinding): the `Host` header (port ignored, case-insensitive, IPv6 as
+  `[::1]`) must be in `LORE_ALLOWED_HOSTS` or equal the configured `LORE_HOST` (unless it binds
+  every interface, e.g. `0.0.0.0`). Otherwise `400 invalid_host`. `*` disables the check and is
+  allowed **only** with `LORE_READ_ONLY=true` (startup error otherwise).
+- **Mutation guard** (CSRF): methods other than GET/HEAD/OPTIONS require
+  `X-Lore-Client: web|cli|test` (`test` for test clients), otherwise `403 missing_client_header`.
+  If `Origin` is present it must be an `http(s)` origin whose host is allowed (as above) or one of
+  `LORE_CORS_ORIGINS`, otherwise `403 bad_origin` (`Origin: null` is rejected).
+- No CORS middleware unless `LORE_CORS_ORIGINS` is set (development only). It then allows those
+  origins, all methods, and the `X-Lore-Client`, `X-Request-Id` and `Content-Type` headers.
+- Headers on every response (including rejections and errors): `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: same-origin`, `X-Frame-Options: DENY`. Responses outside `/api` (the SPA) also
+  get the CSP, defined once as `CONTENT_SECURITY_POLICY`:
   `default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'`
-  (adjust in one place if a dependency needs it, and document why).
-- Request size limits (JSON body ≤ 10 MB; uploads per `LORE_MAX_UPLOAD_MB`, default 50).
-- Errors never include stack traces outside development.
+  (change it only there if a dependency needs it, and document why here). API responses don't
+  carry it, so the developer docs at `/api/v1/docs` keep working.
+- Request size limits: non-multipart bodies ≤ 10 MB (declared `Content-Length` or streamed bytes)
+  → `413 payload_too_large`. `multipart/form-data` uploads are left to upload endpoints, which
+  enforce `LORE_MAX_UPLOAD_MB` (default 50).
+- **Request ids:** `X-Request-Id` is accepted if it matches `[A-Za-z0-9._:-]{1,128}`, otherwise a
+  new UUIDv7 (hex) is generated. It is echoed on every response, stored in a contextvar, and
+  included in every log record. One `lore.access` log line per request records the id, method,
+  path, status and duration (uvicorn's access log is disabled).
+- Errors never include stack traces unless `LORE_DEBUG=true`. Then `internal_error` problems add
+  `context.exception` and `context.traceback`. Unexpected exceptions are always logged with their
+  traceback.
 
 ## 3. Files
 
