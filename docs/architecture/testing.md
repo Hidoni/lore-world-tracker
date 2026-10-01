@@ -81,8 +81,13 @@ Jobs on every PR (and on `main`):
 | `chronology` | Python and TS conformance runners · JSON Schema export drift check · TS schema type drift check |
 | `contract` | dump OpenAPI → regenerate `schema.gen.ts` → `git diff --exit-code` · `lore db check` (single head, empty autogenerate diff) |
 | `docker` | build the image · run it · `GET /api/v1/health` · `GET /` serves the SPA |
-| `e2e` | Playwright journeys available so far. Runs when `frontend/`, `packages/` or `backend/` change |
+| `e2e` | `make e2e` (`scripts/e2e.sh`): build the SPA, `lore serve` it with `LORE_STATIC_DIR` on a temp `LORE_DATA_DIR`, wait for `/api/v1/health`, run the Playwright journeys available so far with `E2E_BASE_URL`. Runs on every PR while it is a fast smoke test; restrict it to `frontend/`, `packages/` and `backend/` changes (with a job-level skip, so the required check still reports) once journeys make it slow |
 | `nightly` (schedule) | full e2e, perf, dependency audit (`uv pip audit`/`npm audit --omit=dev` advisory) |
 
-All jobs except `nightly` are required for merging (D15: the agent self-merges only on green).
+The workflow is `.github/workflows/ci.yml`; each job calls the same `make` target developers run
+locally (`check-backend`, `check-frontend`, `check-contract`, `test-chronology`, `e2e`), with
+`UV_FROZEN=1`. All jobs except `nightly` are required for merging (D15: the agent self-merges only
+on green, see `workflow.md` §7). A new push cancels the superseded run of the same PR. Dependabot
+(`.github/dependabot.yml`) opens weekly grouped updates for `uv` (backend), `npm` (root) and
+GitHub Actions.
 Use caching for uv, npm and Playwright browsers. Keep the PR pipeline under ~12 minutes.
