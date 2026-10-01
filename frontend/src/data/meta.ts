@@ -1,17 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 
-/** Subset of `GET /api/v1/meta` used by the placeholder shell. */
-export interface Meta {
-  app_version: string
-  api_version: string
-  read_only: boolean
-}
+import { api, unwrap, type components } from '@/api'
 
-// Plain fetch until the typed openapi-fetch client and HttpDataSource land (#4).
-async function fetchMeta(): Promise<Meta> {
-  const response = await fetch('/api/v1/meta', { headers: { Accept: 'application/json' } })
-  if (!response.ok) throw new Error(`GET /api/v1/meta failed with ${response.status}`)
-  return (await response.json()) as Meta
+/** `GET /api/v1/meta`: server version, read-only mode, exposed vaults and features. */
+export type Meta = components['schemas']['MetaResponse']
+
+// Calls the typed client directly until the DataSource/HttpDataSource layer lands (frontend.md §5).
+function fetchMeta(): Promise<Meta> {
+  return unwrap(api.GET('/api/v1/meta'))
 }
 
 export function useMeta() {
