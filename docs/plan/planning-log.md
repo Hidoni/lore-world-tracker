@@ -66,19 +66,19 @@ Other instructions from the product owner:
 - [x] `docs/architecture/recurrence.md`
 - [x] `docs/architecture/data-model.md`
 - [x] `docs/architecture/modules.md`
-- [ ] `docs/architecture/persistence-and-migrations.md`
-- [ ] `docs/architecture/api.md`
-- [ ] `docs/architecture/frontend.md`
-- [ ] `docs/architecture/consistency.md`
-- [ ] `docs/architecture/visibility-and-sharing.md`
-- [ ] `docs/architecture/security.md`
-- [ ] `docs/architecture/testing.md`
-- [ ] `docs/architecture/deployment.md`
-- [ ] `docs/modules/*.md` (one per module)
-- [ ] `docs/adr/*` (key decisions)
-- [ ] `docs/plan/workflow.md` (agent workflow, definition of done)
-- [ ] `CLAUDE.md`, `README.md`, `docs/README.md`
-- [ ] `.github/` issue + PR templates
+- [x] `docs/architecture/persistence-and-migrations.md`
+- [x] `docs/architecture/api.md`
+- [x] `docs/architecture/frontend.md`
+- [x] `docs/architecture/consistency.md`
+- [x] `docs/architecture/visibility-and-sharing.md`
+- [x] `docs/architecture/security.md`
+- [x] `docs/architecture/testing.md`
+- [x] `docs/architecture/deployment.md`
+- [x] `docs/modules/*.md` (one per module)
+- [x] `docs/adr/*` (key decisions)
+- [x] `docs/plan/workflow.md` (agent workflow, definition of done)
+- [x] `CLAUDE.md`, `README.md`, `docs/README.md`
+- [x] `.github/` issue + PR templates
 - [ ] GitHub labels + milestones
 - [ ] GitHub issues (full backlog, with dependencies)
 - [ ] `docs/plan/roadmap.md` with issue index
