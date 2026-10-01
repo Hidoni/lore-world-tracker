@@ -21,8 +21,10 @@ The authoritative procedure is `docs/plan/workflow.md`. Read it and `CLAUDE.md` 
    weaken tests.
 7. **PR.** Push and `gh pr create` using `.github/pull_request_template.md` (body starts with
    `Closes #<n>`, ticks the acceptance criteria).
-8. **CI.** `gh pr checks --watch`. Fix until green, then `gh pr merge --squash --delete-branch`,
-   then `git switch main && git pull --ff-only`.
+8. **CI.** `gh pr checks --watch`. Fix until green, then
+   `gh pr merge <pr> --squash --delete-branch --subject "<PR title> (#<pr>)"` (always pass
+   `--subject`, because otherwise a single-commit PR is squashed under its commit message), then
+   `git switch main && git pull --ff-only`.
 9. **Wrap up.** Confirm the issue closed. File follow-up issues (template
    `.github/ISSUE_TEMPLATE/task.md`, with milestone, labels and a "Blocked by" line) for anything
    discovered. Report to the user what was done, with the PR link.
