@@ -17,11 +17,11 @@
 | Sorting/filtering | Query params documented per endpoint. Unknown params are rejected (`422`). |
 | Concurrency | Mutable resources return `revision`. `PATCH` requires `revision` in the body, and a mismatch returns `409 revision_conflict` with the current resource. |
 | Composite writes | Create/patch of an entity accepts inline `aliases`, `tags`, `links_add`, `links_remove` and kind extension data (`ext`), so common UI actions are **one transaction = one changeset**. |
-| Errors | RFC 9457 `application/problem+json`: `{type, title, status, detail, code, errors?: [{path, code, message}], context?}`. `code` is a stable machine identifier (§3). |
+| Errors | RFC 9457 `application/problem+json`: `{type, title, status, detail, code, errors?: [{path, code, message}], context?}`. `code` is a stable machine identifier (§3) and `type` is `urn:lore:problem:<code>`. Services raise `lore.core.errors.LoreError` subclasses; `lore.core.api.errors` maps them, request validation errors and framework HTTP errors to problems in one place. Every route documents a `default` problem response (FastAPI's own `422 HTTPValidationError` is removed from the OpenAPI document). |
 | CSRF guard | Every non-GET request must send `X-Lore-Client: web` (or `cli`), otherwise `403 missing_client_header` (see `security.md`). |
 | Read-only mode | Every non-GET request returns `403 read_only`. Reads are visibility-filtered (`visibility-and-sharing.md`). |
 | Reader preview | Author mode accepts `?as_reader=true` on reads to apply reader filtering. |
-| OpenAPI hygiene | Explicit `operation_id` (`<area>_<action>`, e.g. `entities_get`), tags per area/module, response models for every route, examples for time-related schemas. |
+| OpenAPI hygiene | Explicit `operation_id` (`<area>_<action>`, e.g. `entities_get`): generated as `<first tag>_<route function name>`, so name path-operation functions after the action. Tags per area/module, response models for every route, examples for time-related schemas. The document is served at `/api/v1/openapi.json` and printed by `lore openapi`. |
 | Versioning | Breaking changes are coordinated in the same repo (frontend + backend in one PR), so `/api/v1` stays until a public consumer exists (e.g. an MCP module). Static-export snapshots carry their own format version. |
 
 ## 2. Endpoint catalog (MVP)
@@ -142,14 +142,14 @@
 
 ## 3. Error codes (initial set)
 
-`not_found`, `validation_error`, `revision_conflict`, `module_disabled`, `read_only`,
+`not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, never returned), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
 `missing_client_header`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
 `vault_newer_than_app`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
 `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,
 `override_not_allowed`, `upload_rejected`, `revert_conflict`, `consistency_error` (an
-error-severity rule blocks the write; `errors` lists findings).
+error-severity rule blocks the write; `errors` lists findings). Other framework HTTP errors use `http_<status>`.
 
 ## 4. Static-export compatibility
 
