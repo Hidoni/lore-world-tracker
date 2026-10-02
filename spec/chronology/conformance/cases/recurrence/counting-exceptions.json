@@ -1,0 +1,170 @@
+{
+  "description": "Counting across exception years: 'monthly on day 30' (Lastmonth has 29 days and is skipped; short year 5 has four 30-day months) with a count limit of 10^6, occurrence numbers before and after the exceptions.",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "A year-by-year walk of the hand layout: 1 Deepwinter 1 = t 1,000,000 hours; common years 362 days (Deepwinter, Yule, months 2-11, Lithe Days 2, Lastmonth 29), leap years (Y mod 4 = 0) 363, short years -3 and 5 (Deepwinter and months 2-4, 120 days), year 8 common. Keys count regular months from Deepwinter 1.",
+  "cases": [
+    {
+      "id": "day-30-count-10e6",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "1000696",
+        "last_start": "791362768",
+        "last_end": "791362768",
+        "count": "1000000"
+      }
+    },
+    {
+      "id": "day-30-count-10e6-last",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1090907"
+      },
+      "expected": {
+        "key": "1090907",
+        "start": "791362768",
+        "end": "791362768"
+      }
+    },
+    {
+      "id": "day-30-count-10e6-beyond",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1090908"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "day-30-number-in-short-year",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "51"
+      },
+      "expected": {
+        "number": "48"
+      },
+      "note": "the last month of short year 5"
+    },
+    {
+      "id": "day-30-number-lastmonth",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "11"
+      },
+      "expected": {
+        "error": "not_found"
+      },
+      "note": "Lastmonth of year 1 has no day 30"
+    },
+    {
+      "id": "day-30-number-after-exceptions",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000696",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "544"
+      },
+      "expected": {
+        "number": "500"
+      }
+    }
+  ]
+}

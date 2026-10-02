@@ -218,6 +218,12 @@ calendar-free files. Occurrences are `{"key": "<k or k.j>", "start": "<moment>",
   (`null` where the series is unbounded; `first_start: null` when it has no occurrence)
 - `occurrence`: ctx + `{"key": "<key>"}` → occurrence or `{"error": "not_found"}`
 - `count_in_window`: ctx + `{"window": ["<w0>", "<w1>"]}` → `{"count": "<n>", "exact": true}`
+  (occurrences overlapping the window; `exact: false` marks an estimate, recurrence.md §5.4)
+- `occurrence_number`: ctx + `{"key": "<key>"}` → `{"number": "<n>"}` (1-based among the
+  occurrences that happen) or `{"error": "not_found"}`
+- `occurrence_at`: ctx + `{"t": "<moment>"}` → `{"key": "<key>" | null}` (recurrence.md §4)
+
+Errors also include `rule.too_complex_to_count` (§5.4) and `rule.too_many_positions` (§2.3).
 
 ### `map` (time-model §12.2), calendar-free
 

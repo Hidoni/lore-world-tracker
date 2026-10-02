@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 from pydantic import TypeAdapter
 
@@ -15,14 +15,17 @@ from lore.chronology.calendar import CompiledCalendar, from_fields, validate_cal
 from lore.chronology.recurrence import (
     RecurrenceContext,
     RecurrenceError,
+    count_in_window,
     expand,
     next_occurrences,
     occurrence,
+    occurrence_at,
+    occurrence_number,
     series_bounds,
     validate_rule,
 )
-from lore.chronology.recurrence.plan import SCAN_LIMIT
-from lore.chronology.schema import EndSpec, RecurrenceRule
+from lore.chronology.recurrence.calendar_rules import CalendarPlan
+from lore.chronology.schema import CalendarRule, EndSpec, RecurrenceRule
 
 CONFORMANCE = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
 RULE: TypeAdapter[RecurrenceRule] = TypeAdapter(RecurrenceRule)
@@ -173,6 +176,7 @@ def series(draw: st.DrawFn) -> Series:
     return Series(found, name, start, duration)
 
 
+@settings(deadline=None)  # the first count of a rule may build its super-period counter
 @given(series(), st.integers(0, 10**19), st.integers(0, 10**17))
 def test_expanded_items_are_their_occurrences(found: Series, w0: int, width: int) -> None:
     recurrence, ctx = found.rule, found.context
@@ -188,6 +192,7 @@ def test_expanded_items_are_their_occurrences(found: Series, w0: int, width: int
         assert result.estimated_count is not None
 
 
+@settings(deadline=None)  # the first count of a rule may build its super-period counter
 @given(series(), st.integers(0, 10**19))
 def test_next_occurrences_agree_with_expand(found: Series, after: int) -> None:
     recurrence, ctx = found.rule, found.context
@@ -241,15 +246,21 @@ def test_series_without_occurrences() -> None:
     assert expand(timed, ctx, (0, D), 10).items == []
 
 
-def test_counting_skipped_periods_is_limited() -> None:
-    leap = rule(freq={"level": "day"}, time={"fields": {"hour": "9"}}, limit=UNTIL)
-    start = g(2000, "jan", 1, 8)
-    ctx = context(start, until=start + (SCAN_LIMIT + 10) * DAY)
+def test_aperiodic_rules_count_only_nearby() -> None:
+    """Year-number ``in`` filters aren't periodic: counting falls back to enumerating periods,
+    which works near the start and is ``rule.too_complex_to_count`` far from it."""
+    years = rule(freq={"level": "year"}, filters=[{"in": ["2001", "2003"]}], limit=UNTIL)
+    start = g(2000, "jan", 1)
+    near = series_bounds(years, context(start, until=g(2010, "jan", 1)))
+    assert (near.first_start, near.last_start, near.count) == (
+        g(2001, "jan", 1),
+        g(2003, "jan", 1),
+        2,
+    )
+    far = context(start, until=start + 10**30)
     with pytest.raises(RecurrenceError) as raised:
-        series_bounds(leap, ctx)
+        series_bounds(years, far)
     assert raised.value.code == "rule.too_complex_to_count"
-    small = context(start, until=start + 10 * DAY)
-    assert series_bounds(leap, small).count == 10
 
 
 def test_reversed_and_empty_windows() -> None:
@@ -306,27 +317,6 @@ def test_start_mismatch_is_a_warning() -> None:
         ("rule.series_start_not_occurrence", "warning")
     ]
     assert validate_rule(timed, context(g(2023, "jan", 31, 9))) == []
-
-
-@pytest.mark.parametrize(
-    ("members", "issue"),
-    [
-        ({"freq": {"level": "year"}, "limit": {"kind": "count", "count": "3"}}, "#21"),
-        (
-            {
-                "freq": {"level": "year"},
-                "exclusions": [{"from": UNTIL["until"], "to": UNTIL["until"]}],
-            },
-            "#21",
-        ),
-    ],
-)
-def test_later_features_are_not_implemented_yet(members: dict[str, Any], issue: str) -> None:
-    found = rule(**members)
-    ctx = context(g(2000, "jan", 1))
-    assert validate_rule(found, ctx) == []
-    with pytest.raises(NotImplementedError, match=issue):
-        expand(found, ctx, (0, 1))
 
 
 WEEK = CALENDARS["gregorian-week"]
@@ -499,3 +489,181 @@ def test_slot_ids_below_skipped_levels_use_sub_keys() -> None:
     assert [(item.key, item.start) for item in found] == [("0.0", 60), ("1.0", 151), ("2.0", 242)]
     by_number = rule(freq={"level": "year"}, select={"path": [{"level": "day", "values": ["61"]}]})
     assert [item.key for item in expand(by_number, ctx, (0, 91 * 3)).items] == ["0", "1", "2"]
+
+
+# --- counting (recurrence III) -------------------------------------------------------------------
+
+
+COUNTING_RULES: list[dict[str, Any]] = [
+    {"freq": {"level": "month"}, "time": {"fields": {"day": "30"}}},
+    {"freq": {"level": "month"}, "interval": "5", "filters": [{"mod": "3", "eq": "1"}]},
+    {"freq": {"level": "year"}, "filters": [{"mod": "4", "eq": "2"}]},
+    {
+        "freq": {"level": "day"},
+        "interval": "3",
+        "filters": [{"mod": "7", "eq": "2", "of": "ordinal"}],
+    },
+    {"freq": {"level": "year"}, "select": {"path": [{"level": "month", "values": ["yule", "4"]}]}},
+    {"freq": {"level": "year"}, "select": {"path": [{"level": "day", "values": ["-1", "100"]}]}},
+]
+
+
+@pytest.mark.parametrize("calendar_name", ["intercalary-exceptions", "void-years"])
+@pytest.mark.parametrize("members", COUNTING_RULES)
+def test_super_period_counts_match_enumeration(calendar_name: str, members: dict[str, Any]) -> None:
+    """S(k) from super-periods (exception years included) equals counting period by period."""
+    calendar = (
+        CALENDARS["intercalary-exceptions"]
+        if calendar_name == "intercalary-exceptions"
+        else _void_years()
+    )
+    for start in (0, 1_000_000 - 9 * 24, 1_000_000 + 400 * 24):
+        ctx = context(start, calendar)
+        plan = CalendarPlan(calendar_rule(**members), ctx, calendar, D)
+        counter = plan._counter()
+        assert counter is not None
+        running = 0
+        for k in range(600):
+            assert counter.count(k) == running, (start, k)
+            running += plan._period_count(k)
+        for i in (1, 7, running // 2, running):
+            if i >= 1:
+                found = counter.period_of(i)
+                assert found is not None
+                assert counter.count(found) < i <= counter.count(found + 1)
+
+
+def calendar_rule(**members: Any) -> CalendarRule:
+    found = rule(**members)
+    assert isinstance(found, CalendarRule)
+    return found
+
+
+def _void_years() -> CompiledCalendar:
+    document: dict[str, Any] = json.loads(
+        (CONFORMANCE / "calendars" / "intercalary-exceptions.json").read_text()
+    )
+    regime = document["definition"]["regimes"][0]
+    regime["templates"]["year_void"] = {
+        "level": "year",
+        "sequence": [{"id": "void", "template": "m30", "name": "Void", "intercalary": True}],
+    }
+    regime["top"]["exceptions"] += [
+        {"year": "2", "template": "year_void"},
+        {"year": "30", "template": "year_void"},
+    ]
+    result = validate_calendar(document["definition"], document["context"])
+    assert isinstance(result, CompiledCalendar)
+    return result
+
+
+def test_weekly_counts_match_enumeration() -> None:
+    shire = CALENDARS["shire-week"]
+    members = {"freq": {"cycle": "week"}, "select": {"path": [{"level": "day", "values": ["-1"]}]}}
+    plan = CalendarPlan(calendar_rule(**members), context(10_000_000, shire), shire, D)
+    counter = plan._counter()
+    assert counter is not None
+    running = 0
+    for k in range(400):
+        assert counter.count(k) == running
+        running += plan._period_count(k)
+
+
+@settings(deadline=None)  # building a super-period counter takes up to seconds, once per rule
+@given(series(), st.integers(0, 10**19), st.integers(0, 10**12))
+def test_counts_agree_with_expansion(found: Series, w0: int, width: int) -> None:
+    recurrence, ctx = found.rule, found.context
+    window = (w0, w0 + width)
+    try:
+        counted, exact = count_in_window(recurrence, ctx, window)
+    except RecurrenceError as error:
+        code = error.code
+        assert code == "rule.too_complex_to_count"
+        return
+    result = expand(recurrence, ctx, window, 200)
+    if exact and not result.truncated:
+        assert counted == len(result.items)
+    numbers = [occurrence_number(recurrence, ctx, item.key) for item in result.items[:5]]
+    assert numbers == list(range(numbers[0], numbers[0] + len(numbers))) if numbers else True
+
+
+def test_count_limit_far_is_fast() -> None:
+    """Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms."""
+    fresh = compiled("gregorian-week")  # no cached counters
+    yearly = rule(freq={"level": "year"}, limit={"kind": "count", "count": str(10**12)})
+    started = time.perf_counter()
+    bounds = series_bounds(yearly, context(g(2024, "feb", 29, 9), fresh))
+    elapsed = time.perf_counter() - started
+    assert bounds.count == 10**12
+    assert elapsed < 0.1, f"{elapsed * 1000:.1f} ms"
+
+
+def test_rules_that_never_occur_are_found_at_once() -> None:
+    """An interval that never meets the filter: no occurrence, and no long scan."""
+    starved = rule(freq={"level": "year"}, interval="2", filters=[{"mod": "2", "eq": "1"}])
+    ctx = context(g(2024, "jan", 1), WEEK)
+    started = time.perf_counter()
+    assert series_bounds(starved, ctx).first_start is None
+    assert next_occurrences(starved, ctx, 0, 3) == []
+    assert time.perf_counter() - started < 0.5
+
+
+def test_too_complex_rules_are_estimated() -> None:
+    showcase = compiled("cycles-showcase")
+    huge = rule(freq={"level": "day"}, filters=[{"mod": "999983", "eq": "0", "of": "ordinal"}])
+    ctx = context(1_000_000, showcase)
+    count, exact = count_in_window(huge, ctx, (1_000_000, 1_000_000 + 10**12))
+    assert not exact
+    assert count >= 0
+    with pytest.raises(RecurrenceError) as raised:
+        occurrence_number(huge, ctx, str(10**9 * 999983))
+    assert raised.value.code == "rule.too_complex_to_count"
+
+
+def test_exclusion_validation() -> None:
+    excluded = rule(
+        freq={"level": "year"}, exclusions=[{"from": UNTIL["until"], "to": UNTIL["until"]}]
+    )
+    start = g(2000, "jan", 1)
+    found = validate_rule(excluded, RecurrenceContext(start, end(None), D, WEEK, {}))
+    assert [(e.code, e.path) for e in found] == [
+        ("anchor.unresolved", "/exclusions/0/from"),
+        ("anchor.unresolved", "/exclusions/0/to"),
+    ]
+    reversed_range = {"/exclusions/0/from": start + 10, "/exclusions/0/to": start}
+    found = validate_rule(excluded, RecurrenceContext(start, end(None), D, WEEK, reversed_range))
+    assert [(e.code, e.path) for e in found] == [("rule.bad_exclusion", "/exclusions/0")]
+    empty = {"/exclusions/0/from": start, "/exclusions/0/to": start}
+    assert (
+        series_bounds(excluded, RecurrenceContext(start, end(None), D, WEEK, empty)).first_start
+        == start
+    )
+
+
+def test_occurrence_at_without_occurrences() -> None:
+    yearly = rule(freq={"level": "year"})
+    ctx = context(g(2024, "jan", 1), WEEK)
+    assert occurrence_at(yearly, ctx, g(2023, "jun", 1)) is None
+    assert occurrence_at(yearly, ctx, g(2025, "jan", 1)) == "1"
+    assert occurrence_at(yearly, ctx, g(2025, "jan", 1, 9)) is None  # instants: only at their start
+
+
+def test_cycle_filters_count_like_enumeration() -> None:
+    showcase = compiled("cycles-showcase")
+    members = {
+        "freq": {"level": "day"},
+        "filters": [
+            {"any": [{"cycle": "veintena", "in": ["0", "7"]}, {"cycle": "trecena", "in": ["13"]}]},
+            {"not": {"mod": "2", "eq": "0", "of": "ordinal"}},
+        ],
+    }
+    plan = CalendarPlan(calendar_rule(**members), context(1_000_000, showcase), showcase, D)
+    counter = plan._counter()
+    assert counter is not None
+    # 365-day years: the 20-day veintena realigns after 4 years, the 13-day trecena after 13
+    # (and the ordinal parity after 2): the super-period is 52 years of days.
+    assert counter.q == 52 * 365
+    running = 0
+    for k in range(3000):
+        assert counter.count(k) == running
+        running += plan._period_count(k)

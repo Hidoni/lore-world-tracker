@@ -1,0 +1,1052 @@
+{
+  "description": "Count limits (1, 100, 10^6, 10^12, more than D allows), exclusions (they use up the count), occurrence numbers, count_in_window and occurrence_at on a fixed-interval rule.",
+  "calendar": null,
+  "generated": false,
+  "verification": "Integer arithmetic: occurrence k starts at 1000 + k × 2,397,422,120; D = 10^30; spans are 10 days (864,000 s), instants or 3 intervals long as stated per case.",
+  "cases": [
+    {
+      "id": "count-1",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "1"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "1000",
+        "last_end": "865000",
+        "count": "1"
+      }
+    },
+    {
+      "id": "count-100",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "100"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "237344790880",
+        "last_end": "237345654880",
+        "count": "100"
+      }
+    },
+    {
+      "id": "count-1000000",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "1000000"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "2397419722578880",
+        "last_end": "2397419723442880",
+        "count": "1000000"
+      }
+    },
+    {
+      "id": "count-1000000000000",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "1000000000000"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "2397422119997602578880",
+        "last_end": "2397422119997603442880",
+        "count": "1000000000000"
+      }
+    },
+    {
+      "id": "count-100-last-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "100"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "99"
+      },
+      "expected": {
+        "key": "99",
+        "start": "237344790880",
+        "end": "237345654880"
+      }
+    },
+    {
+      "id": "count-100-beyond",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "100"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "100"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "count-3-cuts-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "3"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "2397423120",
+          "23974222200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "2397423120",
+            "end": "2398287120"
+          },
+          {
+            "key": "2",
+            "start": "4794845240",
+            "end": "4795709240"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "count-beyond-d",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10000000000000000000000000"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "999999999999999999999031593520",
+        "last_end": "999999999999999999999032457520",
+        "count": "417114696514104074422"
+      },
+      "note": "fewer than count occurrences start before D"
+    },
+    {
+      "id": "exclusions-never",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "1000",
+          "/exclusions/0/to": "1001"
+        },
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "2397423120",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      },
+      "note": "the first occurrence is excluded"
+    },
+    {
+      "id": "exclusions-use-up-count",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "21576800080",
+        "last_end": "21577664080",
+        "count": "7"
+      },
+      "note": "exclusions [k2, k5) remove 3 of the first 10 generated occurrences; they still use up the count"
+    },
+    {
+      "id": "excluded-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "3"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "exclusion-end-is-open",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "5"
+      },
+      "expected": {
+        "key": "5",
+        "start": "11987111600",
+        "end": "11987975600"
+      }
+    },
+    {
+      "id": "number-after-exclusions",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "5"
+      },
+      "expected": {
+        "number": "3"
+      },
+      "note": "k = 0, 1 and 5 happen"
+    },
+    {
+      "id": "number-excluded",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "10"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "4"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "number-far",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "999999999999"
+      },
+      "expected": {
+        "number": "1000000000000"
+      }
+    },
+    {
+      "id": "window-ten",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "1000",
+          "23974222200"
+        ]
+      },
+      "expected": {
+        "count": "10",
+        "exact": true
+      }
+    },
+    {
+      "id": "window-ten-excluded",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "1000",
+          "23974222200"
+        ]
+      },
+      "expected": {
+        "count": "7",
+        "exact": true
+      }
+    },
+    {
+      "id": "window-huge",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "0",
+          "100000000000000000000000000000"
+        ]
+      },
+      "expected": {
+        "count": "41711469651410407443",
+        "exact": true
+      }
+    },
+    {
+      "id": "window-inside-span",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "1005",
+          "1006"
+        ]
+      },
+      "expected": {
+        "count": "1",
+        "exact": true
+      }
+    },
+    {
+      "id": "window-after-count",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "5"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "11987111600",
+          "239742213000"
+        ]
+      },
+      "expected": {
+        "count": "0",
+        "exact": true
+      }
+    },
+    {
+      "id": "at-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "1000"
+      },
+      "expected": {
+        "key": "0"
+      }
+    },
+    {
+      "id": "at-inside-span",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "1005"
+      },
+      "expected": {
+        "key": "0"
+      }
+    },
+    {
+      "id": "at-span-end",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "865000"
+      },
+      "expected": {
+        "key": null
+      },
+      "note": "spans are half-open"
+    },
+    {
+      "id": "at-before-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "999"
+      },
+      "expected": {
+        "key": null
+      }
+    },
+    {
+      "id": "at-instant",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "16781955840"
+      },
+      "expected": {
+        "key": "7"
+      }
+    },
+    {
+      "id": "at-after-instant",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "16781955841"
+      },
+      "expected": {
+        "key": null
+      }
+    },
+    {
+      "id": "at-overlapping-latest",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "7192266360"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "4794845245"
+      },
+      "expected": {
+        "key": "2"
+      },
+      "note": "k = 0, 1 and 2 all cover t: the latest-starting one"
+    },
+    {
+      "id": "at-overlapping-exact-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "7192266360"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "2397423120"
+      },
+      "expected": {
+        "key": "1"
+      }
+    },
+    {
+      "id": "at-overlapping-excluded",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "7192266360"
+          }
+        },
+        "resolved": {
+          "/exclusions/0/from": "4794845240",
+          "/exclusions/0/to": "7192267360"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "4794845245"
+      },
+      "expected": {
+        "key": "1"
+      },
+      "note": "k = 2 is excluded: k = 1 still covers t"
+    },
+    {
+      "id": "at-after-count",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "count",
+            "count": "3"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "7192266360"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "t": "9589689480"
+      },
+      "expected": {
+        "key": "2"
+      },
+      "note": "k = 3 is beyond the count; k = 2 still covers t"
+    }
+  ]
+}

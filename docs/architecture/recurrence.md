@@ -55,6 +55,18 @@ filter `of` `"number"`).
 `until` is **inclusive** (product decision, 2026-10-02): an occurrence starting exactly at the
 resolved `until` is kept, as with RFC 5545 `UNTIL`. No occurrence starts after `D`, whatever the limit.
 
+`count` counts **generated** occurrences (starting at or after the series start, before `D`):
+excluded ones still use up the count, as with RFC 5545 `COUNT` and `EXDATE` (product decision,
+2026-10-02). The series ends at the start of the `count`-th generated occurrence, so exclusions
+only ever remove occurrences and never add one at the end (a branch excluding a year doesn't
+lengthen the series).
+
+**Exclusions** skip the occurrences whose start lies in `[from, to)`. Their time points are
+resolved by the server and passed as `resolved["/exclusions/<i>/from"]` and `…/to` (missing:
+`anchor.unresolved`). `to < from` is `rule.bad_exclusion`; `to = from` excludes nothing.
+Overlapping ranges merge. An excluded occurrence has no occurrence (`occurrence(key)` is
+`not_found`), no number, and isn't counted by `series_bounds` or `count_in_window`.
+
 ### 2.1 Periods
 
 - `freq.level = L`: a period is one unit of level `L` (a year, a month, a day…). Intercalary
@@ -193,7 +205,8 @@ start is the start of that finer position (precision = the series start's precis
   duration, moving the time of day). Edits that change the structure trigger reconciliation (§8).
 - Periods rejected by filters or with no selected positions **consume** their `k`. Keys can
   therefore skip numbers.
-- The **occurrence number** (1-based count of actual occurrences up to this one) is shown in the
+- The **occurrence number** (1-based count of actual occurrences up to this one: excluded and
+  filtered ones don't count) is shown in the
   UI ("58th Festival"). It is computed by `occurrence_number(rule, key)` (§5.4). The key is never
   shown as the number.
 
@@ -204,7 +217,7 @@ series_bounds(rule, ctx)                  -> { first_start, last_start?, last_en
 expand(rule, ctx, window=[w0, w1), max_items)
                                           -> { items: [{key, start, end}], truncated: bool, estimated_count? }
 occurrence(rule, ctx, key)                -> {key, start, end} | not_found
-occurrence_at(rule, ctx, t)               -> key of the occurrence whose span contains t (or that starts at t) | none
+occurrence_at(rule, ctx, t)               -> key of the occurrence starting at t, else of the latest-starting one whose span contains t | none
 next_occurrences(rule, ctx, after_t, n)   -> [{key, start, end}]       (editor previews)
 occurrence_number(rule, ctx, key)         -> n (1-based)
 count_in_window(rule, ctx, window)        -> { count, exact: bool }
@@ -213,6 +226,18 @@ validate_rule(rule, ctx)                  -> [ValidationError]
 ctx = { compiled calendar (calendar rules), series_start_t, duration spec, D,
         resolved times for limit.until and exclusions }
 ```
+
+- `occurrence_at(t)` (product decision, 2026-10-02): an occurrence starting exactly at `t`
+  wins; otherwise the latest-starting occurrence whose half-open span contains `t` (several can,
+  when occurrences are longer than the gaps between them). An instant matches only at its own
+  start. Excluded occurrences and those beyond the limit never match.
+- `occurrence_number(key)` is the 1-based number among the occurrences that happen (excluded and
+  filtered ones don't count); `not_found` like `occurrence(key)`.
+- `count_in_window(window)` counts the occurrences overlapping the window (time-model §2.1). It is
+  exact for interval rules and for calendar rules that can be counted (§5.4); with a calendar
+  duration, the occurrences starting before the window are checked one by one (at most 10,000,
+  else the result counts them all and is not exact). Rules that can't be counted fall back to
+  the sampled estimate of §5.1 with `exact: false`.
 
 ## 5. Algorithms
 
@@ -234,9 +259,9 @@ truncation `estimated_count` is null. How the count is found:
   of them, so sparse rules (Fridays the 13th over daily periods) stay exact. Once more than
   `max_items × 4` occurrences are found, the visit stops and the rest is extrapolated from the
   occurrences per visited period.
-- More periods than that: the period count times the occurrences per period, exact for rules
-  with one occurrence in every period and otherwise sampled over 64 evenly spaced periods; #21
-  replaces the sampling with super-period averages (§5.4).
+- More periods than that, or the early stop above: `count_in_window` (exact whenever the rule can
+  be counted, §5.4), else the period count times the occurrences per period sampled over 64
+  evenly spaced periods.
 
 ### 5.2 `expand` for calendar rules
 
@@ -262,21 +287,42 @@ is exact.
 
 ### 5.4 Counting (count limits, occurrence numbers, estimates)
 
-- **Interval rules:** trivial arithmetic.
-- **Calendar rules:** occurrences per period depend only on the period's position in the
-  calendar's top-level cycle (`P` years), the rule's interval and its filter moduli. The rule
-  **super-period** is the smallest whole number of top-level cycles in which the number of
-  candidate periods is divisible by `interval` and all filter moduli align. Engines precompute
-  the per-super-period occurrence count and prefix counts by enumerating one super-period. This is
-  allowed only if it contains ≤ 1,000,000 candidate periods, otherwise the error
-  `rule.too_complex_to_count` applies to count limits and occurrence numbers, and estimates fall
-  back to sampling.
-- Calendar **exceptions** (years with explicit templates) are non-periodic. Counting adds
-  per-exception corrections by enumerating the affected periods.
-- `nth occurrence` (for `limit.count`): full super-periods × count + enumeration of the
-  remainder.
-- MVP shortcut: implementations may compute count limits by plain iteration when
-  `count ≤ 100,000`. The super-period method is required above that (both engines, same results).
+Everything is built on two primitives over the positions of all periods `k ≥ 0` (no bounds or
+exclusions applied): `G(t)`, the number of positions starting before `t`, and `position(i)`, the
+`i`-th position. The count limit is `position(G(series_start) + count)`; generated occurrences
+before `t` are `G(min(t, D + 1)) − G(series_start)`; excluded ones are the same differences at the
+ends of the exclusion ranges; occurrence numbers and window counts follow, and the first, last and
+next occurrences are `position(G(t) + 1)` / `position(G(t + 1))`, skipping exclusion ranges.
+
+- **Interval rules:** `G(t) = max(0, ⌈(t − series_start) / every⌉)`.
+- **Calendar rules:** `G(t) = S(k_t) + ` the positions of `t`'s own period before `t`, where
+  `S(k)` sums the positions of periods `0 … k−1`.
+  - **Constant periods.** Without filters, cycle selectors or rounds, a period's positions depend
+    only on its unit's template. When every template of the level holds the same number `c`,
+    `S(k) = c·k` (`c = 0`: the rule never occurs, found at once).
+  - **Super-period.** Otherwise the engine looks for the smallest number `M` of top-pattern
+    periods (`P` years each) after which everything the positions depend on repeats: `M·U ≡ 0`
+    (mod `interval`) for `U` regular units of the level per top period (counted units and
+    `length·interval` for cycle rounds), `M·U ≡ 0` (mod `m`) for every `mod` filter on ordinals
+    (and on round numbers), `M·P ≡ 0` (mod `m`) for `mod` filters on year numbers, and `M·U_c ≡ 0`
+    (mod `length`) for every continuous cycle the rule uses (filters, selectors, rounds), with
+    `U_c` its counted units per top period. Reset cycles and everything structural repeat with
+    `P` anyway. The super-period is `Q = M·U / interval` periods (rounds: divided by the cycle
+    length too). An `in` filter on year numbers is not periodic, nor is a level without regular
+    units in the pattern.
+  - **Exceptions.** Periods overlapping a calendar exception year (plus one on each side) are
+    counted one by one. Between them, each clean stretch is periodic with period `Q`, but its
+    ordinals and cycle phases may be shifted by the exceptions before it, so every stretch longer
+    than `2Q` gets the prefix sums of its own first `Q` periods; shorter ones are enumerated.
+  - **Limits.** Enumerating more than 1,000,000 periods in all (a super-period, exception
+    periods and short stretches) makes the rule uncountable. Uncountable rules (and every rule
+    when `k ≤ 10,000`, where it is cheaper) count by enumerating periods from `k = 0`, which is
+    allowed up to 100,000 periods (the spec's iteration shortcut); beyond that, count limits,
+    occurrence numbers and searches are `rule.too_complex_to_count`, and estimates are sampled.
+  - **Caching.** Counters and enumerated prefixes are cached on the compiled regime per (rule,
+    series start), at most 64 each (least recently used first out): a daily rule with a weekday
+    filter enumerates its 146,097-day super-period once.
+- A count limit of 10^12 on a yearly rule takes milliseconds (`Q = 400` Gregorian years).
 
 ### 5.5 Series bounds cache
 
@@ -288,18 +334,16 @@ series (`series_start_t < w1 AND series_end_t > w0`) before expanding.
 ### 5.6 Searches and limits (Python: `lore.chronology.recurrence`)
 
 - `occurrence(key)`: keys are canonical (`0`, `12`; never `012` or `1.0` for single-occurrence
-  rules); a key whose period yields no occurrence, or whose start is before the series start or
-  after `until`/`D`, is `not_found`.
+  rules); a key whose period yields no occurrence, or whose start is before the series start,
+  after `until`/the count limit/`D`, or excluded, is `not_found`.
 - `next_occurrences(after_t, n)`: the first `n` occurrences starting at or after `after_t`.
-- `series_bounds`: `first_start` is the first occurrence (`k = 0`, or later when period 0 is
-  skipped or its start lies before the series start), `null` with `count = 0` when there is none;
-  with `never`, `last_start`, `last_end` and `count` are `null`. With `until`, `count` is exact:
-  arithmetic when no period can be skipped (`missing: constrain` without `time`), otherwise counted
-  period by period.
-- The first, last and next occurrences are searched within 100,000 candidate periods, and
-  counting period by period is limited to 100,000 candidates (`rule.too_complex_to_count` beyond,
-  until #21's super-periods). A series whose start position doesn't come back within 100,000
-  periods is treated as having no further occurrence.
+- Searches for the next or previous occurrence first look at the 64 periods around the moment,
+  then jump by counting (§5.4), so far or sparse occurrences (and rules that never occur) are
+  found without scanning.
+- `series_bounds`: `first_start` is the first occurrence, `null` with `count = 0` when there is
+  none; with `never`, `last_start`, `last_end` and `count` are `null`. With `until` or `count`,
+  `last_*` describe the last occurrence and `count` is the exact number of occurrences that
+  happen (exclusions applied).
 
 ## 6. Recurrence and timelines
 
@@ -362,6 +406,7 @@ strategy for one of them.
 (each selector strictly finer than the previous one or the period, §2.3), `rule.unknown_slot`,
 `rule.bad_nth`, `rule.bad_time_fields`, `rule.until_before_start`, `rule.too_complex_to_count`,
 `rule.series_end_not_duration` (series `end` must be duration/instant/unknown),
+`rule.bad_exclusion` (an exclusion ending before it starts),
 `rule.series_start_not_occurrence` (warning: the series start doesn't match the rule; the first
 occurrence will be later). Evaluating a rule can also fail with `rule.too_many_positions` (a
 period holding more than 100,000 positions, §2.3), which depends on the calendar's data rather

@@ -1,0 +1,743 @@
+{
+  "description": "Counting calendar rules: 10^12 leap days, count limits with filters, occurrence numbers when filters skip periods, exclusions, count_in_window over 10^6 years of weekly rounds and occurrence_at with overlapping calendar durations.",
+  "calendar": "gregorian-week",
+  "generated": false,
+  "verification": "Closed-form proleptic Gregorian day counts (days before year Y = 365(Y-1) + ⌊(Y-1)/4⌋ - ⌊(Y-1)/100⌋ + ⌊(Y-1)/400⌋), leap-year counting by the same formula, and datetime loops for weekdays; 2000-01-01 = t 10^14; times 09:00.",
+  "cases": [
+    {
+      "id": "leap-day-count-10e12",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000000000"
+          }
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000762512400",
+        "last_start": "130131860825435770000",
+        "last_end": "130131860825435770000",
+        "count": "1000000000000"
+      },
+      "note": "the 10^12-th leap year from 2024 (keys are year offsets)"
+    },
+    {
+      "id": "leap-day-count-10e12-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000000000"
+          }
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "4123711340204"
+      },
+      "expected": {
+        "key": "4123711340204",
+        "start": "130131860825435770000",
+        "end": "130131860825435770000"
+      }
+    },
+    {
+      "id": "leap-day-count-10e12-beyond",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1000000000000"
+          }
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "4123711340208"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "odd-years-count-5",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "5"
+          },
+          "filters": [
+            {
+              "mod": "2",
+              "eq": "1"
+            }
+          ]
+        },
+        "series_start": "100000773398800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000804934800",
+        "last_start": "100001057395600",
+        "last_end": "100001057395600",
+        "count": "5"
+      },
+      "note": "filtered periods don't use up the count"
+    },
+    {
+      "id": "odd-years-number",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "5"
+          },
+          "filters": [
+            {
+              "mod": "2",
+              "eq": "1"
+            }
+          ]
+        },
+        "series_start": "100000773398800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "3"
+      },
+      "expected": {
+        "number": "2"
+      },
+      "note": "2025 and 2027"
+    },
+    {
+      "id": "odd-years-filtered-key",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "5"
+          },
+          "filters": [
+            {
+              "mod": "2",
+              "eq": "1"
+            }
+          ]
+        },
+        "series_start": "100000773398800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "2"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "fridays-13th-count-40",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "day"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "40"
+          },
+          "filters": [
+            {
+              "cycle": "week",
+              "in": [
+                "fri"
+              ]
+            },
+            {
+              "in": [
+                "13"
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000779533200",
+        "last_start": "100001468400400",
+        "last_end": "100001468400400",
+        "count": "40"
+      }
+    },
+    {
+      "id": "months-in-march-september",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "in": [
+                "mar",
+                "9"
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "8"
+      },
+      "expected": {
+        "number": "2"
+      },
+      "note": "March and September 2024"
+    },
+    {
+      "id": "months-in-march-september-far",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "in": [
+                "mar",
+                "9"
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "12008"
+      },
+      "expected": {
+        "number": "2002"
+      }
+    },
+    {
+      "id": "leap-day-exclusions",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "100001293872400",
+          "/exclusions/0/from": "100000883612800",
+          "/exclusions/0/to": "100001041465600"
+        },
+        "window": [
+          "100000757382400",
+          "100001293926400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000762512400",
+            "end": "100000762512400"
+          },
+          {
+            "key": "12",
+            "start": "100001141203600",
+            "end": "100001141203600"
+          },
+          {
+            "key": "16",
+            "start": "100001267434000",
+            "end": "100001267434000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "leap-day-exclusions-bounds",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "100001293872400",
+          "/exclusions/0/from": "100000883612800",
+          "/exclusions/0/to": "100001041465600"
+        }
+      },
+      "expected": {
+        "first_start": "100000762512400",
+        "last_start": "100001267434000",
+        "last_end": "100001267434000",
+        "count": "3"
+      }
+    },
+    {
+      "id": "leap-day-exclusions-number",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "0"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000762512400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "100001293872400",
+          "/exclusions/0/from": "100000883612800",
+          "/exclusions/0/to": "100001041465600"
+        },
+        "key": "12"
+      },
+      "expected": {
+        "number": "2"
+      },
+      "note": "2024 and 2036; 2028 and 2032 are excluded"
+    },
+    {
+      "id": "weekly-monday-friday-2024",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "mon",
+                  "fri"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000789004800"
+        ]
+      },
+      "expected": {
+        "count": "105",
+        "exact": true
+      }
+    },
+    {
+      "id": "weekly-monday-friday-million-years",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "mon",
+                  "fri"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "131557709382400"
+        ]
+      },
+      "expected": {
+        "count": "104355000",
+        "exact": true
+      },
+      "note": "each weekday occurs 20,871 times in 400 Gregorian years"
+    },
+    {
+      "id": "calendar-duration-window",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "calendar",
+            "calendar_id": "cal",
+            "amounts": {
+              "month": "1",
+              "day": "10"
+            },
+            "sign": 1
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000760406400",
+          "100000760492800"
+        ]
+      },
+      "expected": {
+        "count": "2",
+        "exact": true
+      },
+      "note": "January's occurrence (to 11 February) and February's both overlap"
+    },
+    {
+      "id": "calendar-duration-latest",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "calendar",
+            "calendar_id": "cal",
+            "amounts": {
+              "month": "1",
+              "day": "10"
+            },
+            "sign": 1
+          }
+        },
+        "resolved": {},
+        "t": "100000760406400"
+      },
+      "expected": {
+        "key": "1"
+      },
+      "note": "January and February cover t: the latest-starting one"
+    },
+    {
+      "id": "calendar-duration-exact-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "calendar",
+            "calendar_id": "cal",
+            "amounts": {
+              "month": "1",
+              "day": "10"
+            },
+            "sign": 1
+          }
+        },
+        "resolved": {},
+        "t": "100000760093200"
+      },
+      "expected": {
+        "key": "1"
+      }
+    },
+    {
+      "id": "calendar-duration-before-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "calendar",
+            "calendar_id": "cal",
+            "amounts": {
+              "month": "1",
+              "day": "10"
+            },
+            "sign": 1
+          }
+        },
+        "resolved": {},
+        "t": "100000757411200"
+      },
+      "expected": {
+        "key": null
+      }
+    },
+    {
+      "id": "calendar-duration-january-only",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "calendar",
+            "calendar_id": "cal",
+            "amounts": {
+              "month": "1",
+              "day": "10"
+            },
+            "sign": 1
+          }
+        },
+        "resolved": {},
+        "t": "100000759024000"
+      },
+      "expected": {
+        "key": "0"
+      }
+    }
+  ]
+}
