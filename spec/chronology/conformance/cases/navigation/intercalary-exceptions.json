@@ -1,0 +1,885 @@
+{
+  "description": "Unit bounds, ordinals, from_ordinal and picker options with intercalary slots, runs and exception years.",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "Hand-written reference: year starts by summing year lengths (362/363/120 days) from year 0, regular months per year (12, or 4 in short years) summed for ordinals, intercalary months mapped to the preceding regular month, month walks for bounds; options hand-written.",
+  "cases": [
+    {
+      "id": "ordinal-alignment-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "12",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-alignment-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "363",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-alignment-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-alignment-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000000",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1000000",
+        "end": "1000720"
+      }
+    },
+    {
+      "id": "ordinal-yule-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1000725",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "12",
+        "intercalary": true
+      },
+      "note": "an intercalary unit reports the preceding regular month"
+    },
+    {
+      "id": "ordinal-yule-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1000725",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "393",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-yule-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1000725",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-yule-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000725",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1000720",
+        "end": "1000744"
+      }
+    },
+    {
+      "id": "ordinal-first-run-month-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1000744",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "13",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-first-run-month-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1000744",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "394",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-first-run-month-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1000744",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-first-run-month-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000744",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1000744",
+        "end": "1001464"
+      }
+    },
+    {
+      "id": "ordinal-lithe-leap-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1034058",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "58",
+        "intercalary": true
+      },
+      "note": "an intercalary unit reports the preceding regular month"
+    },
+    {
+      "id": "ordinal-lithe-leap-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1034058",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "1782",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-lithe-leap-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1034058",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "4",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-lithe-leap-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1034058",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1034008",
+        "end": "1034080"
+      }
+    },
+    {
+      "id": "ordinal-lastmonth-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1034080",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "59",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-lastmonth-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1034080",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "1783",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-lastmonth-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1034080",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "4",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-lastmonth-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1034080",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1034080",
+        "end": "1034776"
+      }
+    },
+    {
+      "id": "ordinal-exception-5-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1037176",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "63",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-exception-5-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1037176",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "1912",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-exception-5-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1037176",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "5",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-exception-5-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1037176",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1036936",
+        "end": "1037656"
+      }
+    },
+    {
+      "id": "ordinal-exception-8-lithe-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1062976",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "98",
+        "intercalary": true
+      },
+      "note": "an intercalary unit reports the preceding regular month"
+    },
+    {
+      "id": "ordinal-exception-8-lithe-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1062976",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "2987",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-exception-8-lithe-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1062976",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "8",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-exception-8-lithe-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1062976",
+        "level": "month"
+      },
+      "expected": {
+        "start": "1062976",
+        "end": "1063024"
+      }
+    },
+    {
+      "id": "ordinal-exception-minus-3-month",
+      "op": "ordinal",
+      "input": {
+        "t": "971037",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "-28",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-exception-minus-3-day",
+      "op": "ordinal",
+      "input": {
+        "t": "971037",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "-844",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-exception-minus-3-year",
+      "op": "ordinal",
+      "input": {
+        "t": "971037",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "-3",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-exception-minus-3-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "971037",
+        "level": "month"
+      },
+      "expected": {
+        "start": "971032",
+        "end": "971752"
+      }
+    },
+    {
+      "id": "ordinal-year-0-month",
+      "op": "ordinal",
+      "input": {
+        "t": "991288",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-year-0-day",
+      "op": "ordinal",
+      "input": {
+        "t": "991288",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-year-0-year",
+      "op": "ordinal",
+      "input": {
+        "t": "991288",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-year-0-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "991288",
+        "level": "month"
+      },
+      "expected": {
+        "start": "991288",
+        "end": "992008"
+      }
+    },
+    {
+      "id": "ordinal-before-year-0-month",
+      "op": "ordinal",
+      "input": {
+        "t": "991287",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-before-year-0-day",
+      "op": "ordinal",
+      "input": {
+        "t": "991287",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-before-year-0-year",
+      "op": "ordinal",
+      "input": {
+        "t": "991287",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-before-year-0-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "991287",
+        "level": "month"
+      },
+      "expected": {
+        "start": "990592",
+        "end": "991288"
+      }
+    },
+    {
+      "id": "ordinal-moment-zero-month",
+      "op": "ordinal",
+      "input": {
+        "t": "0",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "-1369",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "ordinal-moment-zero-day",
+      "op": "ordinal",
+      "input": {
+        "t": "0",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "-41304",
+        "intercalary": false
+      },
+      "note": "days inside intercalary months are regular days"
+    },
+    {
+      "id": "ordinal-moment-zero-year",
+      "op": "ordinal",
+      "input": {
+        "t": "0",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "-115",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-moment-zero-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "0",
+        "level": "month"
+      },
+      "expected": {
+        "start": "-512",
+        "end": "208"
+      }
+    },
+    {
+      "id": "bounds-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000013",
+        "level": "day"
+      },
+      "expected": {
+        "start": "1000000",
+        "end": "1000024"
+      },
+      "note": "the day containing hour 13"
+    },
+    {
+      "id": "bounds-year-exception-5",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1034783",
+        "level": "year"
+      },
+      "expected": {
+        "start": "1034776",
+        "end": "1037656"
+      },
+      "note": "short year: 120 days"
+    },
+    {
+      "id": "from-ordinal-month-0",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "0"
+      },
+      "expected": {
+        "start": "991288",
+        "end": "992008"
+      },
+      "note": "Deepwinter of year 0"
+    },
+    {
+      "id": "from-ordinal-month-12",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "12"
+      },
+      "expected": {
+        "start": "1000000",
+        "end": "1000720"
+      },
+      "note": "Deepwinter of year 1"
+    },
+    {
+      "id": "from-ordinal-month-23",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "23"
+      },
+      "expected": {
+        "start": "1007992",
+        "end": "1008688"
+      },
+      "note": "Lastmonth of year 1"
+    },
+    {
+      "id": "from-ordinal-month-13",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "13"
+      },
+      "expected": {
+        "start": "1000744",
+        "end": "1001464"
+      },
+      "note": "the first unnamed month of year 1 (Yule is skipped)"
+    },
+    {
+      "id": "from-ordinal-month-m1",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "-1"
+      },
+      "expected": {
+        "start": "990592",
+        "end": "991288"
+      },
+      "note": "Lastmonth of year -1"
+    },
+    {
+      "id": "from-ordinal-month-63",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "63"
+      },
+      "expected": {
+        "start": "1036936",
+        "end": "1037656"
+      },
+      "note": "the last month of short year 5"
+    },
+    {
+      "id": "from-ordinal-month-64",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "64"
+      },
+      "expected": {
+        "start": "1037656",
+        "end": "1038376"
+      },
+      "note": "Deepwinter of year 6"
+    },
+    {
+      "id": "from-ordinal-month-m28",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "-28"
+      },
+      "expected": {
+        "start": "971032",
+        "end": "971752"
+      },
+      "note": "Deepwinter of short year -3"
+    },
+    {
+      "id": "from-ordinal-month-m25",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "-25"
+      },
+      "expected": {
+        "start": "973192",
+        "end": "973912"
+      },
+      "note": "the last month of short year -3"
+    },
+    {
+      "id": "from-ordinal-day-0",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "0"
+      },
+      "expected": {
+        "start": "991288",
+        "end": "991312"
+      }
+    },
+    {
+      "id": "from-ordinal-day-yule",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "393"
+      },
+      "expected": {
+        "start": "1000720",
+        "end": "1000744"
+      },
+      "note": "the day of Yule, year 1, is a regular day"
+    },
+    {
+      "id": "from-ordinal-year-5",
+      "op": "from_ordinal",
+      "input": {
+        "level": "year",
+        "ordinal": "5"
+      },
+      "expected": {
+        "start": "1034776",
+        "end": "1037656"
+      }
+    },
+    {
+      "id": "options-months-common",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "level": "month"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "slot",
+            "value": "deepwinter",
+            "n": "1",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          {
+            "kind": "slot",
+            "value": "yule",
+            "n": null,
+            "name": "Yule",
+            "intercalary": true
+          },
+          {
+            "kind": "range",
+            "first": "2",
+            "last": "11"
+          },
+          {
+            "kind": "slot",
+            "value": "lithe",
+            "n": null,
+            "name": "Lithe Days",
+            "intercalary": true
+          },
+          {
+            "kind": "slot",
+            "value": "lastmonth",
+            "n": "12",
+            "name": "Lastmonth",
+            "intercalary": false
+          }
+        ]
+      },
+      "note": "named slots one by one (intercalary ones without number), unnamed runs as ranges"
+    },
+    {
+      "id": "options-months-short",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "5"
+        },
+        "level": "month"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "slot",
+            "value": "deepwinter",
+            "n": "1",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          {
+            "kind": "range",
+            "first": "2",
+            "last": "4"
+          }
+        ]
+      },
+      "note": "exception year"
+    },
+    {
+      "id": "options-days-lithe-leap",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "4",
+          "month": "lithe"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "1",
+            "last": "3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "options-days-lithe-exception-8",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "8",
+          "month": "lithe"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "1",
+            "last": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "options-days-yule",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "8",
+          "month": "yule"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "1",
+            "last": "1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "options-days-run-month",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "8",
+          "month": "7"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "1",
+            "last": "30"
+          }
+        ]
+      }
+    }
+  ]
+}

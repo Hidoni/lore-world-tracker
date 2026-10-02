@@ -124,7 +124,9 @@ alignment fields are invalid).
 ### `ordinal` (§5.8)
 
 - input: `{"t": "<moment>", "level": "<level id>"}`
-- expected: `{"ordinal": "<signed>", "intercalary": false}`
+- expected: `{"ordinal": "<signed>", "intercalary": false}`: the regular units of `level` between
+  the start of year 0 and the unit (the first regular unit of year 0 is `"0"`); inside an
+  intercalary unit, the ordinal of the preceding regular unit with `"intercalary": true`
 
 ### `from_ordinal` (§5.8)
 
@@ -133,9 +135,15 @@ alignment fields are invalid).
 
 ### `options` (§6)
 
-- input: `{"fields": DateFields (the prefix, top level first; may be empty `{}`), "level": "<level id>"}`
-- expected: `{"options": [{"value": "<slot id or number>", "n": "<number>" | null, "name": "<name>" | null, "intercalary": false}, …]}`
-  in template order. `value` is the slot id for named children and the regular number otherwise.
+- input: `{"fields": DateFields, "level": "<level id>"}`: `fields` name every level from the top
+  down to the level just above `level` (`{}` for the top level)
+- expected: `{"options": [Option, …]}` in template order, where an option is a named slot
+  `{"kind": "slot", "value": "<slot id>", "n": "<number>" | null, "name": "<name>", "intercalary": false}`
+  (`n` is `null` for an intercalary slot) or a run of unnamed children
+  `{"kind": "range", "first": "<number>", "last": "<number>"}` (inclusive; a run may hold up to
+  10^1000 children, so they are never listed one by one). The top level's single option is
+  `{"kind": "range", "first": null, "last": null}` (any year). Invalid parents, or `fields` that
+  don't stop right above `level`, are `invalid_date`.
 
 ### `cycle_value` (§3.7, §8)
 

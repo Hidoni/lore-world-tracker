@@ -1,0 +1,682 @@
+{
+  "description": "Unit bounds, ordinals, from_ordinal and picker options in the alternating-years calendar.",
+  "calendar": "alternating-years",
+  "generated": false,
+  "verification": "Ordinals: 3·Y + month index, (t − E) / day for days; bounds from two-year-cycle arithmetic and month walks; options hand-written.",
+  "cases": [
+    {
+      "id": "ordinal-alignment-year",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000000000000",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-alignment-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000000000000",
+        "level": "year"
+      },
+      "expected": {
+        "start": "435000000000000000",
+        "end": "435000000007862400"
+      }
+    },
+    {
+      "id": "ordinal-alignment-month",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000000000000",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "3",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-alignment-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000000000000",
+        "level": "month"
+      },
+      "expected": {
+        "start": "435000000000000000",
+        "end": "435000000002592000"
+      }
+    },
+    {
+      "id": "ordinal-alignment-day",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000000000000",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "92",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-alignment-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000000000000",
+        "level": "day"
+      },
+      "expected": {
+        "start": "435000000000000000",
+        "end": "435000000000086400"
+      }
+    },
+    {
+      "id": "ordinal-year-0-start-year",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051200",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-year-0-start-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051200",
+        "level": "year"
+      },
+      "expected": {
+        "start": "434999999992051200",
+        "end": "435000000000000000"
+      }
+    },
+    {
+      "id": "ordinal-year-0-start-month",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051200",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-year-0-start-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051200",
+        "level": "month"
+      },
+      "expected": {
+        "start": "434999999992051200",
+        "end": "434999999994729600"
+      }
+    },
+    {
+      "id": "ordinal-year-0-start-day",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051200",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "0",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-year-0-start-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051200",
+        "level": "day"
+      },
+      "expected": {
+        "start": "434999999992051200",
+        "end": "434999999992137600"
+      }
+    },
+    {
+      "id": "ordinal-before-year-0-year",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051199",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-before-year-0-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051199",
+        "level": "year"
+      },
+      "expected": {
+        "start": "434999999984188800",
+        "end": "434999999992051200"
+      }
+    },
+    {
+      "id": "ordinal-before-year-0-month",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051199",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-before-year-0-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051199",
+        "level": "month"
+      },
+      "expected": {
+        "start": "434999999989459200",
+        "end": "434999999992051200"
+      }
+    },
+    {
+      "id": "ordinal-before-year-0-day",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999992051199",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "-1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-before-year-0-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999992051199",
+        "level": "day"
+      },
+      "expected": {
+        "start": "434999999991964800",
+        "end": "434999999992051200"
+      }
+    },
+    {
+      "id": "ordinal-thawing-31-year",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000005202000",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "1",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-thawing-31-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000005202000",
+        "level": "year"
+      },
+      "expected": {
+        "start": "435000000000000000",
+        "end": "435000000007862400"
+      }
+    },
+    {
+      "id": "ordinal-thawing-31-month",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000005202000",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "4",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-thawing-31-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000005202000",
+        "level": "month"
+      },
+      "expected": {
+        "start": "435000000002592000",
+        "end": "435000000005270400"
+      }
+    },
+    {
+      "id": "ordinal-thawing-31-day",
+      "op": "ordinal",
+      "input": {
+        "t": "435000000005202000",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "152",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-thawing-31-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "435000000005202000",
+        "level": "day"
+      },
+      "expected": {
+        "start": "435000000005184000",
+        "end": "435000000005270400"
+      }
+    },
+    {
+      "id": "ordinal-cinder-negative-year",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999984098800",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "-2",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-cinder-negative-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999984098800",
+        "level": "year"
+      },
+      "expected": {
+        "start": "434999999976240000",
+        "end": "434999999984188800"
+      }
+    },
+    {
+      "id": "ordinal-cinder-negative-month",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999984098800",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "-4",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-cinder-negative-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999984098800",
+        "level": "month"
+      },
+      "expected": {
+        "start": "434999999981510400",
+        "end": "434999999984188800"
+      }
+    },
+    {
+      "id": "ordinal-cinder-negative-day",
+      "op": "ordinal",
+      "input": {
+        "t": "434999999984098800",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "-93",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-cinder-negative-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "434999999984098800",
+        "level": "day"
+      },
+      "expected": {
+        "start": "434999999984016000",
+        "end": "434999999984102400"
+      }
+    },
+    {
+      "id": "ordinal-huge-year",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "year"
+      },
+      "expected": {
+        "ordinal": "126492612831410645618295891519935235782230317749443432503541793159279498077312284962558131577615868",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-huge-year",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "year"
+      },
+      "expected": {
+        "start": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998112000",
+        "end": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006060800"
+      }
+    },
+    {
+      "id": "ordinal-huge-month",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "month"
+      },
+      "expected": {
+        "ordinal": "379477838494231936854887674559805707346690953248330297510625379477838494231936854887674394732847604",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-huge-month",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "month"
+      },
+      "expected": {
+        "start": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998112000",
+        "end": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000790400"
+      }
+    },
+    {
+      "id": "ordinal-huge-day",
+      "op": "ordinal",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "day"
+      },
+      "expected": {
+        "ordinal": "11574074074074074074074074074074074074074074074074074074074074074074074074074074074074069039351851943",
+        "intercalary": false
+      }
+    },
+    {
+      "id": "bounds-huge-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+        "level": "day"
+      },
+      "expected": {
+        "start": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999926400",
+        "end": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012800"
+      }
+    },
+    {
+      "id": "from-ordinal-month-3",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "3"
+      },
+      "expected": {
+        "start": "435000000000000000",
+        "end": "435000000002592000"
+      },
+      "note": "Frostfall of year 1"
+    },
+    {
+      "id": "from-ordinal-month-5",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "5"
+      },
+      "expected": {
+        "start": "435000000005270400",
+        "end": "435000000007862400"
+      },
+      "note": "Bloom of year 1"
+    },
+    {
+      "id": "from-ordinal-month-6",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "6"
+      },
+      "expected": {
+        "start": "435000000007862400",
+        "end": "435000000010540800"
+      },
+      "note": "Ember of year 2"
+    },
+    {
+      "id": "from-ordinal-month-m1",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "-1"
+      },
+      "expected": {
+        "start": "434999999989459200",
+        "end": "434999999992051200"
+      },
+      "note": "year -1 is odd: ordinal -1 is its last month, Bloom"
+    },
+    {
+      "id": "from-ordinal-month-m4",
+      "op": "from_ordinal",
+      "input": {
+        "level": "month",
+        "ordinal": "-4"
+      },
+      "expected": {
+        "start": "434999999981510400",
+        "end": "434999999984188800"
+      },
+      "note": "Ash of year -2"
+    },
+    {
+      "id": "from-ordinal-day-0",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "0"
+      },
+      "expected": {
+        "start": "434999999992051200",
+        "end": "434999999992137600"
+      }
+    },
+    {
+      "id": "from-ordinal-day-m1",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "-1"
+      },
+      "expected": {
+        "start": "434999999991964800",
+        "end": "434999999992051200"
+      }
+    },
+    {
+      "id": "from-ordinal-day-183",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "183"
+      },
+      "expected": {
+        "start": "435000000007862400",
+        "end": "435000000007948800"
+      }
+    },
+    {
+      "id": "from-ordinal-day-huge",
+      "op": "from_ordinal",
+      "input": {
+        "level": "day",
+        "ordinal": "100000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "start": "8640000000000000000000000000000000000434999999992051200",
+        "end": "8640000000000000000000000000000000000434999999992137600"
+      }
+    },
+    {
+      "id": "options-months-odd",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "1023"
+        },
+        "level": "month"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "slot",
+            "value": "frostfall",
+            "n": "1",
+            "name": "Frostfall",
+            "intercalary": false
+          },
+          {
+            "kind": "slot",
+            "value": "thawing",
+            "n": "2",
+            "name": "Thawing",
+            "intercalary": false
+          },
+          {
+            "kind": "slot",
+            "value": "bloom",
+            "n": "3",
+            "name": "Bloom",
+            "intercalary": false
+          }
+        ]
+      },
+      "note": "the template actually used by the year (odd)"
+    },
+    {
+      "id": "options-months-even",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "-2"
+        },
+        "level": "month"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "slot",
+            "value": "ember",
+            "n": "1",
+            "name": "Ember",
+            "intercalary": false
+          },
+          {
+            "kind": "slot",
+            "value": "ash",
+            "n": "2",
+            "name": "Ash",
+            "intercalary": false
+          },
+          {
+            "kind": "slot",
+            "value": "cinder",
+            "n": "3",
+            "name": "Cinder",
+            "intercalary": false
+          }
+        ]
+      },
+      "note": "even years have other months"
+    },
+    {
+      "id": "options-days-thawing",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "thawing"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "1",
+            "last": "31"
+          }
+        ]
+      }
+    },
+    {
+      "id": "options-minutes",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "3",
+          "hour": "7"
+        },
+        "level": "minute"
+      },
+      "expected": {
+        "options": [
+          {
+            "kind": "range",
+            "first": "0",
+            "last": "59"
+          }
+        ]
+      }
+    },
+    {
+      "id": "options-invalid-parent",
+      "op": "options",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "frostfall"
+        },
+        "level": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "Frostfall is not a month of even years"
+    }
+  ]
+}
