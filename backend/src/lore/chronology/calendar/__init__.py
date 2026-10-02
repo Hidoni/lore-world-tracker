@@ -1,26 +1,31 @@
-"""Calendars: compilation and (in later issues) conversions (``chronology-engine.md`` §3-§9)."""
+"""Calendars: compilation, conversions and unit navigation (``chronology-engine.md`` §3-§9)."""
 
 from lore.chronology.calendar.compile import ValidationError, compile_calendar, validate_calendar
-from lore.chronology.calendar.compiled import CompiledCalendar, CompiledRegime, CompiledTemplate
-from lore.chronology.calendar.convert import (
+from lore.chronology.calendar.compiled import (
+    CompiledCalendar,
+    CompiledRegime,
+    CompiledTemplate,
     DateError,
+)
+from lore.chronology.calendar.convert import (
     DateFields,
+    RangeOption,
+    SlotOption,
     UnitValue,
     from_fields,
     normalize_fields,
+    options,
     to_fields,
 )
+from lore.chronology.calendar.cycles import CycleValue, cycle_value
 from lore.chronology.calendar.units import (
     REGULAR,
     Bounds,
     Ordinal,
-    RangeOption,
-    SlotOption,
     UnitFilter,
     counted_ordinal,
     from_counted_ordinal,
     from_ordinal,
-    options,
     ordinal,
     unit_bounds,
 )
@@ -31,6 +36,7 @@ __all__ = [
     "CompiledCalendar",
     "CompiledRegime",
     "CompiledTemplate",
+    "CycleValue",
     "DateError",
     "DateFields",
     "Ordinal",
@@ -41,6 +47,7 @@ __all__ = [
     "ValidationError",
     "compile_calendar",
     "counted_ordinal",
+    "cycle_value",
     "from_counted_ordinal",
     "from_fields",
     "from_ordinal",

@@ -148,7 +148,8 @@ alignment fields are invalid).
 ### `cycle_value` (§3.7, §8)
 
 - input: `{"t": "<moment>", "cycle": "<cycle id>"}`
-- expected: `{"index": 0, "name": "Moonday" | null, "n": 1}`, or `null` for an excluded unit
+- expected: `{"index": 0, "name": "Moonday" | null, "n": 1}`, or `null` for an excluded unit;
+  `{"error": "unknown_cycle"}` for a cycle the active regime doesn't have
 
 ### `era_of` (§3.8, §8)
 
@@ -268,6 +269,12 @@ implemented": pytest marks it `xfail(strict=True)` and vitest uses `test.fails`.
 implements an op it adds the handler **and** removes the op from its engine's pending list; a
 pending op that passes (or fails for another reason) breaks the run. Every op is either handled
 or pending in each runner.
+
+When an engine implements an op but not yet a feature some of its cases need (e.g. the `cycles`
+member of `to_fields` before that engine has cycles), the runner lists a **pending case rule**:
+a predicate over (calendar, op) with the issue that adds the feature. Matching cases run normally
+and must still fail (`test.fails` / `xfail(strict=True)`); once the feature lands they pass, which
+breaks the run until the rule is removed.
 
 ## Rules (chronology-engine §14)
 

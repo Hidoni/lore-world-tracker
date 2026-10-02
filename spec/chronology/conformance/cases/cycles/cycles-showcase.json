@@ -1,0 +1,598 @@
+{
+  "description": "Two continuous cycles on the same level (13 × 20) and a cycle that resets every month and skips the intercalary Wayeb.",
+  "calendar": "cycles-showcase",
+  "generated": false,
+  "verification": "Hand-written reference: every day counts for the trecena and the veintena, so their indices are (days since the anchor + anchor index) mod length; the decan is (day of the month - 1) mod 10, null in Wayeb.",
+  "cases": [
+    {
+      "id": "trecena-anchor",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000000",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      },
+      "note": "trecena index 3 and veintena index 19 at the anchor"
+    },
+    {
+      "id": "veintena-anchor",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000000",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 19,
+        "name": "Ahau",
+        "n": 19
+      }
+    },
+    {
+      "id": "decan-anchor",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000000",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      }
+    },
+    {
+      "id": "trecena-anchor-next",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000001",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 4,
+        "name": null,
+        "n": 5
+      }
+    },
+    {
+      "id": "veintena-anchor-next",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000001",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Imix",
+        "n": 0
+      }
+    },
+    {
+      "id": "decan-anchor-next",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000001",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 1,
+        "name": null,
+        "n": 2
+      }
+    },
+    {
+      "id": "trecena-day-13",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000012",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 2,
+        "name": null,
+        "n": 3
+      }
+    },
+    {
+      "id": "veintena-day-13",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000012",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 11,
+        "name": "Eb",
+        "n": 11
+      }
+    },
+    {
+      "id": "decan-day-13",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000012",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 2,
+        "name": null,
+        "n": 3
+      }
+    },
+    {
+      "id": "trecena-day-14",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000013",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      },
+      "note": "the trecena wraps after 13 days"
+    },
+    {
+      "id": "veintena-day-14",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000013",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 12,
+        "name": "Ben",
+        "n": 12
+      }
+    },
+    {
+      "id": "decan-day-14",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000013",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      }
+    },
+    {
+      "id": "trecena-month-2-day-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000020",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 10,
+        "name": null,
+        "n": 11
+      },
+      "note": "the veintena is back to Ahau: 20-day months"
+    },
+    {
+      "id": "veintena-month-2-day-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000020",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 19,
+        "name": "Ahau",
+        "n": 19
+      }
+    },
+    {
+      "id": "decan-month-2-day-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000020",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      }
+    },
+    {
+      "id": "trecena-month-1-day-10",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000009",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 12,
+        "name": null,
+        "n": 13
+      }
+    },
+    {
+      "id": "veintena-month-1-day-10",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000009",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 8,
+        "name": "Muluc",
+        "n": 8
+      }
+    },
+    {
+      "id": "decan-month-1-day-10",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000009",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 9,
+        "name": null,
+        "n": 10
+      }
+    },
+    {
+      "id": "trecena-month-1-day-11",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000010",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      },
+      "note": "the decan restarts after 10 days"
+    },
+    {
+      "id": "veintena-month-1-day-11",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000010",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 9,
+        "name": "Oc",
+        "n": 9
+      },
+      "note": "the decan restarts after 10 days"
+    },
+    {
+      "id": "decan-month-1-day-11",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000010",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      },
+      "note": "the decan restarts after 10 days"
+    },
+    {
+      "id": "trecena-month-2-day-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000024",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 1,
+        "name": null,
+        "n": 2
+      },
+      "note": "and with every month"
+    },
+    {
+      "id": "veintena-month-2-day-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000024",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Kan",
+        "n": 3
+      }
+    },
+    {
+      "id": "decan-month-2-day-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000024",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 4,
+        "name": null,
+        "n": 5
+      }
+    },
+    {
+      "id": "trecena-wayeb-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000360",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 12,
+        "name": null,
+        "n": 13
+      },
+      "note": "Wayeb is excluded from the decan only"
+    },
+    {
+      "id": "veintena-wayeb-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000360",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 19,
+        "name": "Ahau",
+        "n": 19
+      },
+      "note": "Wayeb is excluded from the decan only"
+    },
+    {
+      "id": "decan-wayeb-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000360",
+        "cycle": "decan"
+      },
+      "expected": null,
+      "note": "Wayeb is excluded from the decan only"
+    },
+    {
+      "id": "trecena-wayeb-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000364",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      }
+    },
+    {
+      "id": "veintena-wayeb-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000364",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Kan",
+        "n": 3
+      }
+    },
+    {
+      "id": "decan-wayeb-5",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000364",
+        "cycle": "decan"
+      },
+      "expected": null
+    },
+    {
+      "id": "trecena-year-1-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000365",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 4,
+        "name": null,
+        "n": 5
+      },
+      "note": "365 days later"
+    },
+    {
+      "id": "veintena-year-1-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000365",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Chicchan",
+        "n": 4
+      }
+    },
+    {
+      "id": "decan-year-1-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1000365",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      }
+    },
+    {
+      "id": "trecena-year-260-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1094900",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      }
+    },
+    {
+      "id": "veintena-year-260-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1094900",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 19,
+        "name": "Ahau",
+        "n": 19
+      }
+    },
+    {
+      "id": "decan-year-260-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "1094900",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 0,
+        "name": null,
+        "n": 1
+      }
+    },
+    {
+      "id": "trecena-negative-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "999041",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 6,
+        "name": null,
+        "n": 7
+      }
+    },
+    {
+      "id": "veintena-negative-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "999041",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Imix",
+        "n": 0
+      }
+    },
+    {
+      "id": "decan-negative-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "999041",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 6,
+        "name": null,
+        "n": 7
+      }
+    },
+    {
+      "id": "trecena-huge-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "36500000000000000000000000000000000000000000001000359",
+        "cycle": "trecena"
+      },
+      "expected": {
+        "index": 7,
+        "name": null,
+        "n": 8
+      }
+    },
+    {
+      "id": "veintena-huge-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "36500000000000000000000000000000000000000000001000359",
+        "cycle": "veintena"
+      },
+      "expected": {
+        "index": 18,
+        "name": "Cauac",
+        "n": 18
+      }
+    },
+    {
+      "id": "decan-huge-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "36500000000000000000000000000000000000000000001000359",
+        "cycle": "decan"
+      },
+      "expected": {
+        "index": 9,
+        "name": null,
+        "n": 10
+      }
+    },
+    {
+      "id": "to-fields-wayeb",
+      "op": "to_fields",
+      "input": {
+        "t": "1000362"
+      },
+      "expected": {
+        "regime": "long",
+        "levels": {
+          "year": {
+            "n": "0"
+          },
+          "month": {
+            "n": null,
+            "id": "wayeb",
+            "name": "Wayeb",
+            "intercalary": true
+          },
+          "day": {
+            "n": "3"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "trecena": {
+            "index": 1,
+            "name": null,
+            "n": 2
+          },
+          "veintena": {
+            "index": 1,
+            "name": "Ik",
+            "n": 1
+          },
+          "decan": null
+        },
+        "overlays": {}
+      },
+      "note": "several cycles at once; Wayeb has no decan"
+    }
+  ]
+}

@@ -23,12 +23,14 @@ from pydantic import ValidationError as PydanticValidationError
 from lore.chronology.calendar import formats
 from lore.chronology.calendar.compiled import (
     CompiledCalendar,
+    CompiledCycle,
     CompiledRegime,
     CompiledTemplate,
     Segment,
     build_template,
     is_number,
 )
+from lore.chronology.calendar.units import counted_position, cycle_filter
 from lore.chronology.schema import (
     AllPredicate,
     CalendarDefinition,
@@ -110,9 +112,9 @@ class _Compiler:
         self.check_time_points()
         self.check_eras()
         self.check_overlays()
-        regimes = [
-            self.compile_regime(i, regime) for i, regime in enumerate(self.definition.regimes)
-        ]
+        regimes: list[CompiledRegime | None] = []
+        for i, regime in enumerate(self.definition.regimes):
+            regimes.append(self.compile_regime(i, regime, regimes[-1] if regimes else None))
         self.check_formats()
         if self.errors:
             return self.result()
@@ -256,7 +258,9 @@ class _Compiler:
 
     # --- regimes ----------------------------------------------------------------------------
 
-    def compile_regime(self, r: int, regime: Regime) -> CompiledRegime | None:
+    def compile_regime(
+        self, r: int, regime: Regime, previous: CompiledRegime | None
+    ) -> CompiledRegime | None:
         before = len(self.errors)
         base = ("regimes", r)
         cycle_ids = self.check_cycles(r, regime)
@@ -271,7 +275,7 @@ class _Compiler:
             (*base, "alignment", "fields"),
             "alignment.invalid_fields",
         )
-        self.check_cycle_anchors(r, regime, compiled)
+        anchors = self.check_cycle_anchors(r, regime, compiled)
         at = self.resolved(pointer(*base, "alignment", "at"))
         if offset is None or at is None or len(self.errors) > before:
             return None
@@ -280,7 +284,11 @@ class _Compiler:
         if regime.starts_at is not None and not isinstance(regime.starts_at.anchor, LocalAnchor):
             starts_at = self.resolved(pointer(*base, "starts_at"))
         epoch = at - compiled.rel_start(year) - within
-        return replace(compiled, epoch=epoch, starts_at=starts_at)
+        compiled = replace(compiled, epoch=epoch, starts_at=starts_at)
+        cycles = self.build_cycles(r, regime, compiled, anchors, previous)
+        if len(self.errors) > before:
+            return None
+        return replace(compiled, cycles=cycles)
 
     # --- templates --------------------------------------------------------------------------
 
@@ -656,12 +664,21 @@ class _Compiler:
                         pointer(*path, "mode", "reset"),
                         "the reset level must be coarser",
                     )
-            if cycle.continue_from_previous_regime and r == 0:
+            if cycle.continue_from_previous_regime and cycle.mode != "continuous":
+                self.error(
+                    "cycle.anchor_invalid",
+                    pointer(*path, "continue_from_previous_regime"),
+                    "only continuous cycles continue across regimes",
+                )
+            elif cycle.continue_from_previous_regime and r == 0:
                 self.error(
                     "cycle.anchor_invalid",
                     pointer(*path, "continue_from_previous_regime"),
                     "regime 0 has no previous regime",
                 )
+            elif cycle.continue_from_previous_regime:
+                previous = self.definition.regimes[r - 1]
+                self.check_continued_cycle(path, cycle.id, cycle.length, previous)
             elif (
                 cycle.mode == "continuous"
                 and not cycle.continue_from_previous_regime
@@ -681,7 +698,28 @@ class _Compiler:
                 )
         return frozenset(seen)
 
-    def check_cycle_anchors(self, r: int, regime: Regime, compiled: CompiledRegime) -> None:
+    def check_continued_cycle(
+        self, path: tuple[str | int, ...], cycle_id: str, length: int, previous: Regime
+    ) -> None:
+        """A continued cycle needs a continuous cycle of the same id and length before it."""
+        where = pointer(*path, "continue_from_previous_regime")
+        before = next((c for c in previous.cycles if c.id == cycle_id), None)
+        if before is None or before.mode != "continuous":
+            self.error(
+                "cycle.anchor_invalid",
+                where,
+                f"the previous regime has no continuous cycle {cycle_id!r}",
+            )
+        elif before.length != length:
+            self.error(
+                "cycle.anchor_invalid", where, "the previous regime's cycle has another length"
+            )
+
+    def check_cycle_anchors(
+        self, r: int, regime: Regime, compiled: CompiledRegime
+    ) -> dict[int, tuple[int, int]]:
+        """Locate the anchor date of every anchored continuous cycle: cycle index → position."""
+        anchors: dict[int, tuple[int, int]] = {}
         for c, cycle in enumerate(regime.cycles):
             anchored = cycle.mode == "continuous" and not cycle.continue_from_previous_regime
             if (
@@ -691,9 +729,101 @@ class _Compiler:
                 and cycle.level in self.level_index
             ):
                 path = ("regimes", r, "cycles", c, "anchor", "fields")
-                self.locate(
+                found = self.locate(
                     compiled, cycle.anchor.fields, path, "cycle.anchor_invalid", finest=cycle.level
                 )
+                if found is not None:
+                    anchors[c] = found
+        return anchors
+
+    def build_cycles(
+        self,
+        r: int,
+        regime: Regime,
+        compiled: CompiledRegime,
+        anchors: Mapping[int, tuple[int, int]],
+        previous: CompiledRegime | None,
+    ) -> tuple[CompiledCycle, ...]:
+        """Compile cycles; continuous anchors become counted ordinals (§3.7)."""
+        top = len(self.levels) - 1
+        result: list[CompiledCycle] = []
+        for c, cycle in enumerate(regime.cycles):
+            level = self.level_index[cycle.level]
+            path = ("regimes", r, "cycles", c)
+            unit_filter = cycle_filter(cycle.id)
+            anchor_index = cycle.anchor.index if cycle.anchor is not None else 0
+            anchor_ordinal: int | None = None
+            if cycle.mode != "continuous":
+                reset: int | None = self.level_index[cycle.mode.reset]
+            else:
+                reset = None
+                if cycle.continue_from_previous_regime:
+                    continued = self.continue_cycle(
+                        path,
+                        cycle_id=cycle.id,
+                        length=cycle.length,
+                        level=level,
+                        compiled=compiled,
+                        previous=previous,
+                    )
+                    if continued is not None:
+                        anchor_index, anchor_ordinal = continued
+                else:
+                    year, offset = anchors[c]
+                    start = compiled.year_start(year) + offset
+                    before, counted, _ = counted_position(top, compiled, start, level, unit_filter)
+                    if not counted:
+                        self.error(
+                            "cycle.anchor_invalid",
+                            pointer(*path, "anchor", "fields"),
+                            "the anchor unit is excluded from the cycle",
+                        )
+                    anchor_ordinal = before
+            result.append(
+                CompiledCycle(
+                    id=cycle.id,
+                    level=level,
+                    length=cycle.length,
+                    names=tuple(cycle.names) if cycle.names is not None else None,
+                    abbrs=tuple(cycle.abbrs) if cycle.abbrs is not None else None,
+                    number_start=cycle.number_start,
+                    reset=reset,
+                    anchor_index=anchor_index,
+                    anchor_ordinal=anchor_ordinal,
+                )
+            )
+        return tuple(result)
+
+    def continue_cycle(
+        self,
+        path: tuple[str | int, ...],
+        *,
+        cycle_id: str,
+        length: int,
+        level: int,
+        compiled: CompiledRegime,
+        previous: CompiledRegime | None,
+    ) -> tuple[int, int] | None:
+        """(anchor index, anchor ordinal) so the first counted unit of this regime follows the
+        previous regime's last one. ``None`` while this regime's start is ``local`` (#14).
+        """
+        if previous is None:
+            return None  # the previous regime failed to compile: its errors are the root cause
+        before_cycle = next(c for c in previous.cycles if c.id == cycle_id)  # check_cycles
+        assert before_cycle.reset is None  # checked by check_cycles
+        assert before_cycle.length == length
+        start = compiled.starts_at
+        if start is None or before_cycle.anchor_ordinal is None:
+            return None
+        top = len(self.levels) - 1
+        unit_filter = cycle_filter(cycle_id)
+        last, counted, _ = counted_position(top, previous, start - 1, level, unit_filter)
+        last_ordinal = last if counted else last - 1
+        last_index = (
+            last_ordinal - before_cycle.anchor_ordinal + before_cycle.anchor_index
+        ) % length
+        first, _, _ = counted_position(top, compiled, start, level, unit_filter)
+        return (last_index + 1) % length, first
 
 
 def _lcm_exceeds(moduli: Sequence[int], limit: int) -> bool:

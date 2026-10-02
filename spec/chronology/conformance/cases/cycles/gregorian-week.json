@@ -1,0 +1,600 @@
+{
+  "description": "Weekdays of known dates in the proleptic Gregorian calendar, including negative years.",
+  "calendar": "gregorian-week",
+  "generated": false,
+  "verification": "Weekdays from (days_from_civil(y, m, d) + 3) mod 7 (1970-01-01 is a Thursday), cross-checked with Python's datetime.weekday() for years 1-9999; the historical weekdays named in the cases are asserted by hand.",
+  "cases": [
+    {
+      "id": "weekday-moon-landing",
+      "op": "cycle_value",
+      "input": {
+        "t": "99999039115000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Sunday",
+        "n": 7
+      },
+      "note": "Apollo 11 landing"
+    },
+    {
+      "id": "weekday-us-independence",
+      "op": "cycle_value",
+      "input": {
+        "t": "99992947310200",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      },
+      "note": "US Declaration of Independence"
+    },
+    {
+      "id": "weekday-y2k",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000000055800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      },
+      "note": "the anchor"
+    },
+    {
+      "id": "weekday-gregorian-reform",
+      "op": "cycle_value",
+      "input": {
+        "t": "99986834078200",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      },
+      "note": "first day of the Gregorian calendar"
+    },
+    {
+      "id": "weekday-proleptic-1582-10-04",
+      "op": "cycle_value",
+      "input": {
+        "t": "99986833127800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      },
+      "note": "proleptic Gregorian (the Julian 4 October was a Thursday)"
+    },
+    {
+      "id": "weekday-year-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "99936917774200",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      },
+      "note": "proleptic Gregorian 0001-01-01"
+    },
+    {
+      "id": "weekday-unix-epoch",
+      "op": "cycle_value",
+      "input": {
+        "t": "99999053371000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      }
+    },
+    {
+      "id": "weekday-century-1900",
+      "op": "cycle_value",
+      "input": {
+        "t": "99996844382200",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      }
+    },
+    {
+      "id": "weekday-leap-day-2024",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000762535800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      }
+    },
+    {
+      "id": "weekday-y2k-eve",
+      "op": "cycle_value",
+      "input": {
+        "t": "99999999969400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "weekday-sept-11",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000053537400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      }
+    },
+    {
+      "id": "weekday-ve-day",
+      "op": "cycle_value",
+      "input": {
+        "t": "99998275425400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      },
+      "note": "VE Day"
+    },
+    {
+      "id": "weekday-berlin-wall",
+      "op": "cycle_value",
+      "input": {
+        "t": "99999679943800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      },
+      "note": "fall of the Berlin Wall"
+    },
+    {
+      "id": "weekday-waterloo",
+      "op": "cycle_value",
+      "input": {
+        "t": "99994176523000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Sunday",
+        "n": 7
+      },
+      "note": "Battle of Waterloo"
+    },
+    {
+      "id": "weekday-sarajevo",
+      "op": "cycle_value",
+      "input": {
+        "t": "99997301524600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Sunday",
+        "n": 7
+      }
+    },
+    {
+      "id": "weekday-british-reform",
+      "op": "cycle_value",
+      "input": {
+        "t": "99992196148600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      },
+      "note": "first Gregorian day in Britain"
+    },
+    {
+      "id": "weekday-julian-day-zero",
+      "op": "cycle_value",
+      "input": {
+        "t": "99788186567800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      },
+      "note": "JD 0 in the proleptic Gregorian calendar"
+    },
+    {
+      "id": "weekday-year-9999-end",
+      "op": "cycle_value",
+      "input": {
+        "t": "100252455585400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "weekday-year-2100",
+      "op": "cycle_value",
+      "input": {
+        "t": "100003155815800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "weekday-leap-day-1600",
+      "op": "cycle_value",
+      "input": {
+        "t": "99987382372600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      }
+    },
+    {
+      "id": "weekday-march-1700",
+      "op": "cycle_value",
+      "input": {
+        "t": "99990538132600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      }
+    },
+    {
+      "id": "weekday-y2038",
+      "op": "cycle_value",
+      "input": {
+        "t": "100001200843000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      },
+      "note": "32-bit time_t overflow day"
+    },
+    {
+      "id": "weekday-magna-carta",
+      "op": "cycle_value",
+      "input": {
+        "t": "99975242135800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      },
+      "note": "proleptic Gregorian"
+    },
+    {
+      "id": "weekday-hastings",
+      "op": "cycle_value",
+      "input": {
+        "t": "99970550615800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Sunday",
+        "n": 7
+      },
+      "note": "proleptic Gregorian (not the Julian date of the battle)"
+    },
+    {
+      "id": "weekday-year-0",
+      "op": "cycle_value",
+      "input": {
+        "t": "99936886151800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      },
+      "note": "astronomical year 0"
+    },
+    {
+      "id": "weekday-year-minus-1-end",
+      "op": "cycle_value",
+      "input": {
+        "t": "99936886065400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "weekday-ides-of-march",
+      "op": "cycle_value",
+      "input": {
+        "t": "99935535547000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      },
+      "note": "astronomical year -43 (44 BC), proleptic Gregorian"
+    },
+    {
+      "id": "weekday-rome",
+      "op": "cycle_value",
+      "input": {
+        "t": "99913164945400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      },
+      "note": "astronomical year -752"
+    },
+    {
+      "id": "weekday-year-minus-1000",
+      "op": "cycle_value",
+      "input": {
+        "t": "99905329243000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 2,
+        "name": "Wednesday",
+        "n": 3
+      }
+    },
+    {
+      "id": "weekday-year-minus-400-leap",
+      "op": "cycle_value",
+      "input": {
+        "t": "99924268468600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Tuesday",
+        "n": 2
+      }
+    },
+    {
+      "id": "weekday-year-10000",
+      "op": "cycle_value",
+      "input": {
+        "t": "100252455671800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      },
+      "note": "beyond datetime's range"
+    },
+    {
+      "id": "weekday-far-future",
+      "op": "cycle_value",
+      "input": {
+        "t": "864000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 2,
+        "name": "Wednesday",
+        "n": 3
+      },
+      "note": "10^100 days after the anchor: (5 + 10^100) mod 7"
+    },
+    {
+      "id": "weekday-moment-zero",
+      "op": "cycle_value",
+      "input": {
+        "t": "0",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 2,
+        "name": "Wednesday",
+        "n": 3
+      },
+      "note": "t = 0 is in year -3166874"
+    },
+    {
+      "id": "unknown-cycle",
+      "op": "cycle_value",
+      "input": {
+        "t": "0",
+        "cycle": "fortnight"
+      },
+      "expected": {
+        "error": "unknown_cycle"
+      }
+    },
+    {
+      "id": "to-fields-y2k",
+      "op": "to_fields",
+      "input": {
+        "t": "100000000000000"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2000"
+          },
+          "month": {
+            "n": "1",
+            "id": "jan",
+            "name": "January",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "week": {
+            "index": 5,
+            "name": "Saturday",
+            "n": 6
+          }
+        },
+        "overlays": {}
+      },
+      "note": "to_fields includes every cycle of the regime"
+    },
+    {
+      "id": "to-fields-leap-day-2024",
+      "op": "to_fields",
+      "input": {
+        "t": "100000762523200"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2024"
+          },
+          "month": {
+            "n": "2",
+            "id": "feb",
+            "name": "February",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "week": {
+            "index": 3,
+            "name": "Thursday",
+            "n": 4
+          }
+        },
+        "overlays": {}
+      },
+      "note": "to_fields includes every cycle of the regime"
+    },
+    {
+      "id": "to-fields-proleptic-1582",
+      "op": "to_fields",
+      "input": {
+        "t": "99986833100800"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1582"
+          },
+          "month": {
+            "n": "10",
+            "id": "oct",
+            "name": "October",
+            "intercalary": false
+          },
+          "day": {
+            "n": "4"
+          },
+          "hour": {
+            "n": "8"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "week": {
+            "index": 0,
+            "name": "Monday",
+            "n": 1
+          }
+        },
+        "overlays": {}
+      },
+      "note": "to_fields includes every cycle of the regime"
+    }
+  ]
+}

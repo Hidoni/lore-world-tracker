@@ -1,0 +1,302 @@
+{
+  "description": "A week that skips Midyear's Day and Overlithe, so every year starts on the same weekday.",
+  "calendar": "shire-week",
+  "generated": false,
+  "verification": "Hand-written reference: each year's day list with its excluded days; the weekday index is ((Y - 1) * 364 + counted days before) mod 7, since every year has exactly 364 counted days and year 1 starts on Sterday.",
+  "cases": [
+    {
+      "id": "weekday-anchor",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      },
+      "note": "2 Yule of year 1 is Sterday"
+    },
+    {
+      "id": "weekday-afteryule-1",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000001",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Sunday",
+        "n": 2
+      }
+    },
+    {
+      "id": "weekday-afteryule-7",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000007",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      }
+    },
+    {
+      "id": "weekday-lithe1",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000181",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Highday",
+        "n": 7
+      },
+      "note": "1 Lithe has a weekday"
+    },
+    {
+      "id": "weekday-midyear",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000182",
+        "cycle": "week"
+      },
+      "expected": null,
+      "note": "Midyear's Day has no weekday"
+    },
+    {
+      "id": "weekday-lithe2",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000183",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      },
+      "note": "2 Lithe follows 1 Lithe in the week"
+    },
+    {
+      "id": "weekday-yule1",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000364",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Highday",
+        "n": 7
+      },
+      "note": "the last day of the year"
+    },
+    {
+      "id": "weekday-next-year-start",
+      "op": "cycle_value",
+      "input": {
+        "t": "10000365",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      },
+      "note": "every year starts on Sterday"
+    },
+    {
+      "id": "weekday-leap-overlithe",
+      "op": "cycle_value",
+      "input": {
+        "t": "10001278",
+        "cycle": "week"
+      },
+      "expected": null,
+      "note": "year 4 is a leap year: Overlithe has no weekday either"
+    },
+    {
+      "id": "weekday-leap-lithe2",
+      "op": "cycle_value",
+      "input": {
+        "t": "10001279",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      }
+    },
+    {
+      "id": "weekday-leap-yule1",
+      "op": "cycle_value",
+      "input": {
+        "t": "10001460",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Highday",
+        "n": 7
+      }
+    },
+    {
+      "id": "weekday-leap-next-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "10001461",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      },
+      "note": "leap years still start the next year on Sterday"
+    },
+    {
+      "id": "weekday-year-100",
+      "op": "cycle_value",
+      "input": {
+        "t": "10036159",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      },
+      "note": "100 is not a leap year"
+    },
+    {
+      "id": "weekday-year-1420",
+      "op": "cycle_value",
+      "input": {
+        "t": "10518541",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Mersday",
+        "n": 6
+      },
+      "note": "S.R. 1420"
+    },
+    {
+      "id": "weekday-year-0",
+      "op": "cycle_value",
+      "input": {
+        "t": "9999638",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Trewsday",
+        "n": 4
+      }
+    },
+    {
+      "id": "weekday-year-minus-7",
+      "op": "cycle_value",
+      "input": {
+        "t": "9997412",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Trewsday",
+        "n": 4
+      }
+    },
+    {
+      "id": "weekday-year-minus-4-midyear",
+      "op": "cycle_value",
+      "input": {
+        "t": "9998356",
+        "cycle": "week"
+      },
+      "expected": null
+    },
+    {
+      "id": "weekday-year-minus-4-overlithe",
+      "op": "cycle_value",
+      "input": {
+        "t": "9998357",
+        "cycle": "week"
+      },
+      "expected": null
+    },
+    {
+      "id": "to-fields-overlithe",
+      "op": "to_fields",
+      "input": {
+        "t": "10001278"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "4"
+          },
+          "month": {
+            "n": null,
+            "id": "overlithe",
+            "name": "Overlithe",
+            "intercalary": true
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "week": null
+        },
+        "overlays": {}
+      },
+      "note": "an excluded unit's cycle value is null"
+    },
+    {
+      "id": "to-fields-lithe2",
+      "op": "to_fields",
+      "input": {
+        "t": "10001279"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "4"
+          },
+          "month": {
+            "n": null,
+            "id": "lithe2",
+            "name": "2 Lithe",
+            "intercalary": true
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {
+          "week": {
+            "index": 0,
+            "name": "Sterday",
+            "n": 1
+          }
+        },
+        "overlays": {}
+      },
+      "note": "intercalary but not excluded: it has a weekday"
+    }
+  ]
+}
