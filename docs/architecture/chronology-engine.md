@@ -53,6 +53,22 @@ Rules:
 
 ### 3.1 Top-level shape
 
+The normative structure is `lore.chronology.schema.CalendarDefinition` (exported to
+`spec/chronology/schema/calendar-definition.json`); the shapes in this section summarize it. The
+models check structure only (shapes, id and number patterns, size limits). The rules in this
+section that relate parts to each other are checked by compilation (§11). Structural conventions:
+
+- Every model rejects unknown members. In-world integers (counts, years, moments) are canonical
+  decimal strings. Small structural integers (`numbering_start`, cycle `length`/`number_start`/
+  `anchor.index`, display options) are JSON integers.
+- Ids are at most 64 characters: level, template, era, cycle and overlay ids match
+  `^[a-z][a-z0-9_]*$`; slot ids (named children) and regime ids match `^[a-z][a-z0-9_-]*$`. Names
+  are 1–200 characters.
+- Optional members have defaults: `numbering_start` 1, `intercalary` false, `cycle_excluded` [],
+  `exceptions` [], `cycles` [], `eras` [], `overlays` [], cycle `mode` `"continuous"`,
+  `number_start` 1, `anchor.index` 0, era `abbr_position` `"suffix"`, and the `display` values
+  shown in §3.11.
+
 ```jsonc
 {
   "schema_version": 1,
@@ -73,7 +89,8 @@ Rules:
   "default_template": "day" }      // template used by "run" children that omit "template"
 ```
 
-- Level ids match `^[a-z][a-z0-9_]*$` and must be unique. At most 20 levels.
+- Level ids match `^[a-z][a-z0-9_]*$` and must be unique. At most 20 levels. `base` (the exact
+  precision) and `intercalary` (a key of `formats`) are reserved (`level.invalid_id`).
 - **Level 0** (the finest) is made of **base units**. The **last level** is the **top level**
   (e.g. `year`). Its units form an infinite sequence indexed by the **year number `Y`**
   (astronomical: …, −1, 0, 1, 2, …). The top level has no `numbering_start`, because `Y` is used
@@ -248,7 +265,9 @@ definition:
 { "kind": "local", "fields": { "year": "1", "month": "jan", "day": "1" }, "regime": "julian" }
 ```
 
-meaning "this date in this calendar (astronomical year)". The engine resolves `local` anchors
+meaning "this date in this calendar (astronomical year)". The schema has two time point types:
+`TimePoint` (no `local`, used everywhere outside definitions and for `alignment.at`) and
+`DefinitionTimePoint` (with `local`, for `starts_at`, era `start` and overlay `epoch`). The engine resolves `local` anchors
 itself after compiling the structure, which is why `alignment.at` cannot be `local`. Every other
 anchor kind is resolved by the server (`time-model.md` §7) and passed to the engine as a moment
 (§4).
@@ -291,7 +310,7 @@ context = {
   base_unit: {singular, plural, abbr},
   dimension_duration: int,
   resolved: { "<JSON pointer of a time point>": int, … }   // all non-local anchors, resolved by the server
-}
+}                                                           // (lore.chronology.schema.CompileContext)
 ```
 
 Steps:
@@ -509,7 +528,12 @@ Codes (non-exhaustive, stable identifiers):
 `cycle.bad_reset_level`, `cycle.anchor_invalid`, `era.start_not_increasing`,
 `era.local_anchor_uses_era`, `regime.first_has_start`, `regime.start_not_increasing`,
 `regime.duplicate_id`, `overlay.bad_period`, `overlay.phases_unsorted`, `format.unknown_token`,
-`anchor.unresolved` (a non-local time point without a resolved value in the context).
+`anchor.unresolved` (a non-local time point without a resolved value in the context; absolute
+anchors need one too, so the engine takes every moment from the context).
+
+Errors report the root cause only: an engine does not add errors derived from an already invalid
+part (e.g. no epoch error when the alignment fields are invalid). Structural (JSON Schema)
+violations are reported before semantic checks run.
 
 ## 12. Viewport and ticks (TypeScript only)
 
@@ -557,13 +581,14 @@ then edited.
 
 ## 14. Conformance suite
 
-Layout:
+Layout (the full format, every op's input and expected output, and the runner contract are in
+`spec/chronology/conformance/README.md`):
 
 ```
 spec/chronology/conformance/
   README.md
-  calendars/<name>.json      # {definition, context}: context includes base unit and resolved anchors
-  cases/<area>/<name>.json   # {description, calendar, cases: [...]}
+  calendars/<name>.json      # {description, definition, context}: context includes base unit and resolved anchors
+  cases/<area>/<name>.json   # {description, calendar, generated, verification, cases: [{id, op, input, expected, note?}]}
 ```
 
 Case kinds (`op`): `validate`, `to_fields`, `from_fields`, `unit_bounds`, `ordinal`,
@@ -579,7 +604,8 @@ Rules:
   Gregorian/Julian). Generated vectors (from the Python engine) are allowed for regression
   coverage but must be labeled `"generated": true` and reviewed.
 - Each engine has a runner (`pytest` parametrized and `vitest` `describe.each`) that loads every
-  file. CI runs both on every PR that touches `spec/chronology`, `backend/src/lore/chronology` or
+  file. Ops an engine doesn't implement yet are listed per runner with the implementing issue and
+  must fail as "not implemented" (strict expected failures), so no vector is silently skipped. CI runs both on every PR that touches `spec/chronology`, `backend/src/lore/chronology` or
   `packages/chronology`.
 - Property tests (hypothesis / fast-check) are in addition to the vectors: round-trip
   `from_fields(to_fields(t)) == unit start`, year-start monotonicity, `add`/`diff` consistency

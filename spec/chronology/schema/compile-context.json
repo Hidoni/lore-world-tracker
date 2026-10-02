@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Inputs to ``compile`` besides the definition (chronology-engine §4).",
+  "properties": {
+    "base_unit": {
+      "$ref": "#/$defs/BaseUnit"
+    },
+    "dimension_duration": {
+      "maxLength": 1000,
+      "pattern": "^[1-9][0-9]*$",
+      "type": "string"
+    },
+    "resolved": {
+      "default": {},
+      "description": "Resolved moments of every non-local time point, keyed by JSON pointer into the definition.",
+      "patternProperties": {
+        "^(/[^/]*)*$": {
+          "maxLength": 1000,
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "base_unit",
+    "dimension_duration"
+  ],
+  "title": "CompileContext",
+  "type": "object",
+  "$defs": {
+    "BaseUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "singular": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "plural": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "abbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "singular",
+        "plural",
+        "abbr"
+      ],
+      "title": "BaseUnit",
+      "type": "object"
+    }
+  }
+}

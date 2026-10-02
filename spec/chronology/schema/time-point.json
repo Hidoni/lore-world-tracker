@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An anchor plus precision and the circa flag (time-model §5.1).\n\nThe member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.",
+  "properties": {
+    "anchor": {
+      "$ref": "#/$defs/Anchor"
+    },
+    "precision": {
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "type": "string"
+    },
+    "approximate": {
+      "default": false,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "anchor",
+    "precision"
+  ],
+  "title": "TimePoint",
+  "type": "object",
+  "$defs": {
+    "AbsoluteAnchor": {
+      "additionalProperties": false,
+      "description": "A moment given directly.",
+      "properties": {
+        "kind": {
+          "const": "absolute",
+          "type": "string"
+        },
+        "t": {
+          "maxLength": 1000,
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "t"
+      ],
+      "title": "AbsoluteAnchor",
+      "type": "object"
+    },
+    "Anchor": {
+      "discriminator": {
+        "mapping": {
+          "absolute": "#/$defs/AbsoluteAnchor",
+          "calendar": "#/$defs/CalendarAnchor",
+          "relative": "#/$defs/RelativeAnchor"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AbsoluteAnchor"
+        },
+        {
+          "$ref": "#/$defs/CalendarAnchor"
+        },
+        {
+          "$ref": "#/$defs/RelativeAnchor"
+        }
+      ]
+    },
+    "BaseDuration": {
+      "additionalProperties": false,
+      "description": "An exact, signed number of base units.",
+      "properties": {
+        "kind": {
+          "const": "base",
+          "type": "string"
+        },
+        "units": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "units"
+      ],
+      "title": "BaseDuration",
+      "type": "object"
+    },
+    "CalendarAnchor": {
+      "additionalProperties": false,
+      "description": "A typed date in a calendar; resolves to the start of the unit at the precision.",
+      "properties": {
+        "kind": {
+          "const": "calendar",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "fields": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1001,
+              "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "era": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "regime": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "calendar_id",
+        "fields"
+      ],
+      "title": "CalendarAnchor",
+      "type": "object"
+    },
+    "CalendarDuration": {
+      "additionalProperties": false,
+      "description": "Amounts of calendar units, applied by calendar arithmetic (chronology-engine §9).",
+      "properties": {
+        "kind": {
+          "const": "calendar",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "amounts": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1000,
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "sign": {
+          "enum": [
+            1,
+            -1
+          ],
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "calendar_id",
+        "amounts",
+        "sign"
+      ],
+      "title": "CalendarDuration",
+      "type": "object"
+    },
+    "Duration": {
+      "discriminator": {
+        "mapping": {
+          "base": "#/$defs/BaseDuration",
+          "calendar": "#/$defs/CalendarDuration"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BaseDuration"
+        },
+        {
+          "$ref": "#/$defs/CalendarDuration"
+        }
+      ]
+    },
+    "RelativeAnchor": {
+      "additionalProperties": false,
+      "description": "A slot of another record plus an offset (which may be negative or zero).",
+      "properties": {
+        "kind": {
+          "const": "relative",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/SlotRef"
+        },
+        "offset": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "offset"
+      ],
+      "title": "RelativeAnchor",
+      "type": "object"
+    },
+    "SlotRef": {
+      "additionalProperties": false,
+      "description": "A referenceable time slot of a record (time-model §6).",
+      "properties": {
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "slot": {
+          "maxLength": 200,
+          "pattern": "^[a-z][a-z0-9_]*(:[A-Za-z0-9_.-]+)?$",
+          "type": "string"
+        },
+        "occurrence": {
+          "anyOf": [
+            {
+              "maxLength": 1001,
+              "pattern": "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "slot"
+      ],
+      "title": "SlotRef",
+      "type": "object"
+    }
+  }
+}
