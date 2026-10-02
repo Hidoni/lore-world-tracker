@@ -82,10 +82,11 @@ marked *calendar-free* (`calendar: null`).
 - expected: `{"errors": [{"code": "<code>", "path": "<JSON pointer>"}, …]}`, `[]` when valid.
 
 The errors are compared as a **set** of `(code, path)` pairs; order and messages are ignored.
-`path` points at the offending member. The definitions in vectors are valid against the JSON
-Schema (schema violations are covered by the schema unit tests). An engine reports the root cause
-of a problem and not the errors derived from it (e.g. no epoch error because the alignment
-fields are invalid).
+`path` points at the offending member. The input documents are raw JSON: schema violations are
+reported first (with the dedicated codes of chronology-engine §11 where one exists, otherwise
+`schema.invalid`), and semantic checks run only on schema-valid documents. An engine reports the
+root cause of a problem and not the errors derived from it (e.g. no epoch error because the
+alignment fields are invalid).
 
 ### `to_fields` (§5.6)
 

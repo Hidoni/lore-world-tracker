@@ -3,6 +3,20 @@
   "additionalProperties": false,
   "description": "Inputs to ``compile`` besides the definition (chronology-engine §4).",
   "properties": {
+    "calendar_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Id of the calendar being compiled (detects alignments anchored in the calendar itself)."
+    },
     "base_unit": {
       "$ref": "#/$defs/BaseUnit"
     },
