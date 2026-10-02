@@ -464,6 +464,10 @@ export interface Cycle {
   length: number
   names?: string[] | null
   abbrs?: string[] | null
+  /**
+   * Stable value ids (one per index) that recurrence rules use instead of names (§3.7).
+   */
+  ids?: string[] | null
   number_start?: number
   mode?: 'continuous' | ResetMode
   anchor?: CycleAnchor | null

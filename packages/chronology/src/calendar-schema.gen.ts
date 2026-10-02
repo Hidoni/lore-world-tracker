@@ -407,6 +407,22 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
           }
         ]
       },
+      "ids": {
+        "anyOf": [
+          {
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            "maxItems": 1000000,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "number_start": {
         "maximum": 1000000,
         "minimum": 0,

@@ -751,6 +751,378 @@
       "note": "a 3-day cycle needs 3 names"
     },
     {
+      "id": "cycle-ids-length-mismatch",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "triad",
+                  "level": "day",
+                  "length": 3,
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "1",
+                      "day": "1"
+                    },
+                    "index": 0
+                  },
+                  "ids": [
+                    "one",
+                    "two"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "cycle.names_length_mismatch",
+            "path": "/regimes/0/cycles/0/ids"
+          }
+        ]
+      },
+      "note": "a 3-day cycle needs 3 value ids"
+    },
+    {
+      "id": "cycle-duplicate-value-id",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "triad",
+                  "level": "day",
+                  "length": 3,
+                  "names": [
+                    "One",
+                    "Two",
+                    "Three"
+                  ],
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "1",
+                      "day": "1"
+                    },
+                    "index": 0
+                  },
+                  "ids": [
+                    "one",
+                    "two",
+                    "one"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "cycle.duplicate_value_id",
+            "path": "/regimes/0/cycles/0/ids/2"
+          }
+        ]
+      },
+      "note": "value ids are unique within a cycle; the later duplicate is reported"
+    },
+    {
+      "id": "cycle-bad-value-id",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "triad",
+                  "level": "day",
+                  "length": 3,
+                  "names": [
+                    "One",
+                    "Two",
+                    "Three"
+                  ],
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "1",
+                      "day": "1"
+                    },
+                    "index": 0
+                  },
+                  "ids": [
+                    "one",
+                    "Two",
+                    "three"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "schema.invalid",
+            "path": "/regimes/0/cycles/0/ids/1"
+          }
+        ]
+      },
+      "note": "value ids use the slot id syntax"
+    },
+    {
       "id": "era-start-not-increasing",
       "op": "validate",
       "input": {

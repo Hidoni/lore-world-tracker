@@ -217,6 +217,7 @@ carries the calendar's `calendar_id`).
 ```jsonc
 { "id": "week", "level": "day", "length": 7,
   "names": ["Moonday", "Twosday", …], "abbrs": ["Mo", …],   // optional; else numbers
+  "ids": ["moonday", "twosday", …],                          // optional stable value ids (recurrence rules)
   "number_start": 1,                                         // display number = index + number_start
   "mode": "continuous" | { "reset": "year" },                // reset level must be coarser than "level"
   "anchor": { "fields": { "year": "1", "month": "frostfall", "day": "1" }, "index": 0 },
@@ -242,6 +243,9 @@ Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `
   (R-CAL-4: exclusion from cycles is optional).
 - The value is `{index, name, n}`: `name` is `names[index]` (`null` without names), and
   `n = index + number_start`. An unknown cycle id is the error `unknown_cycle`.
+- `ids` (optional, slot id syntax, one per index, unique: `cycle.names_length_mismatch` /
+  `cycle.duplicate_value_id`) are stable names for the positions. Recurrence rules refer to cycle
+  values by id or by `n` (`recurrence.md` §2.2), so renaming `names` never breaks a rule.
 - The anchor unit of a continuous cycle must itself count (`cycle.anchor_invalid` otherwise).
 - `continue_from_previous_regime`: the first counted unit at or after the regime's start gets the
   index following the previous regime's last counted unit before the start. The previous regime
@@ -675,7 +679,8 @@ one):
 `anchor.unresolved` (a non-local time point without a resolved value in the context; absolute
 anchors need one too, so the engine takes every moment from the context),
 `template.unknown_cycle` (a `cycle_excluded` id that is not a cycle of the regime),
-`cycle.duplicate_id`, `regime.missing_start` / `era.missing_start` (an item after the first
+`cycle.duplicate_id`, `cycle.duplicate_value_id` (a repeated cycle value id, at the later
+one), `regime.missing_start` / `era.missing_start` (an item after the first
 without a start), `era.first_has_start`, `era.duplicate_id`, `overlay.duplicate_id`,
 `format.unknown_level` (a `formats` key that is not a level), `era.forward_without_start`,
 `era.backward_without_end`, `anchor.invalid_local` (a `local` anchor that is not a valid date of

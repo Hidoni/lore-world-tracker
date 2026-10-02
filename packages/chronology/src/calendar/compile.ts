@@ -657,7 +657,7 @@ class Compiler {
       if (level === undefined) {
         this.error('cycle.unknown_level', pointer(...path, 'level'), 'unknown level')
       }
-      for (const member of ['names', 'abbrs'] as const) {
+      for (const member of ['names', 'abbrs', 'ids'] as const) {
         const values = cycle[member]
         if (values != null && values.length !== cycle.length) {
           this.error(
@@ -667,6 +667,18 @@ class Compiler {
           )
         }
       }
+      const firstIndex = new Map<string, number>()
+      ;(cycle.ids ?? []).forEach((valueId, i) => {
+        if (firstIndex.has(valueId)) {
+          this.error(
+            'cycle.duplicate_value_id',
+            pointer(...path, 'ids', i),
+            `duplicate cycle value id ${valueId}`,
+          )
+        } else {
+          firstIndex.set(valueId, i)
+        }
+      })
       const mode = cycle.mode ?? 'continuous'
       if (mode !== 'continuous') {
         const reset = this.levelIndex.get(mode.reset)
