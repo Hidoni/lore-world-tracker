@@ -142,8 +142,12 @@ def test_next_occurrences_agree_with_expand(
         assert occurrence(recurrence, ctx, item.key) == item
     if len(upcoming) >= 2:
         window = expand(recurrence, ctx, (upcoming[0].start, upcoming[-1].start), 1000)
-        starts = {item.start for item in window.items}
-        assert {item.start for item in upcoming[:-1]} <= starts
+        if window.truncated:  # long occurrences (e.g. a month every base unit) overlap en masse
+            assert window.estimated_count is not None
+            assert window.estimated_count >= len(upcoming) - 1
+        else:
+            starts = {item.start for item in window.items}
+            assert {item.start for item in upcoming[:-1]} <= starts
 
 
 # --- examples ------------------------------------------------------------------------------------
