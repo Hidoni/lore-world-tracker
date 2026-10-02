@@ -95,10 +95,17 @@ const OPS = [
   'occurrence_number',
   'occurrence_at',
   'map',
+  'compose',
 ] as const
 type Op = (typeof OPS)[number]
 
-const CALENDAR_FREE_OPS: readonly Op[] = [...NUMBER_OPS, 'validate', 'preset_instantiate', 'map']
+const CALENDAR_FREE_OPS: readonly Op[] = [
+  ...NUMBER_OPS,
+  'validate',
+  'preset_instantiate',
+  'map',
+  'compose',
+]
 const RECURRENCE_OPS: readonly Op[] = [
   'expand',
   'series_bounds',
@@ -229,6 +236,7 @@ const PENDING: Partial<Record<Op, number>> = {
   occurrence_number: 26,
   occurrence_at: 26,
   map: 27,
+  compose: 27,
 }
 
 function readJson(file: string): unknown {

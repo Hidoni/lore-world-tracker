@@ -247,7 +247,16 @@ Errors also include `rule.too_complex_to_count` (§5.4) and `rule.too_many_posit
   }
   ```
 
-- expected: `{"t": "<moment>"}`, or `{"t": null}` when there is no corresponding moment
+- expected: `{"t": "<moment>"}`, or `{"t": null}` when there is no corresponding moment, or the
+  validation error of an invalid correspondence (`{"error": "correspondence.non_monotonic"}`,
+  `correspondence.bad_rate`, `correspondence.missing_rate`; the first one found)
+
+### `compose` (time-model §12.3), calendar-free
+
+- input: `{"path": [{"correspondence": …, "direction": "ab" | "ba", "target_duration": "<moment>"}, …],
+  "t": "<moment>"}` (each step as in `map`)
+- expected: `{"t": "<moment>"}` after flooring at every step, or `{"t": null}` as soon as a step
+  has no corresponding moment
 
 ### Numeric utilities (chronology-engine §2), calendar-free
 

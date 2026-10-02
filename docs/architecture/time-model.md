@@ -589,12 +589,30 @@ map_ab(a) = b_i + floor((a − a_i) × (b_{i+1} − b_i) / (a_{i+1} − a_i))
 ```
 
 `map_ba` is the same formula with roles swapped. Base units may differ between dimensions; the
-slopes absorb the conversion. Round trips may be off by less than one unit of the coarser
-side. Results outside the target dimension's `[0, D]` mean "no corresponding moment".
+slopes absorb the conversion. Results outside the target dimension's `[0, D]` mean "no
+corresponding moment".
+
+Details (Python: `lore.chronology.correspondence`; vectors in `cases/correspondences/`):
+
+- Sync points are sorted by `a`; they must then increase strictly in both coordinates
+  (`correspondence.non_monotonic` at the offending point). Rates are slopes in B units per A unit
+  and must be positive (`correspondence.bad_rate`). With `extrapolation: rate`, a missing rate is
+  the slope of the adjacent segment, and a single sync point needs both rates
+  (`correspondence.missing_rate`). Every error is reported.
+- The mapping is defined on `[a_first, a_last]` (inclusive; a single point maps only itself
+  without extrapolation). Outside, `rate` extrapolation uses `b_first + floor((a − a_first) ×
+  rate_before)` and `b_last + floor((a − a_last) × rate_after)`; `map_ba` uses the swapped points
+  and the inverse rates (`1/rate`).
+- Every result is floored, so both directions are monotonic non-decreasing. A round trip
+  `a → b → a′` gives `a′ ≤ a` and `a − a′ < 1 + 1/s` A units, `s` being the slope where `a` maps:
+  it is off by less than one unit of the other side plus one unit of this side (slope 5/2:
+  `1 → 2 → 0`). Composed paths add the errors of their steps.
 
 ### 12.3 Composition and consistency
 
-Dimensions and correspondences form a graph. `map(A → C)` composes along the shortest path. If two
+Dimensions and correspondences form a graph. `map(A → C)` composes along the shortest path
+(`compose(path, t)`: each step maps with its own direction and target `D` and floors; any undefined
+step makes the result undefined). Choosing the path is the server's job. If two
 distinct paths between the same dimensions disagree at any sync point by more than rounding, rule
 `core.correspondence.inconsistent_paths` warns. Correspondences apply to **all timelines** of both
 dimensions (they describe how time flows, not history).
