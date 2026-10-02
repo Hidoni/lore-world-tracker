@@ -523,6 +523,8 @@ class BaseUnit(_Model):
 class CompileContext(_Model):
     """Inputs to ``compile`` besides the definition (chronology-engine §4)."""
 
+    calendar_id: RecordId | None = None
+    """Id of the calendar being compiled (detects alignments anchored in the calendar itself)."""
     base_unit: BaseUnit
     dimension_duration: PositiveIntStr
     resolved: dict[Annotated[str, StringConstraints(pattern=r"^(/[^/]*)*$")], MomentStr] = {}

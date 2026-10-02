@@ -536,6 +536,10 @@ export interface DisplayOptions {
  * Inputs to ``compile`` besides the definition (chronology-engine §4).
  */
 export interface CompileContext {
+  /**
+   * Id of the calendar being compiled (detects alignments anchored in the calendar itself).
+   */
+  calendar_id?: string | null
   base_unit: BaseUnit
   dimension_duration: string
   /**

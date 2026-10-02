@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from lore.chronology import numbers
+from lore.chronology.calendar import CompiledCalendar, validate_calendar
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
@@ -88,6 +89,12 @@ def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     return {"text": numbers.format_integer(int(d["n"]), **options)}
 
 
+def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    result = validate_calendar(d["definition"], d["context"])
+    errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
+    return {"errors": errors}
+
+
 # Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
 HANDLERS: dict[str, Handler] = {
     "parse_moment": lambda _, d: {"value": str(numbers.parse_moment(d["text"]))},
@@ -112,11 +119,11 @@ HANDLERS: dict[str, Handler] = {
     "rational_floor": lambda _, d: {"value": str(numbers.rational_floor(_rational(d["a"])))},
     "rational_frac": lambda _, d: numbers.format_rational(numbers.rational_frac(_rational(d["a"]))),
     "format_integer": _format_integer,
+    "validate": _validate,
 }
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "validate": 10,
     "to_fields": 11,
     "from_fields": 11,
     "unit_bounds": 12,
@@ -214,7 +221,14 @@ def test_vector(case: Case) -> None:
         result = handler(calendar, case.input)
     except numbers.NumberError as error:
         result = {"error": error.code}
-    assert result == case.expected
+    assert _normalized(case.op, result) == _normalized(case.op, case.expected)
+
+
+def _normalized(op: str, value: Any) -> Any:
+    """``validate`` errors compare as a set of (code, path) pairs (README)."""
+    if op == "validate" and isinstance(value, dict) and isinstance(value.get("errors"), list):
+        return {"errors": sorted(value["errors"], key=lambda e: (e["path"], e["code"]))}
+    return value
 
 
 # --- suite integrity (always executed) -----------------------------------------------------------
@@ -269,10 +283,3 @@ def test_case_file_shape(file: str) -> None:
                 "occurrence",
                 "count_in_window",
             }
-
-
-def test_validate_vectors_use_schema_valid_definitions() -> None:
-    for case in CASES:
-        if case.op == "validate":
-            CalendarDefinition.model_validate(case.input["definition"])
-            CompileContext.model_validate(case.input["context"])

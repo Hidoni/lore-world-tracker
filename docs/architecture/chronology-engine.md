@@ -207,7 +207,8 @@ denoted by `fields` (astronomical year, no era) happens at the moment `at`. For 
 "1 Frostfall 1 AF 00:00 is the moment of event X's start" or "is `t = 435…`". From it the
 engine derives the regime's **epoch** `E` (the moment year 0 starts). `E` may be negative or larger
 than `D`. `at` may be absolute, a relative anchor, or a calendar anchor in **another** calendar.
-It may not be a calendar anchor in this calendar (circular).
+It may not be a calendar anchor in this calendar (circular; detected when the compile context
+carries the calendar's `calendar_id`).
 
 ### 3.7 Parallel cycles
 
@@ -341,7 +342,15 @@ Steps:
 6. Validate cross-regime and era ordering. Derive the `continue_from_previous_regime` cycle anchors.
 
 Costs: `O(Σ template sizes + P)` time and memory. Compiled calendars are immutable and cacheable,
-keyed by (definition hash, resolved-anchor hash).
+keyed by (definition hash, context hash): SHA-256 of the canonical JSON of the definition and of
+the whole compile context (resolved anchors, base unit, `D`). Python computes the per-period
+template sequence of a `rules` pattern bit-parallel (one byte per year in a big integer), so a
+period of 1,000,000 years compiles in well under a second (`perf` test).
+
+Unit counts: for every template and every level below it, the compiled template records the
+total and the **regular** number of descendant units at that level. A unit is regular unless it
+is itself intercalary; the children of an intercalary unit are regular at their own level (the
+single day of an intercalary "Midyear" month is a regular day).
 
 ## 5. Moment ⇄ fields (single regime)
 
@@ -530,8 +539,10 @@ few `add` probes. Used for ages ("34 years, 2 months") and "N years ago".
 
 ## 11. Validation errors
 
-`compile` returns all errors at once as `{code, path, message}`, where `path` is a JSON pointer.
-Codes (non-exhaustive, stable identifiers):
+`compile` returns all errors at once as `{code, path, message}`, where `path` is a JSON pointer
+(Python: `lore.chronology.calendar.compile_calendar` for models, `validate_calendar` for raw JSON
+documents). Codes (stable identifiers; the conformance vectors in `cases/validate/` cover every
+one):
 
 `level.duplicate_id`, `level.invalid_id`, `level.too_many`, `template.unknown_level`,
 `template.child_level_mismatch`, `template.unknown_template`, `template.zero_length`,
@@ -543,7 +554,36 @@ Codes (non-exhaustive, stable identifiers):
 `era.local_anchor_uses_era`, `regime.first_has_start`, `regime.start_not_increasing`,
 `regime.duplicate_id`, `overlay.bad_period`, `overlay.phases_unsorted`, `format.unknown_token`,
 `anchor.unresolved` (a non-local time point without a resolved value in the context; absolute
-anchors need one too, so the engine takes every moment from the context).
+anchors need one too, so the engine takes every moment from the context),
+`template.unknown_cycle` (a `cycle_excluded` id that is not a cycle of the regime),
+`cycle.duplicate_id`, `regime.missing_start` / `era.missing_start` (an item after the first
+without a start), `era.first_has_start`, `era.duplicate_id`, `overlay.duplicate_id`,
+`format.unknown_level` (a `formats` key that is not a level), `schema.invalid` (any other JSON
+Schema violation, at the offending member).
+
+Rules behind the codes, where §3 leaves room:
+
+- **Schema violations with dedicated codes:** more than 20 levels (`level.too_many`), a level id
+  not matching its pattern (`level.invalid_id`), a count of `"0"` (`template.zero_length`), more
+  than 500 templates, more than 10,000 children or a count over 1000 digits
+  (`template.too_large`), `intercalary` on a run (`template.intercalary_without_id`), and `era`
+  on a local anchor (`era.local_anchor_uses_era`).
+- **Template references:** a child template comes from the child's `template`, else the child
+  level's `default_template` (`template.unknown_template` at the run/uniform member when neither
+  names an existing template). It must be a template of the level directly below
+  (`template.child_level_mismatch`).
+- **Fields** (alignment, cycle anchors) go from the top level down without gaps, the year is a
+  number, and each value is a slot id or a regular number of the template actually used by its
+  parent. A cycle anchor's fields stop exactly at the cycle's level. A continuous cycle needs
+  `anchor.fields` unless `continue_from_previous_regime` (invalid in regime 0); `anchor.index`
+  must be `< length`; a reset level must be coarser than the cycle's level.
+- **Ordering:** regime and era starts must increase strictly among the starts that are not
+  `local`; `local` starts are checked when they are resolved (#14). Overlay phases start at 0,
+  increase strictly and stay below 1.
+- **Format tokens:** the §3.11 table. `:pad2`/`:pad3`/`:ordinal` apply to number tokens
+  (`{<level>}`, `{year}`, `{era_year}`, `{base}`), not to `.name`/`.abbr`/`.id`. Cycle and overlay
+  tokens must name an existing cycle (of any regime) or overlay. Unbalanced braces are
+  `format.unknown_token`.
 
 Errors report the root cause only: an engine does not add errors derived from an already invalid
 part (e.g. no epoch error when the alignment fields are invalid). Structural (JSON Schema)
