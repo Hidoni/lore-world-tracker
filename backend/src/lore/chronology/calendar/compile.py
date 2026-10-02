@@ -16,7 +16,7 @@ from bisect import bisect_left
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from itertools import accumulate
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -62,11 +62,15 @@ __all__ = ["ValidationError", "compile_calendar", "validate_calendar"]
 
 @dataclass(frozen=True, slots=True)
 class ValidationError:
-    """One definition error: a stable ``code`` (§11) and a JSON pointer ``path``."""
+    """One definition error: a stable ``code`` (§11) and a JSON pointer ``path``.
+
+    Recurrence rules (``recurrence.md`` §9) also report warnings, which don't make a rule invalid.
+    """
 
     code: str
     path: str
     message: str
+    severity: Literal["error", "warning"] = "error"
 
     def as_json(self) -> dict[str, str]:
         return {"code": self.code, "path": self.path}

@@ -1,0 +1,118 @@
+{
+  "description": "A yearly series that crosses the 1582 reform: periods are counted in the regime in force at the series start, extended proleptically (recurrence.md §2.1, product decision 2026-10-02).",
+  "calendar": "julian-gregorian",
+  "generated": false,
+  "verification": "Julian and Gregorian JDN algorithms (2000-01-01 Gregorian = t 10^14).",
+  "cases": [
+    {
+      "id": "before-reform",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "99986777984800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "1"
+      },
+      "expected": {
+        "key": "1",
+        "start": "99986809520800",
+        "end": "99986809524400"
+      }
+    },
+    {
+      "id": "after-reform",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "99986777984800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "2"
+      },
+      "expected": {
+        "key": "2",
+        "start": "99986841056800",
+        "end": "99986841060400"
+      },
+      "note": "Julian 25 December 1582 = Gregorian 4 January 1583"
+    },
+    {
+      "id": "window-after-reform",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "99986777984800",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "99987377219200",
+          "99987440377600"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "19",
+            "start": "99987377514400",
+            "end": "99987377518000"
+          },
+          {
+            "key": "20",
+            "start": "99987409136800",
+            "end": "99987409140400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "Julian 25 December 1599 and 1600 fall on Gregorian 4 January 1600 and 1601"
+    }
+  ]
+}

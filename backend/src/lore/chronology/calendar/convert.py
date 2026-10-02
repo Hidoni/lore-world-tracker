@@ -200,7 +200,7 @@ def _unit_length(
     levels = calendar.levels
     template = regime.year_template(int(fields[levels[-1]]))
     for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
-        child = _child(
+        child = resolve_child(
             calendar, regime, template, level, fields[levels[level]], overflow="constrain"
         )
         assert child.template is not None
@@ -241,14 +241,16 @@ def _resolve(
     t = regime.epoch + regime.rel_start(year)
     template = regime.year_template(year)
     for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
-        child = _child(calendar, regime, template, level, fields[levels[level]], overflow=overflow)
+        child = resolve_child(
+            calendar, regime, template, level, fields[levels[level]], overflow=overflow
+        )
         t += child.offset
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
     return t
 
 
-def _child(
+def resolve_child(
     calendar: CompiledCalendar,
     regime: CompiledRegime,
     template: CompiledTemplate,
@@ -257,6 +259,9 @@ def _child(
     *,
     overflow: Overflow,
 ) -> Child:
+    """The child of ``template`` (a ``level + 1`` unit) addressed by ``value``: a regular number
+    or a slot id, constrained per §5.7 step 4 when ``overflow`` allows. Raises ``invalid_date``.
+    """
     level_id = calendar.levels[level]
     numbering = calendar.numbering_starts[level]
     if is_number(value):
@@ -308,7 +313,9 @@ def normalize_fields(
     template = chosen.year_template(year)
     normalized = {levels[-1]: str(year)}
     for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
-        child = _child(calendar, chosen, template, level, fields[levels[level]], overflow="reject")
+        child = resolve_child(
+            calendar, chosen, template, level, fields[levels[level]], overflow="reject"
+        )
         slot, regular = child.segment.slot_id, child.regular_index
         if slot is not None:
             normalized[levels[level]] = slot

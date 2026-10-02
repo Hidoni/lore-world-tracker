@@ -1,0 +1,94 @@
+{
+  "description": "Yearly rules whose start's month exists only in odd years: skip keeps odd years, constrain falls back by number (Thawing 31 becomes Ash 30).",
+  "calendar": "alternating-years",
+  "generated": false,
+  "verification": "Hand layout: year 1 starts at t = 435 × 10^15; odd years 91 days (Frostfall 30, Thawing 31, Bloom 30), even years 92 (Ember 31, Ash 30, Cinder 31).",
+  "cases": [
+    {
+      "id": "skip",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "435000000005184000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "435000000007862400",
+          "435000000039484800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "435000000020995200",
+            "end": "435000000020995200"
+          },
+          {
+            "key": "4",
+            "start": "435000000036806400",
+            "end": "435000000036806400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "constrain",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "435000000005184000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "435000000007862400",
+          "435000000023673600"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "435000000013046400",
+            "end": "435000000013046400"
+          },
+          {
+            "key": "2",
+            "start": "435000000020995200",
+            "end": "435000000020995200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "Thawing is month 2: Ash (month 2 of even years) has 30 days"
+    }
+  ]
+}

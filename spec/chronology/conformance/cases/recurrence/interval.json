@@ -1,0 +1,465 @@
+{
+  "description": "Fixed-interval rules (a comet every 2,397,422,120 s): keys, far windows, truncation with an exact count, until limits (inclusive) and the end of time D.",
+  "calendar": null,
+  "generated": false,
+  "verification": "Plain integer arithmetic: occurrence k starts at 1000 + k × 2,397,422,120 and lasts 10 days (864,000 s) unless instant; D = 10^30.",
+  "cases": [
+    {
+      "id": "key-0",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "0"
+      },
+      "expected": {
+        "key": "0",
+        "start": "1000",
+        "end": "865000"
+      }
+    },
+    {
+      "id": "key-3",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "3"
+      },
+      "expected": {
+        "key": "3",
+        "start": "7192267360",
+        "end": "7193131360"
+      }
+    },
+    {
+      "id": "key-negative",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "-1"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "key-past-d",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "417114696514104074422"
+      },
+      "expected": {
+        "error": "not_found"
+      },
+      "note": "no occurrence starts after D"
+    },
+    {
+      "id": "key-last-before-d",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "key": "417114696514104074421"
+      },
+      "expected": {
+        "key": "417114696514104074421",
+        "start": "999999999999999999999031593520",
+        "end": "999999999999999999999032457520"
+      },
+      "note": "ends may pass D; callers enforce bounds"
+    },
+    {
+      "id": "far-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "10000000000000000000000000",
+          "10000000000000009589688480"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "4171146965141041",
+            "start": "10000000000000000613227920",
+            "end": "10000000000000000614091920"
+          },
+          {
+            "key": "4171146965141042",
+            "start": "10000000000000003010650040",
+            "end": "10000000000000003011514040"
+          },
+          {
+            "key": "4171146965141043",
+            "start": "10000000000000005408072160",
+            "end": "10000000000000005408936160"
+          },
+          {
+            "key": "4171146965141044",
+            "start": "10000000000000007805494280",
+            "end": "10000000000000007806358280"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "the first item starts before the window"
+    },
+    {
+      "id": "truncated-exact",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "0",
+          "100000000000000000000000000000"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [],
+        "truncated": true,
+        "estimated_count": "41711469651410407443"
+      },
+      "note": "interval rules count exactly"
+    },
+    {
+      "id": "instant-on-window-start",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "2397423120",
+          "2397423121"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "2397423120",
+            "end": "2397423120"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "instant-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "2397423125",
+          "2397423125"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "2397423120",
+            "end": "2398287120"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "an instant window inside an occurrence"
+    },
+    {
+      "id": "never",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {},
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      }
+    },
+    {
+      "id": "until-inclusive",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/limit/until": "11987111600"
+        },
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "11987111600",
+        "last_end": "11987975600",
+        "count": "6"
+      }
+    },
+    {
+      "id": "until-between",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "864000"
+          }
+        },
+        "resolved": {
+          "/limit/until": "11987111607"
+        },
+        "dimension_duration": "1000000000000000000000000000000"
+      },
+      "expected": {
+        "first_start": "1000",
+        "last_start": "11987111600",
+        "last_end": "11987975600",
+        "count": "6"
+      }
+    },
+    {
+      "id": "until-cuts-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "interval",
+          "every": "2397422120",
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          }
+        },
+        "series_start": "1000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "11987111607"
+        },
+        "dimension_duration": "1000000000000000000000000000000",
+        "window": [
+          "9589689480",
+          "19179377960"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "4",
+            "start": "9589689480",
+            "end": "9589689480"
+          },
+          {
+            "key": "5",
+            "start": "11987111600",
+            "end": "11987111600"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    }
+  ]
+}

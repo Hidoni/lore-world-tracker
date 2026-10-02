@@ -564,7 +564,9 @@ Details (Python: `lore.chronology.calendar.units`):
 - Unit bounds and ordinals across a regime boundary: units are clipped at regime boundaries for
   bounds, and ordinals are computed in the regime active at `t` (they are not continuous across
   regimes unless the definitions make them so).
-- Ticks and recurrence expansion process each regime's validity interval separately.
+- Ticks process each regime's validity interval separately. Calendar arithmetic (§9.2) and
+  recurrence periods (`recurrence.md` §2.1) are reckoned in the regime in force at their starting
+  moment, extended proleptically (product decision, 2026-10-02).
 
 ## 8. Cycles, eras and overlays at runtime
 

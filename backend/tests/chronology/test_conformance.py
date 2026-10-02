@@ -24,7 +24,20 @@ from lore.chronology.calendar.convert import from_fields, options, options_json,
 from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.eras import era_of
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
-from lore.chronology.schema import CalendarDefinition, CompileContext, Duration
+from lore.chronology.recurrence import (
+    RecurrenceContext,
+    RecurrenceError,
+    expand,
+    occurrence,
+    series_bounds,
+)
+from lore.chronology.schema import (
+    CalendarDefinition,
+    CompileContext,
+    Duration,
+    EndSpec,
+    RecurrenceRule,
+)
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
 
@@ -147,6 +160,41 @@ def _diff(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return found.as_json()
 
 
+_RULE: TypeAdapter[RecurrenceRule] = TypeAdapter(RecurrenceRule)
+_END: TypeAdapter[EndSpec] = TypeAdapter(EndSpec)
+
+
+def _recurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> tuple[Any, RecurrenceContext]:
+    """The rule and context of a recurrence case (README "Recurrence ops")."""
+    if calendar is not None:
+        duration = int(calendar["context"]["dimension_duration"])
+        compiled = _compiled(calendar)
+    else:
+        duration, compiled = int(d["dimension_duration"]), None
+    context = RecurrenceContext(
+        series_start=int(d["series_start"]),
+        end=_END.validate_python(d["end"]),
+        dimension_duration=duration,
+        calendar=compiled,
+        resolved={key: int(value) for key, value in d["resolved"].items()},
+    )
+    return _RULE.validate_python(d["rule"]), context
+
+
+def _expand(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    rule, context = _recurrence(calendar, d)
+    window = (int(d["window"][0]), int(d["window"][1]))
+    return expand(rule, context, window, d["max_items"]).as_json()
+
+
+def _series_bounds(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    return series_bounds(*_recurrence(calendar, d)).as_json()
+
+
+def _occurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    return occurrence(*_recurrence(calendar, d), d["key"]).as_json()
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -186,6 +234,9 @@ HANDLERS: dict[str, Handler] = {
     "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "add": _add,
+    "expand": _expand,
+    "series_bounds": _series_bounds,
+    "occurrence": _occurrence,
     "diff": _diff,
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
@@ -198,9 +249,6 @@ PENDING: dict[str, int] = {
     "format": 17,
     "format_span": 17,
     "preset_instantiate": 18,
-    "expand": 19,
-    "series_bounds": 19,
-    "occurrence": 19,
     "count_in_window": 21,
     "map": 22,
 }
@@ -279,7 +327,7 @@ def test_vector(case: Case) -> None:
     handler = HANDLERS.get(case.op, _not_implemented)
     try:
         result = handler(calendar, case.input)
-    except (numbers.NumberError, DateError) as error:
+    except (numbers.NumberError, DateError, RecurrenceError) as error:
         result = {"error": error.code}
     assert _normalized(case.op, result) == _normalized(case.op, case.expected)
 
