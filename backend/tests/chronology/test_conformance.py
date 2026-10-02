@@ -17,6 +17,7 @@ import pytest
 
 from lore.chronology import numbers
 from lore.chronology.calendar import CompiledCalendar, validate_calendar
+from lore.chronology.calendar.convert import DateError, from_fields, to_fields
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
@@ -89,6 +90,24 @@ def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     return {"text": numbers.format_integer(int(d["n"]), **options)}
 
 
+_COMPILED: dict[int, CompiledCalendar] = {}
+
+
+def _compiled(calendar: CalendarFile | None) -> CompiledCalendar:
+    assert calendar is not None, "this op needs the case file's calendar"
+    key = id(calendar)
+    if key not in _COMPILED:
+        result = validate_calendar(calendar["definition"], calendar["context"])
+        assert isinstance(result, CompiledCalendar), result
+        _COMPILED[key] = result
+    return _COMPILED[key]
+
+
+def _from_fields(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    options = {key: d[key] for key in ("regime", "overflow") if key in d}
+    return {"t": str(from_fields(_compiled(calendar), d["fields"], d["precision"], **options))}
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -120,12 +139,12 @@ HANDLERS: dict[str, Handler] = {
     "rational_frac": lambda _, d: numbers.format_rational(numbers.rational_frac(_rational(d["a"]))),
     "format_integer": _format_integer,
     "validate": _validate,
+    "to_fields": lambda c, d: to_fields(_compiled(c), int(d["t"])).as_json(),
+    "from_fields": _from_fields,
 }
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "to_fields": 11,
-    "from_fields": 11,
     "unit_bounds": 12,
     "ordinal": 12,
     "from_ordinal": 12,
@@ -219,7 +238,7 @@ def test_vector(case: Case) -> None:
     handler = HANDLERS.get(case.op, _not_implemented)
     try:
         result = handler(calendar, case.input)
-    except numbers.NumberError as error:
+    except (numbers.NumberError, DateError) as error:
         result = {"error": error.code}
     assert _normalized(case.op, result) == _normalized(case.op, case.expected)
 

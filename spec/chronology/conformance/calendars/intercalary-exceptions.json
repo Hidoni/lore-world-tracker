@@ -1,0 +1,205 @@
+{
+  "description": "A small calendar exercising what the others don't: intercalary slots (Yule, Lithe Days) addressed by id, a run of unnamed months, default templates, exception years (short years -3 and 5, a leap year 8 made common), and a base unit (hour) finer than level 0 (day = 24 hours). Common years have 362 days, leap years (Y mod 4 = 0) 363, short years 120. 1 Deepwinter 1 is aligned with t = 1,000,000 over D = 10^400 hours.",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "numbering_start": 1,
+        "default_template": "m30"
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "default_template": "year_common"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "shire",
+        "name": "Reckoning",
+        "templates": {
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m29": {
+            "level": "month",
+            "uniform": {
+              "count": "29"
+            }
+          },
+          "d1": {
+            "level": "month",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "d2": {
+            "level": "month",
+            "uniform": {
+              "count": "2"
+            }
+          },
+          "d3": {
+            "level": "month",
+            "uniform": {
+              "count": "3"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "deepwinter",
+                "template": "m30",
+                "name": "Deepwinter"
+              },
+              {
+                "id": "yule",
+                "template": "d1",
+                "name": "Yule",
+                "intercalary": true
+              },
+              {
+                "run": {
+                  "count": "10"
+                }
+              },
+              {
+                "id": "lithe",
+                "template": "d2",
+                "name": "Lithe Days",
+                "intercalary": true
+              },
+              {
+                "id": "lastmonth",
+                "template": "m29",
+                "name": "Lastmonth"
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "deepwinter",
+                "template": "m30",
+                "name": "Deepwinter"
+              },
+              {
+                "id": "yule",
+                "template": "d1",
+                "name": "Yule",
+                "intercalary": true
+              },
+              {
+                "run": {
+                  "count": "10"
+                }
+              },
+              {
+                "id": "lithe",
+                "template": "d3",
+                "name": "Lithe Days",
+                "intercalary": true
+              },
+              {
+                "id": "lastmonth",
+                "template": "m29",
+                "name": "Lastmonth"
+              }
+            ]
+          },
+          "year_short": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "deepwinter",
+                "template": "m30",
+                "name": "Deepwinter"
+              },
+              {
+                "run": {
+                  "count": "3"
+                }
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "rules",
+            "default": "year_common",
+            "rules": [
+              {
+                "when": {
+                  "mod": "4",
+                  "eq": "0"
+                },
+                "template": "year_leap"
+              }
+            ]
+          },
+          "exceptions": [
+            {
+              "year": "-3",
+              "template": "year_short"
+            },
+            {
+              "year": "5",
+              "template": "year_short"
+            },
+            {
+              "year": "8",
+              "template": "year_common"
+            }
+          ]
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "deepwinter",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "1000000"
+            },
+            "precision": "base"
+          }
+        }
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "hour",
+      "plural": "hours",
+      "abbr": "h"
+    },
+    "dimension_duration": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "1000000"
+    }
+  }
+}
