@@ -1,0 +1,416 @@
+{
+  "description": "Eras starting mid-year (Japanese style): era_of, era years in to_fields and from_fields.",
+  "calendar": "japanese-eras",
+  "generated": false,
+  "verification": "Hand-written: era boundaries 25 Dec 1926, 8 Jan 1989 and 1 May 2019; forward era year = Y - Y(start) + 1; the backward era before Shōwa counts down to 1927 (the first year starting after its end).",
+  "cases": [
+    {
+      "id": "era-of-showa-start",
+      "op": "era_of",
+      "input": {
+        "t": "99997695755200"
+      },
+      "expected": {
+        "id": "showa",
+        "year": "1",
+        "abbr": "S",
+        "name": "Shōwa"
+      },
+      "note": "Shōwa 1 starts on 25 December 1926"
+    },
+    {
+      "id": "era-of-before-showa",
+      "op": "era_of",
+      "input": {
+        "t": "99997695668800"
+      },
+      "expected": {
+        "id": "before",
+        "year": "1",
+        "abbr": "BS",
+        "name": "Before Showa"
+      },
+      "note": "the day before is year 1 of the backward era"
+    },
+    {
+      "id": "era-of-before-2",
+      "op": "era_of",
+      "input": {
+        "t": "99997646334400"
+      },
+      "expected": {
+        "id": "before",
+        "year": "2",
+        "abbr": "BS",
+        "name": "Before Showa"
+      }
+    },
+    {
+      "id": "era-of-showa-64-last-day",
+      "op": "era_of",
+      "input": {
+        "t": "99999653492800"
+      },
+      "expected": {
+        "id": "showa",
+        "year": "64",
+        "abbr": "S",
+        "name": "Shōwa"
+      },
+      "note": "the last day of Shōwa: year 64"
+    },
+    {
+      "id": "era-of-heisei-1",
+      "op": "era_of",
+      "input": {
+        "t": "99999653579200"
+      },
+      "expected": {
+        "id": "heisei",
+        "year": "1",
+        "abbr": "H",
+        "name": "Heisei"
+      },
+      "note": "Heisei 1 starts mid-January"
+    },
+    {
+      "id": "era-of-heisei-31-last-day",
+      "op": "era_of",
+      "input": {
+        "t": "100000609940800"
+      },
+      "expected": {
+        "id": "heisei",
+        "year": "31",
+        "abbr": "H",
+        "name": "Heisei"
+      }
+    },
+    {
+      "id": "era-of-reiwa-1",
+      "op": "era_of",
+      "input": {
+        "t": "100000610027200"
+      },
+      "expected": {
+        "id": "reiwa",
+        "year": "1",
+        "abbr": "R",
+        "name": "Reiwa"
+      },
+      "note": "Reiwa 1"
+    },
+    {
+      "id": "era-of-reiwa-6",
+      "op": "era_of",
+      "input": {
+        "t": "100000773150400"
+      },
+      "expected": {
+        "id": "reiwa",
+        "year": "6",
+        "abbr": "R",
+        "name": "Reiwa"
+      }
+    },
+    {
+      "id": "to-fields-showa-64",
+      "op": "to_fields",
+      "input": {
+        "t": "99999653535999"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1989"
+          },
+          "month": {
+            "n": "1",
+            "id": "jan",
+            "name": "January",
+            "intercalary": false
+          },
+          "day": {
+            "n": "7"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "showa",
+          "year": "64",
+          "abbr": "S",
+          "name": "Shōwa"
+        },
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "to_fields includes the era"
+    },
+    {
+      "id": "from-fields-showa-64-jan-7",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "64",
+          "month": "jan",
+          "day": "7"
+        },
+        "precision": "day",
+        "era": "showa"
+      },
+      "expected": {
+        "t": "99999653449600"
+      },
+      "note": "Shōwa 64 lasted 7 days"
+    },
+    {
+      "id": "from-fields-showa-64-jan-8",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "64",
+          "month": "jan",
+          "day": "8"
+        },
+        "precision": "day",
+        "era": "showa"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "8 January 1989 is Heisei 1"
+    },
+    {
+      "id": "from-fields-heisei-1-jan-8",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "jan",
+          "day": "8"
+        },
+        "precision": "day",
+        "era": "heisei"
+      },
+      "expected": {
+        "t": "99999653536000"
+      }
+    },
+    {
+      "id": "from-fields-heisei-1-jan-7",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "jan",
+          "day": "7"
+        },
+        "precision": "day",
+        "era": "heisei"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "7 January 1989 is still Shōwa"
+    },
+    {
+      "id": "from-fields-heisei-31-apr-30",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "31",
+          "month": "apr",
+          "day": "30"
+        },
+        "precision": "day",
+        "era": "heisei"
+      },
+      "expected": {
+        "t": "100000609897600"
+      }
+    },
+    {
+      "id": "from-fields-heisei-31-may-1",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "31",
+          "month": "may",
+          "day": "1"
+        },
+        "precision": "day",
+        "era": "heisei"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "from-fields-reiwa-1-may-1",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "may",
+          "day": "1"
+        },
+        "precision": "day",
+        "era": "reiwa"
+      },
+      "expected": {
+        "t": "100000609984000"
+      }
+    },
+    {
+      "id": "from-fields-reiwa-1-apr-30",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "apr",
+          "day": "30"
+        },
+        "precision": "day",
+        "era": "reiwa"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "from-fields-reiwa-1-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "year",
+        "era": "reiwa"
+      },
+      "expected": {
+        "t": "100000609984000"
+      },
+      "note": "the year 2019 straddles the start of Reiwa: it resolves to the era's start, 1 May 2019"
+    },
+    {
+      "id": "from-fields-heisei-1-january",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "jan"
+        },
+        "precision": "month",
+        "era": "heisei"
+      },
+      "expected": {
+        "t": "99999653536000"
+      },
+      "note": "January 1989 straddles the start of Heisei: 8 January 1989"
+    },
+    {
+      "id": "from-fields-showa-1-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "year",
+        "era": "showa"
+      },
+      "expected": {
+        "t": "99997695712000"
+      },
+      "note": "Shōwa 1 is only the last week of 1926"
+    },
+    {
+      "id": "from-fields-reiwa-1-may",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "may"
+        },
+        "precision": "month",
+        "era": "reiwa"
+      },
+      "expected": {
+        "t": "100000609984000"
+      },
+      "note": "a unit that starts with the era is unchanged"
+    },
+    {
+      "id": "from-fields-heisei-31-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "31"
+        },
+        "precision": "year",
+        "era": "heisei"
+      },
+      "expected": {
+        "t": "100000599616000"
+      },
+      "note": "the old era's last year starts normally (only the start is clamped)"
+    },
+    {
+      "id": "from-fields-before-1-dec-24",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "dec",
+          "day": "24"
+        },
+        "precision": "day",
+        "era": "before"
+      },
+      "expected": {
+        "t": "99997695625600"
+      }
+    },
+    {
+      "id": "from-fields-before-1-dec-25",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "dec",
+          "day": "25"
+        },
+        "precision": "day",
+        "era": "before"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "25 December 1926 is Shōwa 1"
+    },
+    {
+      "id": "from-fields-reiwa-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "0"
+        },
+        "precision": "year",
+        "era": "reiwa"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "era years before the era's first year fall outside it"
+    }
+  ]
+}

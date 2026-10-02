@@ -24,12 +24,16 @@ from lore.chronology.calendar import formats
 from lore.chronology.calendar.compiled import (
     CompiledCalendar,
     CompiledCycle,
+    CompiledEra,
     CompiledRegime,
     CompiledTemplate,
+    DateError,
     Segment,
+    active_regime,
     build_template,
     is_number,
 )
+from lore.chronology.calendar.convert import from_fields
 from lore.chronology.calendar.units import counted_position, cycle_filter
 from lore.chronology.schema import (
     AllPredicate,
@@ -112,20 +116,41 @@ class _Compiler:
         self.check_time_points()
         self.check_eras()
         self.check_overlays()
-        regimes: list[CompiledRegime | None] = []
-        for i, regime in enumerate(self.definition.regimes):
-            regimes.append(self.compile_regime(i, regime, regimes[-1] if regimes else None))
+        self.cycle_anchors: dict[int, dict[int, tuple[int, int]]] = {}
+        compiled = [
+            self.compile_regime(i, regime) for i, regime in enumerate(self.definition.regimes)
+        ]
         self.check_formats()
         if self.errors:
             return self.result()
+        regimes = [regime for regime in compiled if regime is not None]
+        # Local anchors need every regime's structure and epoch (§4 steps 5-6).
+        regimes = self.resolve_regime_starts(regimes)
+        if self.errors:
+            return self.result()
+        regimes = self.with_cycles(regimes)
+        eras = self.compile_eras(regimes)
+        overlay_epochs = self.resolve_overlay_epochs(regimes)
+        if self.errors:
+            return self.result()
+        return self.calendar(regimes, eras, overlay_epochs)
+
+    def calendar(
+        self,
+        regimes: Sequence[CompiledRegime],
+        eras: Sequence[CompiledEra] = (),
+        overlay_epochs: Sequence[int] = (),
+    ) -> CompiledCalendar:
         return CompiledCalendar(
             definition=self.definition,
             context=self.context,
             levels=self.levels,
             numbering_starts=self.numbering,
-            regimes=tuple(regime for regime in regimes if regime is not None),
+            regimes=tuple(regimes),
             definition_hash=_digest(self.definition.model_dump(mode="json")),
             context_hash=_digest(self.context.model_dump(mode="json")),
+            eras=tuple(eras),
+            overlay_epochs=tuple(overlay_epochs),
         )
 
     def result(self) -> list[ValidationError]:
@@ -152,7 +177,6 @@ class _Compiler:
     ) -> None:
         """Unique ids; item 0 starts at -∞ (``None``), later ones at strictly increasing moments."""
         seen: set[str] = set()
-        last: int | None = None
         plural = f"{kind}s"
         for i, (item_id, start) in enumerate(items):
             if item_id in seen:
@@ -169,13 +193,15 @@ class _Compiler:
                 self.error(
                     f"{kind}.missing_start", path, f"every {kind} after the first needs a start"
                 )
-                continue
-            if isinstance(start.anchor, LocalAnchor):
-                continue  # resolved with the compiled structure (#14)
-            value = self.resolved(path)
+
+    def check_increasing(self, kind: str, member: str, starts: Sequence[int | None]) -> None:
+        """Resolved starts (``None``: unknown, skipped) must increase strictly."""
+        last: int | None = None
+        for i, value in enumerate(starts):
             if value is None:
-                continue  # anchor.unresolved
+                continue
             if last is not None and value <= last:
+                path = pointer(f"{kind}s", i, member)
                 self.error(f"{kind}.start_not_increasing", path, f"{kind} starts must increase")
             last = value
 
@@ -184,7 +210,16 @@ class _Compiler:
         self._ordered_starts("regime", [(r.id, r.starts_at) for r in regimes], "starts_at")
 
     def check_eras(self) -> None:
-        self._ordered_starts("era", [(e.id, e.start) for e in self.definition.eras], "start")
+        eras = self.definition.eras
+        self._ordered_starts("era", [(e.id, e.start) for e in eras], "start")
+        for i, era in enumerate(eras):
+            path = pointer("eras", i, "numbering", "direction")
+            if era.numbering.direction == "forward" and i == 0:
+                self.error("era.forward_without_start", path, "a forward era counts from its start")
+            if era.numbering.direction == "backward" and i == len(eras) - 1:
+                self.error(
+                    "era.backward_without_end", path, "a backward era counts down to the next era"
+                )
 
     def check_overlays(self) -> None:
         seen: set[str] = set()
@@ -258,9 +293,7 @@ class _Compiler:
 
     # --- regimes ----------------------------------------------------------------------------
 
-    def compile_regime(
-        self, r: int, regime: Regime, previous: CompiledRegime | None
-    ) -> CompiledRegime | None:
+    def compile_regime(self, r: int, regime: Regime) -> CompiledRegime | None:
         before = len(self.errors)
         base = ("regimes", r)
         cycle_ids = self.check_cycles(r, regime)
@@ -275,7 +308,7 @@ class _Compiler:
             (*base, "alignment", "fields"),
             "alignment.invalid_fields",
         )
-        anchors = self.check_cycle_anchors(r, regime, compiled)
+        self.cycle_anchors[r] = self.check_cycle_anchors(r, regime, compiled)
         at = self.resolved(pointer(*base, "alignment", "at"))
         if offset is None or at is None or len(self.errors) > before:
             return None
@@ -284,11 +317,116 @@ class _Compiler:
         if regime.starts_at is not None and not isinstance(regime.starts_at.anchor, LocalAnchor):
             starts_at = self.resolved(pointer(*base, "starts_at"))
         epoch = at - compiled.rel_start(year) - within
-        compiled = replace(compiled, epoch=epoch, starts_at=starts_at)
-        cycles = self.build_cycles(r, regime, compiled, anchors, previous)
-        if len(self.errors) > before:
+        return replace(compiled, epoch=epoch, starts_at=starts_at)
+
+    # --- local anchors, cycles, eras, overlays (after every regime is compiled) -------------
+
+    def resolve_local(
+        self,
+        regimes: Sequence[CompiledRegime],
+        point: DefinitionTimePoint,
+        path: tuple[str | int, ...],
+        default_regime: str | None,
+    ) -> int | None:
+        """Resolve a ``local`` anchor: its fields as a date of this calendar (§3.10)."""
+        anchor = point.anchor
+        assert isinstance(anchor, LocalAnchor)
+        regime = anchor.regime if anchor.regime is not None else default_regime
+        if regime is not None and regime not in {r.id for r in regimes}:
+            self.error(
+                "anchor.invalid_local",
+                pointer(*path, "anchor", "regime"),
+                f"unknown regime {regime!r}",
+            )
             return None
-        return replace(compiled, cycles=cycles)
+        try:
+            return from_fields(
+                self.calendar(regimes), anchor.fields, point.precision, regime=regime
+            )
+        except DateError as error:
+            self.error("anchor.invalid_local", pointer(*path, "anchor", "fields"), str(error))
+            return None
+
+    def start_moment(
+        self,
+        regimes: Sequence[CompiledRegime],
+        point: DefinitionTimePoint | None,
+        path: tuple[str | int, ...],
+        default_regime: str | None = None,
+    ) -> int | None:
+        if point is None:
+            return None
+        if isinstance(point.anchor, LocalAnchor):
+            return self.resolve_local(regimes, point, path, default_regime)
+        return self.resolved(pointer(*path))
+
+    def resolve_regime_starts(self, regimes: list[CompiledRegime]) -> list[CompiledRegime]:
+        """Resolve regime starts in order; a ``local`` start without ``regime`` is a date of the
+        regime in force before it (the previous one)."""
+        definitions = self.definition.regimes
+        for j in range(1, len(regimes)):
+            point = definitions[j].starts_at
+            if point is not None and isinstance(point.anchor, LocalAnchor):
+                start = self.resolve_local(
+                    regimes, point, ("regimes", j, "starts_at"), regimes[j - 1].id
+                )
+                regimes[j] = replace(regimes[j], starts_at=start)
+        self.check_increasing("regime", "starts_at", [r.starts_at for r in regimes])
+        return regimes
+
+    def with_cycles(self, regimes: list[CompiledRegime]) -> list[CompiledRegime]:
+        result: list[CompiledRegime] = []
+        for r, regime in enumerate(regimes):
+            previous = result[-1] if result else None
+            cycles = self.build_cycles(
+                r, self.definition.regimes[r], regime, self.cycle_anchors[r], previous
+            )
+            result.append(replace(regime, cycles=cycles))
+        return result
+
+    def compile_eras(self, regimes: Sequence[CompiledRegime]) -> list[CompiledEra]:
+        """Resolve era starts and derive ``Y(start)`` and ``Y_end`` (§3.8)."""
+        eras = self.definition.eras
+        starts = [
+            self.start_moment(regimes, era.start, ("eras", i, "start"))
+            for i, era in enumerate(eras)
+        ]
+        self.check_increasing("era", "start", starts)
+        if self.errors:
+            return []
+        calendar = self.calendar(regimes)
+        result: list[CompiledEra] = []
+        for i, era in enumerate(eras):
+            start = starts[i]
+            end = starts[i + 1] if i + 1 < len(eras) else None
+            start_year = None if start is None else active_regime(calendar, start).year_of(start)
+            end_year = None
+            if end is not None:
+                regime = active_regime(calendar, end)
+                year = regime.year_of(end)
+                end_year = year if regime.year_start(year) == end else year + 1
+            result.append(
+                CompiledEra(
+                    id=era.id,
+                    name=era.name,
+                    abbr=era.abbr,
+                    abbr_position=era.abbr_position,
+                    backward=era.numbering.direction == "backward",
+                    first=int(era.numbering.first),
+                    start=start,
+                    end=end,
+                    start_year=start_year,
+                    end_year=end_year,
+                )
+            )
+        return result
+
+    def resolve_overlay_epochs(self, regimes: Sequence[CompiledRegime]) -> list[int]:
+        epochs = [
+            self.start_moment(regimes, overlay.epoch, ("overlays", o, "epoch"))
+            for o, overlay in enumerate(self.definition.overlays)
+        ]
+        return [epoch for epoch in epochs if epoch is not None]
 
     # --- templates --------------------------------------------------------------------------
 
@@ -758,16 +896,14 @@ class _Compiler:
             else:
                 reset = None
                 if cycle.continue_from_previous_regime:
-                    continued = self.continue_cycle(
-                        path,
+                    assert previous is not None  # regime 0 can't continue (check_cycles)
+                    anchor_index, anchor_ordinal = self.continue_cycle(
                         cycle_id=cycle.id,
                         length=cycle.length,
                         level=level,
                         compiled=compiled,
                         previous=previous,
                     )
-                    if continued is not None:
-                        anchor_index, anchor_ordinal = continued
                 else:
                     year, offset = anchors[c]
                     start = compiled.year_start(year) + offset
@@ -796,25 +932,22 @@ class _Compiler:
 
     def continue_cycle(
         self,
-        path: tuple[str | int, ...],
         *,
         cycle_id: str,
         length: int,
         level: int,
         compiled: CompiledRegime,
-        previous: CompiledRegime | None,
-    ) -> tuple[int, int] | None:
+        previous: CompiledRegime,
+    ) -> tuple[int, int]:
         """(anchor index, anchor ordinal) so the first counted unit of this regime follows the
-        previous regime's last one. ``None`` while this regime's start is ``local`` (#14).
+        previous regime's last one. Runs once every regime start is resolved.
         """
-        if previous is None:
-            return None  # the previous regime failed to compile: its errors are the root cause
         before_cycle = next(c for c in previous.cycles if c.id == cycle_id)  # check_cycles
         assert before_cycle.reset is None  # checked by check_cycles
         assert before_cycle.length == length
         start = compiled.starts_at
-        if start is None or before_cycle.anchor_ordinal is None:
-            return None
+        assert start is not None
+        assert before_cycle.anchor_ordinal is not None
         top = len(self.levels) - 1
         unit_filter = cycle_filter(cycle_id)
         last, counted, _ = counted_position(top, previous, start - 1, level, unit_filter)

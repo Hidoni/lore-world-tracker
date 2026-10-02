@@ -1,0 +1,392 @@
+{
+  "description": "The proleptic Gregorian calendar (seconds) with Japanese-style eras that start mid-year: Shōwa (25 Dec 1926), Heisei (8 Jan 1989), Reiwa (1 May 2019). The year an era starts is year 1 of the new era from that day, and the last year of the old era until then. Years before Shōwa count down (backward era).",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "gregorian",
+        "name": "Gregorian",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m28": {
+            "level": "month",
+            "uniform": {
+              "count": "28"
+            }
+          },
+          "m29": {
+            "level": "month",
+            "uniform": {
+              "count": "29"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m31": {
+            "level": "month",
+            "uniform": {
+              "count": "31"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m28",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m29",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "rules",
+            "default": "year_common",
+            "rules": [
+              {
+                "when": {
+                  "any": [
+                    {
+                      "all": [
+                        {
+                          "mod": "4",
+                          "eq": "0"
+                        },
+                        {
+                          "not": {
+                            "mod": "100",
+                            "eq": "0"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "mod": "400",
+                      "eq": "0"
+                    }
+                  ]
+                },
+                "template": "year_leap"
+              }
+            ]
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "2000",
+            "month": "jan",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "100000000000000"
+            },
+            "precision": "base"
+          }
+        }
+      }
+    ],
+    "eras": [
+      {
+        "id": "before",
+        "name": "Before Showa",
+        "abbr": "BS",
+        "numbering": {
+          "direction": "backward",
+          "first": "1"
+        }
+      },
+      {
+        "id": "showa",
+        "name": "Shōwa",
+        "abbr": "S",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1926",
+              "month": "dec",
+              "day": "25"
+            }
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        }
+      },
+      {
+        "id": "heisei",
+        "name": "Heisei",
+        "abbr": "H",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1989",
+              "month": "jan",
+              "day": "8"
+            }
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        }
+      },
+      {
+        "id": "reiwa",
+        "name": "Reiwa",
+        "abbr": "R",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "2019",
+              "month": "may",
+              "day": "1"
+            }
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        }
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "second",
+      "plural": "seconds",
+      "abbr": "s"
+    },
+    "dimension_duration": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "100000000000000"
+    }
+  }
+}

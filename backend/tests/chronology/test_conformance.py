@@ -20,6 +20,7 @@ from lore.chronology.calendar import CompiledCalendar, validate_calendar
 from lore.chronology.calendar.compiled import DateError
 from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
 from lore.chronology.calendar.cycles import cycle_value
+from lore.chronology.calendar.eras import era_of
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
@@ -107,7 +108,7 @@ def _compiled(calendar: CalendarFile | None) -> CompiledCalendar:
 
 
 def _from_fields(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    options = {key: d[key] for key in ("regime", "overflow") if key in d}
+    options = {key: d[key] for key in ("era", "regime", "overflow") if key in d}
     return {"t": str(from_fields(_compiled(calendar), d["fields"], d["precision"], **options))}
 
 
@@ -122,6 +123,11 @@ def _ordinal(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
 
 def _cycle_value(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     value = cycle_value(_compiled(calendar), int(d["t"]), d["cycle"])
+    return None if value is None else value.as_json()
+
+
+def _era_of(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    value = era_of(_compiled(calendar), int(d["t"]))
     return None if value is None else value.as_json()
 
 
@@ -161,6 +167,7 @@ HANDLERS: dict[str, Handler] = {
     "unit_bounds": lambda c, d: _bounds(unit_bounds(_compiled(c), int(d["t"]), d["level"])),
     "ordinal": _ordinal,
     "cycle_value": _cycle_value,
+    "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
@@ -169,7 +176,6 @@ HANDLERS: dict[str, Handler] = {
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "era_of": 14,
     "overlay_phase": 15,
     "add": 16,
     "diff": 16,

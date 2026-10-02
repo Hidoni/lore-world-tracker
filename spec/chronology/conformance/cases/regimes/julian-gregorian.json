@@ -1,0 +1,927 @@
+{
+  "description": "The 1582 Julian → Gregorian reform: regime choice, reform gaps, forced regimes, BC/AD eras and the week across the reform.",
+  "calendar": "julian-gregorian",
+  "generated": false,
+  "verification": "Julian Day Numbers from the standard Julian and Gregorian JDN algorithms (JDN 2440588 = 1970-01-01, JDN 2299160 = Julian 4 Oct 1582, JDN 2299161 = Gregorian 15 Oct 1582); weekday = JDN mod 7 (Monday = 0); BC year = 1 - Y. The reform facts in the notes are asserted by hand.",
+  "cases": [
+    {
+      "id": "to-fields-reform-eve-last-second",
+      "op": "to_fields",
+      "input": {
+        "t": "99986834022399"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "1582"
+          },
+          "month": {
+            "n": "10",
+            "id": "oct",
+            "name": "October",
+            "intercalary": false
+          },
+          "day": {
+            "n": "4"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1582",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 3,
+            "name": "Thursday",
+            "n": 4
+          }
+        },
+        "overlays": {}
+      },
+      "note": "Thursday 4 October 1582 (Julian), 23:59:59"
+    },
+    {
+      "id": "to-fields-reform-first-second",
+      "op": "to_fields",
+      "input": {
+        "t": "99986834022400"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1582"
+          },
+          "month": {
+            "n": "10",
+            "id": "oct",
+            "name": "October",
+            "intercalary": false
+          },
+          "day": {
+            "n": "15"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1582",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 4,
+            "name": "Friday",
+            "n": 5
+          }
+        },
+        "overlays": {}
+      },
+      "note": "Friday 15 October 1582 (Gregorian): 5-14 October never happened"
+    },
+    {
+      "id": "to-fields-hastings",
+      "op": "to_fields",
+      "input": {
+        "t": "99970551121600"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "1066"
+          },
+          "month": {
+            "n": "10",
+            "id": "oct",
+            "name": "October",
+            "intercalary": false
+          },
+          "day": {
+            "n": "14"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1066",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 5,
+            "name": "Saturday",
+            "n": 6
+          }
+        },
+        "overlays": {}
+      },
+      "note": "Battle of Hastings, Saturday 14 October 1066 (Julian)"
+    },
+    {
+      "id": "to-fields-julian-leap-day-1500",
+      "op": "to_fields",
+      "input": {
+        "t": "99984227420800"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "1500"
+          },
+          "month": {
+            "n": "2",
+            "id": "feb",
+            "name": "February",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1500",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 5,
+            "name": "Saturday",
+            "n": 6
+          }
+        },
+        "overlays": {}
+      },
+      "note": "1500 is a Julian leap year"
+    },
+    {
+      "id": "to-fields-ides-of-march",
+      "op": "to_fields",
+      "input": {
+        "t": "99935535318400"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "-43"
+          },
+          "month": {
+            "n": "3",
+            "id": "mar",
+            "name": "March",
+            "intercalary": false
+          },
+          "day": {
+            "n": "15"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "bc",
+          "year": "44",
+          "abbr": "BC",
+          "name": "Before Christ"
+        },
+        "cycles": {
+          "week": {
+            "index": 2,
+            "name": "Wednesday",
+            "n": 3
+          }
+        },
+        "overlays": {}
+      },
+      "note": "15 March 44 BC (astronomical year -43, Julian)"
+    },
+    {
+      "id": "to-fields-year-1",
+      "op": "to_fields",
+      "input": {
+        "t": "99936917545600"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "1",
+            "id": "jan",
+            "name": "January",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 5,
+            "name": "Saturday",
+            "n": 6
+          }
+        },
+        "overlays": {}
+      },
+      "note": "1 January AD 1 (Julian), the AD era start"
+    },
+    {
+      "id": "to-fields-year-0-end",
+      "op": "to_fields",
+      "input": {
+        "t": "99936917545599"
+      },
+      "expected": {
+        "regime": "julian",
+        "levels": {
+          "year": {
+            "n": "0"
+          },
+          "month": {
+            "n": "12",
+            "id": "dec",
+            "name": "December",
+            "intercalary": false
+          },
+          "day": {
+            "n": "31"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "bc",
+          "year": "1",
+          "abbr": "BC",
+          "name": "Before Christ"
+        },
+        "cycles": {
+          "week": {
+            "index": 4,
+            "name": "Friday",
+            "n": 5
+          }
+        },
+        "overlays": {}
+      },
+      "note": "the last second of 1 BC (year 0)"
+    },
+    {
+      "id": "to-fields-y2k",
+      "op": "to_fields",
+      "input": {
+        "t": "100000000000000"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2000"
+          },
+          "month": {
+            "n": "1",
+            "id": "jan",
+            "name": "January",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "2000",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 5,
+            "name": "Saturday",
+            "n": 6
+          }
+        },
+        "overlays": {}
+      },
+      "note": "Gregorian regime"
+    },
+    {
+      "id": "to-fields-leap-day-1600",
+      "op": "to_fields",
+      "input": {
+        "t": "99987382316800"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1600"
+          },
+          "month": {
+            "n": "2",
+            "id": "feb",
+            "name": "February",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1600",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 1,
+            "name": "Tuesday",
+            "n": 2
+          }
+        },
+        "overlays": {}
+      },
+      "note": "Gregorian leap year 1600"
+    },
+    {
+      "id": "to-fields-march-1-1700",
+      "op": "to_fields",
+      "input": {
+        "t": "99990538076800"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1700"
+          },
+          "month": {
+            "n": "3",
+            "id": "mar",
+            "name": "March",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": {
+          "id": "ad",
+          "year": "1700",
+          "abbr": "AD",
+          "name": "Anno Domini"
+        },
+        "cycles": {
+          "week": {
+            "index": 0,
+            "name": "Monday",
+            "n": 1
+          }
+        },
+        "overlays": {}
+      },
+      "note": "1700 is not a Gregorian leap year"
+    },
+    {
+      "id": "from-fields-reform-eve",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "4"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99986833936000"
+      },
+      "note": "Julian 4 October 1582"
+    },
+    {
+      "id": "from-fields-reform-day",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "15"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99986834022400"
+      },
+      "note": "Gregorian 15 October 1582"
+    },
+    {
+      "id": "from-fields-reform-gap",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "10"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "reform_gap"
+      },
+      "note": "10 October 1582 exists in neither regime at a moment it is in force"
+    },
+    {
+      "id": "from-fields-reform-gap-forced-julian",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "10"
+        },
+        "precision": "day",
+        "regime": "julian"
+      },
+      "expected": {
+        "t": "99986834454400"
+      },
+      "note": "forcing the Julian regime gives the proleptic Julian date"
+    },
+    {
+      "id": "from-fields-reform-gap-forced-gregorian",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "10"
+        },
+        "precision": "day",
+        "regime": "gregorian"
+      },
+      "expected": {
+        "t": "99986833590400"
+      },
+      "note": "forcing the Gregorian regime gives the proleptic Gregorian date"
+    },
+    {
+      "id": "from-fields-julian-leap-day-1500",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1500",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99984227420800"
+      },
+      "note": "invalid in the Gregorian regime, valid (and in force) in the Julian one"
+    },
+    {
+      "id": "from-fields-late-1582",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "dec",
+          "day": "25"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99986840156800"
+      },
+      "note": "Julian 25 December 1582 would be after the reform: only the Gregorian reading is in force"
+    },
+    {
+      "id": "from-fields-year-1582",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "t": "99986810089600"
+      },
+      "note": "the year 1582 starts in the Julian regime"
+    },
+    {
+      "id": "from-fields-ad-1",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "year",
+        "era": "ad"
+      },
+      "expected": {
+        "t": "99936917545600"
+      },
+      "note": "AD 1 is astronomical year 1"
+    },
+    {
+      "id": "from-fields-bc-1",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "year",
+        "era": "bc"
+      },
+      "expected": {
+        "t": "99936885923200"
+      },
+      "note": "1 BC is astronomical year 0"
+    },
+    {
+      "id": "from-fields-bc-2",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "jun",
+          "day": "1"
+        },
+        "precision": "day",
+        "era": "bc"
+      },
+      "expected": {
+        "t": "99936867433600"
+      },
+      "note": "2 BC is astronomical year -1"
+    },
+    {
+      "id": "from-fields-ides-of-march-bc",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "44",
+          "month": "mar",
+          "day": "15"
+        },
+        "precision": "day",
+        "era": "bc"
+      },
+      "expected": {
+        "t": "99935535318400"
+      },
+      "note": "15 March 44 BC"
+    },
+    {
+      "id": "from-fields-ad-2024",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day",
+        "era": "ad"
+      },
+      "expected": {
+        "t": "100000762480000"
+      },
+      "note": "era years work after the reform too"
+    },
+    {
+      "id": "from-fields-ad-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "0"
+        },
+        "precision": "year",
+        "era": "ad"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "there is no year 0 AD: the year falls in the BC era"
+    },
+    {
+      "id": "from-fields-bc-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "0"
+        },
+        "precision": "year",
+        "era": "bc"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "nor 0 BC: astronomical year 1 is in the AD era"
+    },
+    {
+      "id": "from-fields-unknown-era",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5"
+        },
+        "precision": "year",
+        "era": "ce"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "unknown era"
+    },
+    {
+      "id": "from-fields-era-year-slot-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "jan"
+        },
+        "precision": "year",
+        "era": "ad"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "era years are numbers"
+    },
+    {
+      "id": "era-of-bc-1",
+      "op": "era_of",
+      "input": {
+        "t": "99936901648000"
+      },
+      "expected": {
+        "id": "bc",
+        "year": "1",
+        "abbr": "BC",
+        "name": "Before Christ"
+      },
+      "note": "year 0 is 1 BC"
+    },
+    {
+      "id": "era-of-bc-2",
+      "op": "era_of",
+      "input": {
+        "t": "99936870025600"
+      },
+      "expected": {
+        "id": "bc",
+        "year": "2",
+        "abbr": "BC",
+        "name": "Before Christ"
+      },
+      "note": "year -1 is 2 BC"
+    },
+    {
+      "id": "era-of-ad-1",
+      "op": "era_of",
+      "input": {
+        "t": "99936933184000"
+      },
+      "expected": {
+        "id": "ad",
+        "year": "1",
+        "abbr": "AD",
+        "name": "Anno Domini"
+      }
+    },
+    {
+      "id": "era-of-ad-1582-julian",
+      "op": "era_of",
+      "input": {
+        "t": "99986834022399"
+      },
+      "expected": {
+        "id": "ad",
+        "year": "1582",
+        "abbr": "AD",
+        "name": "Anno Domini"
+      }
+    },
+    {
+      "id": "era-of-ad-1582-gregorian",
+      "op": "era_of",
+      "input": {
+        "t": "99986834022400"
+      },
+      "expected": {
+        "id": "ad",
+        "year": "1582",
+        "abbr": "AD",
+        "name": "Anno Domini"
+      }
+    },
+    {
+      "id": "era-of-ad-2024",
+      "op": "era_of",
+      "input": {
+        "t": "100000757382400"
+      },
+      "expected": {
+        "id": "ad",
+        "year": "2024",
+        "abbr": "AD",
+        "name": "Anno Domini"
+      }
+    },
+    {
+      "id": "weekday-reform-eve",
+      "op": "cycle_value",
+      "input": {
+        "t": "99986834022399",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      },
+      "note": "the week continues across the reform"
+    },
+    {
+      "id": "weekday-reform-day",
+      "op": "cycle_value",
+      "input": {
+        "t": "99986834022400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      },
+      "note": "the week continues across the reform"
+    },
+    {
+      "id": "weekday-week-after",
+      "op": "cycle_value",
+      "input": {
+        "t": "99986834627199",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      },
+      "note": "the week continues across the reform"
+    },
+    {
+      "id": "bounds-month-before-reform",
+      "op": "unit_bounds",
+      "input": {
+        "t": "99986834022399",
+        "level": "month"
+      },
+      "expected": {
+        "start": "99986833676800",
+        "end": "99986834022400"
+      },
+      "note": "Julian October 1582 is cut off at the reform"
+    },
+    {
+      "id": "bounds-month-after-reform",
+      "op": "unit_bounds",
+      "input": {
+        "t": "99986834022400",
+        "level": "month"
+      },
+      "expected": {
+        "start": "99986834022400",
+        "end": "99986835491200"
+      },
+      "note": "Gregorian October 1582 starts at the reform"
+    },
+    {
+      "id": "bounds-day-before-reform",
+      "op": "unit_bounds",
+      "input": {
+        "t": "99986834022399",
+        "level": "day"
+      },
+      "expected": {
+        "start": "99986833936000",
+        "end": "99986834022400"
+      }
+    }
+  ]
+}

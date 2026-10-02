@@ -17,7 +17,7 @@ from lore.chronology.calendar import (
     unit_bounds,
     validate_calendar,
 )
-from lore.chronology.calendar.cycles import cycle_value, regime_cycle_value
+from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.units import counted_ordinal, cycle_filter
 
 CONFORMANCE = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
@@ -143,16 +143,15 @@ def test_week_continues_across_a_regime_start() -> None:
     assert later.name == "Saturday"
 
 
-def test_continuation_from_a_local_start_waits_for_local_resolution() -> None:
-    calendar = reform(
-        {"anchor": {"kind": "local", "fields": {"year": "2100"}}, "precision": "year"}, None
-    )
-    regime = calendar.regimes[1]
-    assert regime.cycles[0].anchor_ordinal is None
-    with pytest.raises(DateError) as error:
-        regime_cycle_value(len(calendar.levels) - 1, regime, regime.cycles[0], 10**14)
-    assert error.value.code == "unknown_cycle"
-    assert cycle_value(calendar, 10**16, "week") is not None  # regime 0 still applies
+def test_week_continues_across_a_local_regime_start() -> None:
+    noon = {"year": "2000", "month": "jan", "day": "1", "hour": "12"}
+    local = {"anchor": {"kind": "local", "fields": noon}, "precision": "hour"}
+    calendar = reform(local, None)
+    switch = 10**14 + 12 * 3600
+    assert calendar.regimes[1].starts_at == switch
+    after = cycle_value(calendar, switch, "week")
+    assert after is not None
+    assert after.name == "Sunday"
 
 
 def test_unknown_cycle() -> None:

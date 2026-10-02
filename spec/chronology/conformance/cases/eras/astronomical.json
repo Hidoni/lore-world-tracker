@@ -1,0 +1,40 @@
+{
+  "description": "A calendar without eras: astronomical years only.",
+  "calendar": "gregorian-seconds",
+  "generated": false,
+  "verification": "Hand-written.",
+  "cases": [
+    {
+      "id": "era-of-no-eras",
+      "op": "era_of",
+      "input": {
+        "t": "100000000000000"
+      },
+      "expected": null,
+      "note": "without eras, era_of is null and years are astronomical"
+    },
+    {
+      "id": "era-of-no-eras-year-0",
+      "op": "era_of",
+      "input": {
+        "t": "99936899228800"
+      },
+      "expected": null
+    },
+    {
+      "id": "from-fields-era-without-eras",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "year",
+        "era": "ad"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "a calendar without eras knows no era"
+    }
+  ]
+}
