@@ -1,0 +1,285 @@
+"""Moment ⇄ fields conversions (``chronology-engine.md`` §5.3, §5.5-§5.7, §6).
+
+Every step jumps with prefix sums and binary searches: the cost depends on the number of levels
+and the logarithm of template widths, never on the year number (years may have 1000 digits).
+Cycles, eras and overlays arrive with #13-#15; their members of the §5.6 output are ``null``/``{}``.
+"""
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Literal
+
+from lore.chronology.calendar.compiled import (
+    Child,
+    CompiledCalendar,
+    CompiledRegime,
+    CompiledTemplate,
+    is_number,
+)
+
+type Overflow = Literal["reject", "constrain"]
+type DateErrorCode = Literal["invalid_date", "reform_gap", "reform_ambiguous"]
+
+
+class DateError(ValueError):
+    """A date the calendar can't resolve. ``level`` names the offending level, if any."""
+
+    def __init__(self, code: DateErrorCode, message: str, level: str | None = None) -> None:
+        super().__init__(message)
+        self.code: DateErrorCode = code
+        self.level = level
+
+
+@dataclass(frozen=True, slots=True)
+class UnitValue:
+    """One level of a date: its regular number and, for a named slot, the slot's identity."""
+
+    n: int | None
+    """Regular number; ``None`` for an intercalary unit."""
+    slot_id: str | None = None
+    name: str | None = None
+    intercalary: bool = False
+
+    def as_json(self) -> dict[str, str | bool | None]:
+        number = None if self.n is None else str(self.n)
+        if self.slot_id is None:
+            return {"n": number}
+        return {"n": number, "id": self.slot_id, "name": self.name, "intercalary": self.intercalary}
+
+
+@dataclass(frozen=True, slots=True)
+class DateFields:
+    """The result of :func:`to_fields` (chronology-engine §5.6)."""
+
+    regime: str
+    levels: Mapping[str, UnitValue]
+    """Every level, top level first."""
+    base: int
+    """Base-unit remainder inside the level-0 unit."""
+
+    def as_json(self) -> dict[str, object]:
+        return {
+            "regime": self.regime,
+            "levels": {level: value.as_json() for level, value in self.levels.items()},
+            "base": str(self.base),
+            "era": None,
+            "cycles": {},
+            "overlays": {},
+        }
+
+
+# --- regimes -------------------------------------------------------------------------------------
+
+
+def active_regime(calendar: CompiledCalendar, t: int) -> CompiledRegime:
+    """The last regime whose start is ``≤ t`` (regime 0 before every other).
+
+    Regimes whose start is a ``local`` anchor are resolved by #14; until then they never activate.
+    """
+    return next(
+        regime
+        for regime in reversed(calendar.regimes)
+        if regime.index == 0 or (regime.starts_at is not None and regime.starts_at <= t)
+    )
+
+
+def _regime_end(calendar: CompiledCalendar, regime: CompiledRegime) -> int | None:
+    later = [r.starts_at for r in calendar.regimes[regime.index + 1 :] if r.starts_at is not None]
+    return min(later, default=None)
+
+
+# --- to_fields -----------------------------------------------------------------------------------
+
+
+def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
+    """The date of moment ``t``: every level from the top down, plus the base remainder."""
+    regime = active_regime(calendar, t)
+    rel = t - regime.epoch
+    year = regime.year_of_rel(rel)
+    offset = rel - regime.rel_start(year)
+    template = regime.year_template(year)
+    levels = calendar.levels
+    values: dict[str, UnitValue] = {levels[-1]: UnitValue(year)}
+    for level in range(len(levels) - 2, -1, -1):
+        child = template.child_at(offset)
+        offset -= child.offset
+        values[levels[level]] = _unit_value(child, calendar.numbering_starts[level])
+        assert child.template is not None  # children of level >= 1 templates are templates
+        template = regime.templates[child.template]
+    return DateFields(regime.id, values, offset)
+
+
+def _unit_value(child: Child, numbering_start: int) -> UnitValue:
+    regular = child.regular_index
+    number = None if regular is None else regular + numbering_start
+    segment = child.segment
+    if segment.slot_id is None:
+        return UnitValue(number)
+    return UnitValue(number, segment.slot_id, segment.name, segment.intercalary)
+
+
+# --- from_fields ---------------------------------------------------------------------------------
+
+
+def from_fields(
+    calendar: CompiledCalendar,
+    fields: Mapping[str, str],
+    precision: str,
+    *,
+    regime: str | None = None,
+    overflow: Overflow = "reject",
+) -> int:
+    """The start moment of the unit at ``precision`` that ``fields`` denote (§5.7).
+
+    ``fields`` hold every level from the top down to ``precision`` and none below; values are
+    regular numbers or slot ids. Raises :class:`DateError`.
+    """
+    _check_shape(calendar, fields, precision)
+    if regime is not None:
+        chosen = next((r for r in calendar.regimes if r.id == regime), None)
+        if chosen is None:
+            raise DateError("invalid_date", f"unknown regime {regime!r}")
+        return _resolve(calendar, chosen, fields, precision, overflow)
+    results: list[int] = []
+    errors: list[DateError] = []
+    for candidate in reversed(calendar.regimes):
+        if candidate.index > 0 and candidate.starts_at is None:
+            continue  # a local start, resolved by #14
+        try:
+            t = _resolve(calendar, candidate, fields, precision, overflow)
+        except DateError as error:
+            errors.append(error)
+            continue
+        end = _regime_end(calendar, candidate)
+        after_start = (
+            candidate.index == 0 or candidate.starts_at is None or candidate.starts_at <= t
+        )
+        if after_start and (end is None or t < end):
+            results.append(t)
+    if len(results) > 1:
+        raise DateError("reform_ambiguous", "the date exists in several regimes: pass regime")
+    if results:
+        return results[0]
+    if errors and len(errors) == len(calendar.regimes):
+        raise errors[-1]  # invalid in every regime: report regime 0's error
+    raise DateError("reform_gap", "no regime has this date at a moment it is in force")
+
+
+def _check_shape(calendar: CompiledCalendar, fields: Mapping[str, str], precision: str) -> None:
+    levels = calendar.levels
+    if precision not in levels:
+        raise DateError("invalid_date", f"unknown precision {precision!r}", precision)
+    for key in fields:
+        if key not in levels:
+            raise DateError("invalid_date", f"{key!r} is not a level", key)
+    lowest = levels.index(precision)
+    for level in range(len(levels) - 1, -1, -1):
+        present = levels[level] in fields
+        if level >= lowest and not present:
+            raise DateError("invalid_date", f"{levels[level]} is missing", levels[level])
+        if level < lowest and present:
+            raise DateError(
+                "invalid_date", f"{levels[level]} is below the precision", levels[level]
+            )
+
+
+def _resolve(
+    calendar: CompiledCalendar,
+    regime: CompiledRegime,
+    fields: Mapping[str, str],
+    precision: str,
+    overflow: Overflow,
+) -> int:
+    levels = calendar.levels
+    top = levels[-1]
+    if not is_number(fields[top]):
+        raise DateError("invalid_date", "the year must be a number", top)
+    year = int(fields[top])
+    t = regime.epoch + regime.rel_start(year)
+    template = regime.year_template(year)
+    for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
+        child = _child(calendar, regime, template, level, fields[levels[level]], overflow=overflow)
+        t += child.offset
+        assert child.template is not None  # children of level >= 1 templates are templates
+        template = regime.templates[child.template]
+    return t
+
+
+def _child(
+    calendar: CompiledCalendar,
+    regime: CompiledRegime,
+    template: CompiledTemplate,
+    level: int,
+    value: str,
+    *,
+    overflow: Overflow,
+) -> Child:
+    level_id = calendar.levels[level]
+    numbering = calendar.numbering_starts[level]
+    if is_number(value):
+        child = template.child_by_regular_index(int(value) - numbering)
+        if child is None and overflow == "constrain" and template.regular_count > 0:
+            clamped = min(max(int(value) - numbering, 0), template.regular_count - 1)
+            child = template.child_by_regular_index(clamped)
+    else:
+        child = template.child_by_slot(value)
+        if child is None and overflow == "constrain":
+            child = _fallback(calendar, regime, template, level, value)
+    if child is None:
+        raise DateError("invalid_date", f"no {level_id} {value!r} here", level_id)
+    return child
+
+
+def _fallback(
+    calendar: CompiledCalendar,
+    regime: CompiledRegime,
+    template: CompiledTemplate,
+    level: int,
+    slot_id: str,
+) -> Child | None:
+    """Constrain an unknown slot id: its regular number in the parent level's default template."""
+    default_id = calendar.definition.levels[level + 1].default_template
+    default = regime.templates.get(default_id) if default_id is not None else None
+    found = default.child_by_slot(slot_id) if default is not None else None
+    if found is None or found.regular_index is None or template.regular_count == 0:
+        return None
+    return template.child_by_regular_index(min(found.regular_index, template.regular_count - 1))
+
+
+# --- normalization -------------------------------------------------------------------------------
+
+
+def normalize_fields(
+    calendar: CompiledCalendar, fields: Mapping[str, str], *, regime: str | None = None
+) -> dict[str, str]:
+    """Store-ready fields: named units by slot id, unnamed units by canonical number (§6).
+
+    The fields must form a valid date (``reject`` semantics) down to their finest level.
+    """
+    levels = calendar.levels
+    present = [level for level in levels if level in fields]
+    precision = present[0] if present else levels[-1]
+    from_fields(calendar, fields, precision, regime=regime)  # validates; picks the regime below
+    chosen = _regime_for(calendar, fields, precision, regime)
+    year = int(fields[levels[-1]])
+    template = chosen.year_template(year)
+    normalized = {levels[-1]: str(year)}
+    for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
+        child = _child(calendar, chosen, template, level, fields[levels[level]], overflow="reject")
+        slot, regular = child.segment.slot_id, child.regular_index
+        if slot is not None:
+            normalized[levels[level]] = slot
+        else:
+            assert regular is not None  # unnamed children are never intercalary
+            normalized[levels[level]] = str(regular + calendar.numbering_starts[level])
+        assert child.template is not None
+        template = chosen.templates[child.template]
+    return normalized
+
+
+def _regime_for(
+    calendar: CompiledCalendar, fields: Mapping[str, str], precision: str, regime: str | None
+) -> CompiledRegime:
+    if regime is not None:
+        return next(r for r in calendar.regimes if r.id == regime)
+    return active_regime(calendar, from_fields(calendar, fields, precision))

@@ -1,0 +1,1098 @@
+{
+  "description": "moment ⇄ fields conversions with intercalary slots, unnamed run months, exception years and a base remainder.",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "Expected values come from a hand-written reference: year lengths 362/363/120 days, year starts as sums of year lengths from the alignment (closed form: 362 per year + multiples of 4 + the three exception corrections, which also handles 300-digit years), and month walks over each year's month list. Constrain cases are hand-derived from chronology-engine.md §5.7.",
+  "cases": [
+    {
+      "id": "to-alignment",
+      "op": "to_fields",
+      "input": {
+        "t": "1000000"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "1",
+            "id": "deepwinter",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "1 Deepwinter 1, hour 0"
+    },
+    {
+      "id": "to-base-remainder",
+      "op": "to_fields",
+      "input": {
+        "t": "1000013"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "1",
+            "id": "deepwinter",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "13",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "hour 13 is the base remainder below the day level"
+    },
+    {
+      "id": "to-deepwinter-last-hour",
+      "op": "to_fields",
+      "input": {
+        "t": "1000719"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "1",
+            "id": "deepwinter",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          "day": {
+            "n": "30"
+          }
+        },
+        "base": "23",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "Deepwinter has 30 days"
+    },
+    {
+      "id": "to-yule",
+      "op": "to_fields",
+      "input": {
+        "t": "1000725"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": null,
+            "id": "yule",
+            "name": "Yule",
+            "intercalary": true
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "5",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "Yule is an intercalary month-level slot: no regular number"
+    },
+    {
+      "id": "to-first-run-month",
+      "op": "to_fields",
+      "input": {
+        "t": "1000744"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "2"
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "the first unnamed month is month 2 (Yule has no number)"
+    },
+    {
+      "id": "to-last-run-month",
+      "op": "to_fields",
+      "input": {
+        "t": "1007943"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "11"
+          },
+          "day": {
+            "n": "30"
+          }
+        },
+        "base": "23",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "the tenth unnamed month is month 11"
+    },
+    {
+      "id": "to-lithe-common",
+      "op": "to_fields",
+      "input": {
+        "t": "1007968"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": null,
+            "id": "lithe",
+            "name": "Lithe Days",
+            "intercalary": true
+          },
+          "day": {
+            "n": "2"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "Lithe Days has 2 days in a common year"
+    },
+    {
+      "id": "to-lithe-leap",
+      "op": "to_fields",
+      "input": {
+        "t": "1034063"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "4"
+          },
+          "month": {
+            "n": null,
+            "id": "lithe",
+            "name": "Lithe Days",
+            "intercalary": true
+          },
+          "day": {
+            "n": "3"
+          }
+        },
+        "base": "7",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "and 3 in a leap year (4 mod 4 = 0)"
+    },
+    {
+      "id": "to-lastmonth",
+      "op": "to_fields",
+      "input": {
+        "t": "1008687"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "12",
+            "id": "lastmonth",
+            "name": "Lastmonth",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          }
+        },
+        "base": "23",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "the last hour of year 1"
+    },
+    {
+      "id": "to-year-2-start",
+      "op": "to_fields",
+      "input": {
+        "t": "1008688"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "2"
+          },
+          "month": {
+            "n": "1",
+            "id": "deepwinter",
+            "name": "Deepwinter",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "year 1 has 362 days"
+    },
+    {
+      "id": "to-exception-5-last-hour",
+      "op": "to_fields",
+      "input": {
+        "t": "1037655"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "5"
+          },
+          "month": {
+            "n": "4"
+          },
+          "day": {
+            "n": "30"
+          }
+        },
+        "base": "23",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "year 5 is a short exception year (120 days)"
+    },
+    {
+      "id": "to-exception-5-month-4",
+      "op": "to_fields",
+      "input": {
+        "t": "1037632"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "5"
+          },
+          "month": {
+            "n": "4"
+          },
+          "day": {
+            "n": "30"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "short years have Deepwinter and 3 unnamed months"
+    },
+    {
+      "id": "to-exception-8-lithe",
+      "op": "to_fields",
+      "input": {
+        "t": "1063000"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "8"
+          },
+          "month": {
+            "n": null,
+            "id": "lithe",
+            "name": "Lithe Days",
+            "intercalary": true
+          },
+          "day": {
+            "n": "2"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "year 8 is an exception: a common year despite 8 mod 4 = 0"
+    },
+    {
+      "id": "to-exception-8-lastmonth",
+      "op": "to_fields",
+      "input": {
+        "t": "1063024"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "8"
+          },
+          "month": {
+            "n": "12",
+            "id": "lastmonth",
+            "name": "Lastmonth",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "so its Lastmonth starts one day earlier than in a leap year"
+    },
+    {
+      "id": "to-exception-minus-3",
+      "op": "to_fields",
+      "input": {
+        "t": "972100"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "-3"
+          },
+          "month": {
+            "n": "2"
+          },
+          "day": {
+            "n": "15"
+          }
+        },
+        "base": "12",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "year -3 is short"
+    },
+    {
+      "id": "to-year-0-leap",
+      "op": "to_fields",
+      "input": {
+        "t": "999303"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "0"
+          },
+          "month": {
+            "n": null,
+            "id": "lithe",
+            "name": "Lithe Days",
+            "intercalary": true
+          },
+          "day": {
+            "n": "3"
+          }
+        },
+        "base": "23",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "year 0 is a leap year"
+    },
+    {
+      "id": "to-year-minus-1",
+      "op": "to_fields",
+      "input": {
+        "t": "983320"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "-1"
+          },
+          "month": {
+            "n": null,
+            "id": "yule",
+            "name": "Yule",
+            "intercalary": true
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "negative common year"
+    },
+    {
+      "id": "to-year-minus-4",
+      "op": "to_fields",
+      "input": {
+        "t": "970336"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "-4"
+          },
+          "month": {
+            "n": "12",
+            "id": "lastmonth",
+            "name": "Lastmonth",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "negative leap year, month 12 = Lastmonth"
+    },
+    {
+      "id": "to-moment-zero",
+      "op": "to_fields",
+      "input": {
+        "t": "0"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "-115"
+          },
+          "month": {
+            "n": "4"
+          },
+          "day": {
+            "n": "22"
+          }
+        },
+        "base": "8",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "t = 0"
+    },
+    {
+      "id": "to-huge-300-digit-year",
+      "op": "to_fields",
+      "input": {
+        "t": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123457"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "11502185415228893489763054980446284794110881067402806533241315850011502185415228893489763054980446284794110881067402806533241315850011502185415228893489763054980446284794110881067402806533241315850011502185415228893489763054980446284794110881067402806533241315850011502185415228893489763054980446284694"
+          },
+          "month": {
+            "n": "12",
+            "id": "lastmonth",
+            "name": "Lastmonth",
+            "intercalary": false
+          },
+          "day": {
+            "n": "16"
+          }
+        },
+        "base": "1",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "a year with ~300 digits"
+    },
+    {
+      "id": "to-dimension-end",
+      "op": "to_fields",
+      "input": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "regime": "shire",
+        "levels": {
+          "year": {
+            "n": "1150218541522889348976305498044628479411088106740280653324131585001150218541522889348976305498044628479411088106740280653324131585001150218541522889348976305498044628479411088106740280653324131585001150218541522889348976305498044628479411088106740280653324131585001150218541522889348976305498044628479411088106740280653324131585001150218541522889348976305498044628479411088106740280653324131584887"
+          },
+          "month": {
+            "n": "10"
+          },
+          "day": {
+            "n": "20"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "t = D"
+    },
+    {
+      "id": "from-alignment",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "deepwinter",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "1000000"
+      },
+      "note": "the alignment date"
+    },
+    {
+      "id": "from-yule-by-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "yule",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "1000720"
+      },
+      "note": "intercalary slots are addressed by id"
+    },
+    {
+      "id": "from-yule-month",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "4",
+          "month": "yule"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "t": "1026784"
+      },
+      "note": "month precision"
+    },
+    {
+      "id": "from-month-2-is-a-run-month",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "2",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "1000744"
+      },
+      "note": "numbers address regular months only"
+    },
+    {
+      "id": "from-month-12-is-lastmonth",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "12"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "t": "1007992"
+      },
+      "note": "Lastmonth is regular month 12"
+    },
+    {
+      "id": "from-lastmonth-by-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "lastmonth"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "t": "1007992"
+      },
+      "note": "the same unit by slot id"
+    },
+    {
+      "id": "from-lithe-3-leap",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "4",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "1034056"
+      },
+      "note": "Lithe Days 3 exists in leap years"
+    },
+    {
+      "id": "from-lithe-3-common",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "but not in common years"
+    },
+    {
+      "id": "from-lithe-3-exception-8",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "8",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "nor in year 8 (exception)"
+    },
+    {
+      "id": "from-exception-5-lastmonth",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5",
+          "month": "lastmonth"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "short years have no Lastmonth"
+    },
+    {
+      "id": "from-exception-5-yule",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5",
+          "month": "yule"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "nor Yule"
+    },
+    {
+      "id": "from-exception-5-month-5",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5",
+          "month": "5"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "short years have 4 regular months"
+    },
+    {
+      "id": "from-exception-minus-3",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "-3",
+          "month": "4",
+          "day": "30"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "973888"
+      },
+      "note": "negative exception year"
+    },
+    {
+      "id": "from-year-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "0"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "t": "991288"
+      },
+      "note": "the epoch"
+    },
+    {
+      "id": "from-huge-year-no-lithe-3",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "301-digit year; 99…9 is not a multiple of 4, so Lithe Days has only 2 days"
+    },
+    {
+      "id": "from-huge-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "month": "lithe",
+          "day": "2"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "86940000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000984736"
+      },
+      "note": "301-digit common year"
+    },
+    {
+      "id": "from-huge-year-lithe-3",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "8694000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000993448"
+      },
+      "note": "10^300 is a multiple of 4: a leap year"
+    },
+    {
+      "id": "from-constrain-lastmonth-in-short-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5",
+          "month": "lastmonth",
+          "day": "10"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "1037152"
+      },
+      "note": "constrain: unknown slot → its regular number in the year level's default template (12), clamped to 4"
+    },
+    {
+      "id": "from-constrain-yule-in-short-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "5",
+          "month": "yule"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "Yule is intercalary in the default template: no regular number to fall back to"
+    },
+    {
+      "id": "from-constrain-unknown-slot",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "midsummer"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "a slot the default template doesn't have either"
+    },
+    {
+      "id": "from-constrain-month-13",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "13"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "1007992"
+      },
+      "note": "13 is clamped to the last regular month"
+    },
+    {
+      "id": "from-constrain-month-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "0",
+          "day": "5"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "1000096"
+      },
+      "note": "0 is clamped to numbering_start (1)"
+    },
+    {
+      "id": "from-constrain-day-in-lithe",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "1007968"
+      },
+      "note": "day 3 of a 2-day Lithe is clamped to 2"
+    },
+    {
+      "id": "from-constrain-valid-date-unchanged",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "4",
+          "month": "lithe",
+          "day": "3"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "1034056"
+      },
+      "note": "constrain leaves valid dates alone"
+    },
+    {
+      "id": "from-unknown-level",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "week": "1"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "fields keys are levels"
+    },
+    {
+      "id": "from-missing-month",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "every level from the top down to the precision"
+    },
+    {
+      "id": "from-below-precision",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "2",
+          "day": "1"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "no level below the precision"
+    },
+    {
+      "id": "from-precision-unknown",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1"
+        },
+        "precision": "week"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the precision is a level"
+    },
+    {
+      "id": "from-year-slot-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "deepwinter"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the year is a number"
+    },
+    {
+      "id": "from-day-slot-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "2",
+          "day": "first"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "days have no slot ids"
+    },
+    {
+      "id": "from-day-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "2",
+          "day": "0"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "days are numbered from 1"
+    },
+    {
+      "id": "from-day-31",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "2",
+          "day": "31"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "months have 30 days"
+    }
+  ]
+}

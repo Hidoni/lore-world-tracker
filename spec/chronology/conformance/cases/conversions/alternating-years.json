@@ -2,7 +2,7 @@
   "description": "moment ⇄ fields conversions in the alternating-years calendar.",
   "calendar": "alternating-years",
   "generated": false,
-  "verification": "Expected values were computed by hand-written arithmetic over whole two-year cycles (183 days = 15,811,200 s) and month walks, independently of the engine algorithm, and cross-checked with a throwaway implementation of chronology-engine.md §5.",
+  "verification": "Expected values were computed by hand-written arithmetic over whole two-year cycles (183 days = 15,811,200 s) and month walks, independently of the engine algorithm, and cross-checked with a throwaway implementation of chronology-engine.md §5. The additions (#11) use the same references; constrain cases are hand-derived from chronology-engine.md §5.7.",
   "cases": [
     {
       "id": "to-alignment",
@@ -709,6 +709,616 @@
         "t": "435000000013046400"
       },
       "note": "overflow constrain clamps day 31 to Ash's last day (30)"
+    },
+    {
+      "id": "to-bloom-first",
+      "op": "to_fields",
+      "input": {
+        "t": "435000000005270400"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "3",
+            "id": "bloom",
+            "name": "Bloom",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "Bloom follows Thawing 31"
+    },
+    {
+      "id": "to-ash-first",
+      "op": "to_fields",
+      "input": {
+        "t": "435000000010540800"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "2"
+          },
+          "month": {
+            "n": "2",
+            "id": "ash",
+            "name": "Ash",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "even year: Ash follows Ember 31"
+    },
+    {
+      "id": "to-cinder-last-second",
+      "op": "to_fields",
+      "input": {
+        "t": "435000000015811199"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "2"
+          },
+          "month": {
+            "n": "3",
+            "id": "cinder",
+            "name": "Cinder",
+            "intercalary": false
+          },
+          "day": {
+            "n": "31"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "last second of an even year"
+    },
+    {
+      "id": "to-year-3-start",
+      "op": "to_fields",
+      "input": {
+        "t": "435000000015811200"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "3"
+          },
+          "month": {
+            "n": "1",
+            "id": "frostfall",
+            "name": "Frostfall",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "odd year after even"
+    },
+    {
+      "id": "to-year-minus-3-thawing",
+      "op": "to_fields",
+      "input": {
+        "t": "434999999973565323"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "-3"
+          },
+          "month": {
+            "n": "2",
+            "id": "thawing",
+            "name": "Thawing",
+            "intercalary": false
+          },
+          "day": {
+            "n": "31"
+          },
+          "hour": {
+            "n": "1"
+          },
+          "minute": {
+            "n": "2"
+          },
+          "second": {
+            "n": "3"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "negative odd year"
+    },
+    {
+      "id": "to-year-minus-4-cinder",
+      "op": "to_fields",
+      "input": {
+        "t": "434999999965699200"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "-4"
+          },
+          "month": {
+            "n": "3",
+            "id": "cinder",
+            "name": "Cinder",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "negative even year"
+    },
+    {
+      "id": "to-huge-305-digit",
+      "op": "to_fields",
+      "input": {
+        "t": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "12649261283141064561829589151993523578223031774944343250354179315927949807731228496255818660190244889698441611009917020845982594616474397895162922485326856911556365108277676583687512649261283141064561829589151993523578223031774944343250354179315927949807731228496255818660190244889698441555985630440"
+          },
+          "month": {
+            "n": "1",
+            "id": "ember",
+            "name": "Ember",
+            "intercalary": false
+          },
+          "day": {
+            "n": "18"
+          },
+          "hour": {
+            "n": "4"
+          },
+          "minute": {
+            "n": "27"
+          },
+          "second": {
+            "n": "57"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "a year with ~298 digits"
+    },
+    {
+      "id": "to-ten-pow-105",
+      "op": "to_fields",
+      "input": {
+        "t": "1100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "139141874114551710180125480671928759360453349524387775753895972475207447885043513458813950237806113"
+          },
+          "month": {
+            "n": "1",
+            "id": "frostfall",
+            "name": "Frostfall",
+            "intercalary": false
+          },
+          "day": {
+            "n": "12"
+          },
+          "hour": {
+            "n": "6"
+          },
+          "minute": {
+            "n": "13"
+          },
+          "second": {
+            "n": "20"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "an even larger moment"
+    },
+    {
+      "id": "to-mid-day",
+      "op": "to_fields",
+      "input": {
+        "t": "435000008086025228"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "1023"
+          },
+          "month": {
+            "n": "3",
+            "id": "bloom",
+            "name": "Bloom",
+            "intercalary": false
+          },
+          "day": {
+            "n": "15"
+          },
+          "hour": {
+            "n": "6"
+          },
+          "minute": {
+            "n": "7"
+          },
+          "second": {
+            "n": "8"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "an ordinary date"
+    },
+    {
+      "id": "to-year-1-thawing-noon",
+      "op": "to_fields",
+      "input": {
+        "t": "435000000003931200"
+      },
+      "expected": {
+        "regime": "imperial",
+        "levels": {
+          "year": {
+            "n": "1"
+          },
+          "month": {
+            "n": "2",
+            "id": "thawing",
+            "name": "Thawing",
+            "intercalary": false
+          },
+          "day": {
+            "n": "16"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "noon"
+    },
+    {
+      "id": "from-bloom-30-odd",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "7",
+          "month": "bloom",
+          "day": "30"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "435000000055209600"
+      },
+      "note": "Bloom has 30 days"
+    },
+    {
+      "id": "from-cinder-by-number",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "-2",
+          "month": "3",
+          "day": "31"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "434999999984102400"
+      },
+      "note": "month 3 of an even year is Cinder"
+    },
+    {
+      "id": "from-huge-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+          "month": "frostfall",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "7905600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000434999999984188800"
+      },
+      "note": "300-digit odd year"
+    },
+    {
+      "id": "from-huge-even-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999998",
+          "month": "ember"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "t": "7905600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000434999999976240000"
+      },
+      "note": "300-digit even year"
+    },
+    {
+      "id": "from-invalid-ember-in-odd-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "ember"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "Ember exists only in even years"
+    },
+    {
+      "id": "from-invalid-bloom-31",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "31"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "Bloom has 30 days"
+    },
+    {
+      "id": "from-invalid-hour-24",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "1",
+          "hour": "24"
+        },
+        "precision": "hour"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "hours are 0-23"
+    },
+    {
+      "id": "from-invalid-second-slot",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "1",
+          "hour": "0",
+          "minute": "0",
+          "second": "x"
+        },
+        "precision": "second"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "seconds have no slot ids"
+    },
+    {
+      "id": "from-invalid-below-precision",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "1"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "no levels below the precision"
+    },
+    {
+      "id": "from-constrain-bloom-31",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "31"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "435000000007776000"
+      },
+      "note": "31 → 30"
+    },
+    {
+      "id": "from-constrain-month-4",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "4"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "435000000013132800"
+      },
+      "note": "4 → 3 (Cinder in an even year)"
+    },
+    {
+      "id": "from-constrain-frostfall-in-even-year",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "frostfall"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "no default year template: an unknown slot stays invalid"
+    },
+    {
+      "id": "from-constrain-hour-99",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "bloom",
+          "day": "1",
+          "hour": "99"
+        },
+        "precision": "hour",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "435000000005353200"
+      },
+      "note": "99 → 23"
+    },
+    {
+      "id": "from-constrain-day-0",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "0"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "435000000000000000"
+      },
+      "note": "0 → 1"
     }
   ]
 }

@@ -2,7 +2,7 @@
   "description": "moment ⇄ fields conversions in the proleptic Gregorian calendar (seconds).",
   "calendar": "gregorian-seconds",
   "generated": false,
-  "verification": "Expected values were computed with Howard Hinnant's days_from_civil/civil_from_days algorithms (valid for every integer year) and cross-checked against Python's datetime for years 1-9999. Constrain cases are the clamped dates of the corresponding reject cases.",
+  "verification": "Expected values were computed with Howard Hinnant's days_from_civil/civil_from_days algorithms (valid for every integer year) and cross-checked against Python's datetime for years 1-9999. Constrain cases are the clamped dates of the corresponding reject cases. The additions (#11) use the same references; constrain cases are hand-derived from chronology-engine.md §5.7.",
   "cases": [
     {
       "id": "to-alignment",
@@ -859,6 +859,587 @@
         "t": "100000757382400"
       },
       "note": "overflow constrain clamps day 0 to numbering_start (1)"
+    },
+    {
+      "id": "to-leap-day-1600",
+      "op": "to_fields",
+      "input": {
+        "t": "99987382338828"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1600"
+          },
+          "month": {
+            "n": "2",
+            "id": "feb",
+            "name": "February",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          },
+          "hour": {
+            "n": "6"
+          },
+          "minute": {
+            "n": "7"
+          },
+          "second": {
+            "n": "8"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "1600 is divisible by 400"
+    },
+    {
+      "id": "to-year-1999-last-second",
+      "op": "to_fields",
+      "input": {
+        "t": "99999999999999"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1999"
+          },
+          "month": {
+            "n": "12",
+            "id": "dec",
+            "name": "December",
+            "intercalary": false
+          },
+          "day": {
+            "n": "31"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "one second before the alignment"
+    },
+    {
+      "id": "to-march-1-2100",
+      "op": "to_fields",
+      "input": {
+        "t": "100003160857600"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2100"
+          },
+          "month": {
+            "n": "3",
+            "id": "mar",
+            "name": "March",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "2100 is common: 1 March follows 28 February"
+    },
+    {
+      "id": "to-year-minus-400-leap-day",
+      "op": "to_fields",
+      "input": {
+        "t": "99924268456000"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "-400"
+          },
+          "month": {
+            "n": "2",
+            "id": "feb",
+            "name": "February",
+            "intercalary": false
+          },
+          "day": {
+            "n": "29"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "-400 is divisible by 400"
+    },
+    {
+      "id": "to-year-minus-100-march",
+      "op": "to_fields",
+      "input": {
+        "t": "99933735520000"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "-100"
+          },
+          "month": {
+            "n": "3",
+            "id": "mar",
+            "name": "March",
+            "intercalary": false
+          },
+          "day": {
+            "n": "1"
+          },
+          "hour": {
+            "n": "0"
+          },
+          "minute": {
+            "n": "0"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "-100 is common"
+    },
+    {
+      "id": "to-huge-310-digit-moment",
+      "op": "to_fields",
+      "input": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000987654321"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "316887385068114309645621034629706950151586249521183161162079278125466616674512798320953176973492243484098210752419942204811161737039749593053220095527603553093467328530334615332938364896584435657791031275770866590664396231930130641260917721077751742310220581506097293553572601054753323451517117366089858"
+          },
+          "month": {
+            "n": "10",
+            "id": "oct",
+            "name": "October",
+            "intercalary": false
+          },
+          "day": {
+            "n": "16"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "25"
+          },
+          "second": {
+            "n": "21"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "a year with ~303 digits"
+    },
+    {
+      "id": "to-december-31-leap",
+      "op": "to_fields",
+      "input": {
+        "t": "100000789004799"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2024"
+          },
+          "month": {
+            "n": "12",
+            "id": "dec",
+            "name": "December",
+            "intercalary": false
+          },
+          "day": {
+            "n": "31"
+          },
+          "hour": {
+            "n": "23"
+          },
+          "minute": {
+            "n": "59"
+          },
+          "second": {
+            "n": "59"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "day 366 of a leap year"
+    },
+    {
+      "id": "to-mid-month",
+      "op": "to_fields",
+      "input": {
+        "t": "99999604059401"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "1987"
+          },
+          "month": {
+            "n": "6",
+            "id": "jun",
+            "name": "June",
+            "intercalary": false
+          },
+          "day": {
+            "n": "15"
+          },
+          "hour": {
+            "n": "8"
+          },
+          "minute": {
+            "n": "30"
+          },
+          "second": {
+            "n": "1"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {}
+      },
+      "note": "an ordinary date"
+    },
+    {
+      "id": "from-leap-day-1600",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1600",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99987382316800"
+      },
+      "note": "1600 is a leap year"
+    },
+    {
+      "id": "from-invalid-leap-day-1700",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1700",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "1700 is common"
+    },
+    {
+      "id": "from-huge-year-last-second",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "316887385068114309645621034629706950151586249521183161162079278125466616674512798320953176973492243484098210752419942204811161737039749593053220095527603553093467328530334615332938364896584435657791031275770866590664396231930130641260917721077751742310220581506097293553572601054753323451517117366089858",
+          "month": "dec",
+          "day": "31",
+          "hour": "23",
+          "minute": "59",
+          "second": "59"
+        },
+        "precision": "second"
+      },
+      "expected": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000994262399"
+      },
+      "note": "the last second of a ~303-digit year"
+    },
+    {
+      "id": "from-year-minus-400-leap-day",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "-400",
+          "month": "2",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "99924268412800"
+      },
+      "note": "negative leap year, month by number"
+    },
+    {
+      "id": "from-minute-precision",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2000",
+          "month": "jan",
+          "day": "1",
+          "hour": "12",
+          "minute": "30"
+        },
+        "precision": "minute"
+      },
+      "expected": {
+        "t": "100000000045000"
+      },
+      "note": "minute precision"
+    },
+    {
+      "id": "from-unknown-level",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "week": "1"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "field keys are levels"
+    },
+    {
+      "id": "from-below-precision",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "jan",
+          "day": "1"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "no levels below the precision"
+    },
+    {
+      "id": "from-missing-top",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "month": "jan"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the year is required"
+    },
+    {
+      "id": "from-year-slot-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "jan"
+        },
+        "precision": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the year is a number"
+    },
+    {
+      "id": "from-precision-unknown",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024"
+        },
+        "precision": "week"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the precision is a level"
+    },
+    {
+      "id": "from-hour-slot-id",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "jan",
+          "day": "1",
+          "hour": "noon"
+        },
+        "precision": "hour"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "hours have no slot ids"
+    },
+    {
+      "id": "from-negative-day",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "jan",
+          "day": "-1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "negative numbers are out of range"
+    },
+    {
+      "id": "from-constrain-month-13",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "13",
+          "day": "31"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "100000788918400"
+      },
+      "note": "13 → 12 (December)"
+    },
+    {
+      "id": "from-constrain-negative-month",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "-5"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "100000757382400"
+      },
+      "note": "-5 → 1"
+    },
+    {
+      "id": "from-constrain-second-60",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "jan",
+          "day": "1",
+          "hour": "0",
+          "minute": "0",
+          "second": "60"
+        },
+        "precision": "second",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "100000757382459"
+      },
+      "note": "60 → 59"
+    },
+    {
+      "id": "from-constrain-unknown-slot",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "frostfall"
+        },
+        "precision": "month",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the year level has no default template: no fallback for unknown slots"
+    },
+    {
+      "id": "from-constrain-day-31-april",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "apr",
+          "day": "31"
+        },
+        "precision": "day",
+        "overflow": "constrain"
+      },
+      "expected": {
+        "t": "100000767750400"
+      },
+      "note": "31 April → 30 April"
     }
   ]
 }

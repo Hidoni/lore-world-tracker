@@ -434,6 +434,11 @@ Repeat to level 0. The remainder at level 0 is the **base remainder**
 }
 ```
 
+In JSON (conformance vectors), every level appears top level first; an unnamed unit is
+`{"n"}`, a named slot `{"n", "id", "name", "intercalary"}` with `"n": null` for an intercalary
+unit; `era` is `null` and `cycles`/`overlays` are `{}` when the calendar has none. Python:
+`lore.chronology.calendar.to_fields` returns `DateFields` (`as_json()` gives this shape).
+
 ### 5.7 `from_fields(fields, precision, era?, regime?, overflow)` → moment
 
 1. Convert an era year to `Y` if `era` is given (inverse of §3.8).
@@ -447,7 +452,17 @@ Repeat to level 0. The remainder at level 0 is the **base remainder**
    or a missing level is the error `invalid_date` (with the offending level).
    `overflow = "constrain"`: numbers are clamped to `[numbering_start, max]`. An unknown slot id
    falls back to the regular number the slot had in the regime's **default template for that
-   level** if one exists, else `invalid_date`.
+   level** if one exists, else `invalid_date`. That template is the parent level's
+   `default_template` (the slot is a child of a parent-level unit): e.g. Lastmonth (month 12 of
+   the year level's default template) in a short exception year becomes its last month. A slot
+   that is intercalary there, or missing, stays `invalid_date`; so does any unknown slot when the
+   parent level has no `default_template`. The top level (year) is never constrained.
+
+`precision` is a level id. Fields name every level from the top down to `precision` and none
+below; any other key, a missing level or a level below the precision is `invalid_date` naming
+that level. Numbers address regular units only (intercalary units only by slot id). Python:
+`lore.chronology.calendar.from_fields`, raising `DateError(code, level)`. Until `local` regime
+starts are resolved (#14), regimes with a `local` start never activate.
 
 ### 5.8 Unit bounds and ordinals
 
@@ -466,7 +481,8 @@ Repeat to level 0. The remainder at level 0 is the **base remainder**
 - Calendar anchors store `fields` as strings (`time-model.md` §5.1): numbers or slot ids. Named
   units should be stored by **slot id** and unnamed units by **number**.
 - The API accepts either form. Engines normalize named units to slot ids when storing a
-  user-entered anchor.
+  user-entered anchor (Python: `normalize_fields`, which also canonicalizes numbers, e.g. `05`
+  → `5`, and rejects invalid dates).
 - For a level whose parent template varies (e.g. months of odd vs even years), pickers must
   offer the children of the template **actually used** by the chosen parent.
 - `options(fields_prefix, level)` lists the valid children for the next level, including
