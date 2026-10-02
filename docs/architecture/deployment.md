@@ -153,8 +153,10 @@ Docker (optional, for image builds/e2e parity).
 
 - One app version (SemVer) shared by `backend/pyproject.toml` and the npm workspaces, bumped
   together.
-- Each completed milestone ends with a release PR: version bump, `CHANGELOG.md`
-  (Keep a Changelog) update, a **new golden fixture vault** (`persistence-and-migrations.md`
-  §3.5), and tag `vX.Y.0`.
+- Each completed milestone that has a release in `roadmap.md` (M2 → v0.1.0 through M12 →
+  v1.0.0) ends with a release PR: version bump, `CHANGELOG.md` (Keep a Changelog) update, a **new
+  golden fixture vault** (`persistence-and-migrations.md` §3.5), and tag `vX.Y.0`. M0 and M1 have
+  no release: vaults don't exist before M2, so v0.1.0 is the first release that writes them.
+  Their changes accumulate under `Unreleased` (`workflow.md` §11).
 - Pre-1.0 versions may change the API freely (same-repo client). Vault data must stay
   upgradable across **every** version from the first release that wrote vaults.

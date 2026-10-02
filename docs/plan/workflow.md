@@ -140,8 +140,16 @@ a Conventional Commit anyway. The issue closes automatically via `Closes #N`. Co
 
 ## 11. Milestone completion
 
-When the last issue of a milestone closes, the next agent opens a **release PR**: version bump
-(backend + npm workspaces), `CHANGELOG.md` entry, a new golden fixture vault
-(`persistence-and-migrations.md` §3.5), and the roadmap status updated. After merge:
-`git tag vX.Y.0 && git push --tags`, then close the milestone (`gh api -X PATCH
-repos/Hidoni/lore-world-tracker/milestones/<n> -f state=closed`).
+When the last issue of a milestone closes, the next agent checks the milestone's exit criteria
+(`roadmap.md`) and that CI on `main` is green, then finishes it. What that involves depends on the
+roadmap's **Release** column:
+
+- **Milestone with a release** (M2 → v0.1.0 … M12 → v1.0.0): open a **release PR** with the
+  version bump (backend + npm workspaces, then `uv lock` and `npm install --package-lock-only`),
+  the `CHANGELOG.md` entries moved from `Unreleased` to the new version, and a new golden fixture
+  vault (`persistence-and-migrations.md` §3.5). After merge: `git tag vX.Y.0 && git push --tags`.
+- **Milestone without a release** (M0, M1, M13): no version bump, tag or fixture vault. Record
+  the milestone's user-visible changes under `Unreleased` in `CHANGELOG.md` (in a small docs PR).
+
+Then close the milestone (`gh api -X PATCH repos/Hidoni/lore-world-tracker/milestones/<n> -f
+state=closed`).
