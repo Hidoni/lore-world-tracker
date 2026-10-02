@@ -70,6 +70,9 @@ jobs:
     name: chronology
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # More property-test examples (hypothesis `ci` profile, fast-check numRuns), seeded.
+      PROPERTY_PROFILE: ci
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0

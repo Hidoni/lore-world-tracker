@@ -11,13 +11,15 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "build": "tsc -p tsconfig.json",
     "gen:schema": "node scripts/gen-schema.ts",
     "check:schema": "node scripts/gen-schema.ts --check"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
+    "@vitest/coverage-v8": "^5.0.3",
+    "fast-check": "^4.10.2",
     "json-schema-to-typescript": "^16.0.0",
     "vitest": "^5.0.3"
   }

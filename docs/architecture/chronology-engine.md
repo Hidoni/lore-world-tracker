@@ -39,15 +39,29 @@ Rules:
 
 ## 2. Numeric utilities (both engines)
 
-- Moment strings: parse/format; reject leading zeros, `+`, whitespace and values > 1000 digits.
-- Sortable keys (`time-model.md` §2.3). Python needs these for persistence; TS has them for the
-  static data source.
-- Rationals `{num, den}`: normalize, add, sub, mul, div, compare, floor, frac, from-int.
-- Big-number display: digit grouping (configurable separator) and scientific notation above a
-  threshold of digits with a configurable number of significant digits, e.g.
-  `3.17 × 10^99` (with the plain-text fallback `3.17e99`).
-- Floor division and modulo with **floor semantics** for negatives (`-1 mod 7 = 6`), in both
-  engines. TS `bigint` `%` truncates, so it must use a helper.
+`lore.chronology.numbers` and `@lore/chronology` `numbers.ts` (vectors: `cases/numbers/`). Errors
+carry a stable code shared by both engines: `invalid_number`, `invalid_key`, `division_by_zero`.
+
+- Moment and signed integer strings: strict parse/format (`parse_moment`/`parseMoment`,
+  `format_moment`, `parse_signed`, `format_signed`). Reject leading zeros, `-0`, `+`, whitespace,
+  non-ASCII digits and more than 1000 digits; moments reject negatives.
+- Sortable keys (`time-model.md` §2.3): `sortable_key` / `from_sortable_key`, which rejects every
+  string `sortable_key` cannot produce (`invalid_key`). Python needs these for persistence; TS
+  has them for the static data source.
+- Rationals `{num, den}`: normalize, add, sub, mul, div, compare, floor, frac, from-int. Python
+  uses `fractions.Fraction` (exact, always normalized; never built from a float). TS has
+  `BigRational` (`{num: bigint, den: bigint}`) and `rational*` functions. A zero denominator or
+  divisor is `division_by_zero`.
+- Big-number display (`format_integer` / `formatInteger`, options = the calendar `display`
+  values of §3.11): below `scientific_threshold` digits, digit grouping by 3 with the configurable
+  separator (`''` disables it). From the threshold on, scientific notation with
+  `significant_digits` significant digits rounded **half to even** on the exact digits, trailing
+  zeros of the mantissa dropped (`1 × 10^15`, not `1.000 × 10^15`), a carry moving to the
+  exponent (`9.9996…` → `1 × 10^17`), and no grouping in the mantissa: `3.17 × 10^99`, plain-text
+  form `3.17e99`. Negative numbers get a leading `-`.
+- Floor division and modulo with **floor semantics** (`floor_div`/`floorDiv`,
+  `floor_mod`/`floorMod`): `⌊a / b⌋`, and the modulo has the sign of the divisor
+  (`-1 mod 7 = 6`, `1 mod -7 = -6`). TS `bigint` `/` and `%` truncate, so it must use the helpers.
 
 ## 3. Calendar definition (schema v1)
 

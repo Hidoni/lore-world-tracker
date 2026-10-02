@@ -222,10 +222,34 @@ calendar-free files. Occurrences are `{"key": "<k or k.j>", "start": "<moment>",
 
 - expected: `{"t": "<moment>"}`, or `{"t": null}` when there is no corresponding moment
 
+### Numeric utilities (chronology-engine §2), calendar-free
+
+Integer inputs named `n`, `a`, `b` are decimal strings that runners convert **without**
+validation (they may be deliberately out of range); `text` and `key` go through the strict parsers.
+Rationals in inputs (`a`, `b`, or the members `num`/`den` themselves) are parsed and normalized
+like `rational_normalize`. Errors: `invalid_number`, `invalid_key`, `division_by_zero`.
+
+| op | input | expected |
+|----|-------|----------|
+| `parse_moment` | `{"text"}` | `{"value": "<canonical>"}` |
+| `parse_signed` | `{"text"}` | `{"value": "<canonical>"}` |
+| `format_moment` | `{"n"}` | `{"text"}` |
+| `format_signed` | `{"n"}` | `{"text"}` |
+| `sortable_key` | `{"n"}` | `{"key"}` |
+| `from_sortable_key` | `{"key"}` | `{"n"}` |
+| `floor_div` | `{"a", "b"}` | `{"value"}` |
+| `floor_mod` | `{"a", "b"}` | `{"value"}` |
+| `rational_normalize` | `{"num", "den"}` | `{"num", "den"}` |
+| `rational_from_int` | `{"n"}` | `{"num", "den"}` |
+| `rational_add` / `_sub` / `_mul` / `_div` | `{"a": Rational, "b": Rational}` | `{"num", "den"}` |
+| `rational_compare` | `{"a", "b"}` | `{"value": -1 \| 0 \| 1}` (a JSON number) |
+| `rational_floor` | `{"a"}` | `{"value"}` |
+| `rational_frac` | `{"a"}` | `{"num", "den"}` |
+| `format_integer` | `{"n", "digit_group"?, "scientific_threshold"?, "significant_digits"?, "plain"?}` (absent = the defaults `","`, `16`, `4`, `false`) | `{"text"}` |
+
 ### Adding ops
 
-Later issues add ops (e.g. `cases/numbers/` for the numeric utilities, #9) by documenting them
-here first. Runners reject unknown ops, so a vector can't be silently skipped.
+Later issues add ops by documenting them here first. Runners reject unknown ops, so a vector can't be silently skipped.
 
 ## Runners and pending ops
 

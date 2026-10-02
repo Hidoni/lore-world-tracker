@@ -15,11 +15,35 @@ from typing import Any
 
 import pytest
 
+from lore.chronology import numbers
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
 
-OPS = frozenset(
+NUMBER_OPS = frozenset(
+    {
+        "parse_moment",
+        "format_moment",
+        "parse_signed",
+        "format_signed",
+        "sortable_key",
+        "from_sortable_key",
+        "floor_div",
+        "floor_mod",
+        "rational_normalize",
+        "rational_from_int",
+        "rational_add",
+        "rational_sub",
+        "rational_mul",
+        "rational_div",
+        "rational_compare",
+        "rational_floor",
+        "rational_frac",
+        "format_integer",
+    }
+)
+
+OPS = NUMBER_OPS | frozenset(
     {
         "validate",
         "to_fields",
@@ -45,12 +69,50 @@ OPS = frozenset(
 )
 """Every op documented in the conformance README."""
 
-CALENDAR_FREE_OPS = frozenset({"validate", "preset_instantiate", "map"})
+CALENDAR_FREE_OPS = NUMBER_OPS | {"validate", "preset_instantiate", "map"}
 
 type CalendarFile = dict[str, Any]
 type Handler = Callable[[CalendarFile | None, dict[str, Any]], Any]
 
-HANDLERS: dict[str, Handler] = {}
+
+def _rational(data: dict[str, str]) -> numbers.Rational:
+    return numbers.parse_rational(data["num"], data["den"])
+
+
+def _binary(operation: Callable[[numbers.Rational, numbers.Rational], numbers.Rational]) -> Handler:
+    return lambda _, d: numbers.format_rational(operation(_rational(d["a"]), _rational(d["b"])))
+
+
+def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    options = {key: d[key] for key in d.keys() - {"n"}}
+    return {"text": numbers.format_integer(int(d["n"]), **options)}
+
+
+# Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
+HANDLERS: dict[str, Handler] = {
+    "parse_moment": lambda _, d: {"value": str(numbers.parse_moment(d["text"]))},
+    "parse_signed": lambda _, d: {"value": str(numbers.parse_signed(d["text"]))},
+    "format_moment": lambda _, d: {"text": numbers.format_moment(int(d["n"]))},
+    "format_signed": lambda _, d: {"text": numbers.format_signed(int(d["n"]))},
+    "sortable_key": lambda _, d: {"key": numbers.sortable_key(int(d["n"]))},
+    "from_sortable_key": lambda _, d: {"n": str(numbers.from_sortable_key(d["key"]))},
+    "floor_div": lambda _, d: {"value": str(numbers.floor_div(int(d["a"]), int(d["b"])))},
+    "floor_mod": lambda _, d: {"value": str(numbers.floor_mod(int(d["a"]), int(d["b"])))},
+    "rational_normalize": lambda _, d: numbers.format_rational(_rational(d)),
+    "rational_from_int": lambda _, d: numbers.format_rational(
+        numbers.rational_from_int(int(d["n"]))
+    ),
+    "rational_add": _binary(lambda a, b: a + b),
+    "rational_sub": _binary(lambda a, b: a - b),
+    "rational_mul": _binary(lambda a, b: a * b),
+    "rational_div": _binary(numbers.rational_div),
+    "rational_compare": lambda _, d: {
+        "value": numbers.rational_compare(_rational(d["a"]), _rational(d["b"]))
+    },
+    "rational_floor": lambda _, d: {"value": str(numbers.rational_floor(_rational(d["a"])))},
+    "rational_frac": lambda _, d: numbers.format_rational(numbers.rational_frac(_rational(d["a"]))),
+    "format_integer": _format_integer,
+}
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
@@ -148,7 +210,11 @@ def _param(case: Case) -> Any:
 def test_vector(case: Case) -> None:
     calendar = CALENDARS[case.calendar] if case.calendar is not None else None
     handler = HANDLERS.get(case.op, _not_implemented)
-    assert handler(calendar, case.input) == case.expected
+    try:
+        result = handler(calendar, case.input)
+    except numbers.NumberError as error:
+        result = {"error": error.code}
+    assert result == case.expected
 
 
 # --- suite integrity (always executed) -----------------------------------------------------------
