@@ -120,7 +120,8 @@ export interface BigRational {
   readonly den: bigint
 }
 
-function gcd(a: bigint, b: bigint): bigint {
+/** The greatest common divisor of `|a|` and `|b|` (`gcd(0, 0) = 0`). */
+export function gcd(a: bigint, b: bigint): bigint {
   let x = abs(a)
   let y = abs(b)
   while (y !== 0n) [x, y] = [y, x % y]

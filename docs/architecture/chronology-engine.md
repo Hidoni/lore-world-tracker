@@ -343,9 +343,11 @@ Steps:
 
 Costs: `O(Σ template sizes + P)` time and memory. Compiled calendars are immutable and cacheable,
 keyed by (definition hash, context hash): SHA-256 of the canonical JSON of the definition and of
-the whole compile context (resolved anchors, base unit, `D`). Python computes the per-period
-template sequence of a `rules` pattern bit-parallel (one byte per year in a big integer), so a
-period of 1,000,000 years compiles in well under a second (`perf` test).
+the whole compile context (resolved anchors, base unit, `D`). Python computes these hashes; the
+TS engine leaves caching to its callers (e.g. keyed by calendar id and version). Python computes
+the per-period template sequence of a `rules` pattern bit-parallel (one byte per year in a big
+integer) and TS with one typed-array mask per predicate, so a period of 1,000,000 years compiles in
+well under a second in both (`perf` tests).
 
 Unit counts: for every template and every level below it, the compiled template records the
 total and the **regular** number of descendant units at that level. A unit is regular unless it
@@ -437,7 +439,8 @@ Repeat to level 0. The remainder at level 0 is the **base remainder**
 In JSON (conformance vectors), every level appears top level first; an unnamed unit is
 `{"n"}`, a named slot `{"n", "id", "name", "intercalary"}` with `"n": null` for an intercalary
 unit; `era` is `null` and `cycles`/`overlays` are `{}` when the calendar has none. Python:
-`lore.chronology.calendar.to_fields` returns `DateFields` (`as_json()` gives this shape).
+`lore.chronology.calendar.to_fields` returns `DateFields` (`as_json()` gives this shape). TS:
+`toFields` returns `DateFields` with `bigint` numbers (`dateFieldsToJson` gives this shape).
 
 ### 5.7 `from_fields(fields, precision, era?, regime?, overflow)` → moment
 
@@ -461,7 +464,8 @@ unit; `era` is `null` and `cycles`/`overlays` are `{}` when the calendar has non
 `precision` is a level id. Fields name every level from the top down to `precision` and none
 below; any other key, a missing level or a level below the precision is `invalid_date` naming
 that level. Numbers address regular units only (intercalary units only by slot id). Python:
-`lore.chronology.calendar.from_fields`, raising `DateError(code, level)`. Until `local` regime
+`lore.chronology.calendar.from_fields`, raising `DateError(code, level)`; TS: `fromFields`,
+throwing `DateError` with the same `code` and `level`. Until `local` regime
 starts are resolved (#14), regimes with a `local` start never activate.
 
 ### 5.8 Unit bounds and ordinals
@@ -481,8 +485,8 @@ starts are resolved (#14), regimes with a `local` start never activate.
 - Calendar anchors store `fields` as strings (`time-model.md` §5.1): numbers or slot ids. Named
   units should be stored by **slot id** and unnamed units by **number**.
 - The API accepts either form. Engines normalize named units to slot ids when storing a
-  user-entered anchor (Python: `normalize_fields`, which also canonicalizes numbers, e.g. `05`
-  → `5`, and rejects invalid dates).
+  user-entered anchor (Python: `normalize_fields`, TS: `normalizeFields`; both also canonicalize
+  numbers, e.g. `05` → `5`, and reject invalid dates).
 - For a level whose parent template varies (e.g. months of odd vs even years), pickers must
   offer the children of the template **actually used** by the chosen parent.
 - `options(fields_prefix, level)` lists the valid children for the next level, including
@@ -557,7 +561,9 @@ few `add` probes. Used for ages ("34 years, 2 months") and "N years ago".
 
 `compile` returns all errors at once as `{code, path, message}`, where `path` is a JSON pointer
 (Python: `lore.chronology.calendar.compile_calendar` for models, `validate_calendar` for raw JSON
-documents). Codes (stable identifiers; the conformance vectors in `cases/validate/` cover every
+documents; TS: `compileCalendar` and `validateCalendar`, which checks raw documents against the
+exported JSON Schemas, generated into `packages/chronology/src/calendar-schema.gen.ts`, and locates
+schema errors as the Python engine does). Codes (stable identifiers; the conformance vectors in `cases/validate/` cover every
 one):
 
 `level.duplicate_id`, `level.invalid_id`, `level.too_many`, `template.unknown_level`,

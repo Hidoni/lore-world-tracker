@@ -92,7 +92,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
-| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) |
+| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image `lore-world-tracker:local` (the tag `docker-compose.yml` uses) |
 | `make docker-smoke` | start the built image via docker compose (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`, CI `docker` job) |

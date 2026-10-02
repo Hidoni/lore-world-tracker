@@ -11,6 +11,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 
 import {
+  CompiledCalendar,
+  DateError,
+  dateFieldsToJson,
+  fromFields,
+  type Overflow,
+  toFields,
+  validateCalendar,
+} from '../src/calendar'
+import {
   type BigRational,
   floorDiv,
   floorMod,
@@ -140,6 +149,20 @@ function displayOptions(d: Json): IntegerDisplayOptions {
   return options
 }
 
+const COMPILED = new Map<CalendarFile, CompiledCalendar>()
+
+function compiled(calendar: CalendarFile | null): CompiledCalendar {
+  if (calendar === null) throw new Error("this op needs the case file's calendar")
+  let result = COMPILED.get(calendar)
+  if (result === undefined) {
+    const outcome = validateCalendar(calendar.definition, calendar.context)
+    if (!(outcome instanceof CompiledCalendar)) throw new Error(JSON.stringify(outcome))
+    result = outcome
+    COMPILED.set(calendar, result)
+  }
+  return result
+}
+
 /** op → engine call returning the result in the README's JSON shape (errors as `{error}`). */
 // Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
 const HANDLERS: Partial<Record<Op, Handler>> = {
@@ -161,13 +184,21 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
   rational_floor: (_, d) => ({ value: rationalFloor(rat(d.a)).toString() }),
   rational_frac: (_, d) => formatRational(rationalFrac(rat(d.a))),
   format_integer: (_, d) => ({ text: formatInteger(BigInt(str(d, 'n')), displayOptions(d)) }),
+  validate: (_, d) => {
+    const result = validateCalendar(d.definition, d.context)
+    const errors = result instanceof CompiledCalendar ? [] : result
+    return { errors: errors.map(({ code, path }) => ({ code, path })) }
+  },
+  to_fields: (calendar, d) => dateFieldsToJson(toFields(compiled(calendar), BigInt(str(d, 't')))),
+  from_fields: (calendar, d) => {
+    const fields = d.fields as Record<string, string>
+    const options = { regime: d.regime as string | undefined, overflow: d.overflow as Overflow }
+    return { t: fromFields(compiled(calendar), fields, str(d, 'precision'), options).toString() }
+  },
 }
 
 /** op → issue that implements it in the TypeScript engine. */
 const PENDING: Partial<Record<Op, number>> = {
-  validate: 23,
-  to_fields: 23,
-  from_fields: 23,
   unit_bounds: 24,
   ordinal: 24,
   from_ordinal: 24,
@@ -223,9 +254,22 @@ function run(op: Op, calendarName: string | null, input: Record<string, unknown>
   try {
     return handler(calendar, input)
   } catch (error) {
-    if (error instanceof NumberError) return { error: error.code }
+    if (error instanceof NumberError || error instanceof DateError) return { error: error.code }
     throw error
   }
+}
+
+interface ErrorItem {
+  code: string
+  path: string
+}
+
+/** `validate` errors compare as a set of (code, path) pairs (README). */
+function normalized(op: Op, value: unknown): unknown {
+  const errors = (value as { errors?: unknown } | null)?.errors
+  if (op !== 'validate' || !Array.isArray(errors)) return value
+  const key = (e: ErrorItem): string => `${e.path}\u0000${e.code}`
+  return { errors: [...(errors as ErrorItem[])].sort((a, b) => (key(a) < key(b) ? -1 : 1)) }
 }
 
 describe.each(CASE_FILES)('$name', ({ name, document }) => {
@@ -233,7 +277,8 @@ describe.each(CASE_FILES)('$name', ({ name, document }) => {
     const issue = PENDING[vector.op]
     if (issue === undefined) {
       test(`${name}::${vector.id}`, () => {
-        expect(run(vector.op, document.calendar, vector.input)).toStrictEqual(vector.expected)
+        const result = run(vector.op, document.calendar, vector.input)
+        expect(normalized(vector.op, result)).toStrictEqual(normalized(vector.op, vector.expected))
       })
     } else {
       // Strict expected failure: only NotImplementedError counts. A result (right or wrong) or
