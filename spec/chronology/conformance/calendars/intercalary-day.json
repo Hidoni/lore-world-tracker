@@ -1,0 +1,111 @@
+{
+  "description": "An intercalary day at a uniform level: a 91-day year of three months whose second month ends with Midyear's Day, an intercalary day (no regular number). Days are all one base unit long, so the day level is uniform while the month level is not. Year 0 starts at t = 0.",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months"
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "midyear",
+        "name": "Midyear Reckoning",
+        "templates": {
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m30x": {
+            "level": "month",
+            "sequence": [
+              {
+                "run": {
+                  "count": "30"
+                }
+              },
+              {
+                "id": "midyear",
+                "template": "day",
+                "name": "Midyear's Day",
+                "intercalary": true
+              }
+            ]
+          },
+          "year": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "first",
+                "template": "m30",
+                "name": "First"
+              },
+              {
+                "id": "second",
+                "template": "m30x",
+                "name": "Second"
+              },
+              {
+                "id": "third",
+                "template": "m30",
+                "name": "Third"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "fixed",
+            "template": "year"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "0",
+            "month": "first",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "0"
+            },
+            "precision": "base"
+          }
+        }
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "day",
+      "plural": "days",
+      "abbr": "d"
+    },
+    "dimension_duration": "1000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "0"
+    }
+  }
+}

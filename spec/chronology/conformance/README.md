@@ -169,13 +169,14 @@ alignment fields are invalid).
 - input: `{"t": "<moment>", "duration": Duration, "overflow": "constrain" | "reject" | absent}`
   (default `constrain`)
 - expected: `{"t": "<integer>"}` (may lie outside `[0, D]`; callers enforce bounds) or
-  `{"error": "invalid_date"}`
+  `{"error": "invalid_date"}` (a constraining step under `reject`, or an unknown level)
 
 ### `diff` (§9.3)
 
 - input: `{"t1": "<moment>", "t2": "<moment>", "largest": "<level id>", "smallest": "<level id>"}`
 - expected: `{"amounts": {"<level id>": "<n>", …}, "base": "<n>", "sign": 1 | -1}` (every level
-  from `largest` to `smallest`; `sign` is `1` when `t1 = t2`)
+  from `largest` to `smallest`; `sign` is `1` when `t1 = t2`), or `{"error": "invalid_date"}` for
+  an unknown level or a `largest` finer than `smallest`
 
 ### `format` (§10)
 

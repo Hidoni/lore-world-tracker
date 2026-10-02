@@ -1,5 +1,13 @@
 """Calendars: compilation, conversions and unit navigation (``chronology-engine.md`` §3-§9)."""
 
+from lore.chronology.calendar.arithmetic import (
+    Difference,
+    Duration,
+    add,
+    diff,
+    duration_upper_bound,
+    is_uniform,
+)
 from lore.chronology.calendar.compile import ValidationError, compile_calendar, validate_calendar
 from lore.chronology.calendar.compiled import (
     CompiledCalendar,
@@ -39,18 +47,24 @@ __all__ = [
     "CycleValue",
     "DateError",
     "DateFields",
+    "Difference",
+    "Duration",
     "Ordinal",
     "RangeOption",
     "SlotOption",
     "UnitFilter",
     "UnitValue",
     "ValidationError",
+    "add",
     "compile_calendar",
     "counted_ordinal",
     "cycle_value",
+    "diff",
+    "duration_upper_bound",
     "from_counted_ordinal",
     "from_fields",
     "from_ordinal",
+    "is_uniform",
     "normalize_fields",
     "options",
     "ordinal",

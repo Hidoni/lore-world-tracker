@@ -406,7 +406,8 @@ with the rule), or **detach** (turn it into a standalone event).
 - **Calendar durations** are `{calendar_id, amounts, sign}`. Their length depends on where they
   are applied. Application is defined in `chronology-engine.md` §9: apply levels from coarsest
   to finest; variable levels use ordinal arithmetic with **constrain** overflow (31 Jan + 1 month
-  becomes the last day of February); uniform levels add exact base units.
+  becomes the last day of February), reckoned in the regime in force at the starting moment;
+  uniform levels add exact base units.
 - Negative calendar durations apply the same algorithm in reverse.
 - Differences between moments in calendar units ("age 34 years, 2 months") use
   `chronology-engine.md` §9.3 (`diff` with a largest unit).

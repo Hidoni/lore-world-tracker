@@ -1,0 +1,179 @@
+{
+  "description": "Calendar arithmetic across the 1582 reform: variable units are reckoned in the regime in force at the starting moment, extended proleptically (chronology-engine §9.2); uniform units add exact lengths.",
+  "calendar": "julian-gregorian",
+  "generated": false,
+  "verification": "Julian Day Numbers from the standard Julian and Gregorian JDN algorithms (2000-01-01 Gregorian = t 10^14, 86,400 s per day). Expected dates are written by hand in the starting moment's regime and converted with that regime's JDN formula.",
+  "cases": [
+    {
+      "id": "year-across-reform",
+      "op": "add",
+      "input": {
+        "t": "99986810089600",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "99986841625600"
+      },
+      "note": "Julian 1 Jan 1583 = Gregorian 11 Jan 1583"
+    },
+    {
+      "id": "year-back-across-reform",
+      "op": "add",
+      "input": {
+        "t": "99986841625600",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "99986810089600"
+      },
+      "note": "Gregorian reckoning, proleptic: Gregorian 11 Jan 1582 = Julian 1 Jan 1582"
+    },
+    {
+      "id": "month-into-reform-gap",
+      "op": "add",
+      "input": {
+        "t": "99986831894800",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "99986834486800"
+      },
+      "note": "Julian 10 Oct 1582 = Gregorian 20 Oct 1582"
+    },
+    {
+      "id": "day-across-reform",
+      "op": "add",
+      "input": {
+        "t": "99986834000800",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "99986834087200"
+      },
+      "note": "Thursday 4 October (Julian) is followed by Friday 15 October (Gregorian)"
+    },
+    {
+      "id": "julian-leap-century",
+      "op": "add",
+      "input": {
+        "t": "99984227420800",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "100"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "99987383180800"
+      },
+      "note": "1600 is a Julian leap year (and Gregorian 10 Mar 1600)"
+    },
+    {
+      "id": "age-across-reform",
+      "op": "diff",
+      "input": {
+        "t1": "99986746931200",
+        "t2": "99987061686400",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "9",
+          "month": "11",
+          "day": "21"
+        },
+        "base": "0",
+        "sign": 1
+      },
+      "note": "Gregorian 1 Jan 1590 = Julian 22 Dec 1589"
+    },
+    {
+      "id": "age-across-reform-reversed",
+      "op": "diff",
+      "input": {
+        "t1": "99987061686400",
+        "t2": "99986746931200",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "9",
+          "month": "11",
+          "day": "21"
+        },
+        "base": "0",
+        "sign": -1
+      }
+    },
+    {
+      "id": "days-across-reform",
+      "op": "diff",
+      "input": {
+        "t1": "99986833676800",
+        "t2": "99986834454400",
+        "largest": "day",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "day": "9"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "within-gregorian",
+      "op": "diff",
+      "input": {
+        "t1": "99987382316800",
+        "t2": "99990537990400",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "100",
+          "month": "0",
+          "day": "0"
+        },
+        "base": "0",
+        "sign": 1
+      },
+      "note": "1700 is not a Gregorian leap year: 29 Feb + 100 years = 28 Feb"
+    }
+  ]
+}

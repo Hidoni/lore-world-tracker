@@ -1,0 +1,174 @@
+{
+  "description": "Uniform levels count intercalary units (exact elapsed time); variable levels skip them and re-apply an intercalary position that the target unit lacks as the last regular unit before it.",
+  "calendar": "intercalary-day",
+  "generated": false,
+  "verification": "Hand-written layout: year Y starts at t = 91·Y; First = days 0-29, Second = days 30-59 plus Midyear's Day at day 60, Third = days 61-90.",
+  "cases": [
+    {
+      "id": "day-onto-midyear",
+      "op": "add",
+      "input": {
+        "t": "332",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "333"
+      },
+      "note": "+1 day counts Midyear's Day"
+    },
+    {
+      "id": "days-over-midyear",
+      "op": "add",
+      "input": {
+        "t": "332",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "2"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "334"
+      }
+    },
+    {
+      "id": "days-back-over-midyear",
+      "op": "add",
+      "input": {
+        "t": "334",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "2"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "332"
+      }
+    },
+    {
+      "id": "month-from-midyear",
+      "op": "add",
+      "input": {
+        "t": "333",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "363"
+      },
+      "note": "Third has no Midyear's Day: the last regular day before its index"
+    },
+    {
+      "id": "month-from-midyear-reject",
+      "op": "add",
+      "input": {
+        "t": "333",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        },
+        "overflow": "reject"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "year-keeps-midyear",
+      "op": "add",
+      "input": {
+        "t": "333",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "2"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "515"
+      }
+    },
+    {
+      "id": "month-into-second",
+      "op": "add",
+      "input": {
+        "t": "302",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "332"
+      }
+    },
+    {
+      "id": "days-count-midyear",
+      "op": "diff",
+      "input": {
+        "t1": "331",
+        "t2": "334",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "0",
+          "day": "3"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "month-and-days",
+      "op": "diff",
+      "input": {
+        "t1": "287",
+        "t2": "334",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "1",
+          "day": "17"
+        },
+        "base": "0",
+        "sign": 1
+      },
+      "note": "First 15 + 1 month = Second 15; then 15 days to Second 30, Midyear's Day, Third 1"
+    }
+  ]
+}
