@@ -176,6 +176,16 @@ class Compiler {
       (this.definition.eras ?? []).map((era) => [era.id, era.start] as const),
       'start',
     )
+    const eras = this.definition.eras ?? []
+    eras.forEach((era, i) => {
+      const path = pointer('eras', i, 'numbering', 'direction')
+      if (era.numbering.direction === 'forward' && i === 0) {
+        this.error('era.forward_without_start', path, 'a forward era counts from its start')
+      }
+      if (era.numbering.direction === 'backward' && i === eras.length - 1) {
+        this.error('era.backward_without_end', path, 'a backward era counts down to the next era')
+      }
+    })
   }
 
   checkOverlays(): void {

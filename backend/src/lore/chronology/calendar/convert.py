@@ -19,6 +19,7 @@ from lore.chronology.calendar.compiled import (
     is_number,
 )
 from lore.chronology.calendar.cycles import CycleValue, cycle_values
+from lore.chronology.calendar.eras import EraValue, era_of, find_era
 
 type Overflow = Literal["reject", "constrain"]
 
@@ -51,13 +52,15 @@ class DateFields:
     """Base-unit remainder inside the level-0 unit."""
     cycles: Mapping[str, CycleValue | None]
     """Every cycle of the regime: its value, or ``None`` where the unit is excluded."""
+    era: EraValue | None = None
+    """The era and era-relative year (``None`` for a calendar without eras)."""
 
     def as_json(self) -> dict[str, object]:
         return {
             "regime": self.regime,
             "levels": {level: value.as_json() for level, value in self.levels.items()},
             "base": str(self.base),
-            "era": None,
+            "era": None if self.era is None else self.era.as_json(),
             "cycles": {
                 cycle: None if value is None else value.as_json()
                 for cycle, value in self.cycles.items()
@@ -105,7 +108,8 @@ def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
         values[levels[level]] = _unit_value(child, calendar.numbering_starts[level])
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
-    return DateFields(regime.id, values, offset, cycle_values(len(levels) - 1, regime, t))
+    cycles = cycle_values(len(levels) - 1, regime, t)
+    return DateFields(regime.id, values, offset, cycles, era_of(calendar, t))
 
 
 def _unit_value(child: Child, numbering_start: int) -> UnitValue:
@@ -125,22 +129,25 @@ def from_fields(
     fields: Mapping[str, str],
     precision: str,
     *,
+    era: str | None = None,
     regime: str | None = None,
     overflow: Overflow = "reject",
 ) -> int:
     """The start moment of the unit at ``precision`` that ``fields`` denote (§5.7).
 
     ``fields`` hold every level from the top down to ``precision`` and none below; values are
-    regular numbers or slot ids. Raises :class:`DateError`.
+    regular numbers or slot ids. With ``era``, the year is era-relative, the unit must overlap
+    the era, and a unit that starts before the era resolves to the era's start. Raises
+    :class:`DateError`.
     """
     _check_shape(calendar, fields, precision)
+    if era is not None:
+        return _from_era_fields(calendar, fields, precision, era, regime=regime, overflow=overflow)
     if regime is not None:
         return _resolve(calendar, _regime_by_id(calendar, regime), fields, precision, overflow)
     results: list[int] = []
     errors: list[DateError] = []
     for candidate in reversed(calendar.regimes):
-        if candidate.index > 0 and candidate.starts_at is None:
-            continue  # a local start, resolved by #14
         try:
             t = _resolve(calendar, candidate, fields, precision, overflow)
         except DateError as error:
@@ -159,6 +166,46 @@ def from_fields(
     if errors and len(errors) == len(calendar.regimes):
         raise errors[-1]  # invalid in every regime: report regime 0's error
     raise DateError("reform_gap", "no regime has this date at a moment it is in force")
+
+
+def _from_era_fields(
+    calendar: CompiledCalendar,
+    fields: Mapping[str, str],
+    precision: str,
+    era_id: str,
+    *,
+    regime: str | None,
+    overflow: Overflow,
+) -> int:
+    """§5.7 step 1: an era year becomes ``Y``; the resulting unit must overlap the era."""
+    top = calendar.levels[-1]
+    era = find_era(calendar, era_id)
+    if not is_number(fields[top]):
+        raise DateError("invalid_date", "the year must be a number", top)
+    astronomical = dict(fields) | {top: str(era.year(int(fields[top])))}
+    start = from_fields(calendar, astronomical, precision, regime=regime, overflow=overflow)
+    chosen = (
+        _regime_by_id(calendar, regime) if regime is not None else active_regime(calendar, start)
+    )
+    end = start + _unit_length(calendar, chosen, astronomical, precision)
+    if (era.start is not None and end <= era.start) or (era.end is not None and start >= era.end):
+        raise DateError("invalid_date", f"the date is not in the era {era_id!r}", top)
+    # A unit that straddles the era's start resolves to the era's start ("Reiwa 1" → 1 May 2019).
+    return start if era.start is None else max(start, era.start)
+
+
+def _unit_length(
+    calendar: CompiledCalendar, regime: CompiledRegime, fields: Mapping[str, str], precision: str
+) -> int:
+    levels = calendar.levels
+    template = regime.year_template(int(fields[levels[-1]]))
+    for level in range(len(levels) - 2, levels.index(precision) - 1, -1):
+        child = _child(
+            calendar, regime, template, level, fields[levels[level]], overflow="constrain"
+        )
+        assert child.template is not None
+        template = regime.templates[child.template]
+    return template.length
 
 
 def _check_shape(calendar: CompiledCalendar, fields: Mapping[str, str], precision: str) -> None:

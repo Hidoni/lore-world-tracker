@@ -208,7 +208,7 @@ def test_reform_overlap_is_ambiguous() -> None:
     assert error.value.code == "reform_ambiguous"
 
 
-def test_local_start_regimes_wait_for_local_resolution() -> None:
+def test_local_regime_start_is_a_date_of_the_previous_regime() -> None:
     document = copy.deepcopy(load("gregorian-seconds"))
     second = copy.deepcopy(document["definition"]["regimes"][0])
     second["id"] = "later"
@@ -219,8 +219,10 @@ def test_local_start_regimes_wait_for_local_resolution() -> None:
     document["definition"]["regimes"].append(second)
     document["context"]["resolved"]["/regimes/1/alignment/at"] = "0"
     calendar = compiled(document)
-    assert to_fields(calendar, 10**16).regime == "gregorian"
-    assert from_fields(calendar, {"year": "2200"}, "year") == calendar.regimes[0].year_start(2200)
+    start = calendar.regimes[0].year_start(2100)  # 2100 in regime 0, the one in force before
+    assert calendar.regimes[1].starts_at == start
+    assert to_fields(calendar, start - 1).regime == "gregorian"
+    assert to_fields(calendar, start).regime == "later"
 
 
 # --- performance ---------------------------------------------------------------------------------

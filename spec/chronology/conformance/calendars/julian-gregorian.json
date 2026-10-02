@@ -1,0 +1,648 @@
+{
+  "description": "Julian → Gregorian reform of 1582 over seconds: the Julian regime (leap every 4 years) is in force until the Gregorian regime starts at Gregorian 15 October 1582 (a local anchor), so Thursday 4 October 1582 (Julian) is followed by Friday 15 October 1582 (Gregorian). The week continues across the reform. Eras BC/AD without year zero; AD starts at Julian 1 January 1 (a local anchor).",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "julian",
+        "name": "Julian",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m28": {
+            "level": "month",
+            "uniform": {
+              "count": "28"
+            }
+          },
+          "m29": {
+            "level": "month",
+            "uniform": {
+              "count": "29"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m31": {
+            "level": "month",
+            "uniform": {
+              "count": "31"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m28",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m29",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "rules",
+            "default": "year_common",
+            "rules": [
+              {
+                "when": {
+                  "mod": "4",
+                  "eq": "0"
+                },
+                "template": "year_leap"
+              }
+            ]
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1582",
+            "month": "oct",
+            "day": "5"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "99986834022400"
+            },
+            "precision": "base"
+          }
+        },
+        "cycles": [
+          {
+            "id": "week",
+            "level": "day",
+            "length": 7,
+            "names": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "number_start": 1,
+            "anchor": {
+              "fields": {
+                "year": "1582",
+                "month": "oct",
+                "day": "4"
+              },
+              "index": 3
+            }
+          }
+        ]
+      },
+      {
+        "id": "gregorian",
+        "name": "Gregorian",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m28": {
+            "level": "month",
+            "uniform": {
+              "count": "28"
+            }
+          },
+          "m29": {
+            "level": "month",
+            "uniform": {
+              "count": "29"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m31": {
+            "level": "month",
+            "uniform": {
+              "count": "31"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m28",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "jan",
+                "template": "m31",
+                "name": "January",
+                "abbr": "Jan"
+              },
+              {
+                "id": "feb",
+                "template": "m29",
+                "name": "February",
+                "abbr": "Feb"
+              },
+              {
+                "id": "mar",
+                "template": "m31",
+                "name": "March",
+                "abbr": "Mar"
+              },
+              {
+                "id": "apr",
+                "template": "m30",
+                "name": "April",
+                "abbr": "Apr"
+              },
+              {
+                "id": "may",
+                "template": "m31",
+                "name": "May",
+                "abbr": "May"
+              },
+              {
+                "id": "jun",
+                "template": "m30",
+                "name": "June",
+                "abbr": "Jun"
+              },
+              {
+                "id": "jul",
+                "template": "m31",
+                "name": "July",
+                "abbr": "Jul"
+              },
+              {
+                "id": "aug",
+                "template": "m31",
+                "name": "August",
+                "abbr": "Aug"
+              },
+              {
+                "id": "sep",
+                "template": "m30",
+                "name": "September",
+                "abbr": "Sep"
+              },
+              {
+                "id": "oct",
+                "template": "m31",
+                "name": "October",
+                "abbr": "Oct"
+              },
+              {
+                "id": "nov",
+                "template": "m30",
+                "name": "November",
+                "abbr": "Nov"
+              },
+              {
+                "id": "dec",
+                "template": "m31",
+                "name": "December",
+                "abbr": "Dec"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "rules",
+            "default": "year_common",
+            "rules": [
+              {
+                "when": {
+                  "any": [
+                    {
+                      "all": [
+                        {
+                          "mod": "4",
+                          "eq": "0"
+                        },
+                        {
+                          "not": {
+                            "mod": "100",
+                            "eq": "0"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "mod": "400",
+                      "eq": "0"
+                    }
+                  ]
+                },
+                "template": "year_leap"
+              }
+            ]
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "2000",
+            "month": "jan",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "100000000000000"
+            },
+            "precision": "base"
+          }
+        },
+        "starts_at": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1582",
+              "month": "oct",
+              "day": "15"
+            },
+            "regime": "gregorian"
+          },
+          "precision": "day"
+        },
+        "cycles": [
+          {
+            "id": "week",
+            "level": "day",
+            "length": 7,
+            "names": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "number_start": 1,
+            "continue_from_previous_regime": true
+          }
+        ]
+      }
+    ],
+    "eras": [
+      {
+        "id": "bc",
+        "name": "Before Christ",
+        "abbr": "BC",
+        "numbering": {
+          "direction": "backward",
+          "first": "1"
+        },
+        "abbr_position": "suffix"
+      },
+      {
+        "id": "ad",
+        "name": "Anno Domini",
+        "abbr": "AD",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1",
+              "month": "jan",
+              "day": "1"
+            },
+            "regime": "julian"
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        },
+        "abbr_position": "prefix"
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "second",
+      "plural": "seconds",
+      "abbr": "s"
+    },
+    "dimension_duration": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "99986834022400",
+      "/regimes/1/alignment/at": "100000000000000"
+    }
+  }
+}

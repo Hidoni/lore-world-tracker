@@ -153,6 +153,8 @@ alignment fields are invalid).
 
 ### `era_of` (§3.8, §8)
 
+`from_fields` inputs may carry `"era": "<era id>"`; the year is then era-relative (§3.8).
+
 - input: `{"t": "<moment>"}`
 - expected: `{"id": "<era id>", "year": "<era year>", "abbr": "<abbr>", "name": "<name>"}`, or
   `null` for a calendar without eras
@@ -272,7 +274,7 @@ or pending in each runner.
 
 When an engine implements an op but not yet a feature some of its cases need (e.g. the `cycles`
 member of `to_fields` before that engine has cycles), the runner lists a **pending case rule**:
-a predicate over (calendar, op) with the issue that adds the feature. Matching cases run normally
+a predicate over the case (or an explicit list of case ids) with the issue that adds the feature. Matching cases run normally
 and must still fail (`test.fails` / `xfail(strict=True)`); once the feature lands they pass, which
 breaks the run until the rule is removed.
 

@@ -270,6 +270,20 @@ Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `
 - An era start given as a calendar anchor of **this** calendar must use the `local` anchor form
   (§3.10) with astronomical years.
 
+Details (Python: `lore.chronology.calendar.eras`):
+
+- `Y(start)` and `Y_end` use the regime in force at the moment in question. A forward era needs a
+  start, so era 0 can't be forward (`era.forward_without_start`); a backward era needs a next
+  era, so the last era can't be backward (`era.backward_without_end`).
+- `era_of(t)` is the era whose `[start, next start)` contains `t`, with the era year of `t`'s
+  year: `{id, year, abbr, name}`, or `null` without eras. `to_fields` includes it as `era`.
+- `from_fields(…, era)`: the era year becomes `Y` (the inverse formula), and the unit at the
+  precision must **overlap** the era, else `invalid_date` on the year ("Reiwa 1, 30 April",
+  "AD 0"). A unit that starts before the era resolves to the **era's start** (product decision,
+  2026-10-02): year-only "Reiwa 1" is 1 May 2019 and "Heisei 1, January" is 8 January 1989, so an
+  era date never sorts before its era. Its uncertainty extent (time-model §5.3) is then
+  `[era start, end of the unit)`. An unknown era is `invalid_date`.
+
 ### 3.9 Overlays (astronomical cycles)
 
 ```jsonc
@@ -300,6 +314,15 @@ meaning "this date in this calendar (astronomical year)". The schema has two tim
 itself after compiling the structure, which is why `alignment.at` cannot be `local`. Every other
 anchor kind is resolved by the server (`time-model.md` §7) and passed to the engine as a moment
 (§4).
+
+Resolution of a `local` anchor is `from_fields(fields, precision of the time point, regime)`, so
+the fields stop at the time point's precision. With `regime`, that regime's structure is used
+(proleptic). Without it, a **regime start** is read in the previous regime (the one in force
+before it); other anchors (era starts, overlay epochs) choose the regime like `from_fields`
+(§5.7), once every regime start is resolved. An invalid date, a wrong precision, a reform gap or
+an unknown `regime` is `anchor.invalid_local` (at `…/anchor/fields` or `…/anchor/regime`).
+Ordering checks (`regime.start_not_increasing`, `era.start_not_increasing`) run on the resolved
+moments.
 
 ### 3.11 Formats and display options
 
@@ -352,8 +375,11 @@ Steps:
    lengths `S[0..P]` and the cycle length `C = S[P]`, per-level count prefix arrays over the
    period, and the exception table (sorted, with cumulative deltas).
 4. Derive each regime's epoch from its alignment (§5.4).
-5. Resolve `local` anchors (era starts, regime starts, overlay epochs) with the compiled structure.
-6. Validate cross-regime and era ordering. Derive the `continue_from_previous_regime` cycle anchors.
+5. Resolve `local` anchors with the compiled structure: regime starts first (in order), then era
+   starts and overlay epochs.
+6. Validate cross-regime and era ordering. Derive the cycle anchors (including
+   `continue_from_previous_regime`, which needs the resolved regime starts) and the eras'
+   `Y(start)` / `Y_end`.
 
 Costs: `O(Σ template sizes + P)` time and memory. Compiled calendars are immutable and cacheable,
 keyed by (definition hash, context hash): SHA-256 of the canonical JSON of the definition and of
@@ -458,7 +484,8 @@ unit; `era` is `null` and `cycles`/`overlays` are `{}` when the calendar has non
 
 ### 5.7 `from_fields(fields, precision, era?, regime?, overflow)` → moment
 
-1. Convert an era year to `Y` if `era` is given (inverse of §3.8).
+1. Convert an era year to `Y` if `era` is given (inverse of §3.8); the resulting unit must
+   overlap the era, and a unit straddling the era's start resolves to that start (§3.8 details).
 2. Pick the regime: an explicit `regime`, or try each regime from latest to earliest and keep the
    results whose moment falls inside that regime's validity. **0 results** means the error
    `reform_gap`. **More than 1** means the error `reform_ambiguous` (the caller must pass
@@ -614,8 +641,10 @@ anchors need one too, so the engine takes every moment from the context),
 `template.unknown_cycle` (a `cycle_excluded` id that is not a cycle of the regime),
 `cycle.duplicate_id`, `regime.missing_start` / `era.missing_start` (an item after the first
 without a start), `era.first_has_start`, `era.duplicate_id`, `overlay.duplicate_id`,
-`format.unknown_level` (a `formats` key that is not a level), `schema.invalid` (any other JSON
-Schema violation, at the offending member).
+`format.unknown_level` (a `formats` key that is not a level), `era.forward_without_start`,
+`era.backward_without_end`, `anchor.invalid_local` (a `local` anchor that is not a valid date of
+the calendar, §3.10), `schema.invalid` (any other JSON Schema violation, at the offending
+member).
 
 Rules behind the codes, where §3 leaves room:
 

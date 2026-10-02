@@ -5340,7 +5340,400 @@
       "expected": {
         "errors": []
       },
-      "note": "a local start is accepted (resolved with the compiled structure, #14)"
+      "note": "a local start is a date of this calendar"
+    },
+    {
+      "id": "regime-local-not-increasing",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            },
+            {
+              "id": "second",
+              "name": "Reformed",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "starts_at": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5"
+                  }
+                },
+                "precision": "year"
+              }
+            },
+            {
+              "id": "third",
+              "name": "Reformed",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "starts_at": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5"
+                  },
+                  "regime": "standard"
+                },
+                "precision": "year"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000",
+            "/regimes/1/alignment/at": "1000",
+            "/regimes/2/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "regime.start_not_increasing",
+            "path": "/regimes/2/starts_at"
+          }
+        ]
+      },
+      "note": "local regime starts are ordered once resolved (a local start without regime is a date of the previous regime)"
+    },
+    {
+      "id": "regime-local-invalid-date",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            },
+            {
+              "id": "reformed",
+              "name": "Reformed",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "starts_at": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5",
+                    "month": "9"
+                  }
+                },
+                "precision": "month"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000",
+            "/regimes/1/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "anchor.invalid_local",
+            "path": "/regimes/1/starts_at/anchor/fields"
+          }
+        ]
+      },
+      "note": "a local regime start must be a valid date of the previous regime"
     },
     {
       "id": "era-first-has-start",
@@ -5433,6 +5826,22 @@
                 "precision": "base"
               },
               "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "2000"
+                },
+                "precision": "base"
+              },
+              "numbering": {
                 "direction": "forward",
                 "first": "1"
               }
@@ -5448,7 +5857,8 @@
           "dimension_duration": "1000000",
           "resolved": {
             "/regimes/0/alignment/at": "1000",
-            "/eras/0/start": "10"
+            "/eras/0/start": "10",
+            "/eras/1/start": "2000"
           }
         }
       },
@@ -5546,7 +5956,7 @@
               "name": "Old",
               "abbr": "OLD",
               "numbering": {
-                "direction": "forward",
+                "direction": "backward",
                 "first": "1"
               }
             },
@@ -5667,7 +6077,7 @@
               "name": "Old",
               "abbr": "OLD",
               "numbering": {
-                "direction": "forward",
+                "direction": "backward",
                 "first": "1"
               }
             },
@@ -5796,7 +6206,7 @@
               "name": "Old",
               "abbr": "OLD",
               "numbering": {
-                "direction": "forward",
+                "direction": "backward",
                 "first": "1"
               }
             },
@@ -5927,7 +6337,7 @@
               "name": "Old",
               "abbr": "OLD",
               "numbering": {
-                "direction": "forward",
+                "direction": "backward",
                 "first": "1"
               }
             },
@@ -5966,7 +6376,7 @@
       "expected": {
         "errors": []
       },
-      "note": "a local era start is accepted (resolved with the compiled structure, #14)"
+      "note": "a local era start is a date of this calendar, resolved after compiling the structure"
     },
     {
       "id": "era-start-unresolved",
@@ -6052,7 +6462,7 @@
               "name": "Old",
               "abbr": "OLD",
               "numbering": {
-                "direction": "forward",
+                "direction": "backward",
                 "first": "1"
               }
             },
@@ -6095,6 +6505,788 @@
         ]
       },
       "note": "a non-local era start needs a resolved moment"
+    },
+    {
+      "id": "era-forward-without-start",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "only",
+              "name": "Only",
+              "abbr": "ONLY",
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "era.forward_without_start",
+            "path": "/eras/0/numbering/direction"
+          }
+        ]
+      },
+      "note": "era 0 starts at -infinity, so it can't count forward from its start"
+    },
+    {
+      "id": "era-backward-without-end",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "old",
+              "name": "Old",
+              "abbr": "OLD",
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "2000"
+                },
+                "precision": "base"
+              },
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000",
+            "/eras/1/start": "2000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "era.backward_without_end",
+            "path": "/eras/1/numbering/direction"
+          }
+        ]
+      },
+      "note": "the last era has no next era to count down to"
+    },
+    {
+      "id": "era-local-invalid-date",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "old",
+              "name": "Old",
+              "abbr": "OLD",
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5",
+                    "month": "4"
+                  }
+                },
+                "precision": "month"
+              },
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "anchor.invalid_local",
+            "path": "/eras/1/start/anchor/fields"
+          }
+        ]
+      },
+      "note": "a local anchor is a valid date of this calendar (years have 3 months)"
+    },
+    {
+      "id": "era-local-precision",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "old",
+              "name": "Old",
+              "abbr": "OLD",
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5",
+                    "month": "first"
+                  }
+                },
+                "precision": "year"
+              },
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "anchor.invalid_local",
+            "path": "/eras/1/start/anchor/fields"
+          }
+        ]
+      },
+      "note": "a local anchor's fields stop at its precision (here: year)"
+    },
+    {
+      "id": "era-local-unknown-regime",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "old",
+              "name": "Old",
+              "abbr": "OLD",
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5"
+                  },
+                  "regime": "julian"
+                },
+                "precision": "year"
+              },
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "anchor.invalid_local",
+            "path": "/eras/1/start/anchor/regime"
+          }
+        ]
+      },
+      "note": "a local anchor's regime exists"
+    },
+    {
+      "id": "era-local-not-increasing",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ],
+          "eras": [
+            {
+              "id": "old",
+              "name": "Old",
+              "abbr": "OLD",
+              "numbering": {
+                "direction": "backward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "middle",
+              "name": "Middle",
+              "abbr": "MIDDLE",
+              "start": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "5"
+                  }
+                },
+                "precision": "year"
+              },
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            },
+            {
+              "id": "new",
+              "name": "New",
+              "abbr": "NEW",
+              "start": {
+                "anchor": {
+                  "kind": "local",
+                  "fields": {
+                    "year": "3"
+                  }
+                },
+                "precision": "year"
+              },
+              "numbering": {
+                "direction": "forward",
+                "first": "1"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "era.start_not_increasing",
+            "path": "/eras/2/start"
+          }
+        ]
+      },
+      "note": "local era starts are ordered once resolved"
     },
     {
       "id": "overlay-phases-unsorted",

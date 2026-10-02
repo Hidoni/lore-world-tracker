@@ -272,28 +272,89 @@ function normalized(op: Op, value: unknown): unknown {
   return { errors: [...(errors as ErrorItem[])].sort((a, b) => (key(a) < key(b) ? -1 : 1)) }
 }
 
-/** Whether a calendar file defines parallel cycles in any regime. */
-function hasCycles(calendarName: string | null): boolean {
-  if (calendarName === null) return false
-  const definition = CALENDARS.get(calendarName)?.definition as
-    { regimes?: { cycles?: unknown[] }[] } | undefined
-  return (definition?.regimes ?? []).some((regime) => (regime.cycles ?? []).length > 0)
+interface DefinitionShape {
+  regimes?: { cycles?: unknown[] }[]
+  eras?: unknown[]
 }
 
+function definitionOf(calendarName: string | null): DefinitionShape {
+  if (calendarName === null) return {}
+  return CALENDARS.get(calendarName)?.definition ?? {}
+}
+
+/** Whether a calendar file defines parallel cycles in any regime. */
+function hasCycles(calendarName: string | null): boolean {
+  return (definitionOf(calendarName).regimes ?? []).some(
+    (regime) => (regime.cycles ?? []).length > 0,
+  )
+}
+
+function hasEras(calendarName: string | null): boolean {
+  return (definitionOf(calendarName).eras ?? []).length > 0
+}
+
+/** Cases that need eras, era input or local anchors (era and regime starts) in this engine. */
+const ERAS_AND_LOCAL_ANCHORS = new Set([
+  'eras/astronomical::from-fields-era-without-eras',
+  ...[
+    'showa-64-jan-7',
+    'showa-64-jan-8',
+    'heisei-1-jan-8',
+    'heisei-1-jan-7',
+    'heisei-31-apr-30',
+    'heisei-31-may-1',
+    'reiwa-1-may-1',
+    'reiwa-1-apr-30',
+    'reiwa-1-year',
+    'heisei-1-january',
+    'before-1-dec-24',
+    'before-1-dec-25',
+    'reiwa-0',
+    'showa-1-year',
+    'reiwa-1-may',
+    'heisei-31-year',
+  ].map((id) => `eras/japanese-eras::from-fields-${id}`),
+  ...[
+    'reform-day',
+    'reform-gap',
+    'late-1582',
+    'bc-1',
+    'bc-2',
+    'ides-of-march-bc',
+    'ad-2024',
+    'ad-0',
+    'bc-0',
+    'unknown-era',
+    'era-year-slot-id',
+  ].map((id) => `regimes/julian-gregorian::from-fields-${id}`),
+  ...[
+    'regime-local-not-increasing',
+    'regime-local-invalid-date',
+    'era-local-invalid-date',
+    'era-local-precision',
+    'era-local-unknown-regime',
+    'era-local-not-increasing',
+  ].map((id) => `validate/error-codes::${id}`),
+])
+
 /**
- * Cases of implemented ops that need a feature this engine doesn't have yet: case → issue. They
- * run normally and must still fail (`test.fails`); once the feature lands they pass, which breaks
- * the run until the rule is removed (README "Runners and pending ops").
+ * Cases of implemented ops that need a feature this engine doesn't have yet → issue. They run
+ * normally and must still fail (`test.fails`); once the feature lands they pass, which breaks the
+ * run until the rule is removed (README "Runners and pending ops").
  */
-const PENDING_CASES: { issue: number; applies: (calendar: string | null, op: Op) => boolean }[] = [
-  // to_fields' `cycles` member: cycle values arrive with the TS port of cycles.
-  { issue: 24, applies: (calendar, op) => op === 'to_fields' && hasCycles(calendar) },
+const PENDING_CASES: {
+  issue: number
+  applies: (file: string, calendar: string | null, vector: Case) => boolean
+}[] = [
+  // to_fields' `cycles` and `era` members.
+  { issue: 24, applies: (_, c, v) => v.op === 'to_fields' && (hasCycles(c) || hasEras(c)) },
+  { issue: 24, applies: (file, _, v) => ERAS_AND_LOCAL_ANCHORS.has(`${file}::${v.id}`) },
 ]
 
 describe.each(CASE_FILES)('$name', ({ name, document }) => {
   for (const vector of document.cases) {
     const issue = PENDING[vector.op]
-    const pendingCase = PENDING_CASES.find((rule) => rule.applies(document.calendar, vector.op))
+    const pendingCase = PENDING_CASES.find((rule) => rule.applies(name, document.calendar, vector))
     const check = () => {
       const result = run(vector.op, document.calendar, vector.input)
       expect(normalized(vector.op, result)).toStrictEqual(normalized(vector.op, vector.expected))

@@ -41,8 +41,7 @@ def regime_cycle_value(
     if not counted:
         return None
     if cycle.reset is None:
-        if cycle.anchor_ordinal is None:
-            raise DateError("unknown_cycle", f"cycle {cycle.id!r} continues a local regime start")
+        assert cycle.anchor_ordinal is not None  # set at compile time for continuous cycles
         index = (before - cycle.anchor_ordinal + cycle.anchor_index) % cycle.length
     else:
         _, _, reset_start = counted_position(top, regime, t, cycle.reset, REGULAR)

@@ -183,7 +183,7 @@ class CompiledRegime:
     epoch: int
     """``E``: the moment year 0 starts."""
     starts_at: int | None
-    """Resolved start moment (``None`` for regime 0, or a ``local`` start resolved later, #14)."""
+    """Resolved start moment (``None`` for regime 0 and before ``local`` starts are resolved)."""
     cycles: tuple[CompiledCycle, ...] = ()
     cache: dict[object, object] = field(default_factory=dict, repr=False, compare=False)
     """Derived structures computed on first use (unit counts per level and filter, #12)."""
@@ -233,6 +233,42 @@ class CompiledRegime:
         return self.year_of_rel(t - self.epoch)
 
 
+@dataclass(frozen=True, slots=True)
+class CompiledEra:
+    """An era with its resolved bounds (chronology-engine §3.8)."""
+
+    id: str
+    name: str
+    abbr: str
+    abbr_position: Literal["prefix", "suffix"]
+    backward: bool
+    first: int
+    start: int | None
+    """Start moment (``None`` for era 0: since -∞)."""
+    end: int | None
+    """The next era's start (``None`` for the last era)."""
+    start_year: int | None
+    """``Y(start)``: the year containing the start (forward eras)."""
+    end_year: int | None
+    """``Y_end``: the first year starting at or after ``end`` (backward eras)."""
+
+    def era_year(self, year: int) -> int:
+        """The era-relative number of astronomical year ``year``."""
+        if self.backward:
+            assert self.end_year is not None
+            return self.end_year - year + self.first - 1
+        assert self.start_year is not None
+        return year - self.start_year + self.first
+
+    def year(self, era_year: int) -> int:
+        """The astronomical year of era year ``era_year`` (the inverse of :meth:`era_year`)."""
+        if self.backward:
+            assert self.end_year is not None
+            return self.end_year - era_year + self.first - 1
+        assert self.start_year is not None
+        return era_year - self.first + self.start_year
+
+
 @dataclass(frozen=True, eq=False, slots=True)
 class CompiledCalendar:
     """An immutable compiled calendar, equal/hashable by (definition hash, context hash)."""
@@ -245,6 +281,9 @@ class CompiledCalendar:
     regimes: tuple[CompiledRegime, ...]
     definition_hash: str
     context_hash: str
+    eras: tuple[CompiledEra, ...] = ()
+    overlay_epochs: tuple[int, ...] = ()
+    """Resolved epoch of each overlay, in definition order (used by #15)."""
 
     @property
     def key(self) -> tuple[str, str]:
