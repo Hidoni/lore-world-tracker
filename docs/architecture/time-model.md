@@ -46,7 +46,7 @@ Overlap test: `a.start < b.end && b.start < a.end`. Instants are a special case:
 |-------|------|------|
 | Python | `int` | arbitrary precision; never `float`. |
 | TypeScript | `bigint` | never `number` for time, except pixel coordinates after viewport projection. |
-| JSON / API | decimal string | `^(0|[1-9][0-9]*)$` for moments; signed `^-?(0|[1-9][0-9]*)$` for offsets/years. |
+| JSON / API | decimal string | `^(0|[1-9][0-9]*)$` for moments; signed `^(0|-?[1-9][0-9]*)$` for offsets/years (canonical: no `-0`, no leading zeros). |
 | SQLite | `SortableBigInt` (TEXT) | see §2.3. Comparisons in SQL work directly on the encoded text. |
 
 Limits: `D ≤ 10^1000 − 1` (at most 1000 decimal digits). Every moment, duration and offset obeys
@@ -209,6 +209,9 @@ page body (M9).
 
 ### 5.1 Schema (v1)
 
+The normative structure is the Pydantic models in `lore.chronology.schema`, exported as JSON
+Schemas to `spec/chronology/schema/` (`chronology-engine.md` §1). The shapes below are summaries.
+
 ```jsonc
 // TimePoint
 {
@@ -238,8 +241,8 @@ page body (M9).
   "amounts": { "month": "3", "day": "2" }, "sign": 1 }       // amounts ≥ 0, sign ±1
 ```
 
-Field values in `fields` are **strings**. They match `^-?[0-9]+$` (a number in that level's
-numbering) or `^[a-z][a-z0-9_-]*$` (a **slot id**: a stable id of a named child in the parent
+Field values in `fields` are **strings**. They match `^(0|-?[1-9][0-9]*)$` (a number in that
+level's numbering, canonical like every integer string) or `^[a-z][a-z0-9_-]*$` (a **slot id**: a stable id of a named child in the parent
 template, such as a month or an intercalary day). Months and other named slots should be stored
 by slot id. That way "keep typed dates" (D1) survives reordering and renumbering. The calendar engine
 defines what is valid (`chronology-engine.md` §6).

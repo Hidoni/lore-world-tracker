@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An exact rational ``num/den``, always normalized: gcd 1 and ``den > 0`` (time-model §2.4).",
+  "properties": {
+    "num": {
+      "maxLength": 1001,
+      "pattern": "^(0|-?[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "den": {
+      "maxLength": 1000,
+      "pattern": "^[1-9][0-9]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "num",
+    "den"
+  ],
+  "title": "Rational",
+  "type": "object"
+}

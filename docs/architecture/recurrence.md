@@ -19,6 +19,12 @@
 
 ## 2. Rule schema (v1)
 
+Normative structure: `lore.chronology.schema.RecurrenceRule` (exported to
+`spec/chronology/schema/recurrence-rule.json`). Rules carry `"schema_version": 1` (optional; an
+absent version means 1, `data-model.md` §10). Optional members default as shown below
+(`interval` `"1"`, `filters` [], `select` null, `missing` `"skip"`, `time` null, `exclusions` [],
+filter `of` `"number"`).
+
 ```jsonc
 // Calendar rule (RRULE-like, generalized to any calendar)
 {

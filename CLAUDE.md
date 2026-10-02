@@ -87,17 +87,17 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make help` | list the targets (the default goal) |
 | `make setup` | install backend (uv) + frontend (npm workspaces) deps, Playwright's Chromium |
 | `make dev` | backend on :8000 (reload) + Vite on :5173 (proxies `/api`), data in `./data`; Ctrl-C stops both |
-| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build) + `check-contract` (OpenAPI types drift). Conformance (both engines) and the other drift checks (chronology schemas, `lore db check`) join with #8 and #31 |
-| `make check-backend` / `make check-frontend` / `make check-contract` | one part of `make check` |
+| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build) + `check-contract` (OpenAPI types drift) + `check-chronology` (chronology JSON Schema and TS type drift). `lore db check` joins with #31 |
+| `make check-backend` / `make check-frontend` / `make check-contract` / `make check-chronology` | one part of `make check` |
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
-| `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology` is a placeholder until #8) |
+| `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
-| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`); chronology schemas/types join with #8 |
+| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) |
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image `lore-world-tracker:local` (the tag `docker-compose.yml` uses) |
 | `make docker-smoke` | start the built image via docker compose (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`, CI `docker` job) |
 | `make sample-vault SIZE=small` | generate the demo world into `./data` (placeholder until #43) |
-| `uv run lore …` (in `backend/`) | CLI: `serve`, `vault …`, `db revision -m …`, `db check`, `openapi` |
+| `uv run lore …` (in `backend/`) | CLI: `serve`, `vault …`, `db revision -m …`, `db check`, `openapi`, `chronology export-schemas [--check]` |
 
 Node version: see `.nvmrc`. Python version: see `backend/.python-version` (3.14).
 

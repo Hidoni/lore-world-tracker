@@ -8,10 +8,13 @@ import typer
 import uvicorn
 
 from lore.app import create_app
+from lore.chronology.schema_export import export_schemas
 from lore.config import Settings
 from lore.core.logging import configure_logging
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
+chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine assets.")
+app.add_typer(chronology_app, name="chronology")
 
 
 @app.command()
@@ -61,6 +64,49 @@ def openapi(
         typer.echo(document, nl=False)
     else:
         out.write_text(document, encoding="utf-8")
+
+
+@chronology_app.command("export-schemas")
+def export_chronology_schemas(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Target directory (default: <LORE_SPEC_DIR>/chronology/schema)."),
+    ] = None,
+    check: Annotated[
+        bool, typer.Option(help="Write nothing; fail if the committed files are stale.")
+    ] = False,
+) -> None:
+    """Export the chronology JSON Schemas (spec/chronology/schema/*.json)."""
+    if out is None:
+        spec_dir = Settings().spec_dir
+        if spec_dir is None:
+            typer.echo("no spec directory found: pass --out or set LORE_SPEC_DIR", err=True)
+            raise typer.Exit(2)
+        out = spec_dir / "chronology" / "schema"
+    files = export_schemas()
+    existing = {path.name for path in out.glob("*.json")} if out.is_dir() else set()
+    if check:
+        stale = sorted(
+            name
+            for name, text in files.items()
+            if not (out / name).is_file() or (out / name).read_text(encoding="utf-8") != text
+        )
+        extra = sorted(existing - files.keys())
+        if stale or extra:
+            for name in stale:
+                typer.echo(f"stale: {out / name}", err=True)
+            for name in extra:
+                typer.echo(f"not generated: {out / name}", err=True)
+            typer.echo("Run `make gen` and commit the result.", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"{out} is up to date.")
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    for name in existing - files.keys():
+        (out / name).unlink()
+    for name, text in files.items():
+        (out / name).write_text(text, encoding="utf-8")
+    typer.echo(f"wrote {len(files)} schemas to {out}")
 
 
 def main() -> None:

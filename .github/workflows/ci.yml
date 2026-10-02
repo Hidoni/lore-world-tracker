@@ -72,7 +72,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      # Placeholder until #8 adds the conformance runners and schema drift checks.
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: uv sync --frozen --directory backend
+      - run: npm ci
+      # JSON Schema export + TS type drift, then both engines' tests and conformance runners.
+      - run: make check-chronology
       - run: make test-chronology
 
   e2e:

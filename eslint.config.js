@@ -114,7 +114,29 @@ export default tseslint.config(
     },
   },
   {
-    files: ['frontend/e2e/**', 'frontend/scripts/**', '**/*.test.{ts,tsx}'],
+    files: [
+      'frontend/e2e/**',
+      'frontend/scripts/**',
+      'packages/*/scripts/**',
+      'packages/*/test/**',
+      '**/*.test.{ts,tsx}',
+    ],
     languageOptions: { globals: globals.node },
+  },
+
+  // --- @lore/chronology: pure engine code runs in browsers too (chronology-engine.md §1) ---
+  {
+    files: ['packages/chronology/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['node:*'], message: 'the engine is pure: no Node.js APIs (tests may)' },
+          ],
+        },
+      ],
+    },
   },
 )

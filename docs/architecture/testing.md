@@ -78,14 +78,14 @@ Jobs on every PR (and on `main`):
 |-----|-------|
 | `backend` | `uv sync --frozen` · `ruff check` · `ruff format --check` · `mypy` · `lint-imports` · `pytest` (units, API, migrations, leak tests) |
 | `frontend` | `npm ci` · `eslint` · `tsc -b` · `vitest run` · `vite build` |
-| `chronology` | Python and TS conformance runners · JSON Schema export drift check · TS schema type drift check |
+| `chronology` | `make check-chronology` (JSON Schema export drift · TS schema type drift) · `make test-chronology` (both engines' chronology tests incl. the conformance runners) |
 | `contract` | dump OpenAPI → regenerate `schema.gen.ts` → `git diff --exit-code` · `lore db check` (single head, empty autogenerate diff) |
 | `docker` | `make docker` (build the image) · `make docker-smoke` (`scripts/docker-smoke.sh`): start it through `docker-compose.yml` in a temp project dir, wait for the healthcheck, `GET /api/v1/health` · `/api/v1/meta` has a version · `GET /` (and a client route) serves the SPA · the process is not root · a write to `/data` lands in the host's `./data` |
 | `e2e` | `make e2e` (`scripts/e2e.sh`): build the SPA, `lore serve` it with `LORE_STATIC_DIR` on a temp `LORE_DATA_DIR`, wait for `/api/v1/health`, run the Playwright journeys available so far with `E2E_BASE_URL`. Runs on every PR while it is a fast smoke test; restrict it to `frontend/`, `packages/` and `backend/` changes (with a job-level skip, so the required check still reports) once journeys make it slow |
 | `nightly` (schedule) | full e2e, perf, dependency audit (`uv pip audit`/`npm audit --omit=dev` advisory) |
 
 The workflow is `.github/workflows/ci.yml`; each job calls the same `make` target developers run
-locally (`check-backend`, `check-frontend`, `check-contract`, `test-chronology`, `e2e`, `docker`
+locally (`check-backend`, `check-frontend`, `check-contract`, `check-chronology`, `test-chronology`, `e2e`, `docker`
 + `docker-smoke`), with
 `UV_FROZEN=1`. All jobs except `nightly` are required for merging (D15: the agent self-merges only
 on green, see `workflow.md` §7). A new push cancels the superseded run of the same PR. Dependabot

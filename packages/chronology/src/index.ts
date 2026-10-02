@@ -6,3 +6,7 @@
 
 /** Version of the engine semantics. Placeholder until the engine lands (M1). */
 export const ENGINE_VERSION = '0.0.0'
+
+/** Chronology document types (calendar definitions, time points, rules, …), generated from the
+ * Python models via spec/chronology/schema/bundle.json. Integers are decimal strings. */
+export type * from './schema.gen'

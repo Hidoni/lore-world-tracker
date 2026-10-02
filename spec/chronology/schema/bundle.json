@@ -1,0 +1,2253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ChronologySchemas",
+  "description": "Index of the top-level chronology types (generated; see spec/README.md).",
+  "type": "object",
+  "properties": {
+    "Rational": {
+      "$ref": "#/$defs/Rational"
+    },
+    "Anchor": {
+      "$ref": "#/$defs/Anchor"
+    },
+    "TimePoint": {
+      "$ref": "#/$defs/TimePoint"
+    },
+    "Duration": {
+      "$ref": "#/$defs/Duration"
+    },
+    "EndSpec": {
+      "$ref": "#/$defs/EndSpec"
+    },
+    "CalendarDefinition": {
+      "$ref": "#/$defs/CalendarDefinition"
+    },
+    "CompileContext": {
+      "$ref": "#/$defs/CompileContext"
+    },
+    "RecurrenceRule": {
+      "$ref": "#/$defs/RecurrenceRule"
+    },
+    "CorrespondenceDef": {
+      "$ref": "#/$defs/CorrespondenceDef"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "AbsoluteAnchor": {
+      "additionalProperties": false,
+      "description": "A moment given directly.",
+      "properties": {
+        "kind": {
+          "const": "absolute",
+          "type": "string"
+        },
+        "t": {
+          "maxLength": 1000,
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "t"
+      ],
+      "title": "AbsoluteAnchor",
+      "type": "object"
+    },
+    "Alignment": {
+      "additionalProperties": false,
+      "description": "The start of the unit denoted by ``fields`` (astronomical year) happens at ``at``.",
+      "properties": {
+        "fields": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1001,
+              "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "at": {
+          "$ref": "#/$defs/TimePoint"
+        }
+      },
+      "required": [
+        "fields",
+        "at"
+      ],
+      "title": "Alignment",
+      "type": "object"
+    },
+    "AllFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "items": {
+            "$ref": "#/$defs/PeriodFilter"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "all"
+      ],
+      "title": "AllFilter",
+      "type": "object"
+    },
+    "AllPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "items": {
+            "$ref": "#/$defs/Predicate"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "all"
+      ],
+      "title": "AllPredicate",
+      "type": "object"
+    },
+    "AllSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "all": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "level",
+        "all"
+      ],
+      "title": "AllSelector",
+      "type": "object"
+    },
+    "Anchor": {
+      "discriminator": {
+        "mapping": {
+          "absolute": "#/$defs/AbsoluteAnchor",
+          "calendar": "#/$defs/CalendarAnchor",
+          "relative": "#/$defs/RelativeAnchor"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AbsoluteAnchor"
+        },
+        {
+          "$ref": "#/$defs/CalendarAnchor"
+        },
+        {
+          "$ref": "#/$defs/RelativeAnchor"
+        }
+      ]
+    },
+    "AnyFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "any": {
+          "items": {
+            "$ref": "#/$defs/PeriodFilter"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "any"
+      ],
+      "title": "AnyFilter",
+      "type": "object"
+    },
+    "AnyPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "any": {
+          "items": {
+            "$ref": "#/$defs/Predicate"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "any"
+      ],
+      "title": "AnyPredicate",
+      "type": "object"
+    },
+    "BaseDuration": {
+      "additionalProperties": false,
+      "description": "An exact, signed number of base units.",
+      "properties": {
+        "kind": {
+          "const": "base",
+          "type": "string"
+        },
+        "units": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "units"
+      ],
+      "title": "BaseDuration",
+      "type": "object"
+    },
+    "BaseUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "singular": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "plural": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "abbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "singular",
+        "plural",
+        "abbr"
+      ],
+      "title": "BaseUnit",
+      "type": "object"
+    },
+    "CalendarAnchor": {
+      "additionalProperties": false,
+      "description": "A typed date in a calendar; resolves to the start of the unit at the precision.",
+      "properties": {
+        "kind": {
+          "const": "calendar",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "fields": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1001,
+              "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "era": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "regime": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "calendar_id",
+        "fields"
+      ],
+      "title": "CalendarAnchor",
+      "type": "object"
+    },
+    "CalendarDefinition": {
+      "additionalProperties": false,
+      "description": "A calendar definition, schema v1 (chronology-engine §3).",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "type": "integer"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/Level"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array"
+        },
+        "regimes": {
+          "items": {
+            "$ref": "#/$defs/Regime"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "eras": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Era"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "overlays": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Overlay"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "formats": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Formats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "display": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DisplayOptions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "schema_version",
+        "levels",
+        "regimes"
+      ],
+      "title": "CalendarDefinition",
+      "type": "object"
+    },
+    "CalendarDuration": {
+      "additionalProperties": false,
+      "description": "Amounts of calendar units, applied by calendar arithmetic (chronology-engine §9).",
+      "properties": {
+        "kind": {
+          "const": "calendar",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "amounts": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1000,
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "sign": {
+          "enum": [
+            1,
+            -1
+          ],
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "calendar_id",
+        "amounts",
+        "sign"
+      ],
+      "title": "CalendarDuration",
+      "type": "object"
+    },
+    "CalendarRule": {
+      "additionalProperties": false,
+      "description": "An RRULE-like rule generalized to any calendar (recurrence §2).",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "const": "calendar",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "freq": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LevelFreq"
+            },
+            {
+              "$ref": "#/$defs/CycleFreq"
+            }
+          ]
+        },
+        "interval": {
+          "default": "1",
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "filters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PeriodFilter"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "select": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Selector"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "missing": {
+          "default": "skip",
+          "enum": [
+            "skip",
+            "constrain"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeOfDay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "limit": {
+          "$ref": "#/$defs/Limit"
+        },
+        "exclusions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Exclusion"
+          },
+          "maxItems": 10000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "calendar_id",
+        "freq",
+        "limit"
+      ],
+      "title": "CalendarRule",
+      "type": "object"
+    },
+    "CompileContext": {
+      "additionalProperties": false,
+      "description": "Inputs to ``compile`` besides the definition (chronology-engine §4).",
+      "properties": {
+        "base_unit": {
+          "$ref": "#/$defs/BaseUnit"
+        },
+        "dimension_duration": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "resolved": {
+          "default": {},
+          "description": "Resolved moments of every non-local time point, keyed by JSON pointer into the definition.",
+          "patternProperties": {
+            "^(/[^/]*)*$": {
+              "maxLength": 1000,
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "base_unit",
+        "dimension_duration"
+      ],
+      "title": "CompileContext",
+      "type": "object"
+    },
+    "CorrespondenceDef": {
+      "additionalProperties": false,
+      "description": "How time in two dimensions corresponds (time-model §12.1).",
+      "properties": {
+        "extrapolation": {
+          "default": "none",
+          "enum": [
+            "none",
+            "rate"
+          ],
+          "type": "string"
+        },
+        "rate_before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rational"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rate_after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rational"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/SyncPoint"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "title": "CorrespondenceDef",
+      "type": "object"
+    },
+    "CountLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "count",
+          "type": "string"
+        },
+        "count": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "count"
+      ],
+      "title": "CountLimit",
+      "type": "object"
+    },
+    "Cycle": {
+      "additionalProperties": false,
+      "description": "A parallel cycle such as a week (chronology-engine §3.7).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "length": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "names": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 1000000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "abbrs": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 1000000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "number_start": {
+          "default": 1,
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "const": "continuous",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ResetMode"
+            }
+          ],
+          "default": "continuous"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CycleAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "continue_from_previous_regime": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "level",
+        "length"
+      ],
+      "title": "Cycle",
+      "type": "object"
+    },
+    "CycleAnchor": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "anyOf": [
+            {
+              "maxProperties": 20,
+              "minProperties": 1,
+              "patternProperties": {
+                "^[a-z][a-z0-9_]*$": {
+                  "maxLength": 1001,
+                  "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+                  "type": "string"
+                }
+              },
+              "propertyNames": {
+                "maxLength": 64
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "index": {
+          "default": 0,
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "title": "CycleAnchor",
+      "type": "object"
+    },
+    "CycleFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "cycle": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "in": {
+          "items": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "cycle",
+        "in"
+      ],
+      "title": "CycleFilter",
+      "type": "object"
+    },
+    "CycleFreq": {
+      "additionalProperties": false,
+      "properties": {
+        "cycle": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cycle"
+      ],
+      "title": "CycleFreq",
+      "type": "object"
+    },
+    "CycleMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        },
+        "nth": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 1001,
+                "pattern": "^(0|-?[1-9][0-9]*)$",
+                "type": "string"
+              },
+              "maxItems": 1000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "values"
+      ],
+      "title": "CycleMatch",
+      "type": "object"
+    },
+    "CyclePattern": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "cycle",
+          "type": "string"
+        },
+        "templates": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "maxItems": 1000000,
+          "minItems": 1,
+          "type": "array"
+        },
+        "start": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "templates",
+        "start"
+      ],
+      "title": "CyclePattern",
+      "type": "object"
+    },
+    "CycleSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "cycle": {
+          "$ref": "#/$defs/CycleMatch"
+        }
+      },
+      "required": [
+        "level",
+        "cycle"
+      ],
+      "title": "CycleSelector",
+      "type": "object"
+    },
+    "DefinitionAnchor": {
+      "discriminator": {
+        "mapping": {
+          "absolute": "#/$defs/AbsoluteAnchor",
+          "calendar": "#/$defs/CalendarAnchor",
+          "local": "#/$defs/LocalAnchor",
+          "relative": "#/$defs/RelativeAnchor"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AbsoluteAnchor"
+        },
+        {
+          "$ref": "#/$defs/CalendarAnchor"
+        },
+        {
+          "$ref": "#/$defs/RelativeAnchor"
+        },
+        {
+          "$ref": "#/$defs/LocalAnchor"
+        }
+      ]
+    },
+    "DefinitionTimePoint": {
+      "additionalProperties": false,
+      "description": "A time point inside a calendar definition: may also use a ``local`` anchor (§3.10).",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/DefinitionAnchor"
+        },
+        "precision": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "approximate": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "anchor",
+        "precision"
+      ],
+      "title": "DefinitionTimePoint",
+      "type": "object"
+    },
+    "DisplayOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "circa": {
+          "default": "c. ",
+          "maxLength": 50,
+          "type": "string"
+        },
+        "digit_group": {
+          "default": ",",
+          "maxLength": 5,
+          "type": "string"
+        },
+        "scientific_threshold": {
+          "default": 16,
+          "maximum": 1001,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "significant_digits": {
+          "default": 4,
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "range_separator": {
+          "default": " – ",
+          "maxLength": 50,
+          "type": "string"
+        }
+      },
+      "title": "DisplayOptions",
+      "type": "object"
+    },
+    "Duration": {
+      "discriminator": {
+        "mapping": {
+          "base": "#/$defs/BaseDuration",
+          "calendar": "#/$defs/CalendarDuration"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BaseDuration"
+        },
+        {
+          "$ref": "#/$defs/CalendarDuration"
+        }
+      ]
+    },
+    "DurationEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "duration",
+          "type": "string"
+        },
+        "duration": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "required": [
+        "kind",
+        "duration"
+      ],
+      "title": "DurationEnd",
+      "type": "object"
+    },
+    "EndOfTimeEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "end_of_time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "EndOfTimeEnd",
+      "type": "object"
+    },
+    "EndSpec": {
+      "discriminator": {
+        "mapping": {
+          "duration": "#/$defs/DurationEnd",
+          "end_of_time": "#/$defs/EndOfTimeEnd",
+          "instant": "#/$defs/InstantEnd",
+          "time_point": "#/$defs/TimePointEnd",
+          "unknown": "#/$defs/UnknownEnd"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TimePointEnd"
+        },
+        {
+          "$ref": "#/$defs/DurationEnd"
+        },
+        {
+          "$ref": "#/$defs/InstantEnd"
+        },
+        {
+          "$ref": "#/$defs/EndOfTimeEnd"
+        },
+        {
+          "$ref": "#/$defs/UnknownEnd"
+        }
+      ]
+    },
+    "Era": {
+      "additionalProperties": false,
+      "description": "A partition of time with its own year numbering (chronology-engine §3.8).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "abbr": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DefinitionTimePoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "numbering": {
+          "$ref": "#/$defs/EraNumbering"
+        },
+        "abbr_position": {
+          "default": "suffix",
+          "enum": [
+            "prefix",
+            "suffix"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "abbr",
+        "numbering"
+      ],
+      "title": "Era",
+      "type": "object"
+    },
+    "EraNumbering": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "forward",
+            "backward"
+          ],
+          "type": "string"
+        },
+        "first": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "direction",
+        "first"
+      ],
+      "title": "EraNumbering",
+      "type": "object"
+    },
+    "Exclusion": {
+      "additionalProperties": false,
+      "description": "Skip occurrences starting in ``[from, to)``.",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/TimePoint"
+        },
+        "to": {
+          "$ref": "#/$defs/TimePoint"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Exclusion",
+      "type": "object"
+    },
+    "FixedPattern": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "fixed",
+          "type": "string"
+        },
+        "template": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "template"
+      ],
+      "title": "FixedPattern",
+      "type": "object"
+    },
+    "Formats": {
+      "additionalProperties": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "description": "Format patterns by precision level id, plus ``intercalary`` overrides (§3.11).",
+      "properties": {
+        "intercalary": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        }
+      },
+      "title": "Formats",
+      "type": "object"
+    },
+    "InFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "items": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "in"
+      ],
+      "title": "InFilter",
+      "type": "object"
+    },
+    "InstantEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "instant",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "InstantEnd",
+      "type": "object"
+    },
+    "IntervalRule": {
+      "additionalProperties": false,
+      "description": "A fixed interval in base units, independent of calendars.",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "const": "interval",
+          "type": "string"
+        },
+        "every": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/Limit"
+        },
+        "exclusions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Exclusion"
+          },
+          "maxItems": 10000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "every",
+        "limit"
+      ],
+      "title": "IntervalRule",
+      "type": "object"
+    },
+    "Level": {
+      "additionalProperties": false,
+      "description": "One calendar level, fine → coarse (chronology-engine §3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "plural": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "abbr": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "numbering_start": {
+          "default": 1,
+          "description": "Number of the first regular child in its parent; ignored for the top level.",
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "default_template": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "plural"
+      ],
+      "title": "Level",
+      "type": "object"
+    },
+    "LevelFreq": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level"
+      ],
+      "title": "LevelFreq",
+      "type": "object"
+    },
+    "LevelSelector": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValuesSelector"
+        },
+        {
+          "$ref": "#/$defs/CycleSelector"
+        },
+        {
+          "$ref": "#/$defs/AllSelector"
+        }
+      ]
+    },
+    "Limit": {
+      "discriminator": {
+        "mapping": {
+          "count": "#/$defs/CountLimit",
+          "never": "#/$defs/NeverLimit",
+          "until": "#/$defs/UntilLimit"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/NeverLimit"
+        },
+        {
+          "$ref": "#/$defs/CountLimit"
+        },
+        {
+          "$ref": "#/$defs/UntilLimit"
+        }
+      ]
+    },
+    "LocalAnchor": {
+      "additionalProperties": false,
+      "description": "A date in the calendar being defined (astronomical year). Valid only inside definitions.",
+      "properties": {
+        "kind": {
+          "const": "local",
+          "type": "string"
+        },
+        "fields": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1001,
+              "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "regime": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "title": "LocalAnchor",
+      "type": "object"
+    },
+    "ModFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "mod": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "eq": {
+          "maxLength": 1000,
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "of": {
+          "default": "number",
+          "enum": [
+            "number",
+            "ordinal"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "mod",
+        "eq"
+      ],
+      "title": "ModFilter",
+      "type": "object"
+    },
+    "ModPredicate": {
+      "additionalProperties": false,
+      "description": "``Y mod mod == eq`` (floor mod).",
+      "properties": {
+        "mod": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "eq": {
+          "maxLength": 1000,
+          "pattern": "^(0|[1-9][0-9]*)$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mod",
+        "eq"
+      ],
+      "title": "ModPredicate",
+      "type": "object"
+    },
+    "NamedChild": {
+      "additionalProperties": false,
+      "description": "A named slot of a sequence template.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "type": "string"
+        },
+        "template": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "abbr": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "intercalary": {
+          "default": false,
+          "type": "boolean"
+        },
+        "cycle_excluded": {
+          "default": [],
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "template",
+        "name"
+      ],
+      "title": "NamedChild",
+      "type": "object"
+    },
+    "NeverLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "never",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "NeverLimit",
+      "type": "object"
+    },
+    "NotFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "not": {
+          "$ref": "#/$defs/PeriodFilter"
+        }
+      },
+      "required": [
+        "not"
+      ],
+      "title": "NotFilter",
+      "type": "object"
+    },
+    "NotPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "not": {
+          "$ref": "#/$defs/Predicate"
+        }
+      },
+      "required": [
+        "not"
+      ],
+      "title": "NotPredicate",
+      "type": "object"
+    },
+    "Overlay": {
+      "additionalProperties": false,
+      "description": "An astronomical cycle that never affects date structure (chronology-engine §3.9).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "period": {
+          "$ref": "#/$defs/Rational"
+        },
+        "epoch": {
+          "$ref": "#/$defs/DefinitionTimePoint"
+        },
+        "phases": {
+          "items": {
+            "$ref": "#/$defs/Phase"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "period",
+        "epoch",
+        "phases"
+      ],
+      "title": "Overlay",
+      "type": "object"
+    },
+    "PeriodFilter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModFilter"
+        },
+        {
+          "$ref": "#/$defs/InFilter"
+        },
+        {
+          "$ref": "#/$defs/CycleFilter"
+        },
+        {
+          "$ref": "#/$defs/AllFilter"
+        },
+        {
+          "$ref": "#/$defs/AnyFilter"
+        },
+        {
+          "$ref": "#/$defs/NotFilter"
+        }
+      ]
+    },
+    "Phase": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/Rational"
+        }
+      },
+      "required": [
+        "name",
+        "from"
+      ],
+      "title": "Phase",
+      "type": "object"
+    },
+    "Predicate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModPredicate"
+        },
+        {
+          "$ref": "#/$defs/AllPredicate"
+        },
+        {
+          "$ref": "#/$defs/AnyPredicate"
+        },
+        {
+          "$ref": "#/$defs/NotPredicate"
+        }
+      ]
+    },
+    "Rational": {
+      "additionalProperties": false,
+      "description": "An exact rational ``num/den``, always normalized: gcd 1 and ``den > 0`` (time-model §2.4).",
+      "properties": {
+        "num": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "den": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "num",
+        "den"
+      ],
+      "title": "Rational",
+      "type": "object"
+    },
+    "RecurrenceRule": {
+      "discriminator": {
+        "mapping": {
+          "calendar": "#/$defs/CalendarRule",
+          "interval": "#/$defs/IntervalRule"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CalendarRule"
+        },
+        {
+          "$ref": "#/$defs/IntervalRule"
+        }
+      ]
+    },
+    "Regime": {
+      "additionalProperties": false,
+      "description": "A complete calendar structure with its own epoch (chronology-engine §3.3).",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "starts_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DefinitionTimePoint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "templates": {
+          "maxProperties": 500,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/Template"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        "top": {
+          "$ref": "#/$defs/TopPattern"
+        },
+        "alignment": {
+          "$ref": "#/$defs/Alignment"
+        },
+        "cycles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Cycle"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "templates",
+        "top",
+        "alignment"
+      ],
+      "title": "Regime",
+      "type": "object"
+    },
+    "RelativeAnchor": {
+      "additionalProperties": false,
+      "description": "A slot of another record plus an offset (which may be negative or zero).",
+      "properties": {
+        "kind": {
+          "const": "relative",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/SlotRef"
+        },
+        "offset": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "offset"
+      ],
+      "title": "RelativeAnchor",
+      "type": "object"
+    },
+    "ResetMode": {
+      "additionalProperties": false,
+      "properties": {
+        "reset": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reset"
+      ],
+      "title": "ResetMode",
+      "type": "object"
+    },
+    "RulesPattern": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "rules",
+          "type": "string"
+        },
+        "default": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/YearRule"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "default",
+        "rules"
+      ],
+      "title": "RulesPattern",
+      "type": "object"
+    },
+    "RunChild": {
+      "additionalProperties": false,
+      "description": "``count`` unnamed, numbered children.",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/RunLayout"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "RunChild",
+      "type": "object"
+    },
+    "RunLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "template": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "title": "RunLayout",
+      "type": "object"
+    },
+    "Selector": {
+      "additionalProperties": false,
+      "description": "Positions inside a period, from the period's child level downward (recurrence §2.3).",
+      "properties": {
+        "path": {
+          "items": {
+            "$ref": "#/$defs/LevelSelector"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "Selector",
+      "type": "object"
+    },
+    "SequenceChild": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NamedChild"
+        },
+        {
+          "$ref": "#/$defs/RunChild"
+        }
+      ]
+    },
+    "SequenceTemplate": {
+      "additionalProperties": false,
+      "description": "Explicit children (chronology-engine §3.4).",
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "sequence": {
+          "items": {
+            "$ref": "#/$defs/SequenceChild"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "level",
+        "sequence"
+      ],
+      "title": "SequenceTemplate",
+      "type": "object"
+    },
+    "SlotRef": {
+      "additionalProperties": false,
+      "description": "A referenceable time slot of a record (time-model §6).",
+      "properties": {
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        "slot": {
+          "maxLength": 200,
+          "pattern": "^[a-z][a-z0-9_]*(:[A-Za-z0-9_.-]+)?$",
+          "type": "string"
+        },
+        "occurrence": {
+          "anyOf": [
+            {
+              "maxLength": 1001,
+              "pattern": "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "slot"
+      ],
+      "title": "SlotRef",
+      "type": "object"
+    },
+    "SyncPoint": {
+      "additionalProperties": false,
+      "description": "``a`` in dimension A happens at the same time as ``b`` in dimension B.",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/TimePoint"
+        },
+        "b": {
+          "$ref": "#/$defs/TimePoint"
+        }
+      },
+      "required": [
+        "a",
+        "b"
+      ],
+      "title": "SyncPoint",
+      "type": "object"
+    },
+    "Template": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UniformTemplate"
+        },
+        {
+          "$ref": "#/$defs/SequenceTemplate"
+        }
+      ]
+    },
+    "TimeOfDay": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "maxProperties": 20,
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxLength": 1001,
+              "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "TimeOfDay",
+      "type": "object"
+    },
+    "TimePoint": {
+      "additionalProperties": false,
+      "description": "An anchor plus precision and the circa flag (time-model §5.1).\n\nThe member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/Anchor"
+        },
+        "precision": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "approximate": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "anchor",
+        "precision"
+      ],
+      "title": "TimePoint",
+      "type": "object"
+    },
+    "TimePointEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "time_point",
+          "type": "string"
+        },
+        "time_point": {
+          "$ref": "#/$defs/TimePoint"
+        }
+      },
+      "required": [
+        "kind",
+        "time_point"
+      ],
+      "title": "TimePointEnd",
+      "type": "object"
+    },
+    "TopPattern": {
+      "additionalProperties": false,
+      "description": "Which template each top-level unit (year) uses.",
+      "properties": {
+        "pattern": {
+          "$ref": "#/$defs/YearPattern"
+        },
+        "exceptions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/YearException"
+          },
+          "maxItems": 100000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "title": "TopPattern",
+      "type": "object"
+    },
+    "UniformLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "maxLength": 1000,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "template": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "count"
+      ],
+      "title": "UniformLayout",
+      "type": "object"
+    },
+    "UniformTemplate": {
+      "additionalProperties": false,
+      "description": "``count`` identical children (base units for level 0).",
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "uniform": {
+          "$ref": "#/$defs/UniformLayout"
+        }
+      },
+      "required": [
+        "level",
+        "uniform"
+      ],
+      "title": "UniformTemplate",
+      "type": "object"
+    },
+    "UnknownEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "unknown",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "UnknownEnd",
+      "type": "object"
+    },
+    "UntilLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "until",
+          "type": "string"
+        },
+        "until": {
+          "$ref": "#/$defs/TimePoint"
+        }
+      },
+      "required": [
+        "kind",
+        "until"
+      ],
+      "title": "UntilLimit",
+      "type": "object"
+    },
+    "ValuesSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "level",
+        "values"
+      ],
+      "title": "ValuesSelector",
+      "type": "object"
+    },
+    "YearException": {
+      "additionalProperties": false,
+      "properties": {
+        "year": {
+          "maxLength": 1001,
+          "pattern": "^(0|-?[1-9][0-9]*)$",
+          "type": "string"
+        },
+        "template": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "year",
+        "template"
+      ],
+      "title": "YearException",
+      "type": "object"
+    },
+    "YearPattern": {
+      "discriminator": {
+        "mapping": {
+          "cycle": "#/$defs/CyclePattern",
+          "fixed": "#/$defs/FixedPattern",
+          "rules": "#/$defs/RulesPattern"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FixedPattern"
+        },
+        {
+          "$ref": "#/$defs/CyclePattern"
+        },
+        {
+          "$ref": "#/$defs/RulesPattern"
+        }
+      ]
+    },
+    "YearRule": {
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/Predicate"
+        },
+        "template": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "when",
+        "template"
+      ],
+      "title": "YearRule",
+      "type": "object"
+    }
+  }
+}

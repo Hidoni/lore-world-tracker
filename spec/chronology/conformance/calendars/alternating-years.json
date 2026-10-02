@@ -1,0 +1,178 @@
+{
+  "description": "The brief's alternating-years calendar (time-model.md §13, without eras or week): odd years have Frostfall/Thawing/Bloom (30/31/30 days), even years Ember/Ash/Cinder (31/30/31). Astronomical years; year 0 is even. 1 Frostfall 1 00:00 is aligned with t = 435,000,000,000,000,000 over a dimension of D = 10^110 seconds.",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "imperial",
+        "name": "Imperial Reckoning",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m31": {
+            "level": "month",
+            "uniform": {
+              "count": "31"
+            }
+          },
+          "year_odd": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "frostfall",
+                "template": "m30",
+                "name": "Frostfall",
+                "abbr": "Fro"
+              },
+              {
+                "id": "thawing",
+                "template": "m31",
+                "name": "Thawing",
+                "abbr": "Tha"
+              },
+              {
+                "id": "bloom",
+                "template": "m30",
+                "name": "Bloom",
+                "abbr": "Blo"
+              }
+            ]
+          },
+          "year_even": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "ember",
+                "template": "m31",
+                "name": "Ember",
+                "abbr": "Emb"
+              },
+              {
+                "id": "ash",
+                "template": "m30",
+                "name": "Ash",
+                "abbr": "Ash"
+              },
+              {
+                "id": "cinder",
+                "template": "m31",
+                "name": "Cinder",
+                "abbr": "Cin"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "cycle",
+            "templates": [
+              "year_odd",
+              "year_even"
+            ],
+            "start": "1"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "frostfall",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "435000000000000000"
+            },
+            "precision": "base"
+          }
+        }
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "second",
+      "plural": "seconds",
+      "abbr": "s"
+    },
+    "dimension_duration": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "435000000000000000"
+    }
+  }
+}
