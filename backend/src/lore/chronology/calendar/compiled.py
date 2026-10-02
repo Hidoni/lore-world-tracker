@@ -47,6 +47,8 @@ class Child:
     """One child unit located inside a template."""
 
     segment: Segment
+    position: int
+    """Index of the segment within the template."""
     index: int
     """Index of the child within its segment."""
     offset: int
@@ -90,25 +92,26 @@ class CompiledTemplate:
 
     def child_at(self, offset: int) -> Child:
         """The child containing ``0 ≤ offset < length`` (binary search over the prefix sums)."""
-        segment = self.segments[bisect_right(self._starts, offset) - 1]
+        position = bisect_right(self._starts, offset) - 1
+        segment = self.segments[position]
         index = (offset - segment.start) // segment.child_length
-        return Child(segment, index, segment.start + index * segment.child_length)
+        return Child(segment, position, index, segment.start + index * segment.child_length)
 
     def child_by_regular_index(self, regular_index: int) -> Child | None:
         """The regular child with this 0-based ordinal, if it exists."""
         if not 0 <= regular_index < self.regular_count:
             return None
-        position = bisect_right(self._regular_starts, regular_index) - 1
-        segment = self.segments[self._regular_segments[position]]
+        position = self._regular_segments[bisect_right(self._regular_starts, regular_index) - 1]
+        segment = self.segments[position]
         index = regular_index - segment.regular_start
-        return Child(segment, index, segment.start + index * segment.child_length)
+        return Child(segment, position, index, segment.start + index * segment.child_length)
 
     def child_by_slot(self, slot_id: str) -> Child | None:
         position = self.slots.get(slot_id)
         if position is None:
             return None
         segment = self.segments[position]
-        return Child(segment, 0, segment.start)
+        return Child(segment, position, 0, segment.start)
 
 
 def build_template(
@@ -159,6 +162,8 @@ class CompiledRegime:
     """``E``: the moment year 0 starts."""
     starts_at: int | None
     """Resolved start moment (``None`` for regime 0, or a ``local`` start resolved later, #14)."""
+    cache: dict[object, object] = field(default_factory=dict, repr=False, compare=False)
+    """Derived structures computed on first use (unit counts per level and filter, #12)."""
 
     def _cumulative(self, year: int) -> int:
         """``cum(Y) = Σ_{Y_e < Y} Δ_e - Σ_{Y_e < 0} Δ_e``."""

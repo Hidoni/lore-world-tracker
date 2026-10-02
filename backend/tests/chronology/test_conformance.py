@@ -18,6 +18,14 @@ import pytest
 from lore.chronology import numbers
 from lore.chronology.calendar import CompiledCalendar, validate_calendar
 from lore.chronology.calendar.convert import DateError, from_fields, to_fields
+from lore.chronology.calendar.units import (
+    Bounds,
+    from_ordinal,
+    options,
+    options_json,
+    ordinal,
+    unit_bounds,
+)
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
@@ -108,6 +116,15 @@ def _from_fields(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return {"t": str(from_fields(_compiled(calendar), d["fields"], d["precision"], **options))}
 
 
+def _bounds(bounds: Bounds) -> dict[str, str]:
+    return {"start": str(bounds.start), "end": str(bounds.end)}
+
+
+def _ordinal(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    found = ordinal(_compiled(calendar), int(d["t"]), d["level"])
+    return {"ordinal": str(found.value), "intercalary": not found.counted}
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -141,14 +158,16 @@ HANDLERS: dict[str, Handler] = {
     "validate": _validate,
     "to_fields": lambda c, d: to_fields(_compiled(c), int(d["t"])).as_json(),
     "from_fields": _from_fields,
+    "unit_bounds": lambda c, d: _bounds(unit_bounds(_compiled(c), int(d["t"]), d["level"])),
+    "ordinal": _ordinal,
+    "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
+    "options": lambda c, d: {
+        "options": options_json(options(_compiled(c), d["fields"], d["level"]))
+    },
 }
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "unit_bounds": 12,
-    "ordinal": 12,
-    "from_ordinal": 12,
-    "options": 12,
     "cycle_value": 13,
     "era_of": 14,
     "overlay_phase": 15,

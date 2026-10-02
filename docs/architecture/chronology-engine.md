@@ -476,6 +476,22 @@ starts are resolved (#14), regimes with a `local` start never activate.
 - `counted_ordinal(t, cycle)`: the same, counting units at the cycle's level excluding
   excluded ones.
 
+Details (Python: `lore.chronology.calendar.units`):
+
+- Ordinal 0 is the first regular unit of year 0; units before year 0 have negative ordinals
+  (the last regular unit before year 0 is −1). For the top level the ordinal is `Y`.
+- Which units count is a **unit filter**: a predicate on a unit's own segment ("counts") and one
+  that excludes a segment with its whole subtree. `ordinal` uses the regular filter (an
+  intercalary unit doesn't count, its descendants do); `counted_ordinal` takes a filter, and a
+  cycle's filter (excluded = `cycle_excluded` on the unit or an ancestor) arrives with §3.7 (#13).
+  `from_ordinal`/`from_counted_ordinal` raise `invalid_date` when no unit has the ordinal (e.g.
+  a level whose units are all intercalary).
+- Counts per (level, filter) are prefix sums over each template's segments and over the period's
+  years, plus exception deltas, computed on first use and cached with the compiled regime (the
+  first query on a 1,000,000-year period builds them in well under a second).
+- `unit_bounds` and `ordinal` use the regime active at `t`; `from_ordinal` uses regime 0 unless a
+  regime is given. An unknown level is `invalid_date`.
+
 ## 6. Date field input rules (for pickers and anchors)
 
 - Calendar anchors store `fields` as strings (`time-model.md` §5.1): numbers or slot ids. Named
@@ -486,7 +502,11 @@ starts are resolved (#14), regimes with a `local` start never activate.
 - For a level whose parent template varies (e.g. months of odd vs even years), pickers must
   offer the children of the template **actually used** by the chosen parent.
 - `options(fields_prefix, level)` lists the valid children for the next level, including
-  intercalary slots and their names. Pickers use it.
+  intercalary slots and their names. Pickers use it. `fields_prefix` names every level from the
+  top down to the level just above `level`. The result follows template order: each named slot
+  separately (slot id, regular number or none if intercalary, name) and each run of unnamed
+  children as a number **range** (runs can be astronomically long). The top level's only option
+  is the unbounded range of years.
 
 ## 7. Regimes and reform semantics
 
