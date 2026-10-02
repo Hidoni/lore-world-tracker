@@ -1,0 +1,145 @@
+{
+  "description": "Intercalary units are not periods: a monthly series starting on Yule begins with the next regular month; yearly series through short exception years (skip vs constrain).",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "Hand layout: 1 Deepwinter 1 = t 1,000,000 hours; common years 362 days (Deepwinter 30, Yule 1, months 2-11 of 30, Lithe Days 2, Lastmonth 29), leap years 363 (3 Lithe Days), short years -3 and 5 (Deepwinter and months 2-4), year 8 common.",
+  "cases": [
+    {
+      "id": "monthly-from-yule",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1009414",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "1009438",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      },
+      "note": "period 0 is Deepwinter (before the start); Yule is no period"
+    },
+    {
+      "id": "monthly-from-yule-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1009414",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "1009408",
+          "1010872"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "1009438",
+            "end": "1009438"
+          },
+          {
+            "key": "2",
+            "start": "1010158",
+            "end": "1010158"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "yearly-skip-short-year",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "1034758",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "1034776",
+          "1046344"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "1046326",
+            "end": "1046326"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "year 5 has no Lastmonth"
+    },
+    {
+      "id": "yearly-constrain-short-year",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "1034758",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1"
+      },
+      "expected": {
+        "key": "1",
+        "start": "1037614",
+        "end": "1037614"
+      },
+      "note": "by number: month 12 constrains to month 4"
+    }
+  ]
+}

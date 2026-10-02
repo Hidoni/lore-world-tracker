@@ -118,7 +118,7 @@ def _step(calendar: CompiledCalendar, t: int, level: int, n: int, overflow: Over
 
 
 @dataclass(frozen=True, slots=True)
-class _Path:
+class Path:
     """The units containing a moment, from the top level down to some level."""
 
     year: int
@@ -132,7 +132,7 @@ class _Path:
     """``t`` minus ``start``."""
 
 
-def _descend(calendar: CompiledCalendar, regime: CompiledRegime, t: int, level: int) -> _Path:
+def descend(calendar: CompiledCalendar, regime: CompiledRegime, t: int, level: int) -> Path:
     """The path to the ``level`` unit containing ``t`` in ``regime`` (proleptically)."""
     top = len(calendar.levels) - 1
     rel = t - regime.epoch
@@ -148,7 +148,7 @@ def _descend(calendar: CompiledCalendar, regime: CompiledRegime, t: int, level: 
         offset -= child.offset
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
-    return _Path(year, start, children, template, offset)
+    return Path(year, start, children, template, offset)
 
 
 def _variable_step(
@@ -161,7 +161,7 @@ def _variable_step(
     overflow: Overflow,
 ) -> int:
     top = len(calendar.levels) - 1
-    origin = _descend(calendar, regime, t, 0)
+    origin = descend(calendar, regime, t, 0)
     before, counted, _ = counted_position(top, regime, t, level, REGULAR)
     # Inside an intercalary unit (between regular units before-1 and before), one unit forward
     # is the next regular unit and one unit back the previous one.
@@ -169,9 +169,9 @@ def _variable_step(
     start = from_counted_ordinal(
         calendar, calendar.levels[level], target, REGULAR, regime=regime.id
     ).start
-    template = _descend(calendar, regime, start, level).template
+    template = descend(calendar, regime, start, level).template
     for parent, child in origin.children[top - level :]:
-        placed = _reapply(calendar, template, parent, child, overflow)
+        placed = reapply(calendar, template, parent, child, overflow)
         start += placed.offset
         assert placed.template is not None
         template = regime.templates[placed.template]
@@ -183,7 +183,7 @@ def _variable_step(
     return start + base
 
 
-def _reapply(
+def reapply(
     calendar: CompiledCalendar,
     template: CompiledTemplate,
     parent: CompiledTemplate,

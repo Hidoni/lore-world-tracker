@@ -52,6 +52,9 @@ filter `of` `"number"`).
 { "kind": "never" } | { "kind": "count", "count": "100" } | { "kind": "until", "until": TimePoint }
 ```
 
+`until` is **inclusive** (product decision, 2026-10-02): an occurrence starting exactly at the
+resolved `until` is kept, as with RFC 5545 `UNTIL`. No occurrence starts after `D`, whatever the limit.
+
 ### 2.1 Periods
 
 - `freq.level = L`: a period is one unit of level `L` (a year, a month, a day…). Intercalary
@@ -62,7 +65,15 @@ filter `of` `"number"`).
 
 Period ordinals use `ordinal(t, L)` (or the cycle-round ordinal), as defined in
 `chronology-engine.md` §5.8. With `p0` = ordinal of the period containing the series start, the
-candidate periods are `p0 + k·interval` for `k = 0, 1, 2, …`.
+candidate periods are `p0 + k·interval` for `k = 0, 1, 2, …`. A series starting inside an
+intercalary `L` unit has `p0` = the regular unit before it (so period 0 lies before the start and
+yields no occurrence).
+
+**Regimes** (product decision, 2026-10-02): ordinals and periods are reckoned in the regime in
+force at the series start, extended proleptically past its end, like calendar arithmetic
+(`chronology-engine.md` §9.2). A yearly series on Julian 25 December keeps falling on Julian
+25 December after the 1582 reform (Gregorian 4 January from 1583 to 1600). To follow a reform, end
+the series and start a new one in the new regime.
 
 ### 2.2 Period filters
 
@@ -108,11 +119,26 @@ Examples:
 recurs only in leap years. `missing: "constrain"` uses the constrain semantics of
 `chronology-engine.md` §9.2 instead (28 February in common years).
 
+With `select: null`, the series start's positions below the period level are re-applied inside each
+period exactly like calendar arithmetic re-applies them (`chronology-engine.md` §9.2: slot id, then
+regular number, the intercalary fallback, then the base remainder). With `missing: "skip"`, any
+step that would have to constrain (including a slot id whose number exists but whose id doesn't,
+e.g. Frostfall in an even alternating year) skips the period; with `"constrain"` the step
+constrains. Skipped periods consume their `k` (§3).
+
 ### 2.4 Time of day
 
 Selected positions resolve to the **start** of the deepest selected unit. Finer positions come from
 `time.fields`, or by default from the series start's finer fields (e.g. 09:00). The occurrence
 start is the start of that finer position (precision = the series start's precision).
+
+- `time.fields` name a **contiguous** run of levels strictly below the period level (and below the
+  deepest selected level), e.g. `{hour, minute}`; values are regular numbers or slot ids, resolved
+  with `missing` (`skip` rejects, `constrain` clamps like `from_fields`). Levels between the
+  selected positions and the time fields come from the series start; levels below the time fields
+  start at their first unit (base remainder 0).
+- Without `time`, every finer position of the series start is re-applied, down to the base
+  remainder (constrained like §9.2), so occurrences keep the start's exact offset in the unit.
 
 ## 3. Occurrence identity
 
@@ -151,8 +177,17 @@ ctx = { compiled calendar (calendar rules), series_start_t, duration spec, D,
 
 Calendar durations vary per occurrence (a "1 month" festival). `duration_upper_bound(duration)`
 returns a safe upper bound from the calendar's maximum unit lengths. `expand` searches for starts in
-`[w0 − upper_bound, w1)` and then keeps occurrences that overlap the window per
-`time-model.md` §2.1.
+`[w0 − upper_bound + 1, w1)` (exact durations use their length; an empty window `w0 = w1` searches
+`[…, w0]`) and then keeps occurrences that overlap the window per `time-model.md` §2.1 (instants
+included).
+
+**Truncation.** `expand` never returns a partial list: when more than `max_items` occurrences
+overlap the window, the result is `truncated: true` with no items and `estimated_count`. The count
+is exact when the window has at most `max_items × 4` candidate periods (they are all evaluated) and
+for interval rules with a fixed duration. Otherwise it is the candidate count times the share of
+candidates that have an occurrence, sampled over 64 evenly spaced candidates (exact for rules that
+never skip a period); #21 replaces the sampling with super-period averages (§5.4). Without
+truncation `estimated_count` is null.
 
 ### 5.2 `expand` for calendar rules
 
@@ -201,14 +236,31 @@ server stores `series_start_t` (first occurrence start) and `series_end_t` (end 
 occurrence, or `D` for `never`) in `events`. Window queries use these columns to select candidate
 series (`series_start_t < w1 AND series_end_t > w0`) before expanding.
 
+### 5.6 Searches and limits (Python: `lore.chronology.recurrence`)
+
+- `occurrence(key)`: keys are canonical (`0`, `12`; never `012` or `1.0` for single-occurrence
+  rules); a key whose period yields no occurrence, or whose start is before the series start or
+  after `until`/`D`, is `not_found`.
+- `next_occurrences(after_t, n)`: the first `n` occurrences starting at or after `after_t`.
+- `series_bounds`: `first_start` is the first occurrence (`k = 0`, or later when period 0 is
+  skipped or its start lies before the series start), `null` with `count = 0` when there is none;
+  with `never`, `last_start`, `last_end` and `count` are `null`. With `until`, `count` is exact:
+  arithmetic when no period can be skipped (`missing: constrain` without `time`), otherwise counted
+  period by period.
+- The first, last and next occurrences are searched within 100,000 candidate periods, and
+  counting period by period is limited to 100,000 candidates (`rule.too_complex_to_count` beyond,
+  until #21's super-periods). A series whose start position doesn't come back within 100,000
+  periods is treated as having no further occurrence.
+
 ## 6. Recurrence and timelines
 
 - A series is a time-bound record with start moment `series_start_t`. Branches inherit series
   that start before the cut-off **including their occurrences after the cut-off**: the festival
   keeps happening in the branch unless the branch changes it.
 - A branch may **override** a series (`time-model.md` §4.4) only by changing `limit` (e.g.
-  `until` = the branch moment, meaning the festival was abolished) or by adding `exclusions`
-  starting at or after the cut-off. Occurrences before the cut-off must be identical. The service
+  `until` = the branch moment − 1 base unit, meaning the festival was abolished: `until` is
+  inclusive, and an occurrence starting at the branch moment belongs to the branch's future) or
+  by adding `exclusions` starting at or after the cut-off. Occurrences before the cut-off must be identical. The service
   validates this.
 - Materialized occurrences created in a branch (for occurrences after the cut-off) are
   branch-only entities.
@@ -263,6 +315,12 @@ strategy for one of them.
 `rule.series_end_not_duration` (series `end` must be duration/instant/unknown),
 `rule.series_start_not_occurrence` (warning: the series start doesn't match the rule; the first
 occurrence will be later).
+
+Errors are `{code, path, message, severity}` (`severity` is `warning` only for
+`rule.series_start_not_occurrence`, path `""`). Paths point into the rule, except
+`rule.series_end_not_duration` (`/end`) and a calendar duration without a calendar
+(`rule.unknown_calendar` at `/end/duration/calendar_id`), which point into the series. An
+unresolved `limit.until` is `anchor.unresolved`. Engines refuse to evaluate a rule with errors.
 
 ## 10. UI notes (for M5)
 

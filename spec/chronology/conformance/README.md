@@ -212,7 +212,8 @@ The calendar is the case file's (null for files with only interval rules). Commo
 calendar-free files. Occurrences are `{"key": "<k or k.j>", "start": "<moment>", "end": "<moment>"}`.
 
 - `expand`: ctx + `{"window": ["<w0>", "<w1>"], "max_items": 100}` →
-  `{"items": [occurrence, …], "truncated": false, "estimated_count": "<n>" | null}`
+  `{"items": [occurrence, …], "truncated": false, "estimated_count": "<n>" | null}`; a truncated
+  result has no items and a count (recurrence.md §5.1), an untruncated one `estimated_count: null`
 - `series_bounds`: ctx → `{"first_start": "<moment>" | null, "last_start": … | null, "last_end": … | null, "count": "<n>" | null}`
   (`null` where the series is unbounded; `first_start: null` when it has no occurrence)
 - `occurrence`: ctx + `{"key": "<key>"}` → occurrence or `{"error": "not_found"}`

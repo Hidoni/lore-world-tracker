@@ -1,0 +1,933 @@
+{
+  "description": "Calendar rules with select = null on the proleptic Gregorian calendar: yearly on 29 February (skip vs constrain), monthly on day 31, every 7 years, a time of day, window widening, windows 10^90 years after the start, until limits and truncation.",
+  "calendar": "gregorian-seconds",
+  "generated": false,
+  "verification": "Moments from the Gregorian JDN algorithm (2000-01-01 = t 10^14). Keys are period offsets from the series start's period divided by the interval; expected occurrences are listed by hand (leap years: Y mod 4 = 0 except centuries not divisible by 400). The far window uses the 146,097-day 400-year cycle.",
+  "cases": [
+    {
+      "id": "leap-day-skip-bounds",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000762516000",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      }
+    },
+    {
+      "id": "leap-day-skip-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000789004800",
+          "100001041465600"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "4",
+            "start": "100000888746400",
+            "end": "100000888750000"
+          },
+          {
+            "key": "8",
+            "start": "100001014976800",
+            "end": "100001014980400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "skip: only leap years, keys 1-3 and 5-7 are consumed"
+    },
+    {
+      "id": "leap-day-skip-century",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100003061152000",
+          "100003313526400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "80",
+            "start": "100003287037600",
+            "end": "100003287041200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "2100 is not a leap year"
+    },
+    {
+      "id": "leap-day-skip-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "4"
+      },
+      "expected": {
+        "key": "4",
+        "start": "100000888746400",
+        "end": "100000888750000"
+      }
+    },
+    {
+      "id": "leap-day-skip-missing-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "1"
+      },
+      "expected": {
+        "error": "not_found"
+      },
+      "note": "2025 has no 29 February"
+    },
+    {
+      "id": "leap-day-skip-non-canonical-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "04"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "leap-day-skip-sub-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "key": "4.0"
+      },
+      "expected": {
+        "error": "not_found"
+      },
+      "note": "one occurrence per period: keys are plain k"
+    },
+    {
+      "id": "leap-day-skip-until",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          }
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {
+          "/limit/until": "100003187209600"
+        }
+      },
+      "expected": {
+        "first_start": "100000762516000",
+        "last_start": "100003034663200",
+        "last_end": "100003034666800",
+        "count": "19"
+      },
+      "note": "19 leap years 2024-2096; 2100 has no 29 February"
+    },
+    {
+      "id": "leap-day-constrain-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100003124224000",
+          "100003187296000"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "75",
+            "start": "100003129271200",
+            "end": "100003129274800"
+          },
+          {
+            "key": "76",
+            "start": "100003160807200",
+            "end": "100003160810800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "constrain: 28 February in common years"
+    },
+    {
+      "id": "leap-day-constrain-until-inclusive",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000762516000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "3600"
+          }
+        },
+        "resolved": {
+          "/limit/until": "100000951818400"
+        }
+      },
+      "expected": {
+        "first_start": "100000762516000",
+        "last_start": "100000951818400",
+        "last_end": "100000951822000",
+        "count": "7"
+      },
+      "note": "an occurrence starting exactly at until is kept"
+    },
+    {
+      "id": "monthly-31-skip",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000728467200",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000725846400",
+          "100000757382400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000728467200",
+            "end": "100000728467200"
+          },
+          {
+            "key": "2",
+            "start": "100000733564800",
+            "end": "100000733564800"
+          },
+          {
+            "key": "4",
+            "start": "100000738835200",
+            "end": "100000738835200"
+          },
+          {
+            "key": "6",
+            "start": "100000744105600",
+            "end": "100000744105600"
+          },
+          {
+            "key": "7",
+            "start": "100000746784000",
+            "end": "100000746784000"
+          },
+          {
+            "key": "9",
+            "start": "100000752054400",
+            "end": "100000752054400"
+          },
+          {
+            "key": "11",
+            "start": "100000757324800",
+            "end": "100000757324800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "monthly-31-constrain",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000728467200",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000758592000",
+          "100000767836800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "12",
+            "start": "100000760003200",
+            "end": "100000760003200"
+          },
+          {
+            "key": "13",
+            "start": "100000762508800",
+            "end": "100000762508800"
+          },
+          {
+            "key": "14",
+            "start": "100000765187200",
+            "end": "100000765187200"
+          },
+          {
+            "key": "15",
+            "start": "100000767779200",
+            "end": "100000767779200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "monthly-31-skip-february",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000728467200",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "13"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "every-7-years",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "7"
+        },
+        "series_start": "100000014385600",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000315619200",
+          "100000946771200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "100000456148800",
+            "end": "100000456235200"
+          },
+          {
+            "key": "3",
+            "start": "100000677073600",
+            "end": "100000677160000"
+          },
+          {
+            "key": "4",
+            "start": "100000897998400",
+            "end": "100000898084800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "every-7-years-widened",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "7"
+        },
+        "series_start": "100000014385600",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000456192000",
+          "100000457488000"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "100000456148800",
+            "end": "100000456235200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "starts before the window but its day-long span overlaps it"
+    },
+    {
+      "id": "every-7-years-touching",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "7"
+        },
+        "series_start": "100000014385600",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000456235200",
+          "100000457488000"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "half-open: a span ending at the window start doesn't overlap"
+    },
+    {
+      "id": "every-7-years-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "7"
+        },
+        "series_start": "100000014385600",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "key": "1"
+      },
+      "expected": {
+        "key": "1",
+        "start": "100000235224000",
+        "end": "100000235310400"
+      }
+    },
+    {
+      "id": "time-of-day-first",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "time": {
+            "fields": {
+              "hour": "9",
+              "minute": "0"
+            }
+          }
+        },
+        "series_start": "100000728492400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000733568400",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      },
+      "note": "31 January 09:00 is before the 15:00 start; February has no day 31"
+    },
+    {
+      "id": "time-of-day-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "time": {
+            "fields": {
+              "hour": "9",
+              "minute": "0"
+            }
+          }
+        },
+        "series_start": "100000728492400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000736214400",
+          "100000744163200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "4",
+            "start": "100000738838800",
+            "end": "100000738838800"
+          },
+          {
+            "key": "6",
+            "start": "100000744109200",
+            "end": "100000744109200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "far-window",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000005184000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005183999",
+          "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005184001"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "start": "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005184000",
+            "end": "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005184000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "10^90 years after the start, reached by ordinal arithmetic"
+    },
+    {
+      "id": "far-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000005184000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "key": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "start": "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005184000",
+        "end": "31556952000000000000000000000000000000000000000000000000000000000000000000000000000100000005184000"
+      }
+    },
+    {
+      "id": "truncated-estimate",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000001209600",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100003155760000",
+          "100034712668800"
+        ],
+        "max_items": 10
+      },
+      "expected": {
+        "items": [],
+        "truncated": true,
+        "estimated_count": "12000"
+      },
+      "note": "12,000 monthly candidates > 4 × max_items: no items, and every candidate has an occurrence"
+    },
+    {
+      "id": "truncated-exact-count",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000001209600",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100003155760000",
+          "100003187296000"
+        ],
+        "max_items": 5
+      },
+      "expected": {
+        "items": [],
+        "truncated": true,
+        "estimated_count": "12"
+      },
+      "note": "12 candidates ≤ 4 × max_items are evaluated: 12 > 5 occurrences"
+    },
+    {
+      "id": "before-series-start",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "missing": "constrain"
+        },
+        "series_start": "100000001209600",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "99999684467200",
+          "100000001209600"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [],
+        "truncated": false,
+        "estimated_count": null
+      }
+    }
+  ]
+}
