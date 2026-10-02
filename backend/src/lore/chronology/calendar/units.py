@@ -180,6 +180,15 @@ def _year_of_count(regime: CompiledRegime, counts: _YearCounts, m: int) -> int |
     return k * regime.period + bisect_right(counts.prefix, s, hi=regime.period) - 1
 
 
+def units_per_period(
+    regime: CompiledRegime, level: int, top: int, unit_filter: UnitFilter = REGULAR
+) -> int:
+    """Counted ``level`` units in one period of the top pattern (``P`` years, no exceptions)."""
+    if level == top:
+        return regime.period
+    return _year_counts(regime, level, unit_filter).total
+
+
 # --- levels and regimes --------------------------------------------------------------------------
 
 

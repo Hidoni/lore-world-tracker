@@ -7,6 +7,7 @@ can select several positions per period, else ``k``. A position whose finer fiel
 """
 
 from abc import ABC, abstractmethod
+from bisect import bisect_right
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal
@@ -20,17 +21,21 @@ type RecurrenceErrorCode = Literal[
     "not_found", "rule.invalid", "rule.too_complex_to_count", "rule.too_many_positions"
 ]
 
+NEAR = 64
+"""Periods scanned around a moment before searching by counting."""
 SCAN_LIMIT = 100_000
 """Most candidate periods searched for one occurrence (first, last, next) or counted one by one."""
 MAX_POSITIONS = 100_000
 """Most positions one period may hold (``rule.too_many_positions`` beyond)."""
 TRUNCATE_FACTOR = 4
 """``expand`` gives up on items when the window has more than ``max_items * 4`` candidates."""
+COUNTER_CACHE = 64
+"""Super-period counters kept per compiled regime (least recently used first out)."""
 ITERATE_LIMIT = 10_000
 """Most periods ``expand`` visits; beyond, it estimates (sparse rules such as Fridays the 13th
 over daily periods stay exact within it)."""
 SAMPLES = 64
-"""Candidates sampled to estimate the occurrences per period (until #21's averages)."""
+"""Periods sampled to estimate the occurrences per period of rules that can't be counted."""
 
 
 class RecurrenceError(ValueError):
@@ -79,7 +84,10 @@ class Plan(ABC):
     def __init__(self, ctx: RecurrenceContext, last: int) -> None:
         self.ctx = ctx
         self.last = last
-        """The latest allowed start: ``min(until, D)``."""
+        """The latest allowed start: ``min(until, D)``, or the count limit's last start."""
+        self.exclusions: list[tuple[int, int]] = []
+        """Merged, sorted ``[from, to)`` ranges (set by the engine)."""
+        self.exclusion_starts: list[int] = []
         end = ctx.end
         self.duration = end.duration if isinstance(end, DurationEnd) else None
 
@@ -125,22 +133,100 @@ class Plan(ABC):
         return f"{k}.{j}" if self.multi else str(k)
 
     def occurrences(self, k: int) -> list[Occurrence]:
-        """Period ``k``'s occurrences within the series bounds, in time order."""
+        """Period ``k``'s occurrences within the series bounds, not excluded, in time order."""
         found: list[Occurrence] = []
         for j, start in enumerate(self.positions(k)):
-            if start is not None and self.ctx.series_start <= start <= self.last:
+            if start is not None and self.happens(start):
                 found.append(Occurrence(self.key(k, j), start, self.end_of(start)))
         return found
 
-    def scan(self, k: int, step: Literal[1, -1]) -> list[Occurrence] | None:
-        """The occurrences of the first period from ``k`` on (in direction ``step``) that has
-        any, within :data:`SCAN_LIMIT` periods."""
-        for candidate in range(k, k + step * SCAN_LIMIT, step):
+    def happens(self, start: int) -> bool:
+        """A generated start is an occurrence: within the series bounds and not excluded."""
+        return self.ctx.series_start <= start <= self.last and self.exclusion_at(start) is None
+
+    # counting (§5.4): positions of all periods k ≥ 0, ignoring every bound
+
+    @abstractmethod
+    def count_before(self, t: int) -> int:
+        """``G(t)``: positions starting before ``t``."""
+
+    @abstractmethod
+    def position(self, i: int) -> tuple[int, int, int] | None:
+        """The ``i``-th position (1-based) as ``(k, j, start)``; ``None`` if there is none."""
+
+    def generated_before(self, t: int) -> int:
+        """Generated occurrences (``series_start ≤ start ≤ D``, exclusions included) before
+        ``t``; the count limit applies to these."""
+        start, limit = self.ctx.series_start, self.ctx.dimension_duration + 1
+        return max(0, self.count_before(min(t, limit)) - self.count_before(start))
+
+    def excluded_before(self, t: int) -> int:
+        """Generated occurrences before ``t`` inside an exclusion."""
+        return sum(
+            max(0, self.generated_before(min(to, t)) - self.generated_before(min(begin, t)))
+            for begin, to in self.exclusions
+            if begin < t
+        )
+
+    def actual_before(self, t: int) -> int:
+        """Occurrences (the series bounds and exclusions applied) starting before ``t``."""
+        t = min(t, self.last + 1)
+        return self.generated_before(t) - self.excluded_before(t)
+
+    def exclusion_at(self, t: int) -> tuple[int, int] | None:
+        index = bisect_right(self.exclusion_starts, t) - 1
+        if index >= 0 and t < self.exclusions[index][1]:
+            return self.exclusions[index]
+        return None
+
+    def _occurrence(self, found: tuple[int, int, int]) -> Occurrence:
+        k, j, start = found
+        return Occurrence(self.key(k, j), start, self.end_of(start))
+
+    def next_occurrence(self, t: int) -> Occurrence | None:
+        """The first occurrence starting at or after ``t``: nearby periods are scanned, far ones
+        found by counting; excluded starts jump to the end of their exclusion."""
+        t = max(t, self.ctx.series_start)
+        while t <= self.last:
+            found = self._near(t, 1) or self.position(self.count_before(t) + 1)
+            if found is None or found[2] > self.last:
+                return None
+            exclusion = self.exclusion_at(found[2])
+            if exclusion is None:
+                return self._occurrence(found)
+            t = exclusion[1]
+        return None
+
+    def previous_occurrence(self, t: int) -> Occurrence | None:
+        """The last occurrence starting at or before ``t``."""
+        t = min(t, self.last)
+        while t >= self.ctx.series_start:
+            found = self._near(t, -1)
+            if found is None:
+                index = self.count_before(t + 1)
+                if index <= self.count_before(self.ctx.series_start):
+                    return None
+                found = self.position(index)
+                assert found is not None
+            if found[2] < self.ctx.series_start:
+                return None
+            exclusion = self.exclusion_at(found[2])
+            if exclusion is None:
+                return self._occurrence(found)
+            t = exclusion[0] - 1
+        return None
+
+    def _near(self, t: int, step: Literal[1, -1]) -> tuple[int, int, int] | None:
+        """The first position at or after ``t`` (``step`` 1) or at or before it (-1) within
+        :data:`NEAR` periods, or ``None`` if there is none that close."""
+        k = self.k_range(t, t)[0] if step == 1 else self.k_range(t, t)[1]
+        for candidate in range(k, k + step * NEAR, step):
             if candidate < 0:
                 return None
-            found = self.occurrences(candidate)
-            if found:
-                return found
+            starts = list(enumerate(self.positions(candidate)))
+            for j, start in starts if step == 1 else reversed(starts):
+                if start is not None and (start >= t if step == 1 else start <= t):
+                    return candidate, j, start
         return None
 
     def estimate(self, k_lo: int, k_hi: int) -> int:

@@ -27,8 +27,11 @@ from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_b
 from lore.chronology.recurrence import (
     RecurrenceContext,
     RecurrenceError,
+    count_in_window,
     expand,
     occurrence,
+    occurrence_at,
+    occurrence_number,
     series_bounds,
 )
 from lore.chronology.schema import (
@@ -85,6 +88,8 @@ OPS = NUMBER_OPS | frozenset(
         "series_bounds",
         "occurrence",
         "count_in_window",
+        "occurrence_number",
+        "occurrence_at",
         "map",
     }
 )
@@ -191,6 +196,20 @@ def _series_bounds(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return series_bounds(*_recurrence(calendar, d)).as_json()
 
 
+def _count_in_window(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    window = (int(d["window"][0]), int(d["window"][1]))
+    count, exact = count_in_window(*_recurrence(calendar, d), window)
+    return {"count": str(count), "exact": exact}
+
+
+def _occurrence_number(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    return {"number": str(occurrence_number(*_recurrence(calendar, d), d["key"]))}
+
+
+def _occurrence_at(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    return {"key": occurrence_at(*_recurrence(calendar, d), int(d["t"]))}
+
+
 def _occurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return occurrence(*_recurrence(calendar, d), d["key"]).as_json()
 
@@ -236,6 +255,9 @@ HANDLERS: dict[str, Handler] = {
     "add": _add,
     "expand": _expand,
     "series_bounds": _series_bounds,
+    "count_in_window": _count_in_window,
+    "occurrence_number": _occurrence_number,
+    "occurrence_at": _occurrence_at,
     "occurrence": _occurrence,
     "diff": _diff,
     "options": lambda c, d: {
@@ -249,7 +271,6 @@ PENDING: dict[str, int] = {
     "format": 17,
     "format_span": 17,
     "preset_instantiate": 18,
-    "count_in_window": 21,
     "map": 22,
 }
 """op → issue that implements it in the Python engine."""
@@ -390,4 +411,6 @@ def test_case_file_shape(file: str) -> None:
                 "series_bounds",
                 "occurrence",
                 "count_in_window",
+                "occurrence_number",
+                "occurrence_at",
             }

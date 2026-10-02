@@ -6,6 +6,7 @@ positions come from the selector path (or, for ``select: null``, the series star
 then the finer fields from ``time`` or the series start, re-applied like calendar arithmetic.
 """
 
+from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
@@ -29,10 +30,15 @@ from lore.chronology.calendar.units import (
     counted_position,
     cycle_filter,
     from_counted_ordinal,
+    units_per_period,
 )
 from lore.chronology.numbers import floor_div, floor_mod
+from lore.chronology.recurrence.counting import Counter, TooComplex, counter_for
 from lore.chronology.recurrence.plan import (
+    COUNTER_CACHE,
+    ITERATE_LIMIT,
     MAX_POSITIONS,
+    SCAN_LIMIT,
     Plan,
     RecurrenceContext,
     RecurrenceError,
@@ -54,6 +60,13 @@ from lore.chronology.schema import (
     PeriodFilter,
     ValuesSelector,
 )
+
+
+class _Unset:
+    """The counter isn't built yet (it is built on first use)."""
+
+
+_UNSET = _Unset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,10 +296,13 @@ class CalendarPlan(Plan):
         # Rounds: the first selector picks units of the round, as if one level up.
         above = self.level + 1 if self.rounds is not None else self.level
         self.multi = not _single(rule, calendar.levels, above)
+        self.counter: Counter | _Unset | None = _UNSET
         counted = self._counted(ctx.series_start)
         self.p0 = self._period_of(counted)
         self.start_index = counted - self._first_counted(self.p0)
         """For rounds: the series start's index in its round (``select: null``)."""
+        self.per_period = self._per_period()
+        """Positions per period when constant (``None``: they vary)."""
 
     # periods
 
@@ -315,13 +331,32 @@ class CalendarPlan(Plan):
 
     @property
     def dense(self) -> bool:
+        return self.per_period == 1
+
+    def _per_period(self) -> int | None:
+        """The number of positions every period holds, when it is the same for all of them.
+
+        Without filters, cycle selectors or rounds, a period's positions depend only on its
+        unit's template; if every template of the level gives the same count, ``S(k)`` is that
+        count times ``k`` (0: the rule never occurs).
+        """
         rule = self.rule
-        return (
-            rule.select is None
-            and not rule.filters
-            and self.overflow == "constrain"
-            and self.time is None
+        cyclic = rule.select is not None and any(
+            isinstance(selector, CycleSelector) for selector in rule.select.path
         )
+        if self.rounds is not None or rule.filters or cyclic:
+            return None
+        if units_per_period(self.regime, self.level, self.top) == 0:
+            return None
+        counts = set()
+        for template in self.regime.templates.values():
+            if template.level == self.level:
+                try:
+                    found = self._unit_positions(0, [_Unit(0, template)])
+                except RecurrenceError:
+                    return None
+                counts.add(sum(p is not None for p in found))
+        return counts.pop() if len(counts) == 1 else None
 
     def _unit(self, counted: int) -> _Unit:
         """The counted ``level`` unit with this ordinal."""
@@ -345,13 +380,120 @@ class CalendarPlan(Plan):
                 units = []
         except DateError:
             return []  # no counted unit has this ordinal
+        if self.rule.select is None and self.rounds is not None:
+            units = [self._unit(self._first_counted(period) + self.start_index)]
+        return self._unit_positions(period, units)
+
+    def _unit_positions(self, period: int, units: list[_Unit]) -> list[int | None]:
+        """The positions inside the period (its unit, or nothing yet for a round)."""
         if self.rule.select is None:
-            if self.rounds is not None:
-                units = [self._unit(self._first_counted(period) + self.start_index)]
             return [self._tail(unit, self.level) for unit in units]
         selected = self._select(period, units)
         deepest = self.calendar.levels.index(self.rule.select.path[-1].level)
         return [self._tail(unit, deepest) for unit in selected]
+
+    # counting (§5.4)
+
+    def _period_count(self, k: int) -> int:
+        return sum(p is not None for p in self.positions(k))
+
+    def _enumerated(self, k: int) -> int:
+        """``S(k)`` by enumerating periods, with the prefix kept on the regime (per rule and
+        series start) so repeated queries near the start stay cheap."""
+        cache = self.regime.cache.setdefault("recurrence-prefixes", OrderedDict())
+        assert isinstance(cache, OrderedDict)
+        key = (self.rule.model_dump_json(), self.ctx.series_start)
+        prefix = cache.get(key)
+        if prefix is None:
+            prefix = cache[key] = [0]
+            if len(cache) > COUNTER_CACHE:
+                cache.popitem(last=False)
+        cache.move_to_end(key)
+        assert isinstance(prefix, list)
+        while len(prefix) <= k:
+            prefix.append(prefix[-1] + self._period_count(len(prefix) - 1))
+        count: int = prefix[k]
+        return count
+
+    def _counter(self, *, build: bool = True) -> Counter | None:
+        """The super-period counter, cached on the regime (per rule and series start)."""
+        if isinstance(self.counter, _Unset):
+            cache = self.regime.cache.setdefault("recurrence-counters", OrderedDict())
+            assert isinstance(cache, OrderedDict)
+            key = (self.rule.model_dump_json(), self.ctx.series_start)
+            if key in cache:
+                cache.move_to_end(key)
+                self.counter = cache[key]
+            elif not build:
+                return None
+            else:
+                self.counter = counter_for(self)
+                cache[key] = self.counter
+                if len(cache) > COUNTER_CACHE:
+                    cache.popitem(last=False)
+        assert not isinstance(self.counter, _Unset)
+        return self.counter
+
+    def _count_periods(self, k: int) -> int:
+        """``S(k)``: positions in periods ``0 … k-1``. Small ``k`` are enumerated (cheaper than
+        a super-period), large ones counted (``rule.too_complex_to_count`` if impossible)."""
+        if self.per_period is not None:
+            return self.per_period * k
+        counter = self._counter(build=k > ITERATE_LIMIT)
+        if counter is not None:
+            try:
+                return counter.count(k)
+            except TooComplex:
+                self.counter = None
+        if k > SCAN_LIMIT:
+            raise RecurrenceError("rule.too_complex_to_count", "counting needs super-periods")
+        return self._enumerated(k)
+
+    def count_before(self, t: int) -> int:
+        k, _ = self.k_range(t, t)
+        partial = sum(1 for p in self.positions(k) if p is not None and p < t)
+        return self._count_periods(k) + partial
+
+    def position(self, i: int) -> tuple[int, int, int] | None:
+        k = self._period_holding(i)
+        if k is None:
+            return None
+        rank = i - self._count_periods(k)
+        for j, start in enumerate(self.positions(k)):
+            if start is not None:
+                rank -= 1
+                if rank == 0:
+                    return k, j, start
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    def _period_holding(self, i: int) -> int | None:
+        """The period of the ``i``-th position (1-based)."""
+        if self.per_period is not None:
+            return (i - 1) // self.per_period if self.per_period > 0 else None
+        counter = self._counter(build=False)
+        if counter is None:
+            if self._enumerated(ITERATE_LIMIT) >= i:  # nearby positions: enumerate
+                return self._first_period_reaching(i, ITERATE_LIMIT)
+            counter = self._counter()
+        if counter is not None:
+            try:
+                return counter.period_of(i)
+            except TooComplex:
+                self.counter = None
+        if self._enumerated(SCAN_LIMIT) >= i:
+            return self._first_period_reaching(i, SCAN_LIMIT)
+        raise RecurrenceError("rule.too_complex_to_count", "counting needs super-periods")
+
+    def _first_period_reaching(self, i: int, limit: int) -> int:
+        """The period holding the ``i``-th position, known to be below ``limit``."""
+        low, high = 0, limit
+        while low < high:  # smallest k with S(k + 1) ≥ i
+            middle = (low + high) // 2
+            if self._enumerated(middle + 1) >= i:
+                high = middle
+            else:
+                low = middle + 1
+        return low
 
     # filters (§2.2)
 

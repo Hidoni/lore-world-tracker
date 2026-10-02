@@ -6,7 +6,8 @@ positions. Interval rules have one position, ``series_start + k·every``. Calend
 (``p0`` = the period of the series start). Windows map to a ``k`` range by ordinal arithmetic, so
 the cost doesn't depend on how far the window is from the series start.
 
-Count limits and exclusions arrive with #21.
+Count limits, exclusions, occurrence numbers and window counts use the counting primitives of
+:class:`.plan.Plan` (``recurrence.md`` §5.4).
 """
 
 import re
@@ -31,6 +32,7 @@ from lore.chronology.schema import (
     DurationEnd,
     InstantEnd,
     IntervalRule,
+    NeverLimit,
     UnknownEnd,
     UntilLimit,
 )
@@ -110,6 +112,16 @@ def _structural_errors(rule: Rule, ctx: RecurrenceContext) -> list[ValidationErr
             errors.append(
                 _error("rule.until_before_start", "/limit/until", "until is before the start")
             )
+    for i, _ in enumerate(rule.exclusions):
+        begin = ctx.resolved.get(f"/exclusions/{i}/from")
+        to = ctx.resolved.get(f"/exclusions/{i}/to")
+        for member, value in (("from", begin), ("to", to)):
+            if value is None:
+                errors.append(
+                    _error("anchor.unresolved", f"/exclusions/{i}/{member}", "unresolved")
+                )
+        if begin is not None and to is not None and to < begin:
+            errors.append(_error("rule.bad_exclusion", f"/exclusions/{i}", "to is before from"))
     if isinstance(rule, CalendarRule):
         if ctx.calendar is None:
             errors.append(_error("rule.unknown_calendar", "/calendar_id", "no calendar given"))
@@ -118,20 +130,13 @@ def _structural_errors(rule: Rule, ctx: RecurrenceContext) -> list[ValidationErr
     return errors
 
 
-def _pending(rule: Rule) -> str | None:
-    """Why the engine can't evaluate ``rule`` yet (features of a later issue), if it can't."""
-    if isinstance(rule.limit, CountLimit) or rule.exclusions:
-        return "count limits and exclusions are implemented by #21"
-    return None
-
-
 def validate_rule(rule: Rule, ctx: RecurrenceContext) -> list[ValidationError]:
     """§9: errors, plus the warning ``rule.series_start_not_occurrence`` (path ``""``) when the
     first occurrence isn't at the series start. Paths point into the rule, except ``/end…``,
     which points into the series' end spec.
     """
     errors = _structural_errors(rule, ctx)
-    if errors or _pending(rule) is not None:
+    if errors:
         return errors
     first = series_bounds(rule, ctx).first_start
     if first != ctx.series_start:
@@ -165,25 +170,45 @@ class _IntervalPlan(Plan):
     def dense(self) -> bool:
         return True
 
+    def count_before(self, t: int) -> int:
+        return max(0, -floor_div(self.ctx.series_start - t, self.every))
+
+    def position(self, i: int) -> tuple[int, int, int] | None:
+        return i - 1, 0, self.ctx.series_start + (i - 1) * self.every
+
 
 def _plan(rule: Rule, ctx: RecurrenceContext) -> Plan:
     errors = [e for e in _structural_errors(rule, ctx) if e.severity == "error"]
     if errors:
         raise RecurrenceError("rule.invalid", errors[0].message, tuple(errors))
-    pending = _pending(rule)
-    if pending is not None:
-        raise NotImplementedError(pending)
     last = ctx.dimension_duration
     if isinstance(rule.limit, UntilLimit):
         last = min(last, ctx.resolved["/limit/until"])
+    plan: Plan
     if isinstance(rule, IntervalRule):
-        return _IntervalPlan(rule, ctx, last)
-    assert ctx.calendar is not None
-    return CalendarPlan(rule, ctx, ctx.calendar, last)
-
-
-def _period(found: Occurrence) -> int:
-    return int(found.key.split(".", maxsplit=1)[0])
+        plan = _IntervalPlan(rule, ctx, last)
+    else:
+        assert ctx.calendar is not None
+        plan = CalendarPlan(rule, ctx, ctx.calendar, last)
+    ranges = sorted(
+        (ctx.resolved[f"/exclusions/{i}/from"], ctx.resolved[f"/exclusions/{i}/to"])
+        for i in range(len(rule.exclusions))
+    )
+    for begin, to in ranges:
+        if begin >= to:
+            continue
+        if plan.exclusions and begin <= plan.exclusions[-1][1]:
+            plan.exclusions[-1] = (plan.exclusions[-1][0], max(plan.exclusions[-1][1], to))
+        else:
+            plan.exclusions.append((begin, to))
+    plan.exclusion_starts = [begin for begin, _ in plan.exclusions]
+    if isinstance(rule.limit, CountLimit):
+        # §5.4: the count-th generated occurrence (exclusions still use up the count) ends it.
+        index = plan.count_before(ctx.series_start) + int(rule.limit.count)
+        found = plan.position(index)
+        if found is not None and found[2] <= plan.last:
+            plan.last = found[2]
+    return plan
 
 
 # --- public API (§4) -----------------------------------------------------------------------------
@@ -210,91 +235,150 @@ def expand(
     """
     plan = _plan(rule, ctx)
     w0, w1 = window
-    exact = plan.exact_length()
-    length = plan.upper_length() if exact is None else exact
-    low = max(ctx.series_start, w0 - length + 1 if length > 0 else w0)
-    high = min(w1 - 1 if w1 > w0 else w0, plan.last)
+    low, high = _starts_range(plan, w0, w1)
     k_lo, k_hi = plan.k_range(low, high) if w0 <= w1 and low <= high else (0, -1)
     periods = k_hi - k_lo + 1
     if periods <= 0:
         return Expansion([], False, None)
-    if isinstance(plan, _IntervalPlan) and periods > TRUNCATE_FACTOR * max_items:
-        return Expansion([], True, periods if exact is not None else plan.estimate(k_lo, k_hi))
-    if periods > max(ITERATE_LIMIT, TRUNCATE_FACTOR * max_items):
-        return Expansion([], True, plan.estimate(k_lo, k_hi))
+    if periods > max(ITERATE_LIMIT, TRUNCATE_FACTOR * max_items) or (
+        isinstance(plan, _IntervalPlan) and periods > TRUNCATE_FACTOR * max_items
+    ):
+        return Expansion([], True, _count(plan, w0, w1, k_lo, k_hi)[0])
     items: list[Occurrence] = []
-    for evaluated, k in enumerate(range(k_lo, k_hi + 1), start=1):
+    for k in range(k_lo, k_hi + 1):
         items += [o for o in plan.occurrences(k) if _overlaps(o.start, o.end, w0, w1)]
-        if len(items) > TRUNCATE_FACTOR * max_items:  # dense periods: extrapolate the rest
-            remaining = periods - evaluated
-            return Expansion([], True, len(items) + remaining * len(items) // evaluated)
+        if len(items) > TRUNCATE_FACTOR * max_items:
+            return Expansion([], True, _count(plan, w0, w1, k_lo, k_hi)[0])
     if len(items) > max_items:
         return Expansion([], True, len(items))
     return Expansion(items, False, None)
 
 
-def occurrence(rule: Rule, ctx: RecurrenceContext, key: str) -> Occurrence:
-    """The occurrence with ``key`` (``k``, or ``k.j`` for multi-position rules, §3);
-    ``not_found`` if the key has none."""
-    plan = _plan(rule, ctx)
+def _starts_range(plan: Plan, w0: int, w1: int) -> tuple[int, int]:
+    """Starts that may overlap ``[w0, w1)`` (§5.1), within the series bounds."""
+    exact = plan.exact_length()
+    length = plan.upper_length() if exact is None else exact
+    low = max(plan.ctx.series_start, w0 - length + 1 if length > 0 else w0)
+    return low, min(w1 - 1 if w1 > w0 else w0, plan.last)
+
+
+def _count(plan: Plan, w0: int, w1: int, k_lo: int, k_hi: int) -> tuple[int, bool]:
+    """(occurrences overlapping the window, exact): by counting, else sampled periods."""
+    try:
+        return _count_exactly(plan, w0, w1)
+    except RecurrenceError as error:
+        if error.code != "rule.too_complex_to_count":
+            raise
+    return plan.estimate(k_lo, k_hi), False
+
+
+def _count_exactly(plan: Plan, w0: int, w1: int) -> tuple[int, bool]:
+    low, high = _starts_range(plan, w0, w1)
+    if low > high:
+        return 0, True
+    if plan.exact_length() is not None:
+        return plan.actual_before(high + 1) - plan.actual_before(low), True
+    # Calendar durations: starts in the window overlap it; earlier ones are checked one by one.
+    inside = plan.actual_before(high + 1) - plan.actual_before(max(low, w0))
+    earlier = plan.actual_before(w0) - plan.actual_before(low)
+    if earlier > ITERATE_LIMIT:
+        return inside + earlier, False
+    found = 0
+    t = low
+    for _ in range(earlier):
+        item = plan.next_occurrence(t)
+        assert item is not None
+        found += _overlaps(item.start, item.end, w0, w1)
+        t = item.start + 1
+    return inside + found, True
+
+
+def _valid(plan: Plan, key: str) -> Occurrence:
     match = (_SUB_KEY if plan.multi else _KEY).fullmatch(key)
     found = None
     if match is not None:
-        found = next(
-            (o for o in plan.occurrences(int(key.split(".", maxsplit=1)[0])) if o.key == key), None
-        )
+        k = int(key.split(".", maxsplit=1)[0])
+        found = next((o for o in plan.occurrences(k) if o.key == key), None)
     if found is None:
         raise RecurrenceError("not_found", f"no occurrence has key {key!r}")
     return found
 
 
-def next_occurrences(rule: Rule, ctx: RecurrenceContext, after: int, n: int) -> list[Occurrence]:
-    """The first ``n`` occurrences starting at or after ``after`` (editor previews).
+def occurrence(rule: Rule, ctx: RecurrenceContext, key: str) -> Occurrence:
+    """The occurrence with ``key`` (``k``, or ``k.j`` for multi-position rules, §3);
+    ``not_found`` if the key has none (or it is excluded or beyond the limit)."""
+    return _valid(_plan(rule, ctx), key)
 
-    Searches at most :data:`SCAN_LIMIT` periods past the first one that could match.
-    """
+
+def occurrence_number(rule: Rule, ctx: RecurrenceContext, key: str) -> int:
+    """§3: the 1-based number of the occurrence among the series' actual occurrences."""
     plan = _plan(rule, ctx)
-    low = max(after, ctx.series_start)
-    if low > plan.last:
-        return []
-    k = plan.k_range(low, plan.last)[0]
+    return plan.actual_before(_valid(plan, key).start + 1)
+
+
+def count_in_window(
+    rule: Rule, ctx: RecurrenceContext, window: tuple[int, int]
+) -> tuple[int, bool]:
+    """§4: (occurrences overlapping ``[w0, w1)``, exact). Exact for interval rules and for
+    calendar rules that super-periods can count; otherwise sampled (``exact`` false)."""
+    plan = _plan(rule, ctx)
+    w0, w1 = window
+    low, high = _starts_range(plan, w0, w1)
+    if w1 < w0 or low > high:
+        return 0, True
+    k_lo, k_hi = plan.k_range(low, high)
+    if k_hi < k_lo:
+        return 0, True
+    return _count(plan, w0, w1, k_lo, k_hi)
+
+
+def occurrence_at(rule: Rule, ctx: RecurrenceContext, t: int) -> str | None:
+    """§4: the key of the occurrence starting at ``t``, else of the latest-starting occurrence
+    whose span contains ``t`` (product decision, 2026-10-02); ``None`` if none does."""
+    plan = _plan(rule, ctx)
+    found = plan.previous_occurrence(t)
+    if found is None or found.start == t:
+        return None if found is None else found.key
+    if plan.exact_length() is not None:  # earlier occurrences end earlier
+        return found.key if found.end > t else None
+    earliest = t - plan.upper_length() + 1
+    for _ in range(SCAN_LIMIT):
+        if found is None or found.start < earliest:
+            return None
+        if found.end > t:
+            return found.key
+        found = plan.previous_occurrence(found.start - 1)
+    return None
+
+
+def next_occurrences(rule: Rule, ctx: RecurrenceContext, after: int, n: int) -> list[Occurrence]:
+    """The first ``n`` occurrences starting at or after ``after`` (editor previews)."""
+    plan = _plan(rule, ctx)
     found: list[Occurrence] = []
-    for candidate in range(k, k + SCAN_LIMIT):
-        starts = [p for p in plan.positions(candidate) if p is not None]
-        if starts and min(starts) > plan.last:
+    t = after
+    while len(found) < n:
+        item = plan.next_occurrence(t)
+        if item is None:
             break
-        found += [o for o in plan.occurrences(candidate) if o.start >= after]
-        if len(found) >= n:
-            break
-    return found[:n]
+        found.append(item)
+        t = item.start + 1
+    return found
 
 
 def series_bounds(rule: Rule, ctx: RecurrenceContext) -> SeriesBounds:
-    """§4 ``series_bounds`` for ``never`` and ``until`` limits.
+    """§4 ``series_bounds``: the first and last occurrences and their number.
 
-    The first (and last) occurrence is searched within :data:`SCAN_LIMIT` periods; a series
-    whose positions never come back within them is treated as having none. ``count`` is exact;
-    unless every period has exactly one occurrence it is counted period by period, which is
-    limited to :data:`SCAN_LIMIT` periods (``rule.too_complex_to_count`` beyond, until #21).
+    ``never``: only ``first_start`` (the rest is unbounded). ``until`` and ``count``: the last
+    occurrence and the exact count of actual occurrences (exclusions applied); a ``count`` limit
+    counts generated occurrences, so excluded ones use it up (product decision, 2026-10-02).
     """
     plan = _plan(rule, ctx)
-    first_period = plan.scan(0, 1)
-    bounded = isinstance(rule.limit, UntilLimit)
-    if first_period is None:
+    first = plan.next_occurrence(ctx.series_start)
+    bounded = not isinstance(rule.limit, NeverLimit)
+    if first is None:
         return SeriesBounds(None, None, None, 0 if bounded else None)
-    first = first_period[0]
     if not bounded:
         return SeriesBounds(first.start, None, None, None)
-    k_first = _period(first)
-    last_period = plan.scan(plan.k_range(first.start, plan.last)[1], -1)
-    if last_period is None or _period(last_period[-1]) - k_first >= SCAN_LIMIT:
-        raise RecurrenceError(
-            "rule.too_complex_to_count", "counting this series needs super-periods (#21)"
-        )
-    last = last_period[-1]
-    k_last = _period(last)
-    if plan.dense:
-        count = k_last - k_first + 1
-    else:
-        count = sum(len(plan.occurrences(k)) for k in range(k_first, k_last + 1))
-    return SeriesBounds(first.start, last.start, last.end, count)
+    last = plan.previous_occurrence(plan.last)
+    assert last is not None  # the first occurrence qualifies
+    return SeriesBounds(first.start, last.start, last.end, plan.actual_before(plan.last + 1))

@@ -7,9 +7,12 @@ needs with ordinal arithmetic; nothing iterates from the series start.
 from lore.chronology.recurrence.engine import (
     Expansion,
     SeriesBounds,
+    count_in_window,
     expand,
     next_occurrences,
     occurrence,
+    occurrence_at,
+    occurrence_number,
     series_bounds,
     validate_rule,
 )
@@ -21,9 +24,12 @@ __all__ = [
     "RecurrenceContext",
     "RecurrenceError",
     "SeriesBounds",
+    "count_in_window",
     "expand",
     "next_occurrences",
     "occurrence",
+    "occurrence_at",
+    "occurrence_number",
     "series_bounds",
     "validate_rule",
 ]

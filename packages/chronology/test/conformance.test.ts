@@ -91,12 +91,21 @@ const OPS = [
   'series_bounds',
   'occurrence',
   'count_in_window',
+  'occurrence_number',
+  'occurrence_at',
   'map',
 ] as const
 type Op = (typeof OPS)[number]
 
 const CALENDAR_FREE_OPS: readonly Op[] = [...NUMBER_OPS, 'validate', 'preset_instantiate', 'map']
-const RECURRENCE_OPS: readonly Op[] = ['expand', 'series_bounds', 'occurrence', 'count_in_window']
+const RECURRENCE_OPS: readonly Op[] = [
+  'expand',
+  'series_bounds',
+  'occurrence',
+  'count_in_window',
+  'occurrence_number',
+  'occurrence_at',
+]
 
 interface CalendarFile {
   description: string
@@ -215,6 +224,8 @@ const PENDING: Partial<Record<Op, number>> = {
   series_bounds: 26,
   occurrence: 26,
   count_in_window: 26,
+  occurrence_number: 26,
+  occurrence_at: 26,
   map: 27,
 }
 
