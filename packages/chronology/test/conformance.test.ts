@@ -272,15 +272,33 @@ function normalized(op: Op, value: unknown): unknown {
   return { errors: [...(errors as ErrorItem[])].sort((a, b) => (key(a) < key(b) ? -1 : 1)) }
 }
 
+/** Whether a calendar file defines parallel cycles in any regime. */
+function hasCycles(calendarName: string | null): boolean {
+  if (calendarName === null) return false
+  const definition = CALENDARS.get(calendarName)?.definition as
+    { regimes?: { cycles?: unknown[] }[] } | undefined
+  return (definition?.regimes ?? []).some((regime) => (regime.cycles ?? []).length > 0)
+}
+
+/**
+ * Cases of implemented ops that need a feature this engine doesn't have yet: case → issue. They
+ * run normally and must still fail (`test.fails`); once the feature lands they pass, which breaks
+ * the run until the rule is removed (README "Runners and pending ops").
+ */
+const PENDING_CASES: { issue: number; applies: (calendar: string | null, op: Op) => boolean }[] = [
+  // to_fields' `cycles` member: cycle values arrive with the TS port of cycles.
+  { issue: 24, applies: (calendar, op) => op === 'to_fields' && hasCycles(calendar) },
+]
+
 describe.each(CASE_FILES)('$name', ({ name, document }) => {
   for (const vector of document.cases) {
     const issue = PENDING[vector.op]
-    if (issue === undefined) {
-      test(`${name}::${vector.id}`, () => {
-        const result = run(vector.op, document.calendar, vector.input)
-        expect(normalized(vector.op, result)).toStrictEqual(normalized(vector.op, vector.expected))
-      })
-    } else {
+    const pendingCase = PENDING_CASES.find((rule) => rule.applies(document.calendar, vector.op))
+    const check = () => {
+      const result = run(vector.op, document.calendar, vector.input)
+      expect(normalized(vector.op, result)).toStrictEqual(normalized(vector.op, vector.expected))
+    }
+    if (issue !== undefined) {
       // Strict expected failure: only NotImplementedError counts. A result (right or wrong) or
       // any other error means the op was implemented without being removed from PENDING.
       test.fails(`${name}::${vector.id} [pending #${issue}]`, () => {
@@ -290,6 +308,10 @@ describe.each(CASE_FILES)('$name', ({ name, document }) => {
           if (error instanceof NotImplementedError) throw error
         }
       })
+    } else if (pendingCase !== undefined) {
+      test.fails(`${name}::${vector.id} [pending #${pendingCase.issue}]`, check)
+    } else {
+      test(`${name}::${vector.id}`, check)
     }
   }
 })

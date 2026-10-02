@@ -4454,6 +4454,192 @@
       "note": "only continuous cycles continue across regimes"
     },
     {
+      "id": "cycle-continue-after-broken-regime",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1",
+                  "month": "9"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "week",
+                  "level": "day",
+                  "length": 7,
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "first",
+                      "day": "1"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "reformed",
+              "name": "Reformed",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "week",
+                  "level": "day",
+                  "length": 7,
+                  "continue_from_previous_regime": true
+                }
+              ],
+              "starts_at": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "5000"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000",
+            "/regimes/1/starts_at": "5000",
+            "/regimes/1/alignment/at": "1003"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "alignment.invalid_fields",
+            "path": "/regimes/0/alignment/fields/month"
+          }
+        ]
+      },
+      "note": "a continued cycle adds no error when the previous regime is invalid: root cause only"
+    },
+    {
       "id": "regime-duplicate-id",
       "op": "validate",
       "input": {

@@ -676,6 +676,9 @@ class _Compiler:
                     pointer(*path, "continue_from_previous_regime"),
                     "regime 0 has no previous regime",
                 )
+            elif cycle.continue_from_previous_regime:
+                previous = self.definition.regimes[r - 1]
+                self.check_continued_cycle(path, cycle.id, cycle.length, previous)
             elif (
                 cycle.mode == "continuous"
                 and not cycle.continue_from_previous_regime
@@ -694,6 +697,23 @@ class _Compiler:
                     "index must be < length",
                 )
         return frozenset(seen)
+
+    def check_continued_cycle(
+        self, path: tuple[str | int, ...], cycle_id: str, length: int, previous: Regime
+    ) -> None:
+        """A continued cycle needs a continuous cycle of the same id and length before it."""
+        where = pointer(*path, "continue_from_previous_regime")
+        before = next((c for c in previous.cycles if c.id == cycle_id), None)
+        if before is None or before.mode != "continuous":
+            self.error(
+                "cycle.anchor_invalid",
+                where,
+                f"the previous regime has no continuous cycle {cycle_id!r}",
+            )
+        elif before.length != length:
+            self.error(
+                "cycle.anchor_invalid", where, "the previous regime's cycle has another length"
+            )
 
     def check_cycle_anchors(
         self, r: int, regime: Regime, compiled: CompiledRegime
@@ -787,24 +807,11 @@ class _Compiler:
         """(anchor index, anchor ordinal) so the first counted unit of this regime follows the
         previous regime's last one. ``None`` while this regime's start is ``local`` (#14).
         """
-        where = pointer(*path, "continue_from_previous_regime")
-        before_cycle = (
-            None
-            if previous is None
-            else next((c for c in previous.cycles if c.id == cycle_id), None)
-        )
-        if previous is None or before_cycle is None or before_cycle.reset is not None:
-            self.error(
-                "cycle.anchor_invalid",
-                where,
-                f"the previous regime has no continuous cycle {cycle_id!r}",
-            )
-            return None
-        if before_cycle.length != length:
-            self.error(
-                "cycle.anchor_invalid", where, "the previous regime's cycle has another length"
-            )
-            return None
+        if previous is None:
+            return None  # the previous regime failed to compile: its errors are the root cause
+        before_cycle = next(c for c in previous.cycles if c.id == cycle_id)  # check_cycles
+        assert before_cycle.reset is None  # checked by check_cycles
+        assert before_cycle.length == length
         start = compiled.starts_at
         if start is None or before_cycle.anchor_ordinal is None:
             return None

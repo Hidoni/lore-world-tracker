@@ -270,6 +270,12 @@ implements an op it adds the handler **and** removes the op from its engine's pe
 pending op that passes (or fails for another reason) breaks the run. Every op is either handled
 or pending in each runner.
 
+When an engine implements an op but not yet a feature some of its cases need (e.g. the `cycles`
+member of `to_fields` before that engine has cycles), the runner lists a **pending case rule**:
+a predicate over (calendar, op) with the issue that adds the feature. Matching cases run normally
+and must still fail (`test.fails` / `xfail(strict=True)`); once the feature lands they pass, which
+breaks the run until the rule is removed.
+
 ## Rules (chronology-engine §14)
 
 - Every bug fix in either engine adds a vector reproducing it.

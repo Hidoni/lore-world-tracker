@@ -595,7 +595,7 @@ class Compiler {
     path: Path,
     code: string,
     finest?: string,
-  ): readonly [bigint, bigint] | null {
+  ): readonly [bigint, bigint, readonly Segment[]] | null {
     const keys = Object.keys(fields)
     const unknown = keys.filter((key) => !this.levelIndex.has(key))
     for (const key of unknown) this.error(code, pointer(...path, key), `${key} is not a level`)
@@ -617,6 +617,7 @@ class Compiler {
     const year = BigInt(yearValue)
     let template = regime.yearTemplate(year)
     let offset = 0n
+    const segments: Segment[] = []
     for (let level = top - 1; level >= lowest; level--) {
       const levelId = defined(this.levels[level])
       const value = defined(fields[levelId])
@@ -628,9 +629,10 @@ class Compiler {
         return null
       }
       offset += child.offset
+      segments.push(child.segment)
       template = regime.template(defined(child.segment.child))
     }
-    return [year, offset]
+    return [year, offset, segments]
   }
 
   checkCycles(r: number, regime: Regime): Set<string> {
@@ -667,13 +669,26 @@ class Compiler {
         }
       }
       const continued = cycle.continue_from_previous_regime ?? false
-      if (continued && r === 0) {
+      if (continued && mode !== 'continuous') {
+        this.error(
+          'cycle.anchor_invalid',
+          pointer(...path, 'continue_from_previous_regime'),
+          'only continuous cycles continue across regimes',
+        )
+      } else if (continued && r === 0) {
         this.error(
           'cycle.anchor_invalid',
           pointer(...path, 'continue_from_previous_regime'),
           'regime 0 has no previous regime',
         )
-      } else if (mode === 'continuous' && !continued && cycle.anchor?.fields == null) {
+      } else if (continued) {
+        this.checkContinuedCycle(
+          path,
+          cycle.id,
+          cycle.length,
+          defined(this.definition.regimes[r - 1]),
+        )
+      } else if (mode === 'continuous' && cycle.anchor?.fields == null) {
         const missing = cycle.anchor == null ? ['anchor'] : ['anchor', 'fields']
         this.error(
           'cycle.anchor_invalid',
@@ -692,6 +707,21 @@ class Compiler {
     return seen
   }
 
+  /** A continued cycle needs a continuous cycle of the same id and length before it. */
+  checkContinuedCycle(path: Path, cycleId: string, length: number, previous: Regime): void {
+    const where = pointer(...path, 'continue_from_previous_regime')
+    const before = (previous.cycles ?? []).find((cycle) => cycle.id === cycleId)
+    if (before === undefined || (before.mode ?? 'continuous') !== 'continuous') {
+      this.error(
+        'cycle.anchor_invalid',
+        where,
+        `the previous regime has no continuous cycle ${cycleId}`,
+      )
+    } else if (before.length !== length) {
+      this.error('cycle.anchor_invalid', where, "the previous regime's cycle has another length")
+    }
+  }
+
   checkCycleAnchors(r: number, regime: Regime, compiled: CompiledRegime): void {
     ;(regime.cycles ?? []).forEach((cycle, c) => {
       const anchored =
@@ -700,7 +730,15 @@ class Compiler {
       const fields = cycle.anchor?.fields
       if (anchored && fields != null && this.levelIndex.has(cycle.level)) {
         const path: Path = ['regimes', r, 'cycles', c, 'anchor', 'fields']
-        this.locate(compiled, fields, path, 'cycle.anchor_invalid', cycle.level)
+        const found = this.locate(compiled, fields, path, 'cycle.anchor_invalid', cycle.level)
+        // The anchor unit must count: neither it nor an ancestor is excluded from the cycle.
+        if (found?.[2].some((segment) => segment.cycleExcluded.includes(cycle.id)) === true) {
+          this.error(
+            'cycle.anchor_invalid',
+            pointer(...path),
+            'the anchor unit is excluded from the cycle',
+          )
+        }
       }
     })
   }
