@@ -8,7 +8,7 @@
 | Layer | Tools | Scope | Coverage target |
 |-------|-------|-------|-----------------|
 | Chronology (Python) | pytest, hypothesis | engine units, properties, **conformance vectors** | ≥ 95% lines and branches |
-| Chronology (TS) | vitest, fast-check | same vectors + properties, viewport/ticks | ≥ 95% (`numbers.ts`: 100%, enforced by the vitest coverage thresholds) |
+| Chronology (TS) | vitest, fast-check | same vectors + properties, viewport/ticks | ≥ 95% (`numbers.ts`: 100%; `numbers.ts` and `calendar/` enforced by the vitest coverage thresholds) |
 | Backend services/API | pytest + FastAPI `TestClient`, temp vault dirs, real SQLite | services, routers, propagation, consistency rules, modules | ≥ 85% core, ≥ 80% modules |
 | Migrations | pytest | upgrade from empty, golden fixture vaults, data-migration units | every migration |
 | Visibility | pytest | canary leak suite over every GET route (`visibility-and-sharing.md` §5) | all routes |

@@ -10,6 +10,8 @@ export default defineConfig({
       thresholds: {
         // Issue #9: the numeric foundation is fully covered.
         'src/numbers.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+        // testing.md §1: the engine is covered to at least 95%.
+        'src/calendar/**': { lines: 95, branches: 95, functions: 95, statements: 95 },
       },
     },
   },
