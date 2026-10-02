@@ -1,0 +1,160 @@
+{
+  "description": "Parallel cycles: an 18 × 20-day year plus the 5-day intercalary month Wayeb (365 days, base unit day). Two continuous cycles share the day level (13 numbers and 20 names, like the Tzolkin), and a 10-day decan restarts every month; Wayeb is excluded from the decan only.",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months"
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "long",
+        "name": "Long Count",
+        "templates": {
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "m20": {
+            "level": "month",
+            "uniform": {
+              "count": "20"
+            }
+          },
+          "w5": {
+            "level": "month",
+            "uniform": {
+              "count": "5"
+            }
+          },
+          "year": {
+            "level": "year",
+            "sequence": [
+              {
+                "run": {
+                  "count": "18",
+                  "template": "m20"
+                }
+              },
+              {
+                "id": "wayeb",
+                "template": "w5",
+                "name": "Wayeb",
+                "intercalary": true,
+                "cycle_excluded": [
+                  "decan"
+                ]
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "fixed",
+            "template": "year"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "0"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "1000000"
+            },
+            "precision": "base"
+          }
+        },
+        "cycles": [
+          {
+            "id": "trecena",
+            "level": "day",
+            "length": 13,
+            "number_start": 1,
+            "anchor": {
+              "fields": {
+                "year": "0",
+                "month": "1",
+                "day": "1"
+              },
+              "index": 3
+            }
+          },
+          {
+            "id": "veintena",
+            "level": "day",
+            "length": 20,
+            "names": [
+              "Imix",
+              "Ik",
+              "Akbal",
+              "Kan",
+              "Chicchan",
+              "Cimi",
+              "Manik",
+              "Lamat",
+              "Muluc",
+              "Oc",
+              "Chuen",
+              "Eb",
+              "Ben",
+              "Ix",
+              "Men",
+              "Cib",
+              "Caban",
+              "Etznab",
+              "Cauac",
+              "Ahau"
+            ],
+            "number_start": 0,
+            "anchor": {
+              "fields": {
+                "year": "0",
+                "month": "1",
+                "day": "1"
+              },
+              "index": 19
+            }
+          },
+          {
+            "id": "decan",
+            "level": "day",
+            "length": 10,
+            "number_start": 1,
+            "mode": {
+              "reset": "month"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "day",
+      "plural": "days",
+      "abbr": "d"
+    },
+    "dimension_duration": "100000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "1000000"
+    }
+  }
+}

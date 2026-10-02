@@ -11,18 +11,22 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from lore.chronology.calendar import CompiledCalendar, DateError, validate_calendar
+from lore.chronology.calendar import (
+    CompiledCalendar,
+    DateError,
+    RangeOption,
+    SlotOption,
+    options,
+    validate_calendar,
+)
 from lore.chronology.calendar.convert import to_fields
 from lore.chronology.calendar.units import (
     REGULAR,
     Bounds,
-    RangeOption,
-    SlotOption,
     UnitFilter,
     counted_ordinal,
     from_counted_ordinal,
     from_ordinal,
-    options,
     ordinal,
     unit_bounds,
 )

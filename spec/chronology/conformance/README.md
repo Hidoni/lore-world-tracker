@@ -148,7 +148,8 @@ alignment fields are invalid).
 ### `cycle_value` (§3.7, §8)
 
 - input: `{"t": "<moment>", "cycle": "<cycle id>"}`
-- expected: `{"index": 0, "name": "Moonday" | null, "n": 1}`, or `null` for an excluded unit
+- expected: `{"index": 0, "name": "Moonday" | null, "n": 1}`, or `null` for an excluded unit;
+  `{"error": "unknown_cycle"}` for a cycle the active regime doesn't have
 
 ### `era_of` (§3.8, §8)
 

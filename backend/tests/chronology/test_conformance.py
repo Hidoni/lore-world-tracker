@@ -17,15 +17,10 @@ import pytest
 
 from lore.chronology import numbers
 from lore.chronology.calendar import CompiledCalendar, validate_calendar
-from lore.chronology.calendar.convert import DateError, from_fields, to_fields
-from lore.chronology.calendar.units import (
-    Bounds,
-    from_ordinal,
-    options,
-    options_json,
-    ordinal,
-    unit_bounds,
-)
+from lore.chronology.calendar.compiled import DateError
+from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
+from lore.chronology.calendar.cycles import cycle_value
+from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
@@ -125,6 +120,11 @@ def _ordinal(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return {"ordinal": str(found.value), "intercalary": not found.counted}
 
 
+def _cycle_value(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    value = cycle_value(_compiled(calendar), int(d["t"]), d["cycle"])
+    return None if value is None else value.as_json()
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -160,6 +160,7 @@ HANDLERS: dict[str, Handler] = {
     "from_fields": _from_fields,
     "unit_bounds": lambda c, d: _bounds(unit_bounds(_compiled(c), int(d["t"]), d["level"])),
     "ordinal": _ordinal,
+    "cycle_value": _cycle_value,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
@@ -168,7 +169,6 @@ HANDLERS: dict[str, Handler] = {
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "cycle_value": 13,
     "era_of": 14,
     "overlay_phase": 15,
     "add": 16,

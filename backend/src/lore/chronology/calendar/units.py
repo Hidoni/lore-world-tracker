@@ -1,5 +1,4 @@
-"""Unit navigation: bounds, ordinals, from_ordinal and picker options (``chronology-engine.md``
-§5.8, §6, §7).
+"""Unit navigation: bounds, ordinals and from_ordinal (``chronology-engine.md`` §5.8, §7).
 
 Ordinals count units of a level from the start of year 0 (the first counted unit of year 0 is 0;
 units before year 0 are negative). Which units count is a :class:`UnitFilter`: :data:`REGULAR`
@@ -10,7 +9,7 @@ cost ``O(log P + depth · log width)``; nothing iterates over units or years.
 """
 
 from bisect import bisect_right
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from itertools import accumulate
 
@@ -18,9 +17,10 @@ from lore.chronology.calendar.compiled import (
     CompiledCalendar,
     CompiledRegime,
     CompiledTemplate,
+    DateError,
     Segment,
+    active_regime,
 )
-from lore.chronology.calendar.convert import DateError, active_regime, from_fields
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +38,27 @@ class UnitFilter:
 
 REGULAR = UnitFilter("regular", lambda segment: not segment.intercalary, lambda segment: False)
 """Regular units: everything except intercalary units themselves (§3.4)."""
+
+
+def cycle_filter(cycle_id: str) -> UnitFilter:
+    """The units a cycle counts: all units except those excluded from it with their subtrees
+    (``cycle_excluded``, §3.4, §3.7). Intercalary units count unless excluded (R-CAL-4).
+    """
+    return UnitFilter(
+        f"cycle:{cycle_id}",
+        counts=lambda segment: True,
+        excludes=lambda segment: cycle_id in segment.cycle_excluded,
+    )
+
+
+def counted_position(
+    top: int, regime: CompiledRegime, t: int, level: int, unit_filter: UnitFilter
+) -> tuple[int, bool, int]:
+    """(counted units of ``level`` before the unit containing ``t``, whether that unit counts,
+    the unit's start) in ``regime``. ``level`` is a level index, ``top`` the top level's index.
+    """
+    located = _locate(top, regime, t, level, unit_filter)
+    return located.before, located.counted, located.start
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,10 +218,12 @@ class _Located:
 
 
 def _locate(
-    calendar: CompiledCalendar, regime: CompiledRegime, t: int, level: int, unit_filter: UnitFilter
+    top: int, regime: CompiledRegime, t: int, level: int, unit_filter: UnitFilter
 ) -> _Located:
-    """Descend from the year containing ``t`` to the unit of ``level`` containing it."""
-    top = len(calendar.levels) - 1
+    """Descend from the year containing ``t`` to the unit of ``level`` containing it.
+
+    ``top`` is the index of the top level (the number of levels minus one).
+    """
     rel = t - regime.epoch
     year = regime.year_of_rel(rel)
     start = regime.rel_start(year)
@@ -234,7 +257,7 @@ def _locate(
 def unit_bounds(calendar: CompiledCalendar, t: int, level: str) -> Bounds:
     """``[start, end)`` of the ``level`` unit containing ``t``, clipped at regime boundaries."""
     regime = active_regime(calendar, t)
-    located = _locate(calendar, regime, t, _level(calendar, level), REGULAR)
+    located = _locate(len(calendar.levels) - 1, regime, t, _level(calendar, level), REGULAR)
     return _clip(calendar, regime, located.start, located.start + located.length)
 
 
@@ -247,7 +270,7 @@ def counted_ordinal(
     ``counted=False``. Computed in the regime active at ``t`` (§7).
     """
     regime = active_regime(calendar, t)
-    located = _locate(calendar, regime, t, _level(calendar, level), unit_filter)
+    located = _locate(len(calendar.levels) - 1, regime, t, _level(calendar, level), unit_filter)
     if located.counted:
         return Ordinal(located.before, True)
     return Ordinal(located.before - 1, False)
@@ -298,97 +321,3 @@ def from_ordinal(
 ) -> Bounds:
     """§5.8 ``from_ordinal``: bounds of the regular ``level`` unit with ordinal ``m``."""
     return from_counted_ordinal(calendar, level, m, REGULAR, regime=regime)
-
-
-# --- picker options (§6) -------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class SlotOption:
-    """A named child: by slot id, with its regular number (``None`` if intercalary)."""
-
-    slot_id: str
-    n: int | None
-    name: str | None
-    intercalary: bool
-
-
-@dataclass(frozen=True, slots=True)
-class RangeOption:
-    """Unnamed children numbered ``first … last`` (``None`` bounds: any year)."""
-
-    first: int | None
-    last: int | None
-
-
-type Option = SlotOption | RangeOption
-
-
-def options(
-    calendar: CompiledCalendar, fields: Mapping[str, str], level: str, *, regime: str | None = None
-) -> list[Option]:
-    """The valid children at ``level`` given the parents ``fields`` (top level down to the
-    level just above), in template order: named slots one by one, unnamed runs as ranges.
-    """
-    index = _level(calendar, level)
-    top = len(calendar.levels) - 1
-    if index == top:
-        if fields:
-            raise DateError("invalid_date", "the top level has no parents", calendar.levels[top])
-        return [RangeOption(None, None)]
-    parent = calendar.levels[index + 1]
-    start = from_fields(calendar, fields, parent, regime=regime)
-    chosen = _regime(calendar, regime) if regime is not None else active_regime(calendar, start)
-    template = _template_at(calendar, chosen, start, index + 1)
-    numbering = calendar.numbering_starts[index]
-    result: list[Option] = []
-    for segment in template.segments:
-        if segment.slot_id is not None:
-            number = None if segment.intercalary else segment.regular_start + numbering
-            result.append(SlotOption(segment.slot_id, number, segment.name, segment.intercalary))
-        else:
-            first = segment.regular_start + numbering
-            result.append(RangeOption(first, first + segment.count - 1))
-    return result
-
-
-def _template_at(
-    calendar: CompiledCalendar, regime: CompiledRegime, t: int, level: int
-) -> CompiledTemplate:
-    """The template of the ``level`` unit starting at ``t``."""
-    top = len(calendar.levels) - 1
-    rel = t - regime.epoch
-    year = regime.year_of_rel(rel)
-    template = regime.year_template(year)
-    offset = rel - regime.rel_start(year)
-    for _ in range(top, level, -1):
-        child = template.child_at(offset)
-        offset -= child.offset
-        assert child.template is not None
-        template = regime.templates[child.template]
-    return template
-
-
-def _number(value: int | None) -> str | None:
-    return None if value is None else str(value)
-
-
-def options_json(found: Sequence[Option]) -> list[dict[str, object]]:
-    """The conformance-vector form of :func:`options` (README ``options``)."""
-    result: list[dict[str, object]] = []
-    for option in found:
-        if isinstance(option, SlotOption):
-            result.append(
-                {
-                    "kind": "slot",
-                    "value": option.slot_id,
-                    "n": _number(option.n),
-                    "name": option.name,
-                    "intercalary": option.intercalary,
-                }
-            )
-        else:
-            result.append(
-                {"kind": "range", "first": _number(option.first), "last": _number(option.last)}
-            )
-    return result

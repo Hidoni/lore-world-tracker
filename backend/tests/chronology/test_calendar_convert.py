@@ -11,9 +11,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from lore.chronology.calendar import CompiledCalendar, validate_calendar
+from lore.chronology.calendar import CompiledCalendar, DateError, validate_calendar
 from lore.chronology.calendar.convert import (
-    DateError,
     DateFields,
     from_fields,
     normalize_fields,

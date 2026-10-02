@@ -8,8 +8,11 @@ import re
 from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Literal
 
 from lore.chronology.schema import CalendarDefinition, CompileContext
+
+type DateErrorCode = Literal["invalid_date", "reform_gap", "reform_ambiguous", "unknown_cycle"]
 
 _NUMBER = re.compile(r"-?[0-9]+")
 
@@ -136,6 +139,25 @@ def build_template(
 
 
 @dataclass(frozen=True, slots=True)
+class CompiledCycle:
+    """A parallel cycle (chronology-engine §3.7), evaluated by the ``cycles`` module."""
+
+    id: str
+    level: int
+    """Index of the cycle's level."""
+    length: int
+    names: tuple[str, ...] | None
+    abbrs: tuple[str, ...] | None
+    number_start: int
+    reset: int | None
+    """Index of the reset level; ``None`` for a continuous cycle."""
+    anchor_index: int
+    anchor_ordinal: int | None
+    """Continuous cycles: counted ordinal of the unit with ``anchor_index``. ``None`` for reset
+    cycles, and for a cycle continuing across a regime start that is still ``local`` (#14)."""
+
+
+@dataclass(frozen=True, slots=True)
 class CompiledRegime:
     """One regime: templates, the top-level period and exceptions, and the epoch (§5.1-§5.4)."""
 
@@ -162,6 +184,7 @@ class CompiledRegime:
     """``E``: the moment year 0 starts."""
     starts_at: int | None
     """Resolved start moment (``None`` for regime 0, or a ``local`` start resolved later, #14)."""
+    cycles: tuple[CompiledCycle, ...] = ()
     cache: dict[object, object] = field(default_factory=dict, repr=False, compare=False)
     """Derived structures computed on first use (unit counts per level and filter, #12)."""
 
@@ -235,3 +258,24 @@ class CompiledCalendar:
 
     def level_index(self, level_id: str) -> int:
         return self.levels.index(level_id)
+
+
+class DateError(ValueError):
+    """A date the calendar can't resolve. ``level`` names the offending level, if any."""
+
+    def __init__(self, code: DateErrorCode, message: str, level: str | None = None) -> None:
+        super().__init__(message)
+        self.code: DateErrorCode = code
+        self.level = level
+
+
+def active_regime(calendar: CompiledCalendar, t: int) -> CompiledRegime:
+    """The last regime whose start is ``≤ t`` (regime 0 before every other).
+
+    Regimes whose start is a ``local`` anchor are resolved by #14; until then they never activate.
+    """
+    return next(
+        regime
+        for regime in reversed(calendar.regimes)
+        if regime.index == 0 or (regime.starts_at is not None and regime.starts_at <= t)
+    )

@@ -232,6 +232,20 @@ carries the calendar's `calendar_id`).
   1582 reform.
 - Several cycles may share a level (e.g. Tzolkʼin numbers 1–13 and names ×20).
 
+Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `cycles`):
+
+- A cycle counts every unit of its level **except** those excluded from it: a unit is excluded
+  when its own slot or any ancestor's lists the cycle in `cycle_excluded` (an excluded
+  intercalary month excludes all its days). Intercalary units that aren't excluded do count
+  (R-CAL-4: exclusion from cycles is optional).
+- The value is `{index, name, n}`: `name` is `names[index]` (`null` without names), and
+  `n = index + number_start`. An unknown cycle id is the error `unknown_cycle`.
+- The anchor unit of a continuous cycle must itself count (`cycle.anchor_invalid` otherwise).
+- `continue_from_previous_regime`: the first counted unit at or after the regime's start gets the
+  index following the previous regime's last counted unit before the start. The previous regime
+  must have a continuous cycle with the same id and length, and the cycle must be continuous
+  (`cycle.anchor_invalid` otherwise). With a `local` regime start, this waits for #14.
+
 ### 3.8 Eras
 
 ```jsonc
@@ -618,7 +632,9 @@ Rules behind the codes, where §3 leaves room:
   number, and each value is a slot id or a regular number of the template actually used by its
   parent. A cycle anchor's fields stop exactly at the cycle's level. A continuous cycle needs
   `anchor.fields` unless `continue_from_previous_regime` (invalid in regime 0); `anchor.index`
-  must be `< length`; a reset level must be coarser than the cycle's level.
+  must be `< length`; a reset level must be coarser than the cycle's level. The anchor unit must not be excluded from its cycle, and
+  `continue_from_previous_regime` needs a continuous cycle of the same id and length in the
+  previous regime (§3.7).
 - **Ordering:** regime and era starts must increase strictly among the starts that are not
   `local`; `local` starts are checked when they are resolved (#14). Overlay phases start at 0,
   increase strictly and stay below 1.
