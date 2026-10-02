@@ -25,6 +25,13 @@ from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.eras import era_of
 from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
+from lore.chronology.correspondence import (
+    Correspondence,
+    CorrespondenceError,
+    Step,
+    compose,
+    correspondence,
+)
 from lore.chronology.recurrence import (
     RecurrenceContext,
     RecurrenceError,
@@ -93,11 +100,12 @@ OPS = NUMBER_OPS | frozenset(
         "occurrence_number",
         "occurrence_at",
         "map",
+        "compose",
     }
 )
 """Every op documented in the conformance README."""
 
-CALENDAR_FREE_OPS = NUMBER_OPS | {"validate", "preset_instantiate", "map"}
+CALENDAR_FREE_OPS = NUMBER_OPS | {"validate", "preset_instantiate", "map", "compose"}
 
 type CalendarFile = dict[str, Any]
 type Handler = Callable[[CalendarFile | None, dict[str, Any]], Any]
@@ -216,6 +224,34 @@ def _occurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return occurrence(*_recurrence(calendar, d), d["key"]).as_json()
 
 
+def _correspondence(data: dict[str, Any]) -> Correspondence:
+    def rate(value: dict[str, str] | None) -> numbers.Rational | None:
+        return None if value is None else _rational(value)
+
+    return correspondence(
+        [(int(p["a"]), int(p["b"])) for p in data["points"]],
+        extrapolation=data["extrapolation"],
+        rate_before=rate(data["rate_before"]),
+        rate_after=rate(data["rate_after"]),
+    )
+
+
+def _map(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    mapped = _correspondence(d["correspondence"]).map(
+        int(d["t"]), d["direction"], int(d["target_duration"])
+    )
+    return {"t": None if mapped is None else str(mapped)}
+
+
+def _compose(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    path = [
+        Step(_correspondence(s["correspondence"]), s["direction"], int(s["target_duration"]))
+        for s in d["path"]
+    ]
+    mapped = compose(path, int(d["t"]))
+    return {"t": None if mapped is None else str(mapped)}
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -259,6 +295,8 @@ HANDLERS: dict[str, Handler] = {
     "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "add": _add,
+    "map": _map,
+    "compose": _compose,
     "expand": _expand,
     "series_bounds": _series_bounds,
     "count_in_window": _count_in_window,
@@ -276,7 +314,6 @@ PENDING: dict[str, int] = {
     "format": 17,
     "format_span": 17,
     "preset_instantiate": 18,
-    "map": 22,
 }
 """op → issue that implements it in the Python engine."""
 
@@ -353,7 +390,7 @@ def test_vector(case: Case) -> None:
     handler = HANDLERS.get(case.op, _not_implemented)
     try:
         result = handler(calendar, case.input)
-    except (numbers.NumberError, DateError, RecurrenceError) as error:
+    except (numbers.NumberError, DateError, RecurrenceError, CorrespondenceError) as error:
         result = {"error": error.code}
     assert _normalized(case.op, result) == _normalized(case.op, case.expected)
 

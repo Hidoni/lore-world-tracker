@@ -1,0 +1,1423 @@
+{
+  "description": "Cross-dimension correspondences: piecewise-linear mapping through sync points (both directions, floor), extrapolation none or by rates (default: adjacent segment), single sync points, seconds ↔ days, huge values, target bounds, validation errors and composition.",
+  "calendar": null,
+  "generated": false,
+  "verification": "Worked by hand for the small cases (formulas in the notes) and confirmed with a separate reference using Fraction interpolation and math.floor.",
+  "cases": [
+    {
+      "id": "segment-start",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "50"
+      }
+    },
+    {
+      "id": "segment-floor",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1001",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "50"
+      },
+      "note": "50 + floor(1 × 100/1000)"
+    },
+    {
+      "id": "segment-middle",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1500",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "100"
+      }
+    },
+    {
+      "id": "segment-end-floor",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1999",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "149"
+      }
+    },
+    {
+      "id": "sync-point",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "2000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "150"
+      }
+    },
+    {
+      "id": "second-segment",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "3500",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "225"
+      },
+      "note": "150 + floor(1500 × 150/3000)"
+    },
+    {
+      "id": "last-point",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "5000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "300"
+      }
+    },
+    {
+      "id": "before-none",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "999",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "extrapolation none: undefined outside the sync points"
+    },
+    {
+      "id": "after-none",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "5001",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      }
+    },
+    {
+      "id": "inverse-start",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "50",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "1000"
+      }
+    },
+    {
+      "id": "inverse-floor",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "51",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "1010"
+      },
+      "note": "1000 + floor(1 × 1000/100)"
+    },
+    {
+      "id": "inverse-segment",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "149",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "1990"
+      }
+    },
+    {
+      "id": "inverse-last",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "300",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "5000"
+      }
+    },
+    {
+      "id": "inverse-after-none",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "301",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      }
+    },
+    {
+      "id": "inverse-before-none",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "49",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      }
+    },
+    {
+      "id": "unordered-points",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "5000",
+              "b": "300"
+            },
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "3500",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "225"
+      },
+      "note": "points are sorted by a"
+    },
+    {
+      "id": "default-rate-before",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "600",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "10"
+      },
+      "note": "slope of the first segment: 50 + floor(-400/10)"
+    },
+    {
+      "id": "default-rate-before-negative",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "0",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "-50 is outside the target's [0, D]"
+    },
+    {
+      "id": "default-rate-after",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "10000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "550"
+      },
+      "note": "slope of the last segment: 300 + floor(5000/20)"
+    },
+    {
+      "id": "rate-after-beyond-d",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "10000",
+        "target_duration": "500"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "550 > D = 500"
+    },
+    {
+      "id": "inverse-default-rate-after",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "400",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "7000"
+      },
+      "note": "5000 + floor(100 × 20)"
+    },
+    {
+      "id": "explicit-rate-before-floor",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "1",
+            "den": "3"
+          },
+          "rate_after": {
+            "num": "7",
+            "den": "2"
+          },
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "900",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "16"
+      },
+      "note": "50 + floor(-100/3) = 50 - 34"
+    },
+    {
+      "id": "explicit-rate-before-inverse",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "1",
+            "den": "3"
+          },
+          "rate_after": {
+            "num": "7",
+            "den": "2"
+          },
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "16",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "898"
+      },
+      "note": "1000 + floor(-34 × 3): the round trip 900 → 16 → 898"
+    },
+    {
+      "id": "explicit-rate-after",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "1",
+            "den": "3"
+          },
+          "rate_after": {
+            "num": "7",
+            "den": "2"
+          },
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            },
+            {
+              "a": "5000",
+              "b": "300"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "5003",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "310"
+      },
+      "note": "300 + floor(3 × 7/2)"
+    },
+    {
+      "id": "single-point-day-is-year",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "365",
+            "den": "1"
+          },
+          "rate_after": {
+            "num": "365",
+            "den": "1"
+          },
+          "points": [
+            {
+              "a": "1000000000",
+              "b": "0"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000086400",
+        "target_duration": "1000000000000"
+      },
+      "expected": {
+        "t": "31536000"
+      },
+      "note": "one day (s) after the portal opened is one year (s) later on the other side"
+    },
+    {
+      "id": "single-point-before",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "365",
+            "den": "1"
+          },
+          "rate_after": {
+            "num": "365",
+            "den": "1"
+          },
+          "points": [
+            {
+              "a": "1000000000",
+              "b": "0"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "999999999",
+        "target_duration": "1000000000000"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "-365 is outside [0, D]"
+    },
+    {
+      "id": "single-point-inverse",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "365",
+            "den": "1"
+          },
+          "rate_after": {
+            "num": "365",
+            "den": "1"
+          },
+          "points": [
+            {
+              "a": "1000000000",
+              "b": "0"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "31536000",
+        "target_duration": "1000000000000"
+      },
+      "expected": {
+        "t": "1000086400"
+      }
+    },
+    {
+      "id": "single-point-none",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000000000",
+              "b": "7"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000000000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "7"
+      }
+    },
+    {
+      "id": "single-point-none-elsewhere",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000000000",
+              "b": "7"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000000001",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": null
+      }
+    },
+    {
+      "id": "seconds-to-days",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "0",
+              "b": "0"
+            },
+            {
+              "a": "8640000",
+              "b": "100"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "86399",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "0"
+      },
+      "note": "B counts days: 86,399 s is still day 0"
+    },
+    {
+      "id": "seconds-to-days-next",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "0",
+              "b": "0"
+            },
+            {
+              "a": "8640000",
+              "b": "100"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "86400",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "t": "1"
+      }
+    },
+    {
+      "id": "days-to-seconds",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "0",
+              "b": "0"
+            },
+            {
+              "a": "8640000",
+              "b": "100"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "50",
+        "target_duration": "10000000"
+      },
+      "expected": {
+        "t": "4320000"
+      }
+    },
+    {
+      "id": "huge",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            },
+            {
+              "a": "2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012345",
+        "target_duration": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "t": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "id": "huge-extrapolated",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            },
+            {
+              "a": "2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "target_duration": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "t": "900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "id": "huge-inverse",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            },
+            {
+              "a": "2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+              "b": "300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ]
+        },
+        "direction": "ba",
+        "t": "200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007",
+        "target_duration": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "t": "1500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000035000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "id": "not-monotonic-b",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "40"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1500",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "error": "correspondence.non_monotonic"
+      }
+    },
+    {
+      "id": "duplicate-a",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "none",
+          "rate_before": null,
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "1000",
+              "b": "60"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "error": "correspondence.non_monotonic"
+      }
+    },
+    {
+      "id": "bad-rate",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "0",
+            "den": "1"
+          },
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            },
+            {
+              "a": "2000",
+              "b": "150"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1500",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "error": "correspondence.bad_rate"
+      }
+    },
+    {
+      "id": "single-point-missing-rate",
+      "op": "map",
+      "input": {
+        "correspondence": {
+          "extrapolation": "rate",
+          "rate_before": {
+            "num": "2",
+            "den": "1"
+          },
+          "rate_after": null,
+          "points": [
+            {
+              "a": "1000",
+              "b": "50"
+            }
+          ]
+        },
+        "direction": "ab",
+        "t": "1000",
+        "target_duration": "1000000"
+      },
+      "expected": {
+        "error": "correspondence.missing_rate"
+      }
+    },
+    {
+      "id": "compose-two-steps",
+      "op": "compose",
+      "input": {
+        "path": [
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "1000",
+                  "b": "50"
+                },
+                {
+                  "a": "2000",
+                  "b": "150"
+                },
+                {
+                  "a": "5000",
+                  "b": "300"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "1000000"
+          },
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "50",
+                  "b": "0"
+                },
+                {
+                  "a": "300",
+                  "b": "25"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "1000000"
+          }
+        ],
+        "t": "3500"
+      },
+      "expected": {
+        "t": "17"
+      },
+      "note": "3500 → 225 → floor(175/10) = 17"
+    },
+    {
+      "id": "compose-back",
+      "op": "compose",
+      "input": {
+        "path": [
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "50",
+                  "b": "0"
+                },
+                {
+                  "a": "300",
+                  "b": "25"
+                }
+              ]
+            },
+            "direction": "ba",
+            "target_duration": "1000000"
+          },
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "1000",
+                  "b": "50"
+                },
+                {
+                  "a": "2000",
+                  "b": "150"
+                },
+                {
+                  "a": "5000",
+                  "b": "300"
+                }
+              ]
+            },
+            "direction": "ba",
+            "target_duration": "1000000"
+          }
+        ],
+        "t": "17"
+      },
+      "expected": {
+        "t": "3400"
+      },
+      "note": "17 → 50 + 170 = 220 → 2000 + floor(70 × 3000/150) = 3400"
+    },
+    {
+      "id": "compose-undefined-first",
+      "op": "compose",
+      "input": {
+        "path": [
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "1000",
+                  "b": "50"
+                },
+                {
+                  "a": "2000",
+                  "b": "150"
+                },
+                {
+                  "a": "5000",
+                  "b": "300"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "1000000"
+          },
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "50",
+                  "b": "0"
+                },
+                {
+                  "a": "300",
+                  "b": "25"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "1000000"
+          }
+        ],
+        "t": "999"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "undefined in the first step"
+    },
+    {
+      "id": "compose-undefined-second",
+      "op": "compose",
+      "input": {
+        "path": [
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "1000",
+                  "b": "50"
+                },
+                {
+                  "a": "2000",
+                  "b": "150"
+                },
+                {
+                  "a": "5000",
+                  "b": "300"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "1000000"
+          },
+          {
+            "correspondence": {
+              "extrapolation": "none",
+              "rate_before": null,
+              "rate_after": null,
+              "points": [
+                {
+                  "a": "50",
+                  "b": "0"
+                },
+                {
+                  "a": "300",
+                  "b": "25"
+                }
+              ]
+            },
+            "direction": "ab",
+            "target_duration": "10"
+          }
+        ],
+        "t": "3500"
+      },
+      "expected": {
+        "t": null
+      },
+      "note": "17 > D = 10 in the last dimension"
+    },
+    {
+      "id": "compose-empty",
+      "op": "compose",
+      "input": {
+        "path": [],
+        "t": "42"
+      },
+      "expected": {
+        "t": "42"
+      },
+      "note": "an empty path maps a moment to itself"
+    }
+  ]
+}
