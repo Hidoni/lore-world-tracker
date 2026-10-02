@@ -1,0 +1,288 @@
+{
+  "description": "Calendar arithmetic with intercalary months (Yule, Lithe Days), slots missing from short exception years, numbers constrained by shorter units, and intercalary start points.",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "Hand-written year layouts: 1 Deepwinter 1 = t 1,000,000 hours; common years 362 days (Deepwinter 30, Yule 1, months 2-11 of 30, Lithe Days 2, Lastmonth 29), leap years (Y mod 4 = 0) 363 with 3 Lithe Days, short years -3 and 5 have Deepwinter and months 2-4 (120 days), year 8 is common. Expected positions follow §9.2 by hand.",
+  "cases": [
+    {
+      "id": "month-from-yule-forward",
+      "op": "add",
+      "input": {
+        "t": "1009413",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1009437"
+      },
+      "note": "from an intercalary month, +1 month is the next regular month"
+    },
+    {
+      "id": "month-from-yule-backward",
+      "op": "add",
+      "input": {
+        "t": "1009413",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "1008693"
+      },
+      "note": "and -1 month is the previous one"
+    },
+    {
+      "id": "month-skips-yule",
+      "op": "add",
+      "input": {
+        "t": "1008904",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1009648"
+      },
+      "note": "month arithmetic skips intercalary months"
+    },
+    {
+      "id": "month-skips-lithe",
+      "op": "add",
+      "input": {
+        "t": "1016248",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1017016"
+      }
+    },
+    {
+      "id": "year-keeps-yule",
+      "op": "add",
+      "input": {
+        "t": "1009408",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1018096"
+      }
+    },
+    {
+      "id": "year-yule-into-short-year",
+      "op": "add",
+      "input": {
+        "t": "1026784",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1034776"
+      },
+      "note": "no Yule in year 5: the last regular month before Yule's index"
+    },
+    {
+      "id": "year-yule-into-short-year-reject",
+      "op": "add",
+      "input": {
+        "t": "1026784",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        },
+        "overflow": "reject"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "year-lithe-into-short-year",
+      "op": "add",
+      "input": {
+        "t": "1034063",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1036991"
+      },
+      "note": "no Lithe Days in year 5: its last month (4) is the last regular month before Lithe's index"
+    },
+    {
+      "id": "year-lithe-day-constrained",
+      "op": "add",
+      "input": {
+        "t": "1034056",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "4"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1063000"
+      },
+      "note": "year 8 is common: Lithe Days has 2 days, day 3 constrains to 2"
+    },
+    {
+      "id": "year-lastmonth-by-number",
+      "op": "add",
+      "input": {
+        "t": "1034752",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1037608"
+      },
+      "note": "no Lastmonth in year 5: its number (12) constrains to the last month (4)"
+    },
+    {
+      "id": "month-from-short-year",
+      "op": "add",
+      "input": {
+        "t": "1037632",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1038352"
+      }
+    },
+    {
+      "id": "days-through-yule",
+      "op": "add",
+      "input": {
+        "t": "1009396",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "2"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "1009444"
+      },
+      "note": "the day level is uniform: the day of Yule counts"
+    },
+    {
+      "id": "months-skip-yule",
+      "op": "diff",
+      "input": {
+        "t1": "1008688",
+        "t2": "1009432",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "1",
+          "day": "0"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "from-intercalary-start",
+      "op": "diff",
+      "input": {
+        "t1": "1009408",
+        "t2": "1010152",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "2",
+          "day": "0"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "years-across-exception",
+      "op": "diff",
+      "input": {
+        "t1": "1034056",
+        "t2": "1063001",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "4",
+          "month": "0",
+          "day": "0"
+        },
+        "base": "1",
+        "sign": 1
+      }
+    }
+  ]
+}

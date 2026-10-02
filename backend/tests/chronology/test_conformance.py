@@ -14,15 +14,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import TypeAdapter
 
 from lore.chronology import numbers
 from lore.chronology.calendar import CompiledCalendar, validate_calendar
+from lore.chronology.calendar.arithmetic import add, diff
 from lore.chronology.calendar.compiled import DateError
 from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
 from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.eras import era_of
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
-from lore.chronology.schema import CalendarDefinition, CompileContext
+from lore.chronology.schema import CalendarDefinition, CompileContext, Duration
 
 CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
 
@@ -131,6 +133,20 @@ def _era_of(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
     return None if value is None else value.as_json()
 
 
+_DURATION: TypeAdapter[Duration] = TypeAdapter(Duration)
+
+
+def _add(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    duration = _DURATION.validate_python(d["duration"])
+    options = {"overflow": d["overflow"]} if "overflow" in d else {}
+    return {"t": str(add(_compiled(calendar), int(d["t"]), duration, **options))}
+
+
+def _diff(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
+    found = diff(_compiled(calendar), int(d["t1"]), int(d["t2"]), d["largest"], d["smallest"])
+    return found.as_json()
+
+
 def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     result = validate_calendar(d["definition"], d["context"])
     errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
@@ -169,6 +185,8 @@ HANDLERS: dict[str, Handler] = {
     "cycle_value": _cycle_value,
     "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
+    "add": _add,
+    "diff": _diff,
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
     },
@@ -177,8 +195,6 @@ HANDLERS: dict[str, Handler] = {
 
 PENDING: dict[str, int] = {
     "overlay_phase": 15,
-    "add": 16,
-    "diff": 16,
     "format": 17,
     "format_span": 17,
     "preset_instantiate": 18,

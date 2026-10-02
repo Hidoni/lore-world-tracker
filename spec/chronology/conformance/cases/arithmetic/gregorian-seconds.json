@@ -1,0 +1,599 @@
+{
+  "description": "Calendar arithmetic on the proleptic Gregorian calendar: month-end and leap-day constraining, reject overflow, negative and mixed durations, uniform levels, base durations, zero amounts, huge values, and diff for ages.",
+  "calendar": "gregorian-seconds",
+  "generated": false,
+  "verification": "Moments from the Gregorian JDN algorithm (2000-01-01 = t 10^14, 86,400 s per day); every expected date is written by hand from the §9 rules (constrain clamps to the month's last day). Huge cases use the 146,097-day 400-year cycle.",
+  "cases": [
+    {
+      "id": "month-end-clamped",
+      "op": "add",
+      "input": {
+        "t": "100000728474400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000730893600"
+      },
+      "note": "31 Jan + 1 month = last day of February, time of day kept"
+    },
+    {
+      "id": "month-end-leap-year",
+      "op": "add",
+      "input": {
+        "t": "100000759974400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000762480000"
+      }
+    },
+    {
+      "id": "month-end-reject",
+      "op": "add",
+      "input": {
+        "t": "100000728438400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        },
+        "overflow": "reject"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "month-reject-fits",
+      "op": "add",
+      "input": {
+        "t": "100000727086600",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": 1
+        },
+        "overflow": "reject"
+      },
+      "expected": {
+        "t": "100000729765000"
+      }
+    },
+    {
+      "id": "month-across-year",
+      "op": "add",
+      "input": {
+        "t": "100000754617600",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "3"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000762480000"
+      }
+    },
+    {
+      "id": "leap-day-plus-year",
+      "op": "add",
+      "input": {
+        "t": "100000762523200",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000794059200"
+      }
+    },
+    {
+      "id": "leap-day-plus-four-years",
+      "op": "add",
+      "input": {
+        "t": "100000762480000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "4"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000888710400"
+      }
+    },
+    {
+      "id": "leap-day-plus-century",
+      "op": "add",
+      "input": {
+        "t": "100003034627200",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "4"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100003160771200"
+      },
+      "note": "2100 is not a leap year"
+    },
+    {
+      "id": "leap-day-plus-year-reject",
+      "op": "add",
+      "input": {
+        "t": "100000762480000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1"
+          },
+          "sign": 1
+        },
+        "overflow": "reject"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "negative-month",
+      "op": "add",
+      "input": {
+        "t": "100000765158400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "100000762480000"
+      }
+    },
+    {
+      "id": "negative-year-then-month",
+      "op": "add",
+      "input": {
+        "t": "100000765203696",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1",
+            "month": "1"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "100000730902896"
+      },
+      "note": "years first (31 Mar 2023), then months"
+    },
+    {
+      "id": "coarse-to-fine",
+      "op": "add",
+      "input": {
+        "t": "100000728438400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "month": "1",
+            "day": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000730944000"
+      },
+      "note": "+1 month clamps to 28 Feb, then +1 day"
+    },
+    {
+      "id": "days-across-leap-day",
+      "op": "add",
+      "input": {
+        "t": "100000762415200",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "2"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000762588000"
+      }
+    },
+    {
+      "id": "hours-and-minutes",
+      "op": "add",
+      "input": {
+        "t": "100000757380600",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "hour": "1",
+            "minute": "45"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000757386900"
+      }
+    },
+    {
+      "id": "negative-days",
+      "op": "add",
+      "input": {
+        "t": "100000005184000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "day": "1"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "100000005097600"
+      }
+    },
+    {
+      "id": "zero-amounts",
+      "op": "add",
+      "input": {
+        "t": "100000728456400",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "0",
+            "month": "0"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "100000728456400"
+      }
+    },
+    {
+      "id": "base-duration",
+      "op": "add",
+      "input": {
+        "t": "100000762566400",
+        "duration": {
+          "kind": "base",
+          "units": "-86400"
+        }
+      },
+      "expected": {
+        "t": "100000762480000"
+      }
+    },
+    {
+      "id": "huge-years",
+      "op": "add",
+      "input": {
+        "t": "100000762480000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1000000000000000000000000000000"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "t": "31556952000000000000000100000762480000"
+      },
+      "note": "year 2024 + 10^30 is a leap year (same position in the 400-year cycle)"
+    },
+    {
+      "id": "huge-negative-years",
+      "op": "add",
+      "input": {
+        "t": "100000000000000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "year": "1000000000000000000000000000000"
+          },
+          "sign": -1
+        }
+      },
+      "expected": {
+        "t": "-31556951999999999999999900000000000000"
+      },
+      "note": "results outside [0, D] are returned as they are"
+    },
+    {
+      "id": "unknown-level",
+      "op": "add",
+      "input": {
+        "t": "100000000000000",
+        "duration": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "amounts": {
+            "week": "1"
+          },
+          "sign": 1
+        }
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "age-years-months-days",
+      "op": "diff",
+      "input": {
+        "t1": "99999696073600",
+        "t2": "100000774783000",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "34",
+          "month": "2",
+          "day": "5"
+        },
+        "base": "5400",
+        "sign": 1
+      }
+    },
+    {
+      "id": "age-reversed",
+      "op": "diff",
+      "input": {
+        "t1": "100000774783000",
+        "t2": "99999696073600",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "34",
+          "month": "2",
+          "day": "5"
+        },
+        "base": "5400",
+        "sign": -1
+      },
+      "note": "t1 > t2: diff(t2, t1) with sign -1"
+    },
+    {
+      "id": "leap-day-birthday-common-year",
+      "op": "diff",
+      "input": {
+        "t1": "100000005097600",
+        "t2": "100000036633600",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "1",
+          "month": "0",
+          "day": "0"
+        },
+        "base": "0",
+        "sign": 1
+      },
+      "note": "29 Feb + 1 year = 28 Feb in a common year"
+    },
+    {
+      "id": "leap-day-birthday-day-before",
+      "op": "diff",
+      "input": {
+        "t1": "100000005097600",
+        "t2": "100000036633599",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "0",
+          "month": "11",
+          "day": "29"
+        },
+        "base": "86399",
+        "sign": 1
+      }
+    },
+    {
+      "id": "leap-day-birthday-leap-year",
+      "op": "diff",
+      "input": {
+        "t1": "100000005097600",
+        "t2": "100000131328000",
+        "largest": "year",
+        "smallest": "month"
+      },
+      "expected": {
+        "amounts": {
+          "year": "4",
+          "month": "0"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "month-end-one-month",
+      "op": "diff",
+      "input": {
+        "t1": "100000728438400",
+        "t2": "100000730857600",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "1",
+          "day": "0"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "month-end-greedy",
+      "op": "diff",
+      "input": {
+        "t1": "100000728438400",
+        "t2": "100000733449600",
+        "largest": "month",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "month": "1",
+          "day": "30"
+        },
+        "base": "0",
+        "sign": 1
+      },
+      "note": "+2 months (31 Mar) overshoots; +1 month is 28 Feb"
+    },
+    {
+      "id": "days-and-hours",
+      "op": "diff",
+      "input": {
+        "t1": "100000762386400",
+        "t2": "100000762570030",
+        "largest": "day",
+        "smallest": "hour"
+      },
+      "expected": {
+        "amounts": {
+          "day": "2",
+          "hour": "3"
+        },
+        "base": "30",
+        "sign": 1
+      }
+    },
+    {
+      "id": "equal",
+      "op": "diff",
+      "input": {
+        "t1": "100000757382400",
+        "t2": "100000757382400",
+        "largest": "year",
+        "smallest": "second"
+      },
+      "expected": {
+        "amounts": {
+          "year": "0",
+          "month": "0",
+          "day": "0",
+          "hour": "0",
+          "minute": "0",
+          "second": "0"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "single-level",
+      "op": "diff",
+      "input": {
+        "t1": "100000000000000",
+        "t2": "100000788918400",
+        "largest": "month",
+        "smallest": "month"
+      },
+      "expected": {
+        "amounts": {
+          "month": "299"
+        },
+        "base": "2592000",
+        "sign": 1
+      }
+    },
+    {
+      "id": "huge",
+      "op": "diff",
+      "input": {
+        "t1": "100000000000000",
+        "t2": "31556952000000000000000100000000259200",
+        "largest": "year",
+        "smallest": "day"
+      },
+      "expected": {
+        "amounts": {
+          "year": "1000000000000000000000000000000",
+          "month": "0",
+          "day": "3"
+        },
+        "base": "0",
+        "sign": 1
+      }
+    },
+    {
+      "id": "largest-finer-than-smallest",
+      "op": "diff",
+      "input": {
+        "t1": "100000000000000",
+        "t2": "100000031622400",
+        "largest": "day",
+        "smallest": "year"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    }
+  ]
+}

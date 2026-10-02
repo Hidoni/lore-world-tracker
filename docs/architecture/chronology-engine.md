@@ -157,7 +157,9 @@ Child semantics:
 - **Run** (`run: {count, template?}`): `count` unnamed children.
 - **Intercalary** (`intercalary: true`, named slots only): the unit exists and has length, but it
   gets **no regular number**, and it is skipped by regular ordinals and by "add N units at this
-  level" arithmetic (§9). It must have an `id` (it can only be addressed by slot id).
+  level" arithmetic on variable levels (§9.2). Uniform levels add exact lengths, so there an
+  intercalary unit counts like any other (+1 day can land on Midyear's Day, product decision
+  2026-10-02). It must have an `id` (it can only be addressed by slot id).
 - **`cycle_excluded: [cycle ids]`**: the unit and all its descendants at those cycles' levels are
   excluded from those cycles (e.g. Midyear's Day has no weekday).
 - **Numbering**: non-intercalary children (named or run) are numbered consecutively from the
@@ -577,33 +579,65 @@ Details (Python: `lore.chronology.calendar.units`):
 ### 9.1 Uniform levels
 
 A level is **uniform** if every template of that level, in every regime, has the same length
-(typically day and finer). Adding `n` units of a uniform level adds `n · length` base units
-exactly.
+(typically day and finer; `is_uniform(level)`). Adding `n` units of a uniform level adds
+`n · length` base units exactly, intercalary units included (§3.4).
 
 ### 9.2 `add(t, duration, overflow = "constrain")`
 
 For a calendar duration `{amounts, sign}`, process the levels present in `amounts` from
-**coarsest to finest**:
+**coarsest to finest**. A zero amount is skipped (it never moves the moment). An unknown level is
+`invalid_date`.
 
-- **variable level `X`**: decompose the current moment into fields (active regime). Compute
-  `m = ordinal(level X) + sign·amount` and locate the unit with `from_ordinal`. Then re-apply the
-  original finer positions inside the new unit, level by level from coarse to fine. Use the same
-  **slot id** if it exists in the new parent, else the same **regular number** constrained to the
-  last valid number. A position that was intercalary and doesn't exist in the new parent becomes the
-  last regular child before its original index (or the first child). Finally re-apply the base
-  remainder, constrained to the finest unit's length.
+- **variable level `X`**: decompose the current moment into fields in the regime `R` active at
+  it. Compute `m = ordinal(level X) + sign·amount` and locate the unit with `from_ordinal`, both
+  in `R`. A moment inside an intercalary `X` unit sits between the regular units `p` (its
+  ordinal) and `p + 1`: `+n` targets `p + n` and `−n` targets `p + 1 − n`, so ±1 lands on the
+  neighbouring regular units. Then re-apply the original finer positions inside the new unit,
+  level by level from coarse to fine. Use the same **slot id** if it exists in the new parent,
+  else the same **regular number** constrained to the last valid number (a slot id missing from
+  the new parent falls back to its regular number this way: Frostfall becomes Ember in the
+  alternating-years calendar). A position that was intercalary and doesn't exist in the new
+  parent becomes the last regular child before its original index (or the first regular child).
+  Finally re-apply the base remainder, constrained to the finest unit's length.
 - **uniform level**: add `sign · amount · length`.
 
-With `overflow = "reject"`, any constraining step raises `invalid_date`. Base durations add
-exactly. Results outside `[0, D]` are returned as-is; callers enforce bounds (hard rule in
-`time-model.md` §7.2).
+**Regimes** (product decision, 2026-10-02): a variable step is reckoned entirely in `R`, extended
+proleptically past `R`'s end, and the result is a moment that later steps and displays read in
+whatever regime is active there. Julian 1 January 1582 + 1 year is Julian 1 January 1583, which
+displays as Gregorian 11 January 1583; Gregorian 11 January 1583 − 1 year is Gregorian (proleptic)
+11 January 1582. Every step is therefore strictly monotone in its amount.
+
+With `overflow = "reject"`, any constraining step raises `invalid_date` naming the level: a
+number clamped, a slot id missing from the new parent (even if its number exists), an intercalary
+fallback, or a clamped base remainder. Base durations add exactly. Results outside `[0, D]` are
+returned as-is; callers enforce bounds (hard rule in `time-model.md` §7.2).
 
 ### 9.3 `diff(t1, t2, largest, smallest)`
 
 Returns `{amounts per level from largest to smallest, base_remainder, sign}` such that
 `add(t1, amounts) ≤ t2 < add(t1, amounts + 1·smallest)` (for `t1 ≤ t2`; otherwise compute
-`diff(t2, t1)` and negate). Greedy per level: estimate with ordinals, then correct with at most a
-few `add` probes. Used for ages ("34 years, 2 months") and "N years ago".
+`diff(t2, t1)` and negate: the amounts and remainder measure `t1 − t2`, with `sign = −1`; equal
+moments have `sign = 1`). `largest` must not be finer than `smallest` (`invalid_date`). Greedy
+per level from the coarsest: each amount is the largest `n ≥ 0` whose step stays `≤ t2`, exact
+division for uniform levels, otherwise an estimate from ordinals (in the regime active at the
+current moment, like `add`) corrected by galloping and bisecting `add` probes (one or two in
+practice). The remainder is `t2 − add(t1, amounts)`. Used for ages ("34 years, 2 months") and
+"N years ago". Across a reform, ages follow the birth's regime (Julian 1 January 1580 to Gregorian
+1 January 1590 is 9 years, 11 months, 21 days).
+
+### 9.4 `duration_upper_bound(duration)`
+
+A safe bound on `|add(t, duration) − t|` for every `t`, used to widen recurrence windows
+(`recurrence.md` §5.1). Base durations give `|units|`, and calendar durations the sum of their
+levels' bounds. A uniform level gives `amount · length`. For a variable level with `n = amount`
+and `a` the longest unit of the level, the bound is `(n + 1)·a`, plus, when the level has
+intercalary units, `J` (the most intercalary length of that level in any year) times the number
+of years `n` regular units can cross: `n div r + 2`, where `r` is the fewest regular units of the
+level in a year. When some year has none, the engine assumes runs of `(exceptions + 1)·P` such
+years, which is loose but safe.
+
+Python: `lore.chronology.calendar.arithmetic` (`is_uniform`, `add`, `diff` returning
+`Difference`, `duration_upper_bound`).
 
 ## 10. Formatting
 
