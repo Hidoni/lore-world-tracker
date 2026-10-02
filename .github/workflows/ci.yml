@@ -115,3 +115,13 @@ jobs:
           path: frontend/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - run: make docker
+      # Compose up → /api/v1/health → / serves the SPA, non-root, ./data bind mount writable.
+      - run: make docker-smoke

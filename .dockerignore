@@ -1,0 +1,34 @@
+# Build context for the Dockerfile: only sources the image needs. Dependencies are installed inside
+# the build (npm ci, uv sync), never copied from the host.
+.git
+.github
+.claude
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.hypothesis
+**/.import_linter_cache
+**/dist
+**/coverage
+**/.coverage
+**/htmlcov
+**/*.tsbuildinfo
+**/.eslintcache
+frontend/test-results
+frontend/playwright-report
+data
+backend/data
+published
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+.env
+.env.*
+docs
+Dockerfile
+docker-compose.yml
+.dockerignore
