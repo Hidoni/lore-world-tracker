@@ -16,7 +16,7 @@ define placeholder
 endef
 
 .PHONY: help setup dev check check-backend check-frontend test test-backend test-frontend \
-	test-chronology e2e gen check-contract fmt docker sample-vault
+	test-chronology e2e gen check-contract fmt docker docker-smoke sample-vault
 
 help: ## List the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z][a-zA-Z0-9_-]*:.*## / { printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -72,8 +72,11 @@ fmt: ## ruff format + prettier
 	$(UV) run ruff format
 	npm run fmt
 
-docker: ## Build the image
-	$(call placeholder,#7)
+docker: ## Build the image (lore-world-tracker:local, the tag docker-compose.yml uses)
+	docker build -t lore-world-tracker:local .
+
+docker-smoke: ## Run the built image via docker compose and smoke-test it (scripts/docker-smoke.sh)
+	scripts/docker-smoke.sh
 
 sample-vault: ## Generate the demo world into ./data (SIZE=small|medium|large)
 	$(call placeholder,#43)

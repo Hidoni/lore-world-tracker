@@ -24,11 +24,18 @@ preferences (backup schedule, display options, module toggles) live in the vault
 
 ## 2. Docker image (multi-stage)
 
+The repository's `Dockerfile` (copied verbatim here; keep the two in sync). `.dockerignore` keeps
+host `node_modules`, `.venv`, `data`, `published`, `.git`, `docs` and caches out of the build
+context. `make docker` builds it as `lore-world-tracker:local`.
+
 ```dockerfile
+# Single multi-stage image: the SPA is built with Node, then served by `lore serve` on Python
+# (docs/architecture/deployment.md §2; keep that section in sync with this file).
+
 # --- web build -------------------------------------------------------------
 FROM node:26-slim AS web
 WORKDIR /src
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY frontend/package.json frontend/
 COPY packages/chronology/package.json packages/chronology/
 RUN npm ci
@@ -39,7 +46,7 @@ RUN npm run build --workspace frontend
 
 # --- runtime ---------------------------------------------------------------
 FROM python:3.14-slim AS app
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.17 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./backend/
@@ -48,42 +55,70 @@ COPY backend ./backend
 COPY spec ./spec
 RUN cd backend && uv sync --frozen --no-dev --no-editable
 COPY --from=web /src/frontend/dist /app/static
-RUN useradd --system --uid 10001 lore && mkdir -p /data && chown lore /data
+# The image runs as an unprivileged user. docker-compose.yml overrides the uid/gid with the host
+# user's so the bind-mounted ./data stays writable and owned by them.
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin lore \
+    && mkdir -p /data /published && chown lore: /data /published
 USER lore
 ENV PATH="/app/backend/.venv/bin:$PATH" \
     LORE_DATA_DIR=/data LORE_STATIC_DIR=/app/static LORE_SPEC_DIR=/app/spec \
     LORE_HOST=0.0.0.0 LORE_PORT=8080 LORE_LOG_FORMAT=json
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health')"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health', timeout=2)"]
 CMD ["lore", "serve"]
 ```
 
-(The real Dockerfile is created in M0 and may differ in details, e.g. pinning the uv image tag.
-Keep this section in sync with it.)
+- The uv image is pinned to a version tag (Dependabot's `docker` ecosystem bumps it, along with
+  the `node`/`python` base images).
+- The image runs as the unprivileged user `lore` (uid 10001). `docker-compose.yml` overrides the
+  uid/gid with the host user's (§3), so files under the bind-mounted `./data` stay owned by them.
+  The runtime never calls `uv`, so an arbitrary uid without a home directory works.
+- `spec/` is copied to `/app/spec` (`LORE_SPEC_DIR`) for the chronology presets and schemas.
+- CI's `docker` job runs `make docker` then `make docker-smoke` (`testing.md` §5).
 
 ## 3. docker compose
 
+The repository's `docker-compose.yml` (copied verbatim here; keep the two in sync):
+
 ```yaml
+# Suggested deployment (docs/architecture/deployment.md §3; keep that section in sync).
+#   mkdir -p data published && docker compose up -d   → http://127.0.0.1:8080
+# Create ./data and ./published yourself first: directories Docker creates are owned by root and
+# not writable by the container user. The containers run as LORE_UID:LORE_GID (default 1000:1000;
+# set them to `id -u` / `id -g` if yours differ) so files in ./data stay owned by you.
 services:
-  lore:                                   # author instance: localhost only
+  lore: # author instance: bound to localhost only (security.md §1)
     build: .
     image: lore-world-tracker:local
-    ports: ["127.0.0.1:8080:8080"]
-    volumes: ["./data:/data", "./published:/published"]
+    user: '${LORE_UID:-1000}:${LORE_GID:-1000}'
+    ports: ['127.0.0.1:8080:8080']
+    volumes: ['./data:/data', './published:/published']
     environment:
-      LORE_PUBLISH_DIR: /published        # where "Publish snapshot" writes (a data-dir layout)
+      LORE_PUBLISH_DIR: /published # where "Publish snapshot" writes (a data-dir layout)
     restart: unless-stopped
 
-  reader:                                 # read-only instance for sharing a published snapshot
-    profiles: ["reader"]
+  # Read-only instance for sharing a published snapshot: `docker compose --profile reader up -d`.
+  # NOT FUNCTIONAL YET: reader mode (LORE_READ_ONLY, snapshot publishing) arrives in M12. Until
+  # then this service is a placeholder that documents the intended setup.
+  reader:
+    profiles: ['reader']
     image: lore-world-tracker:local
-    ports: ["8081:8080"]
-    volumes: ["./published:/data:ro"]
+    user: '${LORE_UID:-1000}:${LORE_GID:-1000}'
+    ports: ['8081:8080']
+    volumes: ['./published:/data:ro']
     environment:
-      LORE_READ_ONLY: "true"
-      LORE_ALLOWED_HOSTS: "*"             # or your public hostname
+      LORE_READ_ONLY: 'true'
+      LORE_ALLOWED_HOSTS: '*' # or your public hostname
     restart: unless-stopped
 ```
+
+First run: `mkdir -p data published && docker compose up -d`, then open http://127.0.0.1:8080.
+Create both directories yourself: if Docker creates a missing bind-mount source, it is owned by
+root and not writable by the container user. `LORE_UID`/`LORE_GID` default to `1000`; set them
+(e.g. in a `.env` file next to the compose file) when `id -u`/`id -g` differ.
+
+The `reader` service only becomes functional in M12 (reader mode and snapshot publishing, #142).
 
 Sharing workflow: `docker compose exec lore lore vault publish <vault> --out /published` (or the
 settings button, which writes into `LORE_PUBLISH_DIR`). `--out` is a **data-dir root**: the
@@ -110,7 +145,8 @@ Docker (optional, for image builds/e2e parity).
 | `make gen` | regenerate OpenAPI TS types and chronology JSON Schema/TS types |
 | `make check-contract` | regenerate the OpenAPI TS types in memory and fail if the committed file differs ("run make gen") |
 | `make fmt` | ruff format + prettier |
-| `make docker` | build the image |
+| `make docker` | build the image (`lore-world-tracker:local`) |
+| `make docker-smoke` | start the built image through `docker-compose.yml` in a temp project dir (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`) |
 | `make sample-vault SIZE=small` | generate the demo world into `./data` |
 
 ## 5. Versioning and releases

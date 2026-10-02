@@ -31,10 +31,12 @@ timelines, time travelers and read-only sharing are all part of the plan.
 - **Share safely:** public/spoiler/private visibility down to individual text blocks; read-only
   server mode from sanitized published snapshots.
 
-## Quick start (once M0 lands)
+## Quick start
 
 ```bash
-docker compose up -d            # author instance on http://127.0.0.1:8080
+mkdir -p data published         # create them yourself so they stay writable by you
+docker compose up -d            # author instance on http://127.0.0.1:8080 (LORE_UID/LORE_GID
+                                # default to 1000; set them if `id -u`/`id -g` differ)
 # development
 make setup && make dev          # backend :8000, frontend :5173
 ```

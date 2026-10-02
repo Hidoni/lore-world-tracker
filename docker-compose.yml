@@ -1,0 +1,29 @@
+# Suggested deployment (docs/architecture/deployment.md §3; keep that section in sync).
+#   mkdir -p data published && docker compose up -d   → http://127.0.0.1:8080
+# Create ./data and ./published yourself first: directories Docker creates are owned by root and
+# not writable by the container user. The containers run as LORE_UID:LORE_GID (default 1000:1000;
+# set them to `id -u` / `id -g` if yours differ) so files in ./data stay owned by you.
+services:
+  lore: # author instance: bound to localhost only (security.md §1)
+    build: .
+    image: lore-world-tracker:local
+    user: '${LORE_UID:-1000}:${LORE_GID:-1000}'
+    ports: ['127.0.0.1:8080:8080']
+    volumes: ['./data:/data', './published:/published']
+    environment:
+      LORE_PUBLISH_DIR: /published # where "Publish snapshot" writes (a data-dir layout)
+    restart: unless-stopped
+
+  # Read-only instance for sharing a published snapshot: `docker compose --profile reader up -d`.
+  # NOT FUNCTIONAL YET: reader mode (LORE_READ_ONLY, snapshot publishing) arrives in M12. Until
+  # then this service is a placeholder that documents the intended setup.
+  reader:
+    profiles: ['reader']
+    image: lore-world-tracker:local
+    user: '${LORE_UID:-1000}:${LORE_GID:-1000}'
+    ports: ['8081:8080']
+    volumes: ['./published:/data:ro']
+    environment:
+      LORE_READ_ONLY: 'true'
+      LORE_ALLOWED_HOSTS: '*' # or your public hostname
+    restart: unless-stopped
