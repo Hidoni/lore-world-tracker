@@ -59,9 +59,14 @@ resolved `until` is kept, as with RFC 5545 `UNTIL`. No occurrence starts after `
 
 - `freq.level = L`: a period is one unit of level `L` (a year, a month, a day…). Intercalary
   units at level `L` are **not** periods (they have no regular ordinal).
-- `freq.cycle = C` (only for **continuous** cycles): a period is one round of the cycle, i.e.
-  `length` consecutive counted units starting at cycle index 0 (e.g. a week from Moonday).
-  Excluded units belong to no round.
+- `freq.cycle = C` (only for **continuous** cycles, else `rule.cycle_not_continuous`): a period
+  is one round of the cycle, i.e. `length` consecutive counted units starting at cycle index 0
+  (e.g. a week from Moonday). Excluded units belong to no round. Round `r` holds the counted units
+  `a − i + r·length … a − i + (r+1)·length − 1`, where `a` is the anchor unit's counted ordinal and
+  `i` its anchor index, so round 0 is the round of the anchor unit and the round ordinal is what
+  `mod` filters test (both `of: number` and `of: ordinal`). With `select: null`, each round's
+  occurrence is at the series start's cycle index (the index of the counted unit before it when
+  the start lies in an excluded unit), then its finer fields.
 
 Period ordinals use `ordinal(t, L)` (or the cycle-round ordinal), as defined in
 `chronology-engine.md` §5.8. With `p0` = ordinal of the period containing the series start, the
@@ -88,18 +93,51 @@ the series and start a new one in the new regime.
 `Y`). `ordinal` is the global regular ordinal of the level. Note that "odd years" in **era**
 numbering can differ from astronomical parity. The UI explains which one it uses and offers both.
 
+- `mod`: `eq` must be below `mod` (`rule.bad_filter`); floor modulo, so negative years work.
+- `in`: a number matches the period's regular number, a slot id its slot (`rule.unknown_slot` for a
+  slot id that no template of the level has).
+- `cycle`: the cycle must be at the period's level (`rule.bad_filter`). Values name cycle
+  positions by **value id** (the cycle's optional `ids`, `chronology-engine.md` §3.7; product
+  decision 2026-10-02: ids survive renaming the display names) or by the cycle number `n`
+  (`index + number_start`); unknown values are `rule.unknown_slot`. An excluded unit has no value
+  and never matches.
+- Cycle rounds have no number or slot: only `mod`, `all`, `any` and `not` apply to them
+  (`rule.bad_filter`).
+
 ### 2.3 Selectors (positions inside a period)
 
 ```jsonc
-{ "path": [ LevelSelector, … ] }      // applied from the period's child level downward; cartesian product, time-ordered
+{ "path": [ LevelSelector, … ] }      // each finer than the one before; cartesian product, time-ordered
 
 // LevelSelector — one of:
 { "level": "month", "values": ["frostfall", "3"] }        // slot ids or regular numbers
 { "level": "day",   "values": ["1", "15", "-1"] }         // negative = from the end (-1 = last regular child)
 { "level": "day",   "cycle": { "id": "week", "values": ["moonday"], "nth": ["1", "-1"] } }
-                                                          // children whose cycle value matches; optional nth within the parent
-{ "level": "day",   "all": true }                         // every regular child
+                                                          // units whose cycle value matches; optional nth within the parent
+{ "level": "day",   "all": true }                         // every regular unit
 ```
+
+- **Levels.** The first selector of a level period is at any level below the period; each next
+  selector is at a level below the previous one (`rule.bad_selector_level` otherwise). A selector
+  may **skip levels** (product decision, 2026-10-02): it then chooses among all the units of its
+  level inside the parent unit, e.g. day 256 of the year, the last day of the year or the first
+  Monday of the year. Levels skipped between selectors follow from the chosen unit. For cycle
+  rounds, the first selector is at the cycle's level and chooses units of the round.
+- **Values.** A number counts the **regular** units of the level inside the parent, from the
+  level's `numbering_start` (`"1"` = the first day, `"0"` = the first hour of a 0-based level);
+  negative numbers count from the end (`"-1"` = the last regular unit). A slot id picks every
+  unit of the level with that slot inside the parent, intercalary slots included
+  (`rule.unknown_slot` if no template of the level has it). In a round, values name cycle positions
+  (value ids or cycle numbers, negative from the end). Positions that don't exist in a given
+  parent are simply absent.
+- **`all`** picks every regular unit (intercalary units are never picked by `all`).
+- **Cycle matches** pick the units whose cycle value is one of `values` (the cycle must be at the
+  selector's level, else `rule.bad_selector_level`; excluded units never match). `nth` applies
+  **per value** (product decision, 2026-10-02, like RFC 5545 `BYDAY=1MO,1FR`): `nth: ["1"]` with
+  `values: [moonday, fireday]` is the first Moonday and the first Fireday. `"0"` is
+  `rule.bad_nth`; an `nth` beyond the matches selects nothing.
+- Duplicate positions count once; positions are time-ordered, and `j` (§3) is the index in that
+  order. A period may hold at most 100,000 positions (`rule.too_many_positions`).
 
 Examples:
 
@@ -113,6 +151,10 @@ Examples:
 | Odd years only, on Midsummer (intercalary) | `freq year`, `filters [{mod:2, eq:1, of:number}]`, `select {path:[{level:month, values:[midsummer]}]}` |
 | Every Moonday and Fireday | `freq {cycle: week}`, `select {path:[{level:day, cycle:{id:week, values:[moonday, fireday]}}]}` |
 | Every 7 years, starting from the series start | `freq year`, `interval 7` |
+| Day 256 of every year | `freq year`, `select {path:[{level:day, values:["256"]}]}` |
+| Last day of the year | `freq year`, `select {path:[{level:day, values:["-1"]}]}` |
+| First and last Moonday of the year | `freq year`, `select {path:[{level:day, cycle:{id:week, values:[moonday], nth:["1","-1"]}}]}` |
+| Fridays the 13th | `freq day`, `filters [{cycle:week, in:[fireday]}, {in:["13"]}]` |
 | A comet every 2,397,422,120 s | `kind interval`, `every 2397422120` |
 
 `select: null` with `missing: "skip"` mirrors RFC 5545. A series starting on 29 February
@@ -143,8 +185,9 @@ start is the start of that finer position (precision = the series start's precis
 ## 3. Occurrence identity
 
 - **Key** `k` for rules that can produce at most one occurrence per period. This is decided
-  syntactically: no selector produces multiple values, `nth` has one value, and there is no
-  `all`. Otherwise the key is `k.j`, where `j` is the 0-based time-ordered index inside the period.
+  syntactically: every selector has one value (a number, or a slot id at the level directly below
+  the previous selector or the period: slot ids are unique only within one template), a cycle
+  match has one value and one `nth`, and there is no `all`. Otherwise the key is `k.j`, where `j` is the 0-based time-ordered index inside the period.
   Interval rules: `k = (t − series_start) / every`.
 - Keys are stable under edits that do not change the period structure (renaming, changing the
   duration, moving the time of day). Edits that change the structure trigger reconciliation (§8).
@@ -182,12 +225,18 @@ returns a safe upper bound from the calendar's maximum unit lengths. `expand` se
 included).
 
 **Truncation.** `expand` never returns a partial list: when more than `max_items` occurrences
-overlap the window, the result is `truncated: true` with no items and `estimated_count`. The count
-is exact when the window has at most `max_items × 4` candidate periods (they are all evaluated) and
-for interval rules with a fixed duration. Otherwise it is the candidate count times the share of
-candidates that have an occurrence, sampled over 64 evenly spaced candidates (exact for rules that
-never skip a period); #21 replaces the sampling with super-period averages (§5.4). Without
-truncation `estimated_count` is null.
+overlap the window, the result is `truncated: true` with no items and `estimated_count`. Without
+truncation `estimated_count` is null. How the count is found:
+
+- Interval rules with a fixed duration: exact arithmetic (more than `max_items × 4` periods are
+  never visited).
+- Calendar rules visit the window's periods while there are at most `max(10,000, max_items × 4)`
+  of them, so sparse rules (Fridays the 13th over daily periods) stay exact. Once more than
+  `max_items × 4` occurrences are found, the visit stops and the rest is extrapolated from the
+  occurrences per visited period.
+- More periods than that: the period count times the occurrences per period, exact for rules
+  with one occurrence in every period and otherwise sampled over 64 evenly spaced periods; #21
+  replaces the sampling with super-period averages (§5.4).
 
 ### 5.2 `expand` for calendar rules
 
@@ -310,11 +359,13 @@ strategy for one of them.
 
 `validate_rule` errors: `rule.unknown_calendar`, `rule.bad_freq_level`,
 `rule.cycle_not_continuous`, `rule.bad_interval`, `rule.bad_filter`, `rule.bad_selector_level`
-(selectors must descend strictly below the period level, in order), `rule.unknown_slot`,
+(each selector strictly finer than the previous one or the period, §2.3), `rule.unknown_slot`,
 `rule.bad_nth`, `rule.bad_time_fields`, `rule.until_before_start`, `rule.too_complex_to_count`,
 `rule.series_end_not_duration` (series `end` must be duration/instant/unknown),
 `rule.series_start_not_occurrence` (warning: the series start doesn't match the rule; the first
-occurrence will be later).
+occurrence will be later). Evaluating a rule can also fail with `rule.too_many_positions` (a
+period holding more than 100,000 positions, §2.3), which depends on the calendar's data rather
+than the rule alone.
 
 Errors are `{code, path, message, severity}` (`severity` is `warning` only for
 `rule.series_start_not_occurrence`, path `""`). Paths point into the rule, except

@@ -358,6 +358,24 @@
           ],
           "default": null
         },
+        "ids": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_-]*$",
+                "type": "string"
+              },
+              "maxItems": 1000000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stable value ids (one per index) that recurrence rules use instead of names (§3.7)."
+        },
         "number_start": {
           "default": 1,
           "maximum": 1000000,

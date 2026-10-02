@@ -1,0 +1,1619 @@
+{
+  "description": "Recurrence II on the Gregorian calendar with a Monday-first week: cycle selectors with nth, weekly rounds, values (numbers, negative, slot ids), selectors that skip levels (day 256 of the year, first and last Monday of the year), all, period filters and k.j keys.",
+  "calendar": "gregorian-week",
+  "generated": false,
+  "verification": "Brute force over Python datetime (proleptic Gregorian, weekday() with Monday = 0); 2000-01-01 = t 10^14 and times are 09:00 unless the rule sets one. Keys are period offsets from the series start's period (months: Y·12 + m − 1; weeks: rounds starting on Monday), with j the time-ordered position in the period.",
+  "cases": [
+    {
+      "id": "first-monday-of-month",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "cycle": {
+                  "id": "week",
+                  "values": [
+                    "mon"
+                  ],
+                  "nth": [
+                    "1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000773107200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "1",
+            "start": "100000760438800",
+            "end": "100000760438800"
+          },
+          {
+            "key": "2",
+            "start": "100000762858000",
+            "end": "100000762858000"
+          },
+          {
+            "key": "3",
+            "start": "100000765277200",
+            "end": "100000765277200"
+          },
+          {
+            "key": "4",
+            "start": "100000768301200",
+            "end": "100000768301200"
+          },
+          {
+            "key": "5",
+            "start": "100000770720400",
+            "end": "100000770720400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "first-monday-time-changed",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "cycle": {
+                  "id": "week",
+                  "values": [
+                    "mon"
+                  ],
+                  "nth": [
+                    "1"
+                  ]
+                }
+              }
+            ]
+          },
+          "time": {
+            "fields": {
+              "hour": "18",
+              "minute": "30"
+            }
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000765244800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000757449000",
+            "end": "100000757449000"
+          },
+          {
+            "key": "1",
+            "start": "100000760473000",
+            "end": "100000760473000"
+          },
+          {
+            "key": "2",
+            "start": "100000762892200",
+            "end": "100000762892200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "the same keys as first-monday-of-month: keys don't depend on the time of day"
+    },
+    {
+      "id": "fifth-monday-or-none",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "cycle": {
+                  "id": "week",
+                  "values": [
+                    "mon"
+                  ],
+                  "nth": [
+                    "5"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000789004800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000759834000",
+            "end": "100000759834000"
+          },
+          {
+            "key": "3",
+            "start": "100000767696400",
+            "end": "100000767696400"
+          },
+          {
+            "key": "6",
+            "start": "100000775558800",
+            "end": "100000775558800"
+          },
+          {
+            "key": "8",
+            "start": "100000781002000",
+            "end": "100000781002000"
+          },
+          {
+            "key": "11",
+            "start": "100000788864400",
+            "end": "100000788864400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "months with only four Mondays have no occurrence"
+    },
+    {
+      "id": "last-day-of-month",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "-1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000767836800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000760006800",
+            "end": "100000760006800"
+          },
+          {
+            "key": "1",
+            "start": "100000762512400",
+            "end": "100000762512400"
+          },
+          {
+            "key": "2",
+            "start": "100000765190800",
+            "end": "100000765190800"
+          },
+          {
+            "key": "3",
+            "start": "100000767782800",
+            "end": "100000767782800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "first-and-fifteenth",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "15",
+                  "1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000765244800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "0.1",
+            "start": "100000758624400",
+            "end": "100000758624400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000760093200",
+            "end": "100000760093200"
+          },
+          {
+            "key": "1.1",
+            "start": "100000761302800",
+            "end": "100000761302800"
+          },
+          {
+            "key": "2.0",
+            "start": "100000762598800",
+            "end": "100000762598800"
+          },
+          {
+            "key": "2.1",
+            "start": "100000763808400",
+            "end": "100000763808400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "values in any order; positions are time-ordered"
+    },
+    {
+      "id": "first-and-fifteenth-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "15",
+                  "1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1.1"
+      },
+      "expected": {
+        "key": "1.1",
+        "start": "100000761302800",
+        "end": "100000761302800"
+      }
+    },
+    {
+      "id": "first-and-fifteenth-plain-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "15",
+                  "1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1"
+      },
+      "expected": {
+        "error": "not_found"
+      },
+      "note": "multi-position rules use k.j keys"
+    },
+    {
+      "id": "first-and-fifteenth-missing-j",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "15",
+                  "1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1.2"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "every-third-month-day-10",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "3",
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "10"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000804643200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000758192400",
+            "end": "100000758192400"
+          },
+          {
+            "key": "1",
+            "start": "100000766054800",
+            "end": "100000766054800"
+          },
+          {
+            "key": "2",
+            "start": "100000773917200",
+            "end": "100000773917200"
+          },
+          {
+            "key": "3",
+            "start": "100000781866000",
+            "end": "100000781866000"
+          },
+          {
+            "key": "4",
+            "start": "100000789814800",
+            "end": "100000789814800"
+          },
+          {
+            "key": "5",
+            "start": "100000797590800",
+            "end": "100000797590800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "weekly-monday-friday",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "mon",
+                  "fri"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000759196800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "0.1",
+            "start": "100000757760400",
+            "end": "100000757760400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000758019600",
+            "end": "100000758019600"
+          },
+          {
+            "key": "1.1",
+            "start": "100000758365200",
+            "end": "100000758365200"
+          },
+          {
+            "key": "2.0",
+            "start": "100000758624400",
+            "end": "100000758624400"
+          },
+          {
+            "key": "2.1",
+            "start": "100000758970000",
+            "end": "100000758970000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "weekly rounds start on cycle index 0 (Monday)"
+    },
+    {
+      "id": "weekly-monday-friday-cycle-selector",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "cycle": {
+                  "id": "week",
+                  "values": [
+                    "mon",
+                    "fri"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000759196800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "0.1",
+            "start": "100000757760400",
+            "end": "100000757760400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000758019600",
+            "end": "100000758019600"
+          },
+          {
+            "key": "1.1",
+            "start": "100000758365200",
+            "end": "100000758365200"
+          },
+          {
+            "key": "2.0",
+            "start": "100000758624400",
+            "end": "100000758624400"
+          },
+          {
+            "key": "2.1",
+            "start": "100000758970000",
+            "end": "100000758970000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "weekly-from-wednesday",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "1",
+                  "5"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757587600",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000759196800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.1",
+            "start": "100000757760400",
+            "end": "100000757760400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000758019600",
+            "end": "100000758019600"
+          },
+          {
+            "key": "1.1",
+            "start": "100000758365200",
+            "end": "100000758365200"
+          },
+          {
+            "key": "2.0",
+            "start": "100000758624400",
+            "end": "100000758624400"
+          },
+          {
+            "key": "2.1",
+            "start": "100000758970000",
+            "end": "100000758970000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "cycle numbers (Monday = 1); Monday 1 January is before the start but keeps key 0.0 consumed"
+    },
+    {
+      "id": "weekly-same-weekday",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "cycle": "week"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000757587600",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000759196800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000757587600",
+            "end": "100000757587600"
+          },
+          {
+            "key": "1",
+            "start": "100000758192400",
+            "end": "100000758192400"
+          },
+          {
+            "key": "2",
+            "start": "100000758797200",
+            "end": "100000758797200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "select null: the series start's weekday"
+    },
+    {
+      "id": "day-256-of-year",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "256"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000852076800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000779446800",
+            "end": "100000779446800"
+          },
+          {
+            "key": "1",
+            "start": "100000811069200",
+            "end": "100000811069200"
+          },
+          {
+            "key": "2",
+            "start": "100000842605200",
+            "end": "100000842605200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "a selector may skip levels: 12 September in leap years, else 13 September"
+    },
+    {
+      "id": "last-day-of-year",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "-1"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000852076800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000788950800",
+            "end": "100000788950800"
+          },
+          {
+            "key": "1",
+            "start": "100000820486800",
+            "end": "100000820486800"
+          },
+          {
+            "key": "2",
+            "start": "100000852022800",
+            "end": "100000852022800"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "first-and-last-monday-of-year",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "cycle": {
+                  "id": "week",
+                  "values": [
+                    "mon"
+                  ],
+                  "nth": [
+                    "1",
+                    "-1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000820540800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "0.1",
+            "start": "100000788864400",
+            "end": "100000788864400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000789469200",
+            "end": "100000789469200"
+          },
+          {
+            "key": "1.1",
+            "start": "100000820314000",
+            "end": "100000820314000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "odd-years-on-4-july",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "year"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "mod": "2",
+              "eq": "1"
+            }
+          ],
+          "select": {
+            "path": [
+              {
+                "level": "month",
+                "values": [
+                  "jul"
+                ]
+              },
+              {
+                "level": "day",
+                "values": [
+                  "4"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000946771200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "100000804934800",
+            "end": "100000804934800"
+          },
+          {
+            "key": "3",
+            "start": "100000868006800",
+            "end": "100000868006800"
+          },
+          {
+            "key": "5",
+            "start": "100000931165200",
+            "end": "100000931165200"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "even years are filtered out but consume their k"
+    },
+    {
+      "id": "months-in-march-and-september",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "in": [
+                "mar",
+                "9"
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000820540800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "100000762598800",
+            "end": "100000762598800"
+          },
+          {
+            "key": "8",
+            "start": "100000778496400",
+            "end": "100000778496400"
+          },
+          {
+            "key": "14",
+            "start": "100000794134800",
+            "end": "100000794134800"
+          },
+          {
+            "key": "20",
+            "start": "100000810032400",
+            "end": "100000810032400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "slot ids or numbers; select null keeps the 1st at 09:00"
+    },
+    {
+      "id": "fridays-the-13th",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "day"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "all": [
+                {
+                  "cycle": "week",
+                  "in": [
+                    "fri"
+                  ]
+                },
+                {
+                  "in": [
+                    "13"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000852076800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "256",
+            "start": "100000779533200",
+            "end": "100000779533200"
+          },
+          {
+            "key": "347",
+            "start": "100000787395600",
+            "end": "100000787395600"
+          },
+          {
+            "key": "529",
+            "start": "100000803120400",
+            "end": "100000803120400"
+          },
+          {
+            "key": "774",
+            "start": "100000824288400",
+            "end": "100000824288400"
+          },
+          {
+            "key": "802",
+            "start": "100000826707600",
+            "end": "100000826707600"
+          },
+          {
+            "key": "1047",
+            "start": "100000847875600",
+            "end": "100000847875600"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "1,096 daily periods: sparse rules are evaluated exactly up to 10,000 periods"
+    },
+    {
+      "id": "months-by-ordinal",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "mod": "3",
+              "eq": "0",
+              "of": "ordinal"
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000789004800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000757414800",
+            "end": "100000757414800"
+          },
+          {
+            "key": "3",
+            "start": "100000765277200",
+            "end": "100000765277200"
+          },
+          {
+            "key": "6",
+            "start": "100000773139600",
+            "end": "100000773139600"
+          },
+          {
+            "key": "9",
+            "start": "100000781088400",
+            "end": "100000781088400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "the month ordinal counts from January of year 0"
+    },
+    {
+      "id": "not-and-any",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "filters": [
+            {
+              "not": {
+                "in": [
+                  "jan"
+                ]
+              }
+            },
+            {
+              "any": [
+                {
+                  "in": [
+                    "2",
+                    "3"
+                  ]
+                },
+                {
+                  "mod": "2",
+                  "eq": "0"
+                }
+              ]
+            }
+          ]
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000757382400",
+          "100000773107200"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1",
+            "start": "100000760093200",
+            "end": "100000760093200"
+          },
+          {
+            "key": "2",
+            "start": "100000762598800",
+            "end": "100000762598800"
+          },
+          {
+            "key": "3",
+            "start": "100000765277200",
+            "end": "100000765277200"
+          },
+          {
+            "key": "5",
+            "start": "100000770547600",
+            "end": "100000770547600"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "all-days",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "all": true
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000760060800",
+          "100000762566400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "1.0",
+            "start": "100000760093200",
+            "end": "100000760093200"
+          },
+          {
+            "key": "1.1",
+            "start": "100000760179600",
+            "end": "100000760179600"
+          },
+          {
+            "key": "1.2",
+            "start": "100000760266000",
+            "end": "100000760266000"
+          },
+          {
+            "key": "1.3",
+            "start": "100000760352400",
+            "end": "100000760352400"
+          },
+          {
+            "key": "1.4",
+            "start": "100000760438800",
+            "end": "100000760438800"
+          },
+          {
+            "key": "1.5",
+            "start": "100000760525200",
+            "end": "100000760525200"
+          },
+          {
+            "key": "1.6",
+            "start": "100000760611600",
+            "end": "100000760611600"
+          },
+          {
+            "key": "1.7",
+            "start": "100000760698000",
+            "end": "100000760698000"
+          },
+          {
+            "key": "1.8",
+            "start": "100000760784400",
+            "end": "100000760784400"
+          },
+          {
+            "key": "1.9",
+            "start": "100000760870800",
+            "end": "100000760870800"
+          },
+          {
+            "key": "1.10",
+            "start": "100000760957200",
+            "end": "100000760957200"
+          },
+          {
+            "key": "1.11",
+            "start": "100000761043600",
+            "end": "100000761043600"
+          },
+          {
+            "key": "1.12",
+            "start": "100000761130000",
+            "end": "100000761130000"
+          },
+          {
+            "key": "1.13",
+            "start": "100000761216400",
+            "end": "100000761216400"
+          },
+          {
+            "key": "1.14",
+            "start": "100000761302800",
+            "end": "100000761302800"
+          },
+          {
+            "key": "1.15",
+            "start": "100000761389200",
+            "end": "100000761389200"
+          },
+          {
+            "key": "1.16",
+            "start": "100000761475600",
+            "end": "100000761475600"
+          },
+          {
+            "key": "1.17",
+            "start": "100000761562000",
+            "end": "100000761562000"
+          },
+          {
+            "key": "1.18",
+            "start": "100000761648400",
+            "end": "100000761648400"
+          },
+          {
+            "key": "1.19",
+            "start": "100000761734800",
+            "end": "100000761734800"
+          },
+          {
+            "key": "1.20",
+            "start": "100000761821200",
+            "end": "100000761821200"
+          },
+          {
+            "key": "1.21",
+            "start": "100000761907600",
+            "end": "100000761907600"
+          },
+          {
+            "key": "1.22",
+            "start": "100000761994000",
+            "end": "100000761994000"
+          },
+          {
+            "key": "1.23",
+            "start": "100000762080400",
+            "end": "100000762080400"
+          },
+          {
+            "key": "1.24",
+            "start": "100000762166800",
+            "end": "100000762166800"
+          },
+          {
+            "key": "1.25",
+            "start": "100000762253200",
+            "end": "100000762253200"
+          },
+          {
+            "key": "1.26",
+            "start": "100000762339600",
+            "end": "100000762339600"
+          },
+          {
+            "key": "1.27",
+            "start": "100000762426000",
+            "end": "100000762426000"
+          },
+          {
+            "key": "1.28",
+            "start": "100000762512400",
+            "end": "100000762512400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "all-days-truncated",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "all": true
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000760060800",
+          "100000762566400"
+        ],
+        "max_items": 10
+      },
+      "expected": {
+        "items": [],
+        "truncated": true,
+        "estimated_count": "29"
+      }
+    },
+    {
+      "id": "multi-until",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "freq": {
+            "level": "month"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "0"
+              },
+              "precision": "base"
+            }
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "values": [
+                  "1",
+                  "15"
+                ]
+              }
+            ]
+          }
+        },
+        "series_start": "100000757414800",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "100000763808400"
+        }
+      },
+      "expected": {
+        "first_start": "100000757414800",
+        "last_start": "100000763808400",
+        "last_end": "100000763808400",
+        "count": "6"
+      },
+      "note": "1 and 15 January, February and March; until is inclusive"
+    }
+  ]
+}

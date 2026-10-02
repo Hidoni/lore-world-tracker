@@ -6,9 +6,6 @@ needs with ordinal arithmetic; nothing iterates from the series start.
 
 from lore.chronology.recurrence.engine import (
     Expansion,
-    Occurrence,
-    RecurrenceContext,
-    RecurrenceError,
     SeriesBounds,
     expand,
     next_occurrences,
@@ -16,6 +13,7 @@ from lore.chronology.recurrence.engine import (
     series_bounds,
     validate_rule,
 )
+from lore.chronology.recurrence.plan import Occurrence, RecurrenceContext, RecurrenceError
 
 __all__ = [
     "Expansion",

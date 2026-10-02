@@ -433,6 +433,8 @@ class Cycle(_Model):
     length: Annotated[StrictInt, Field(ge=1, le=1_000_000)]
     names: Annotated[list[Name], Field(max_length=1_000_000)] | None = None
     abbrs: Annotated[list[Name], Field(max_length=1_000_000)] | None = None
+    ids: Annotated[list[SlotId], Field(max_length=1_000_000)] | None = None
+    """Stable value ids (one per index) that recurrence rules use instead of names (§3.7)."""
     number_start: Annotated[StrictInt, Field(ge=0, le=1_000_000)] = 1
     mode: Literal["continuous"] | ResetMode = "continuous"
     anchor: CycleAnchor | None = None

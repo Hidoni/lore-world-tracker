@@ -1,5 +1,5 @@
 {
-  "description": "The gregorian-seconds calendar plus a continuous Monday-first week (index 0 = Monday, n = 1…7), anchored on Saturday 1 January 2000.",
+  "description": "The gregorian-seconds calendar plus a continuous Monday-first week (index 0 = Monday, n = 1…7), anchored on Saturday 1 January 2000. Weekday value ids (mon … sun) let recurrence rules name weekdays.",
   "definition": {
     "schema_version": 1,
     "levels": [
@@ -326,6 +326,15 @@
               "Fri",
               "Sat",
               "Sun"
+            ],
+            "ids": [
+              "mon",
+              "tue",
+              "wed",
+              "thu",
+              "fri",
+              "sat",
+              "sun"
             ],
             "number_start": 1,
             "anchor": {

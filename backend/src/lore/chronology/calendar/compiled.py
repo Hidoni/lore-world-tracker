@@ -148,6 +148,8 @@ class CompiledCycle:
     length: int
     names: tuple[str, ...] | None
     abbrs: tuple[str, ...] | None
+    ids: tuple[str, ...] | None
+    """Stable value ids (recurrence rules match them, or the number ``index + number_start``)."""
     number_start: int
     reset: int | None
     """Index of the reset level; ``None`` for a continuous cycle."""

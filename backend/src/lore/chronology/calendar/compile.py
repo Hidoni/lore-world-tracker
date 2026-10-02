@@ -39,6 +39,7 @@ from lore.chronology.schema import (
     AllPredicate,
     CalendarDefinition,
     CompileContext,
+    Cycle,
     DefinitionTimePoint,
     FixedPattern,
     LocalAnchor,
@@ -776,6 +777,25 @@ class _Compiler:
             template = regime.templates[child.template]
         return year, offset
 
+    def check_cycle_values(self, path: tuple[str | int, ...], cycle: Cycle) -> None:
+        """Names, abbreviations and value ids: one per index; value ids unique."""
+        for member in ("names", "abbrs", "ids"):
+            values = getattr(cycle, member)
+            if values is not None and len(values) != cycle.length:
+                self.error(
+                    "cycle.names_length_mismatch",
+                    pointer(*path, member),
+                    f"{member} must have {cycle.length} entries",
+                )
+        first_index: dict[str, int] = {}
+        for i, value_id in enumerate(cycle.ids or ()):
+            if first_index.setdefault(value_id, i) != i:
+                self.error(
+                    "cycle.duplicate_value_id",
+                    pointer(*path, "ids", i),
+                    f"duplicate cycle value id {value_id!r}",
+                )
+
     def check_cycles(self, r: int, regime: Regime) -> frozenset[str]:
         seen: set[str] = set()
         for c, cycle in enumerate(regime.cycles):
@@ -790,14 +810,7 @@ class _Compiler:
                 self.error(
                     "cycle.unknown_level", pointer(*path, "level"), f"unknown level {cycle.level!r}"
                 )
-            for member in ("names", "abbrs"):
-                values = getattr(cycle, member)
-                if values is not None and len(values) != cycle.length:
-                    self.error(
-                        "cycle.names_length_mismatch",
-                        pointer(*path, member),
-                        f"{member} must have {cycle.length} entries",
-                    )
+            self.check_cycle_values(path, cycle)
             if cycle.mode != "continuous":
                 reset = self.level_index.get(cycle.mode.reset)
                 if reset is None or level is None or reset <= level:
@@ -926,6 +939,7 @@ class _Compiler:
                     length=cycle.length,
                     names=tuple(cycle.names) if cycle.names is not None else None,
                     abbrs=tuple(cycle.abbrs) if cycle.abbrs is not None else None,
+                    ids=tuple(cycle.ids) if cycle.ids is not None else None,
                     number_start=cycle.number_start,
                     reset=reset,
                     anchor_index=anchor_index,

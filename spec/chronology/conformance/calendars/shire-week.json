@@ -1,5 +1,5 @@
 {
-  "description": "Shire Reckoning: 12 months of 30 days, 2 Yule and 1 Yule around the year, 1 Lithe, Midyear's Day, (Overlithe in leap years,) 2 Lithe in the middle. Midyear's Day and Overlithe are excluded from the week, so every year has 364 weekdays (52 weeks) and starts on Sterday. Leap years: Y mod 4 = 0 and not Y mod 100 = 0. Base unit: day.",
+  "description": "Shire Reckoning: 12 months of 30 days, 2 Yule and 1 Yule around the year, 1 Lithe, Midyear's Day, (Overlithe in leap years,) 2 Lithe in the middle. Midyear's Day and Overlithe are excluded from the week, so every year has 364 weekdays (52 weeks) and starts on Sterday. Leap years: Y mod 4 = 0 and not Y mod 100 = 0. Base unit: day. Weekday value ids (sterday … highday) let recurrence rules name weekdays.",
   "definition": {
     "schema_version": 1,
     "levels": [
@@ -300,6 +300,15 @@
               "Hevensday",
               "Mersday",
               "Highday"
+            ],
+            "ids": [
+              "sterday",
+              "sunday",
+              "monday",
+              "trewsday",
+              "hevensday",
+              "mersday",
+              "highday"
             ],
             "anchor": {
               "fields": {
