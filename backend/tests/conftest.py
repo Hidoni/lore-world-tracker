@@ -12,7 +12,10 @@ from lore.config import Settings
 
 hypothesis_settings.register_profile("dev", max_examples=50, derandomize=True)
 hypothesis_settings.register_profile("ci", max_examples=500, derandomize=True)
-hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
+# PROPERTY_PROFILE selects the profile for both engines (fast-check reads it too).
+hypothesis_settings.load_profile(
+    os.environ.get("PROPERTY_PROFILE") or os.environ.get("HYPOTHESIS_PROFILE", "dev")
+)
 
 
 @pytest.fixture(autouse=True)

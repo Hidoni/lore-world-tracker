@@ -8,7 +8,7 @@
 | Layer | Tools | Scope | Coverage target |
 |-------|-------|-------|-----------------|
 | Chronology (Python) | pytest, hypothesis | engine units, properties, **conformance vectors** | ≥ 95% lines and branches |
-| Chronology (TS) | vitest, fast-check | same vectors + properties, viewport/ticks | ≥ 95% |
+| Chronology (TS) | vitest, fast-check | same vectors + properties, viewport/ticks | ≥ 95% (`numbers.ts`: 100%, enforced by the vitest coverage thresholds) |
 | Backend services/API | pytest + FastAPI `TestClient`, temp vault dirs, real SQLite | services, routers, propagation, consistency rules, modules | ≥ 85% core, ≥ 80% modules |
 | Migrations | pytest | upgrade from empty, golden fixture vaults, data-migration units | every migration |
 | Visibility | pytest | canary leak suite over every GET route (`visibility-and-sharing.md` §5) | all routes |
@@ -19,7 +19,9 @@
 ## 2. Conventions
 
 - Deterministic: no network, no wall-clock assertions. Freeze real-world time where timestamps
-  matter. Seed every property test (hypothesis profiles: `ci` with more examples, `dev` fast).
+  matter. Seed every property test. `PROPERTY_PROFILE=ci` selects more examples for both engines
+  (hypothesis profile `ci`, fast-check `numRuns`); the default `dev` is fast. The CI `chronology`
+  job sets it.
 - Every bug fix adds a regression test. Calendar/recurrence bugs add a **conformance vector**.
 - Backend fixtures: `vault_factory` (temp data dir + migrated vault), `client` (TestClient bound to
   a vault), builders (`make_dimension(preset="gregorian")`, `make_event(...)`, `make_character(...)`).

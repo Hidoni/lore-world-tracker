@@ -10,12 +10,59 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, test } from 'vitest'
 
+import {
+  type BigRational,
+  floorDiv,
+  floorMod,
+  formatInteger,
+  formatMoment,
+  formatRational,
+  formatSigned,
+  fromSortableKey,
+  type IntegerDisplayOptions,
+  NumberError,
+  parseMoment,
+  parseRational,
+  parseSigned,
+  rationalAdd,
+  rationalCompare,
+  rationalDiv,
+  rationalFloor,
+  rationalFrac,
+  rationalFromInt,
+  rationalMul,
+  rationalSub,
+  sortableKey,
+} from '../src/numbers'
+
 const CONFORMANCE_DIR = fileURLToPath(
   new URL('../../../spec/chronology/conformance', import.meta.url),
 )
 
+const NUMBER_OPS = [
+  'parse_moment',
+  'format_moment',
+  'parse_signed',
+  'format_signed',
+  'sortable_key',
+  'from_sortable_key',
+  'floor_div',
+  'floor_mod',
+  'rational_normalize',
+  'rational_from_int',
+  'rational_add',
+  'rational_sub',
+  'rational_mul',
+  'rational_div',
+  'rational_compare',
+  'rational_floor',
+  'rational_frac',
+  'format_integer',
+] as const
+
 /** Every op documented in the conformance README. */
 const OPS = [
+  ...NUMBER_OPS,
   'validate',
   'to_fields',
   'from_fields',
@@ -39,7 +86,7 @@ const OPS = [
 ] as const
 type Op = (typeof OPS)[number]
 
-const CALENDAR_FREE_OPS: readonly Op[] = ['validate', 'preset_instantiate', 'map']
+const CALENDAR_FREE_OPS: readonly Op[] = [...NUMBER_OPS, 'validate', 'preset_instantiate', 'map']
 const RECURRENCE_OPS: readonly Op[] = ['expand', 'series_bounds', 'occurrence', 'count_in_window']
 
 interface CalendarFile {
@@ -73,8 +120,48 @@ class NotImplementedError extends Error {
   }
 }
 
+type Json = Record<string, unknown>
+const str = (data: Json, key: string): string => data[key] as string
+const rat = (data: unknown): BigRational => {
+  const { num, den } = data as { num: string; den: string }
+  return parseRational(num, den)
+}
+const binary =
+  (operation: (a: BigRational, b: BigRational) => BigRational): Handler =>
+  (_, d) =>
+    formatRational(operation(rat(d.a), rat(d.b)))
+
+function displayOptions(d: Json): IntegerDisplayOptions {
+  const options: IntegerDisplayOptions = {}
+  if ('digit_group' in d) options.digitGroup = d.digit_group as string
+  if ('scientific_threshold' in d) options.scientificThreshold = d.scientific_threshold as number
+  if ('significant_digits' in d) options.significantDigits = d.significant_digits as number
+  if ('plain' in d) options.plain = d.plain as boolean
+  return options
+}
+
 /** op → engine call returning the result in the README's JSON shape (errors as `{error}`). */
-const HANDLERS: Partial<Record<Op, Handler>> = {}
+// Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
+const HANDLERS: Partial<Record<Op, Handler>> = {
+  parse_moment: (_, d) => ({ value: parseMoment(str(d, 'text')).toString() }),
+  parse_signed: (_, d) => ({ value: parseSigned(str(d, 'text')).toString() }),
+  format_moment: (_, d) => ({ text: formatMoment(BigInt(str(d, 'n'))) }),
+  format_signed: (_, d) => ({ text: formatSigned(BigInt(str(d, 'n'))) }),
+  sortable_key: (_, d) => ({ key: sortableKey(BigInt(str(d, 'n'))) }),
+  from_sortable_key: (_, d) => ({ n: fromSortableKey(str(d, 'key')).toString() }),
+  floor_div: (_, d) => ({ value: floorDiv(BigInt(str(d, 'a')), BigInt(str(d, 'b'))).toString() }),
+  floor_mod: (_, d) => ({ value: floorMod(BigInt(str(d, 'a')), BigInt(str(d, 'b'))).toString() }),
+  rational_normalize: (_, d) => formatRational(rat(d)),
+  rational_from_int: (_, d) => formatRational(rationalFromInt(BigInt(str(d, 'n')))),
+  rational_add: binary(rationalAdd),
+  rational_sub: binary(rationalSub),
+  rational_mul: binary(rationalMul),
+  rational_div: binary(rationalDiv),
+  rational_compare: (_, d) => ({ value: rationalCompare(rat(d.a), rat(d.b)) }),
+  rational_floor: (_, d) => ({ value: rationalFloor(rat(d.a)).toString() }),
+  rational_frac: (_, d) => formatRational(rationalFrac(rat(d.a))),
+  format_integer: (_, d) => ({ text: formatInteger(BigInt(str(d, 'n')), displayOptions(d)) }),
+}
 
 /** op → issue that implements it in the TypeScript engine. */
 const PENDING: Partial<Record<Op, number>> = {
@@ -133,7 +220,12 @@ function run(op: Op, calendarName: string | null, input: Record<string, unknown>
   const handler = HANDLERS[op]
   if (handler === undefined) throw new NotImplementedError(op)
   const calendar = calendarName === null ? null : (CALENDARS.get(calendarName) ?? null)
-  return handler(calendar, input)
+  try {
+    return handler(calendar, input)
+  } catch (error) {
+    if (error instanceof NumberError) return { error: error.code }
+    throw error
+  }
 }
 
 describe.each(CASE_FILES)('$name', ({ name, document }) => {
