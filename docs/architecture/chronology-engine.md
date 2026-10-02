@@ -580,6 +580,18 @@ Details (Python: `lore.chronology.calendar.units`):
   returns the first moment `≥ t` at which the phase equals `phase_from`, as
   `ceil((epoch + (n + phase_from)·period))` for the smallest valid `n`.
 
+Overlay details (Python: `lore.chronology.calendar.overlays`):
+
+- The value is `{phase, name}`: `phase` is the exact rational in `[0, 1)` (floor semantics, so
+  moments before the epoch wrap) and `name` the last phase whose `from ≤ phase`. Several phases
+  may share a name (a New Moon from 0 and again from 15/16). `to_fields` includes every overlay
+  as `overlays`. Overlays ignore regimes and eras.
+- `next_phase_at` takes `phase_from` as a rational in `[0, 1)` (`invalid_date` otherwise). The
+  phase is reached at the exact instants `x(n) = epoch + (n + phase_from)·period`; the result is
+  `ceil(x(n))` for the smallest `n` with `ceil(x(n)) ≥ t`: `t` itself when an instant falls on
+  it, else the first moment after the next instant (at most one base unit past it).
+- An unknown overlay id is the error `unknown_overlay`.
+
 ## 9. Arithmetic
 
 ### 9.1 Uniform levels
@@ -775,7 +787,7 @@ spec/chronology/conformance/
 
 Case kinds (`op`): `validate`, `to_fields`, `from_fields`, `unit_bounds`, `ordinal`,
 `from_ordinal`, `cycle_value`, `era_of`, `overlay_phase`, `add`, `diff`, `format`,
-`format_span`, `options`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
+`format_span`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
 `occurrence_number` / `occurrence_at`
 (`recurrence.md`), `map` (correspondences), `preset_instantiate`. Expected values are exact.
 Errors are `{"error": "<code>"}`.

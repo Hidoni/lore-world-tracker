@@ -1,0 +1,442 @@
+{
+  "description": "Overlays: exact rational phases and names (moon and seasons), overlays in to_fields, and next_phase_at with its ceil rule.",
+  "calendar": "gregorian-moon",
+  "generated": false,
+  "verification": "Phases from the rational model phase = frac((t - epoch) / period) with Fraction arithmetic; next_phase_at by stepping n until ceil(epoch + (n + phase) * period) reaches t; to_fields levels from datetime (2000-01-01 = t 10^14).",
+  "cases": [
+    {
+      "id": "moon-at-epoch",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000000497640",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "0",
+          "den": "1"
+        },
+        "name": "New Moon"
+      }
+    },
+    {
+      "id": "moon-half-period",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000001773361",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "6378605",
+          "den": "12757214"
+        },
+        "name": "Full Moon"
+      },
+      "note": "just before the exact half: Full Moon"
+    },
+    {
+      "id": "moon-before-epoch",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000000497639",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "12757209",
+          "den": "12757214"
+        },
+        "name": "New Moon"
+      },
+      "note": "phases wrap below the epoch: 1 - 5/12757214, the second New Moon range"
+    },
+    {
+      "id": "moon-full-21-jan-2000",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000001744800",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "3117900",
+          "den": "6378607"
+        },
+        "name": "Full Moon"
+      }
+    },
+    {
+      "id": "moon-waxing-crescent",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000000756840",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "648000",
+          "den": "6378607"
+        },
+        "name": "Waxing Crescent"
+      }
+    },
+    {
+      "id": "moon-at-zero",
+      "op": "overlay_phase",
+      "input": {
+        "t": "0",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "2375077",
+          "den": "6378607"
+        },
+        "name": "Waxing Gibbous"
+      }
+    },
+    {
+      "id": "moon-far",
+      "op": "overlay_phase",
+      "input": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "5740889",
+          "den": "6378607"
+        },
+        "name": "Waning Crescent"
+      }
+    },
+    {
+      "id": "seasons-summer-solstice",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000014867280",
+        "overlay": "seasons"
+      },
+      "expected": {
+        "phase": {
+          "num": "83483125",
+          "den": "328717971"
+        },
+        "name": "Summer"
+      }
+    },
+    {
+      "id": "seasons-winter",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000788400000",
+        "overlay": "seasons"
+      },
+      "expected": {
+        "phase": {
+          "num": "251884321",
+          "den": "328717971"
+        },
+        "name": "Winter"
+      }
+    },
+    {
+      "id": "seasons-spring-2024",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100000765244800",
+        "overlay": "seasons"
+      },
+      "expected": {
+        "phase": {
+          "num": "10684321",
+          "den": "328717971"
+        },
+        "name": "Spring"
+      }
+    },
+    {
+      "id": "unknown-overlay",
+      "op": "overlay_phase",
+      "input": {
+        "t": "0",
+        "overlay": "sun"
+      },
+      "expected": {
+        "error": "unknown_overlay"
+      }
+    },
+    {
+      "id": "to-fields-at-moon-epoch",
+      "op": "to_fields",
+      "input": {
+        "t": "100000000497640"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2000"
+          },
+          "month": {
+            "n": "1",
+            "id": "jan",
+            "name": "January",
+            "intercalary": false
+          },
+          "day": {
+            "n": "6"
+          },
+          "hour": {
+            "n": "18"
+          },
+          "minute": {
+            "n": "14"
+          },
+          "second": {
+            "n": "0"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {
+          "moon": {
+            "phase": {
+              "num": "0",
+              "den": "1"
+            },
+            "name": "New Moon"
+          },
+          "seasons": {
+            "phase": {
+              "num": "29168594",
+              "den": "36524219"
+            },
+            "name": "Winter"
+          }
+        }
+      }
+    },
+    {
+      "id": "to-fields-2024",
+      "op": "to_fields",
+      "input": {
+        "t": "100000763821005"
+      },
+      "expected": {
+        "regime": "gregorian",
+        "levels": {
+          "year": {
+            "n": "2024"
+          },
+          "month": {
+            "n": "3",
+            "id": "mar",
+            "name": "March",
+            "intercalary": false
+          },
+          "day": {
+            "n": "15"
+          },
+          "hour": {
+            "n": "12"
+          },
+          "minute": {
+            "n": "30"
+          },
+          "second": {
+            "n": "5"
+          }
+        },
+        "base": "0",
+        "era": null,
+        "cycles": {},
+        "overlays": {
+          "moon": {
+            "phase": {
+              "num": "2209839",
+              "den": "12757214"
+            },
+            "name": "Waxing Crescent"
+          },
+          "seasons": {
+            "phase": {
+              "num": "3894853129",
+              "den": "3944615652"
+            },
+            "name": "Winter"
+          }
+        }
+      }
+    },
+    {
+      "id": "next-new-moon-at-epoch",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000000497640",
+        "overlay": "moon",
+        "phase": {
+          "num": "0",
+          "den": "1"
+        }
+      },
+      "expected": {
+        "t": "100000000497640"
+      },
+      "note": "an exact instant at t"
+    },
+    {
+      "id": "next-new-moon-after-epoch",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000000497641",
+        "overlay": "moon",
+        "phase": {
+          "num": "0",
+          "den": "1"
+        }
+      },
+      "expected": {
+        "t": "100000003049083"
+      },
+      "note": "epoch + 2,551,442.8 s: the moment after it"
+    },
+    {
+      "id": "next-full-moon",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000000497640",
+        "overlay": "moon",
+        "phase": {
+          "num": "7",
+          "den": "16"
+        }
+      },
+      "expected": {
+        "t": "100000001613897"
+      }
+    },
+    {
+      "id": "next-full-moon-at-its-moment",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000001613897",
+        "overlay": "moon",
+        "phase": {
+          "num": "7",
+          "den": "16"
+        }
+      },
+      "expected": {
+        "t": "100000001613897"
+      }
+    },
+    {
+      "id": "next-full-moon-just-after",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000001613898",
+        "overlay": "moon",
+        "phase": {
+          "num": "7",
+          "den": "16"
+        }
+      },
+      "expected": {
+        "t": "100000004165340"
+      }
+    },
+    {
+      "id": "next-quarter-before-epoch",
+      "op": "next_phase_at",
+      "input": {
+        "t": "0",
+        "overlay": "moon",
+        "phase": {
+          "num": "3",
+          "den": "16"
+        }
+      },
+      "expected": {
+        "t": "2079808"
+      }
+    },
+    {
+      "id": "next-new-moon-far",
+      "op": "next_phase_at",
+      "input": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "overlay": "moon",
+        "phase": {
+          "num": "0",
+          "den": "1"
+        }
+      },
+      "expected": {
+        "t": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000425304"
+      }
+    },
+    {
+      "id": "next-summer",
+      "op": "next_phase_at",
+      "input": {
+        "t": "100000757382400",
+        "overlay": "seasons",
+        "phase": {
+          "num": "1",
+          "den": "4"
+        }
+      },
+      "expected": {
+        "t": "100000772108337"
+      }
+    },
+    {
+      "id": "phase-one-is-invalid",
+      "op": "next_phase_at",
+      "input": {
+        "t": "0",
+        "overlay": "moon",
+        "phase": {
+          "num": "1",
+          "den": "1"
+        }
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "negative-phase-is-invalid",
+      "op": "next_phase_at",
+      "input": {
+        "t": "0",
+        "overlay": "moon",
+        "phase": {
+          "num": "-1",
+          "den": "2"
+        }
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "next-unknown-overlay",
+      "op": "next_phase_at",
+      "input": {
+        "t": "0",
+        "overlay": "sun",
+        "phase": {
+          "num": "0",
+          "den": "1"
+        }
+      },
+      "expected": {
+        "error": "unknown_overlay"
+      }
+    }
+  ]
+}

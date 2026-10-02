@@ -2,11 +2,11 @@
 
 Every step jumps with prefix sums and binary searches: the cost depends on the number of levels
 and the logarithm of template widths, never on the year number (years may have 1000 digits).
-Cycles, eras and overlays arrive with #13-#15; their members of the §5.6 output are ``null``/``{}``.
+Cycles, eras and overlays come from their modules (``cycles``, ``eras``, ``overlays``).
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from lore.chronology.calendar.compiled import (
@@ -20,6 +20,7 @@ from lore.chronology.calendar.compiled import (
 )
 from lore.chronology.calendar.cycles import CycleValue, cycle_values
 from lore.chronology.calendar.eras import EraValue, era_of, find_era
+from lore.chronology.calendar.overlays import OverlayValue, overlay_values
 
 type Overflow = Literal["reject", "constrain"]
 
@@ -54,6 +55,8 @@ class DateFields:
     """Every cycle of the regime: its value, or ``None`` where the unit is excluded."""
     era: EraValue | None = None
     """The era and era-relative year (``None`` for a calendar without eras)."""
+    overlays: Mapping[str, OverlayValue] = field(default_factory=dict)
+    """Every overlay's phase and phase name."""
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -65,7 +68,7 @@ class DateFields:
                 cycle: None if value is None else value.as_json()
                 for cycle, value in self.cycles.items()
             },
-            "overlays": {},
+            "overlays": {key: value.as_json() for key, value in self.overlays.items()},
         }
 
 
@@ -109,7 +112,8 @@ def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
     cycles = cycle_values(len(levels) - 1, regime, t)
-    return DateFields(regime.id, values, offset, cycles, era_of(calendar, t))
+    era = era_of(calendar, t)
+    return DateFields(regime.id, values, offset, cycles, era, overlay_values(calendar, t))
 
 
 def _unit_value(child: Child, numbering_start: int) -> UnitValue:

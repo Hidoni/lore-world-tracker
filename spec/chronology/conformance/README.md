@@ -162,7 +162,14 @@ alignment fields are invalid).
 ### `overlay_phase` (§3.9, §8)
 
 - input: `{"t": "<moment>", "overlay": "<overlay id>"}`
-- expected: `{"phase": Rational, "name": "<phase name>"}`
+- expected: `{"phase": Rational, "name": "<phase name>"}`, or `{"error": "unknown_overlay"}`
+
+### `next_phase_at` (§8)
+
+- input: `{"t": "<moment>", "overlay": "<overlay id>", "phase": Rational}`
+- expected: `{"t": "<moment>"}`: the first moment at or after `t` at which the overlay is at
+  `phase` (`ceil` of the exact instant), or `{"error": "unknown_overlay"}` /
+  `{"error": "invalid_date"}` (a phase outside `[0, 1)`)
 
 ### `add` (§9.2)
 

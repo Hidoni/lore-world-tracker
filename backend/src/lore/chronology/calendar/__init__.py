@@ -26,6 +26,7 @@ from lore.chronology.calendar.convert import (
     to_fields,
 )
 from lore.chronology.calendar.cycles import CycleValue, cycle_value
+from lore.chronology.calendar.overlays import OverlayValue, next_phase_at, overlay_phase
 from lore.chronology.calendar.units import (
     REGULAR,
     Bounds,
@@ -50,6 +51,7 @@ __all__ = [
     "Difference",
     "Duration",
     "Ordinal",
+    "OverlayValue",
     "RangeOption",
     "SlotOption",
     "UnitFilter",
@@ -65,9 +67,11 @@ __all__ = [
     "from_fields",
     "from_ordinal",
     "is_uniform",
+    "next_phase_at",
     "normalize_fields",
     "options",
     "ordinal",
+    "overlay_phase",
     "to_fields",
     "unit_bounds",
     "validate_calendar",
