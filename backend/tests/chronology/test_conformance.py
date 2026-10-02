@@ -23,6 +23,7 @@ from lore.chronology.calendar.compiled import DateError
 from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
 from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.eras import era_of
+from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.recurrence import (
     RecurrenceContext,
@@ -79,6 +80,7 @@ OPS = NUMBER_OPS | frozenset(
         "cycle_value",
         "era_of",
         "overlay_phase",
+        "next_phase_at",
         "add",
         "diff",
         "format",
@@ -250,6 +252,10 @@ HANDLERS: dict[str, Handler] = {
     "unit_bounds": lambda c, d: _bounds(unit_bounds(_compiled(c), int(d["t"]), d["level"])),
     "ordinal": _ordinal,
     "cycle_value": _cycle_value,
+    "overlay_phase": lambda c, d: overlay_phase(_compiled(c), int(d["t"]), d["overlay"]).as_json(),
+    "next_phase_at": lambda c, d: {
+        "t": str(next_phase_at(_compiled(c), int(d["t"]), d["overlay"], _rational(d["phase"])))
+    },
     "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "add": _add,
@@ -267,7 +273,6 @@ HANDLERS: dict[str, Handler] = {
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "overlay_phase": 15,
     "format": 17,
     "format_span": 17,
     "preset_instantiate": 18,

@@ -12,7 +12,9 @@ from typing import Literal
 
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
-type DateErrorCode = Literal["invalid_date", "reform_gap", "reform_ambiguous", "unknown_cycle"]
+type DateErrorCode = Literal[
+    "invalid_date", "reform_gap", "reform_ambiguous", "unknown_cycle", "unknown_overlay"
+]
 
 _NUMBER = re.compile(r"-?[0-9]+")
 
@@ -285,7 +287,7 @@ class CompiledCalendar:
     context_hash: str
     eras: tuple[CompiledEra, ...] = ()
     overlay_epochs: tuple[int, ...] = ()
-    """Resolved epoch of each overlay, in definition order (used by #15)."""
+    """Resolved epoch of each overlay, in definition order (``overlays`` module)."""
 
     @property
     def key(self) -> tuple[str, str]:

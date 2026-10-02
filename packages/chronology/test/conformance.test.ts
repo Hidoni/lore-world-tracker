@@ -82,6 +82,7 @@ const OPS = [
   'cycle_value',
   'era_of',
   'overlay_phase',
+  'next_phase_at',
   'add',
   'diff',
   'format',
@@ -215,6 +216,7 @@ const PENDING: Partial<Record<Op, number>> = {
   cycle_value: 24,
   era_of: 24,
   overlay_phase: 24,
+  next_phase_at: 24,
   add: 25,
   diff: 25,
   format: 25,
@@ -286,6 +288,7 @@ function normalized(op: Op, value: unknown): unknown {
 interface DefinitionShape {
   regimes?: { cycles?: unknown[] }[]
   eras?: unknown[]
+  overlays?: unknown[]
 }
 
 function definitionOf(calendarName: string | null): DefinitionShape {
@@ -298,6 +301,10 @@ function hasCycles(calendarName: string | null): boolean {
   return (definitionOf(calendarName).regimes ?? []).some(
     (regime) => (regime.cycles ?? []).length > 0,
   )
+}
+
+function hasOverlays(calendarName: string | null): boolean {
+  return (definitionOf(calendarName).overlays ?? []).length > 0
 }
 
 function hasEras(calendarName: string | null): boolean {
@@ -357,8 +364,11 @@ const PENDING_CASES: {
   issue: number
   applies: (file: string, calendar: string | null, vector: Case) => boolean
 }[] = [
-  // to_fields' `cycles` and `era` members.
-  { issue: 24, applies: (_, c, v) => v.op === 'to_fields' && (hasCycles(c) || hasEras(c)) },
+  // to_fields' `cycles`, `era` and `overlays` members.
+  {
+    issue: 24,
+    applies: (_, c, v) => v.op === 'to_fields' && (hasCycles(c) || hasEras(c) || hasOverlays(c)),
+  },
   { issue: 24, applies: (file, _, v) => ERAS_AND_LOCAL_ANCHORS.has(`${file}::${v.id}`) },
 ]
 
