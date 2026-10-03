@@ -111,7 +111,20 @@ roots). It drives the navigation sidebar and breadcrumbs. Allowed parents per ki
 
 "Misc entries can have children of any type" (brief) is implemented by `misc` being an allowed
 parent of every non-system kind. Rules: no cycles. The parent must be in the same dimension, or
-be multiversal, or the child must be multiversal. Time-varying structure (e.g. a department
+be multiversal, or the child must be multiversal. The parent must exist, not be in the trash, and
+its kind's module must be enabled.
+
+Home dimension rules (entity service): a dimension has none; other kinds need one unless their
+`can_be_multiversal` capability allows NULL; it must reference a dimension that isn't in the
+trash. System kinds and events can't change their home dimension. Another entity can only move
+to a dimension its parent and children are compatible with (per the rule above).
+
+Trash and purge: trashing leaves children in place (the trash view shows them as orphans of the
+trashed parent). Purge works only from the trash and is refused while the entity has children
+(trashed or not) or is referenced by records core doesn't delete with it (entities of a
+dimension, branch-only entities or links of a timeline). Aliases, tag assignments and links
+touching the entity are deleted with it, after the registered purge hooks ran
+(`lore.core.entities.extensions`). Time-varying structure (e.g. a department
 moving between ministries) is modeled with **temporal links** (e.g. `groups.part_of`), not by
 `parent_id`.
 
@@ -156,9 +169,15 @@ presents "relation fields", which create custom link types.
 
 `entities.fields[key]` is the timeless/default value. If the field is `temporal: true`, values that
 hold only for a period live in `entity_facts` (§6.3). Validation of `fields` against the kind's
-field definitions happens in the entity service (Pydantic models generated from field
-definitions). Unknown keys are rejected, except keys of archived or disabled-module fields, which
-are preserved but hidden.
+field definitions happens in the entity service: `lore.core.fields.KindFields` is built per kind
+from its field definitions (own fields plus enabled contributions) and the vault's field types.
+Each type has a validator returning the normalized value (`lore.core.fields.values` for core
+types; a module type brings `FieldTypeDef.validate`, and without one any JSON value is
+accepted). Unknown keys are rejected, except keys of archived fields, disabled-module fields and
+fields whose type is unavailable, which are preserved but hidden. `multiple: true` fields hold a
+list of values (`multi_enum` is a list already). `required` fields must have a non-empty value
+(not `null`, `""` or `[]`) after every save. Until M3/M7, `duration` and `time_point` values are
+validated structurally (`lore.chronology.schema`) and stored in `fields`.
 
 ## 5. Time tables (core)
 

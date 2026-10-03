@@ -58,14 +58,21 @@ class FieldContribution:
     fields: tuple[FieldDef, ...]
 
 
+type FieldValidator = Callable[[Any, FieldDef], Any]
+"""Checks one JSON value of a field and returns it normalized; raises ``ValueError`` (its message
+is reported to the client) when the value is invalid."""
+
+
 @dataclass(frozen=True)
 class FieldTypeDef:
     """A field value type (``data-model.md`` §4.2). Core provides the built-in types; a module may
-    provide more (``media``)."""
+    provide more (``media``). Core types are validated by ``lore.core.fields``; a module type
+    brings its own ``validate`` (``None``: any JSON value is accepted)."""
 
     key: FieldTypeKey
     label: str
     description: str = ""
+    validate: FieldValidator | None = None
 
 
 @dataclass(frozen=True)

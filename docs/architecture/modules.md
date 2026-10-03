@@ -91,6 +91,8 @@ class ModuleSpec:
     richtext_nodes: tuple[RichTextNodeHandler, ...] = ()      # extraction/filtering for module node types
     backup_contributors: tuple[BackupContributor, ...] = ()   # extra files (e.g. media blobs)
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
+    kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
+    purge_hooks: tuple[PurgeHook, ...] = ()                   # run before any entity is purged
     settings_model: type[BaseModel] | None = None
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None
@@ -106,7 +108,14 @@ until their issue defines the protocol. `field_types` and `models` were added to
 design: the media module provides the `media` field type, and the explicit model list lets the
 registry validate table prefixes and include module tables in the migration metadata
 (`lore.modules.load_metadata`). `on_enable`/`on_disable` receive a `VaultContext` (vault,
-request session inside its transaction, registry).
+request session inside its transaction, registry). `kind_extensions` and `purge_hooks`
+(`lore.core.entities.extensions`) were added with the entity service: a `KindExtension(kind, write,
+read)` validates and stores the `ext` object of entity writes (called on every create and on
+patches that send `ext`) and supplies `ext` for reads, for kinds of enabled modules; core registers
+its own for system kinds in M3. `PurgeHook`s of **every** module (enabled or not) run before an
+entity is purged. A module field type may set `FieldTypeDef.validate` (`(value, field) ->
+normalized value`, raising `ValueError`).
+
 ### 2.2 Registration
 
 - `lore/modules/__init__.py` defines `ALL_MODULES: list[ModuleSpec]`. The list is explicit and
@@ -118,7 +127,8 @@ request session inside its transaction, registry).
   `<id>.<key>`, unique per kind, of a known field type, and enums have options; contributions
   target existing kinds; field types are unique; link-type keys and rule ids start with `<id>.`,
   are unique, rules' `owner` is the module and link types name existing kinds; module tables are
-  prefixed `<id>_`, unique and not core tables (and no core table uses a module prefix).
+  prefixed `<id>_`, unique and not core tables (and no core table uses a module prefix); kind
+  extensions name existing kinds, at most one per kind.
 - Routers are always mounted, at `/api/v1/vaults/{vault_id}/m/<id>/`, and `create_app` adds the
   FastAPI dependency `require_module("<id>")` (`lore.core.api.deps`) to each, which returns
   `404 {code: "module_disabled"}` when the module is disabled for the vault. Other module-gated

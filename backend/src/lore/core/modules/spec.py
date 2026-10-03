@@ -20,6 +20,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from lore.core.entities.extensions import KindExtension, PurgeHook
 from lore.core.registry.types import (
     FieldContribution,
     FieldTypeDef,
@@ -76,6 +77,8 @@ class ModuleSpec:
     richtext_nodes: tuple[RichTextNodeHandler, ...] = ()
     backup_contributors: tuple[BackupContributor, ...] = ()
     publish_contributors: tuple[PublishContributor, ...] = ()
+    kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)
+    purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
     settings_model: type[BaseModel] | None = None
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None
