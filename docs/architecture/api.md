@@ -56,14 +56,14 @@
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/vaults/{v}/entities` | list/filter: `kind, dimension, parent, tag, q, include_multiversal, include_trashed, sort, cursor, limit, timeline, at` (at → existence filter) |
+| GET | `/vaults/{v}/entities` | list/filter: `kind` (repeatable), `dimension` (+ `include_multiversal`, default true), `parent`, `tag` (ids, repeatable: all required), `q` (name/alias prefix until search lands), `include_trashed`, `sort` (`name`, `created`, `updated`, each also `-` descending, `sort_key`), `cursor, limit`; `timeline, at` (at → existence filter) arrive with M3/M7 → `{items: EntitySummary[], next_cursor}` |
 | POST | `/vaults/{v}/entities` | create any kind (`{kind, name, …, aliases, tags, ext}`) → `201 {entity, affected}` |
 | GET | `/vaults/{v}/entities/{id}` | full entity: core fields, `ext`, aliases, tags, `state` (if `at`); trashed entities too (`deleted_at` set) |
 | PATCH | `/vaults/{v}/entities/{id}` | update (revision required) → `{entity, affected}`; `409 conflict` while trashed |
 | DELETE | `/vaults/{v}/entities/{id}` | move to trash (idempotent), or `?purge=true` for permanent (author only) → `{id, purged, entity, affected}` |
 | POST | `/vaults/{v}/entities/{id}/restore` | restore from trash (idempotent) → `{entity, affected}` |
-| GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (sorted) |
-| GET | `/vaults/{v}/tree` | lazy navigation tree: `dimension, parent, kinds` |
+| GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (every dimension, not trashed; `kind`, `cursor`, `limit`), sorted like the tree → `{items: TreeNode[], next_cursor}` |
+| GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal` |
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
 | GET | `/vaults/{v}/entities/{id}/backlinks` | incoming links and mentions |
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |
@@ -71,8 +71,22 @@
 | GET | `/vaults/{v}/entities/{id}/state` | as-of state (`timeline, at`) per `time-model.md` §10.5 |
 | GET/POST | `/vaults/{v}/entities/{id}/facts` | list/create temporal facts (`field`, `timeline`) |
 | PATCH/DELETE | `/vaults/{v}/facts/{id}` | update/trash a fact |
-| GET | `/vaults/{v}/trash` | trashed entities |
-| GET | `/vaults/{v}/entities/field-values` | distinct values of a text field (`kind, field, q`) for autocomplete |
+| GET | `/vaults/{v}/trash` | trashed entities, most recently trashed first, each with `orphan_count` (its children not in the trash) |
+| GET | `/vaults/{v}/entities/field-values` | distinct values of a `text` field (`kind, field, q, limit`) for autocomplete → `{items: [{value, count}]}` |
+
+Entity listings (`lore.core.entities.queries`; decided 2026-10-04):
+
+- Only entities of enabled kinds are listed. Lists and the tree use keyset cursors, so pages stay
+  stable while entities are added or removed.
+- **Name order** ignores case and accents and compares numbers by value ("Chapter 2" before
+  "Chapter 10"), via `entities.sort_name` (`data-model.md` §3.1). Ties: by id.
+- **Tree order:** manually ordered siblings (`sort_key`) first, in that order, then the rest by
+  name. Multiversal entities appear in every dimension's tree; the dimension itself doesn't. An
+  entity whose parent the same tree wouldn't show (trashed, module disabled, another dimension,
+  or filtered out by `kind`) is shown as a **root**, so nothing is hidden.
+- **Field-value suggestions** merge values differing only in case/accents into one item with the
+  summed count, shown in its most used spelling; entities in the trash don't count. Most used
+  first; `q` is a case/accent-insensitive prefix.
 
 Entity write semantics (`lore.core.entities.service`):
 

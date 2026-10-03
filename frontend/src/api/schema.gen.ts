@@ -144,13 +144,38 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List
+         * @description Entities of enabled kinds. ``dimension`` includes multiversal entities unless
+         *     ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value.
+         */
+        get: operations["entities_list"];
         put?: never;
         /**
          * Create
          * @description Create an entity of any kind, with its aliases, tags and kind extension data.
          */
         post: operations["entities_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/field-values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Field Values
+         * @description Distinct values of a text field for autocomplete, most used first.
+         */
+        get: operations["entities_field_values"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -187,6 +212,26 @@ export interface paths {
         patch: operations["entities_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/children": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Children
+         * @description Children of every kind and dimension (not in the trash), sorted like the tree.
+         */
+        get: operations["entities_children"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/entities/{entity_id}/restore": {
         parameters: {
             query?: never;
@@ -201,6 +246,47 @@ export interface paths {
          * @description Take the entity out of the trash.
          */
         post: operations["entities_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description One level of the navigation tree: the roots (entities without a shown parent), or the
+         *     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name.
+         */
+        get: operations["tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description Trashed entities, most recently trashed first, with their orphaned children count.
+         */
+        get: operations["trash_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -365,6 +451,61 @@ export interface components {
             /** Deleted At */
             deleted_at: string | null;
         };
+        /** EntityPage */
+        EntityPage: {
+            /** Items */
+            items: components["schemas"]["EntitySummary"][];
+            /**
+             * Next Cursor
+             * @description Pass as `cursor` for the next page; null at the end.
+             */
+            next_cursor: string | null;
+        };
+        /**
+         * EntitySummary
+         * @description An entity in a list: everything but the body, aliases, tags and ``ext``.
+         */
+        EntitySummary: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            visibility: components["schemas"]["Visibility"];
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
         /**
          * EntityUpdate
          * @description Only the members sent are changed. ``aliases`` and ``tags`` replace the whole list;
@@ -464,6 +605,22 @@ export interface components {
             label: string;
             /** Description */
             description: string;
+        };
+        /**
+         * FieldValue
+         * @description A suggestion: values differing only in case/accents are merged, shown in their most used
+         *     spelling, with the number of entities (not in the trash) using them.
+         */
+        FieldValue: {
+            /** Value */
+            value: string;
+            /** Count */
+            count: number;
+        };
+        /** FieldValueList */
+        FieldValueList: {
+            /** Items */
+            items: components["schemas"]["FieldValue"][];
         };
         /** GraphStyleOut */
         GraphStyleOut: {
@@ -716,6 +873,100 @@ export interface components {
             name: string;
             /** Color */
             color: string | null;
+        };
+        /**
+         * TrashItem
+         * @description A trashed entity. ``orphan_count``: its children that are not in the trash (the tree shows
+         *     them as roots meanwhile).
+         */
+        TrashItem: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            visibility: components["schemas"]["Visibility"];
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Orphan Count */
+            orphan_count: number;
+        };
+        /** TrashPage */
+        TrashPage: {
+            /** Items */
+            items: components["schemas"]["TrashItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * TreeNode
+         * @description A navigation tree node. ``child_counts`` counts the children the same tree would show,
+         *     by kind.
+         */
+        TreeNode: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Multiversal */
+            multiversal: boolean;
+            visibility: components["schemas"]["Visibility"];
+            /** Sort Key */
+            sort_key: string | null;
+            /** Has Children */
+            has_children: boolean;
+            /** Child Counts */
+            child_counts: {
+                [key: string]: number;
+            };
+        };
+        /** TreePage */
+        TreePage: {
+            /** Items */
+            items: components["schemas"]["TreeNode"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** TriggerOut */
         TriggerOut: {
@@ -1135,6 +1386,52 @@ export interface operations {
             };
         };
     };
+    entities_list: {
+        parameters: {
+            query?: {
+                /** @description Kind keys (repeat for several). */
+                kind?: string[] | null;
+                dimension?: string | null;
+                include_multiversal?: boolean;
+                parent?: string | null;
+                /** @description Tag ids; entities need all of them. */
+                tag?: string[] | null;
+                /** @description Name or alias prefix (until search). */
+                q?: string | null;
+                include_trashed?: boolean;
+                sort?: "name" | "-name" | "created" | "-created" | "updated" | "-updated" | "sort_key";
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     entities_create: {
         parameters: {
             query?: never;
@@ -1158,6 +1455,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_field_values: {
+        parameters: {
+            query: {
+                kind: string;
+                field: string;
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldValueList"];
                 };
             };
             /** @description Problem */
@@ -1280,6 +1614,45 @@ export interface operations {
             };
         };
     };
+    entities_children: {
+        parameters: {
+            query?: {
+                /** @description Kind keys (repeat for several). */
+                kind?: string[] | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreePage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     entities_restore: {
         parameters: {
             query?: never;
@@ -1301,6 +1674,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    tree_get: {
+        parameters: {
+            query?: {
+                dimension?: string | null;
+                parent?: string | null;
+                /** @description Kind keys (repeat for several). */
+                kind?: string[] | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreePage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    trash_list: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashPage"];
                 };
             };
             /** @description Problem */

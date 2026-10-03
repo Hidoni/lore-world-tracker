@@ -88,6 +88,8 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(vaults_router.router)
     api.include_router(modules_router.router)
     api.include_router(entities_router.router)
+    api.include_router(entities_router.tree_router)
+    api.include_router(entities_router.trash_router)
     for module in app.state.registry.modules:
         for module_router in module.routers:
             # Always mounted; require_module answers 404 module_disabled per vault (§2.2).

@@ -6,7 +6,6 @@ Entities of kinds whose module is disabled are unavailable (``404 module_disable
 """
 
 import re
-import unicodedata
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -15,7 +14,14 @@ from sqlalchemy import func, or_, select
 from lore.core.db.base import VISIBILITIES, Visibility, new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.errors import ParentNotAllowedError, RevisionConflictError
-from lore.core.entities.models import Entity, EntityAlias, EntityTag, Tag, tag_name_key
+from lore.core.entities.models import (
+    Entity,
+    EntityAlias,
+    EntityTag,
+    Tag,
+    fold_text,
+    tag_name_key,
+)
 from lore.core.entities.schemas import (
     Affected,
     AliasIn,
@@ -48,11 +54,7 @@ _SEARCH_MEMBERS = frozenset(
 def slugify(name: str) -> str:
     """The cosmetic slug of a name (not unique; URLs use ids): accents removed, case-folded, runs
     of anything but letters and digits replaced by a hyphen. Other scripts are kept."""
-    decomposed = unicodedata.normalize("NFKD", name)
-    stripped = unicodedata.normalize(
-        "NFC", "".join(char for char in decomposed if not unicodedata.combining(char))
-    )
-    slug = re.sub(r"[\W_]+", "-", stripped.casefold()).strip("-")
+    slug = re.sub(r"[\W_]+", "-", fold_text(name)).strip("-")
     return slug[:SLUG_MAX].rstrip("-") or "entity"
 
 
@@ -325,6 +327,11 @@ class EntityService:
         return EntityDeleteResult(id=entity.id, purged=True, entity=None, affected=affected)
 
     # --- rules ----------------------------------------------------------------------------------
+
+    def load(self, entity_id: str) -> Entity:
+        """The entity, also in the trash: ``404 not_found``, or ``404 module_disabled`` when its
+        kind's module is disabled."""
+        return self._load(entity_id)
 
     def _load(self, entity_id: str) -> Entity:
         entity = self.session.get(Entity, entity_id)

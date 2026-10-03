@@ -250,8 +250,8 @@ def test_visibility_check(session: Session, table: str) -> None:
 def test_defaults_apply_to_raw_inserts(session: Session) -> None:
     session.execute(
         text(
-            "INSERT INTO entities (id, kind, name, slug, created_at, updated_at) "
-            "VALUES ('e', 'misc', 'Raw', 'raw', '2026-01-01T00:00:00.000000+00:00', "
+            "INSERT INTO entities (id, kind, name, sort_name, slug, created_at, updated_at) "
+            "VALUES ('e', 'misc', 'Raw', 'raw', 'raw', '2026-01-01T00:00:00.000000+00:00', "
             "'2026-01-01T00:00:00.000000+00:00')"
         )
     )
