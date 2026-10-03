@@ -75,6 +75,8 @@ jobs:
       PROPERTY_PROFILE: ci
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the change detection below diffs against the base commit
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
@@ -88,6 +90,24 @@ jobs:
       # JSON Schema export + TS type drift, then both engines' tests and conformance runners.
       - run: make check-chronology
       - run: make test-chronology
+      # Differential fuzzing of the two engines (testing.md §6) when chronology code or vectors
+      # change; nightly.yml runs 10,000 new random cases every night.
+      - name: Detect chronology changes
+        id: changes
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          paths=(spec/chronology backend/src/lore/chronology backend/tests/chronology packages/chronology)
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null || ! git diff --quiet "$BASE" HEAD -- "${paths[@]}"; then
+            echo "chronology=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "chronology=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Differential tests
+        if: steps.changes.outputs.chronology == 'true'
+        env:
+          DIFFERENTIAL_CASES: '1000'
+        run: make test-differential
 
   e2e:
     name: e2e

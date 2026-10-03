@@ -770,6 +770,11 @@ Rules behind the codes, where §3 leaves room:
   than 500 templates, more than 10,000 children or a count over 1000 digits
   (`template.too_large`), `intercalary` on a run (`template.intercalary_without_id`), and `era`
   on a local anchor (`era.local_anchor_uses_era`).
+- **Unions** (a template is uniform or a sequence, a sequence child is a named slot or a run, …):
+  a value that matches no branch is reported at the members of the branches whose own shape
+  fits it (no missing or unknown member directly inside the union's value), or of every branch
+  when none fits. Nested unions are decided innermost first, so a branch is judged by the errors
+  it would report.
 - **Template references:** a child template comes from the child's `template`, else the child
   level's `default_template` (`template.unknown_template` at the run/uniform member when neither
   names an existing template). It must be a template of the level directly below
@@ -938,3 +943,6 @@ Rules:
 - Property tests (hypothesis / fast-check) are in addition to the vectors: round-trip
   `from_fields(to_fields(t)) == unit start`, year-start monotonicity, `add`/`diff` consistency
   and ordinal round-trips.
+- **Differential tests** look for drift where no vector is: random calendars (every §3 feature,
+  bounded sizes), random ops on them and random calendar-free ops run through both engines, and
+  the results must be equal (`testing.md` §6). Every discrepancy becomes a vector, then a fix.

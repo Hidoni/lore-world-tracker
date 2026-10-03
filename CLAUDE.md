@@ -75,6 +75,7 @@ frontend/         @lore/web: React SPA (src/app, api, data, core, editor, compon
 spec/chronology/  JSON Schemas (exported), presets, conformance vectors: shared by both engines
 docs/             product/, architecture/, modules/, adr/, plan/
 scripts/          e2e.sh (`make e2e`), docker-smoke.sh (`make docker-smoke`); CI: .github/workflows/ci.yml
+                  (PR gate) and nightly.yml (differential fuzzing, benchmarks)
 Dockerfile, docker-compose.yml   the image and the suggested deployment (deployment.md §2–§3)
 tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclaim|stats`
 .claude/skills/next-issue/  project skill: take the next ready issue through the whole workflow
@@ -91,6 +92,8 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make check-backend` / `make check-frontend` / `make check-contract` / `make check-chronology` | one part of `make check` |
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
+| `make test-differential` | random calendars and ops through both chronology engines, results compared (`DIFFERENTIAL_CASES`, default 200; testing.md §6) |
+| `make bench` | chronology benchmarks and perf budgets, both engines (testing.md §4.1) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
 | `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |
 | `make fmt` | ruff format + prettier |

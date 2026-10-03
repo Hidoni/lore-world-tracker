@@ -16,7 +16,8 @@ define placeholder
 endef
 
 .PHONY: help setup dev check check-backend check-frontend check-chronology test test-backend \
-	test-frontend test-chronology e2e gen check-contract fmt docker docker-smoke sample-vault
+	test-frontend test-chronology test-differential bench e2e gen check-contract fmt docker \
+	docker-smoke sample-vault
 
 help: ## List the targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z][a-zA-Z0-9_-]*:.*## / { printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -59,6 +60,13 @@ test-frontend: ## vitest in every npm workspace
 test-chronology: ## Chronology tests incl. conformance vectors, both engines
 	$(UV) run pytest tests/chronology --no-cov
 	npm run test -w @lore/chronology
+
+test-differential: ## Random calendars and ops through both engines, results compared (DIFFERENTIAL_CASES=200)
+	$(UV) run pytest -m slow tests/chronology/differential --no-cov -s
+
+bench: ## Chronology benchmarks and perf budgets, both engines (testing.md §4.1)
+	$(UV) run pytest -m perf tests/chronology --no-cov
+	npm run bench -w @lore/chronology
 
 check-chronology: ## Fail if chronology JSON Schemas or TS types drifted from the Pydantic models (run make gen)
 	$(UV) run lore chronology export-schemas --check

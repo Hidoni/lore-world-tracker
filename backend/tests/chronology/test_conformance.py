@@ -3,362 +3,26 @@
 The format and the ops are documented in ``spec/chronology/conformance/README.md``. Ops that the
 Python engine doesn't implement yet are listed in ``PENDING`` with the issue that implements them;
 their cases are strict expected failures, so implementing an op means adding its handler to
-``HANDLERS`` and removing it from ``PENDING``.
+``HANDLERS`` (``ops.py``) and removing it from ``PENDING``.
 """
 
 import json
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import TypeAdapter
 
-from lore.chronology import numbers
-from lore.chronology.calendar import CompiledCalendar, validate_calendar
-from lore.chronology.calendar.arithmetic import add, diff
-from lore.chronology.calendar.compiled import DateError
-from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
-from lore.chronology.calendar.cycles import cycle_value
-from lore.chronology.calendar.eras import era_of
-from lore.chronology.calendar.formatting import (
-    DisplayPoint,
-    format_absolute,
-    format_date,
-    format_span,
+from lore.chronology.schema import CalendarDefinition, CompileContext
+from tests.chronology.ops import (
+    CALENDAR_FREE_OPS,
+    CONFORMANCE_DIR,
+    HANDLERS,
+    OPS,
+    CalendarFile,
+    run_op,
 )
-from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
-from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
-from lore.chronology.correspondence import (
-    Correspondence,
-    CorrespondenceError,
-    Step,
-    compose,
-    correspondence,
-)
-from lore.chronology.presets import PresetError, instantiate_preset, load_presets
-from lore.chronology.recurrence import (
-    RecurrenceContext,
-    RecurrenceError,
-    count_in_window,
-    expand,
-    occurrence,
-    occurrence_at,
-    occurrence_number,
-    series_bounds,
-)
-from lore.chronology.schema import (
-    BaseUnit,
-    CalendarDefinition,
-    CompileContext,
-    DisplayOptions,
-    Duration,
-    EndSpec,
-    RecurrenceRule,
-)
-
-CONFORMANCE_DIR = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
-
-NUMBER_OPS = frozenset(
-    {
-        "parse_moment",
-        "format_moment",
-        "parse_signed",
-        "format_signed",
-        "sortable_key",
-        "from_sortable_key",
-        "floor_div",
-        "floor_mod",
-        "rational_normalize",
-        "rational_from_int",
-        "rational_add",
-        "rational_sub",
-        "rational_mul",
-        "rational_div",
-        "rational_compare",
-        "rational_floor",
-        "rational_frac",
-        "format_integer",
-    }
-)
-
-OPS = NUMBER_OPS | frozenset(
-    {
-        "validate",
-        "to_fields",
-        "from_fields",
-        "unit_bounds",
-        "ordinal",
-        "from_ordinal",
-        "options",
-        "cycle_value",
-        "era_of",
-        "overlay_phase",
-        "next_phase_at",
-        "add",
-        "diff",
-        "format",
-        "format_span",
-        "format_absolute",
-        "preset_instantiate",
-        "expand",
-        "series_bounds",
-        "occurrence",
-        "count_in_window",
-        "occurrence_number",
-        "occurrence_at",
-        "map",
-        "compose",
-    }
-)
-"""Every op documented in the conformance README."""
-
-CALENDAR_FREE_OPS = NUMBER_OPS | {
-    "validate",
-    "format_absolute",
-    "preset_instantiate",
-    "map",
-    "compose",
-}
-
-type CalendarFile = dict[str, Any]
-type Handler = Callable[[CalendarFile | None, dict[str, Any]], Any]
-
-
-def _rational(data: dict[str, str]) -> numbers.Rational:
-    return numbers.parse_rational(data["num"], data["den"])
-
-
-def _binary(operation: Callable[[numbers.Rational, numbers.Rational], numbers.Rational]) -> Handler:
-    return lambda _, d: numbers.format_rational(operation(_rational(d["a"]), _rational(d["b"])))
-
-
-def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    options = {key: d[key] for key in d.keys() - {"n"}}
-    return {"text": numbers.format_integer(int(d["n"]), **options)}
-
-
-def _display_point(data: dict[str, Any] | None) -> DisplayPoint | None:
-    if data is None:
-        return None
-    return DisplayPoint(int(data["t"]), data["precision"], data["approximate"])
-
-
-def _format_absolute(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    display = DisplayOptions.model_validate(d["display"]) if d.get("display") else None
-    text = format_absolute(
-        int(d["t"]),
-        BaseUnit.model_validate(d["base_unit"]),
-        display,
-        approximate=d.get("approximate", False),
-    )
-    return {"text": text}
-
-
-PRESETS = load_presets(CONFORMANCE_DIR.parents[1])
-
-
-def _preset_instantiate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    seconds = _rational(d["seconds_per_base_unit"])
-    definition = instantiate_preset(PRESETS[d["preset"]], seconds, origin=int(d.get("origin", "0")))
-    return {"definition": definition.model_dump(mode="json", by_alias=True, exclude_unset=True)}
-
-
-_COMPILED: dict[int, CompiledCalendar] = {}
-
-
-def _compiled(calendar: CalendarFile | None) -> CompiledCalendar:
-    assert calendar is not None, "this op needs the case file's calendar"
-    key = id(calendar)
-    if key not in _COMPILED:
-        result = validate_calendar(calendar["definition"], calendar["context"])
-        assert isinstance(result, CompiledCalendar), result
-        _COMPILED[key] = result
-    return _COMPILED[key]
-
-
-def _from_fields(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    options = {key: d[key] for key in ("era", "regime", "overflow") if key in d}
-    return {"t": str(from_fields(_compiled(calendar), d["fields"], d["precision"], **options))}
-
-
-def _bounds(bounds: Bounds) -> dict[str, str]:
-    return {"start": str(bounds.start), "end": str(bounds.end)}
-
-
-def _ordinal(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    found = ordinal(_compiled(calendar), int(d["t"]), d["level"])
-    return {"ordinal": str(found.value), "intercalary": not found.counted}
-
-
-def _cycle_value(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    value = cycle_value(_compiled(calendar), int(d["t"]), d["cycle"])
-    return None if value is None else value.as_json()
-
-
-def _era_of(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    value = era_of(_compiled(calendar), int(d["t"]))
-    return None if value is None else value.as_json()
-
-
-_DURATION: TypeAdapter[Duration] = TypeAdapter(Duration)
-
-
-def _add(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    duration = _DURATION.validate_python(d["duration"])
-    options = {"overflow": d["overflow"]} if "overflow" in d else {}
-    return {"t": str(add(_compiled(calendar), int(d["t"]), duration, **options))}
-
-
-def _diff(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    found = diff(_compiled(calendar), int(d["t1"]), int(d["t2"]), d["largest"], d["smallest"])
-    return found.as_json()
-
-
-_RULE: TypeAdapter[RecurrenceRule] = TypeAdapter(RecurrenceRule)
-_END: TypeAdapter[EndSpec] = TypeAdapter(EndSpec)
-
-
-def _recurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> tuple[Any, RecurrenceContext]:
-    """The rule and context of a recurrence case (README "Recurrence ops")."""
-    if calendar is not None:
-        duration = int(calendar["context"]["dimension_duration"])
-        compiled = _compiled(calendar)
-    else:
-        duration, compiled = int(d["dimension_duration"]), None
-    context = RecurrenceContext(
-        series_start=int(d["series_start"]),
-        end=_END.validate_python(d["end"]),
-        dimension_duration=duration,
-        calendar=compiled,
-        resolved={key: int(value) for key, value in d["resolved"].items()},
-    )
-    return _RULE.validate_python(d["rule"]), context
-
-
-def _expand(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    rule, context = _recurrence(calendar, d)
-    window = (int(d["window"][0]), int(d["window"][1]))
-    return expand(rule, context, window, d["max_items"]).as_json()
-
-
-def _series_bounds(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    return series_bounds(*_recurrence(calendar, d)).as_json()
-
-
-def _count_in_window(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    window = (int(d["window"][0]), int(d["window"][1]))
-    count, exact = count_in_window(*_recurrence(calendar, d), window)
-    return {"count": str(count), "exact": exact}
-
-
-def _occurrence_number(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    return {"number": str(occurrence_number(*_recurrence(calendar, d), d["key"]))}
-
-
-def _occurrence_at(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    return {"key": occurrence_at(*_recurrence(calendar, d), int(d["t"]))}
-
-
-def _occurrence(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
-    return occurrence(*_recurrence(calendar, d), d["key"]).as_json()
-
-
-def _correspondence(data: dict[str, Any]) -> Correspondence:
-    def rate(value: dict[str, str] | None) -> numbers.Rational | None:
-        return None if value is None else _rational(value)
-
-    return correspondence(
-        [(int(p["a"]), int(p["b"])) for p in data["points"]],
-        extrapolation=data["extrapolation"],
-        rate_before=rate(data["rate_before"]),
-        rate_after=rate(data["rate_after"]),
-    )
-
-
-def _map(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    mapped = _correspondence(d["correspondence"]).map(
-        int(d["t"]), d["direction"], int(d["target_duration"])
-    )
-    return {"t": None if mapped is None else str(mapped)}
-
-
-def _compose(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    path = [
-        Step(_correspondence(s["correspondence"]), s["direction"], int(s["target_duration"]))
-        for s in d["path"]
-    ]
-    mapped = compose(path, int(d["t"]))
-    return {"t": None if mapped is None else str(mapped)}
-
-
-def _validate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
-    result = validate_calendar(d["definition"], d["context"])
-    errors = [] if isinstance(result, CompiledCalendar) else [e.as_json() for e in result]
-    return {"errors": errors}
-
-
-# Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
-HANDLERS: dict[str, Handler] = {
-    "parse_moment": lambda _, d: {"value": str(numbers.parse_moment(d["text"]))},
-    "parse_signed": lambda _, d: {"value": str(numbers.parse_signed(d["text"]))},
-    "format_moment": lambda _, d: {"text": numbers.format_moment(int(d["n"]))},
-    "format_signed": lambda _, d: {"text": numbers.format_signed(int(d["n"]))},
-    "sortable_key": lambda _, d: {"key": numbers.sortable_key(int(d["n"]))},
-    "from_sortable_key": lambda _, d: {"n": str(numbers.from_sortable_key(d["key"]))},
-    "floor_div": lambda _, d: {"value": str(numbers.floor_div(int(d["a"]), int(d["b"])))},
-    "floor_mod": lambda _, d: {"value": str(numbers.floor_mod(int(d["a"]), int(d["b"])))},
-    "rational_normalize": lambda _, d: numbers.format_rational(_rational(d)),
-    "rational_from_int": lambda _, d: numbers.format_rational(
-        numbers.rational_from_int(int(d["n"]))
-    ),
-    "rational_add": _binary(lambda a, b: a + b),
-    "rational_sub": _binary(lambda a, b: a - b),
-    "rational_mul": _binary(lambda a, b: a * b),
-    "rational_div": _binary(numbers.rational_div),
-    "rational_compare": lambda _, d: {
-        "value": numbers.rational_compare(_rational(d["a"]), _rational(d["b"]))
-    },
-    "rational_floor": lambda _, d: {"value": str(numbers.rational_floor(_rational(d["a"])))},
-    "rational_frac": lambda _, d: numbers.format_rational(numbers.rational_frac(_rational(d["a"]))),
-    "format_integer": _format_integer,
-    "validate": _validate,
-    "to_fields": lambda c, d: to_fields(_compiled(c), int(d["t"])).as_json(),
-    "from_fields": _from_fields,
-    "unit_bounds": lambda c, d: _bounds(unit_bounds(_compiled(c), int(d["t"]), d["level"])),
-    "ordinal": _ordinal,
-    "cycle_value": _cycle_value,
-    "overlay_phase": lambda c, d: overlay_phase(_compiled(c), int(d["t"]), d["overlay"]).as_json(),
-    "next_phase_at": lambda c, d: {
-        "t": str(next_phase_at(_compiled(c), int(d["t"]), d["overlay"], _rational(d["phase"])))
-    },
-    "era_of": _era_of,
-    "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
-    "add": _add,
-    "map": _map,
-    "compose": _compose,
-    "expand": _expand,
-    "series_bounds": _series_bounds,
-    "count_in_window": _count_in_window,
-    "occurrence_number": _occurrence_number,
-    "occurrence_at": _occurrence_at,
-    "occurrence": _occurrence,
-    "diff": _diff,
-    "format": lambda c, d: {
-        "text": format_date(_compiled(c), int(d["t"]), d["precision"], approximate=d["approximate"])
-    },
-    "format_span": lambda c, d: {
-        "text": format_span(_compiled(c), _display_point(d["start"]), _display_point(d["end"]))
-    },
-    "format_absolute": _format_absolute,
-    "preset_instantiate": _preset_instantiate,
-    "options": lambda c, d: {
-        "options": options_json(options(_compiled(c), d["fields"], d["level"]))
-    },
-}
-"""op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {}
 """op → issue that implements it in the Python engine."""
@@ -413,10 +77,6 @@ CALENDARS = _calendar_files()
 CASES = _cases()
 
 
-def _not_implemented(calendar: CalendarFile | None, data: dict[str, Any]) -> Any:
-    raise NotImplementedError
-
-
 def _param(case: Case) -> Any:
     marks = []
     if case.op in PENDING:
@@ -433,17 +93,7 @@ def _param(case: Case) -> Any:
 @pytest.mark.parametrize("case", [_param(case) for case in CASES])
 def test_vector(case: Case) -> None:
     calendar = CALENDARS[case.calendar] if case.calendar is not None else None
-    handler = HANDLERS.get(case.op, _not_implemented)
-    try:
-        result = handler(calendar, case.input)
-    except (
-        numbers.NumberError,
-        DateError,
-        RecurrenceError,
-        CorrespondenceError,
-        PresetError,
-    ) as error:
-        result = {"error": error.code}
+    result = run_op(case.op, calendar, case.input)
     assert _normalized(case.op, result) == _normalized(case.op, case.expected)
 
 
