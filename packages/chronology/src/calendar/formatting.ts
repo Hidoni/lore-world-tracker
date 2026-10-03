@@ -102,10 +102,53 @@ export function formatDate(
   calendar: CompiledCalendar,
   t: bigint,
   precision: string,
-  options: { readonly approximate?: boolean } = {},
+  options: {
+    readonly approximate?: boolean
+    /** At least this many significant digits in scientific notation (timeline ticks). */
+    readonly significantDigits?: number
+  } = {},
 ): string {
   const date = dateAt(calendar, t, precision)
-  return circa(calendar, render(calendar, date, patternOf(calendar, date)), options.approximate)
+  const text = render(calendar, date, patternOf(calendar, date), options.significantDigits)
+  return circa(calendar, text, options.approximate)
+}
+
+/**
+ * §12 tick labels: the short text of the `level` unit (a level index, or `BASE`) starting at `t`.
+ * The top level is the year as `formatDate` renders it ("AD 2024", "1.2 × 10^90"); named levels
+ * their slot name ("Frostfall", "Midyear's Day"); clock levels a clock down to at least the
+ * minutes ("14:00", "14:30:05"), or the number and abbreviation for a one-level clock ("14 h");
+ * other levels their number. Base ticks show the remainder in the level-0 unit ("+30 s").
+ */
+export function shortLabel(
+  calendar: CompiledCalendar,
+  t: bigint,
+  level: number | 'base',
+  options: { readonly significantDigits?: number } = {},
+): string {
+  const levels = calendar.levels
+  const top = levels.length - 1
+  if (level === top) return formatDate(calendar, t, defined(levels[top]), options)
+  const layout = layoutOf(calendar)
+  let pieces: Piece[]
+  if (level === BASE) {
+    pieces = ['+', token('base'), ` ${calendar.context.base_unit.abbr}`]
+  } else if (layout.named.has(level)) {
+    pieces = [token('level', defined(levels[level]), 'name')]
+  } else if (level < layout.clock && layout.clock === 1) {
+    const unit = defined(calendar.definition.levels[level])
+    pieces = [token('level', unit.id), ` ${unit.abbr ?? unit.label}`]
+  } else if (level < layout.clock) {
+    const clock: Piece[][] = []
+    for (let l = layout.clock - 1; l >= Math.min(level, layout.clock - 2); l--) {
+      clock.push([token('level', defined(levels[l]), null, 'pad2')])
+    }
+    pieces = join(clock, ':')
+  } else {
+    pieces = [token('level', defined(levels[level]))]
+  }
+  const date = dateAt(calendar, t, level === BASE ? BASE : defined(levels[level]))
+  return render(calendar, date, pieces)
 }
 
 function circa(calendar: CompiledCalendar, text: string, approximate = false): string {
@@ -189,16 +232,25 @@ function join(parts: readonly Piece[][], separator: string): Piece[] {
 }
 
 /** The text of `pieces`; runs of spaces left by empty values collapse, ends are trimmed. */
-function render(calendar: CompiledCalendar, date: DateAt, pieces: readonly Piece[]): string {
+function render(
+  calendar: CompiledCalendar,
+  date: DateAt,
+  pieces: readonly Piece[],
+  significantDigits = 0,
+): string {
+  const layout = layoutOf(calendar).display
+  const display =
+    significantDigits > layout.significant_digits
+      ? { ...layout, significant_digits: significantDigits }
+      : layout
   const text = pieces
-    .map((piece) => (typeof piece === 'string' ? piece : valueOf(calendar, date, piece)))
+    .map((piece) => (typeof piece === 'string' ? piece : valueOf(calendar, date, piece, display)))
     .join('')
   return text.replace(/ {2,}/g, ' ').trim()
 }
 
-function valueOf(calendar: CompiledCalendar, date: DateAt, piece: Token): string {
+function valueOf(calendar: CompiledCalendar, date: DateAt, piece: Token, display: Display): string {
   const fields = date.fields
-  const display = layoutOf(calendar).display
   switch (piece.kind) {
     case 'level':
       return levelText(unitAt(date, defined(piece.id)), display, piece)

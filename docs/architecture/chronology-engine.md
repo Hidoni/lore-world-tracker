@@ -794,25 +794,63 @@ violations are reported before semantic checks run.
 
 ## 12. Viewport and ticks (TypeScript only)
 
-`@lore/chronology/viewport` (pure, unit-tested):
+`@lore/chronology/viewport` (pure, unit-tested; `packages/chronology/src/viewport/`). It is the only
+place where moments become floating-point pixels: pixel inputs are scaled to 1/1024 px
+(`round(x·1024)`) before they meet a moment, and every computation stays in `bigint`.
 
-- `Viewport = { start: bigint, span: bigint (> 0), widthPx: number }`.
-- `toPx(t)`: `(t − start) · round(widthPx·1024) / span`, computed in `bigint` and converted to
-  `number`, divided by 1024. Values far off-screen are clamped to ±1e7 px.
-- `fromPx(x)`, `zoomAt(x, factor: Rational)` (keeps the moment under `x` fixed), `panBy(dx)`,
-  `fit(start, end, paddingPx)`, `clamp(D)`. Span bounds: min 10 base units, max `D·1.25`.
-- `ticks(compiledCalendar, viewport, {minSpacingPx, maxTicks})` returns
-  `{major: Tick[], minor: Tick[]}`, with `Tick = {t, label, level, multiple}`:
-  1. For each level from fine to coarse, and for each "nice" multiple of that level
-     (sub-day levels: 1, 2, 5, 10, 15, 30 and divisors of the parent; variable levels: 1, 2, 3, 6;
-     the top level: 1, 2, 5 × 10^k for any `k`), estimate the pixel spacing from the level's mean
-     unit length. Pick the first (level, multiple) with spacing ≥ `minSpacingPx`.
-  2. Generate ticks by walking ordinals aligned to the multiple (e.g. years divisible by
-     `10^k`) inside the viewport. For each regime's validity interval separately.
-  3. Major ticks are the boundaries of the next coarser level (or the next multiple
-     for top-level decades/centuries). Labels use short level formats ("Frostfall", "1023",
-     "14:00", "1.2 × 10^90").
-  4. Never generate more than `maxTicks`. Increase the multiple instead.
+- `Viewport = { start: bigint, span: bigint (> 0), widthPx: number }` shows `[start, start + span)`.
+- `toPx(t)`: `floor((t − start) · round(widthPx·1024) / span)`, computed in `bigint`, clamped to
+  ±1e7 px far off-screen, converted to `number` and divided by 1024. Monotonic.
+- `fromPx(x)`: `start + floor(round(x·1024) · span / round(widthPx·1024))`, the latest moment with
+  `toPx ≤ x`; `fromPx(toPx(t))` is within one pixel's span of `t`.
+- `zoomAt(x, factor: Rational)`: the new span is `floor(span · factor)` (at least the minimum) and
+  the start is chosen so that `fromPx(x)` is **exactly** the same moment before and after.
+- `panBy(dx)`: the view moves `dx` pixels later in time (negative: earlier).
+- `fit(start, end, paddingPx)`: `[start, end]` centered with `paddingPx` free on each side
+  (ignored when it leaves no room); an empty range gets the minimum span.
+- `clamp(D)`: span bounds min 10 base units, max `D·1.25` (keeping the center), and the view may
+  extend outside `[0, D]` by at most `min(D/8, span/2)` on either side (at least half of what the
+  span exceeds `D` by), so the whole dimension fits with a margin and a zoomed-in view keeps at
+  least half its width inside the dimension.
+- `tileFor(viewport, D)` → `{z, size, indices}` and `tileBounds(z, index, D)` implement the tiles
+  of `frontend.md` §9.2.
+- `ticks(compiledCalendar, viewport, {minSpacingPx = 64, maxTicks = 100})` returns
+  `{major: Tick[], minor: Tick[]}` sorted by moment, with `Tick = {t, label, level, multiple}`
+  (`level` is a level id or `base`). No minor tick shares a moment with a major tick, and there
+  are never more than `maxTicks` ticks in all.
+  1. Each regime's validity interval inside the viewport is processed separately (with an equal
+     share of the remaining tick budget).
+  2. For each level from fine to coarse, and for each "nice" multiple of that level, the pixel
+     spacing is estimated from the level's mean unit length in the regime (top-pattern period
+     length over its regular units). The first (level, multiple) with spacing ≥ `minSpacingPx`
+     and an estimated count within the budget is picked. Multiples: **base units** below level 0
+     (when level-0 units span several base units): 1, 2, 5 × 10^k below the longest level-0 unit;
+     levels whose parents all hold the same number `n` of regular children and no intercalary
+     ones (hours, minutes, months of a 12-month year): 1 and the divisors of `n` among 2, 3, 4, 5,
+     6, 10, 12, 15, 20, 30; other levels: 1, 2, 3, 6; the **top level**: 1, 2, 5 × 10^k for any
+     `k`, starting at the smallest that fits.
+  3. Ticks at multiple 1 are every unit starting in the interval, **intercalary units included**
+     (product decision, 2026-10-03). Larger multiples step regular ordinals aligned to the
+     multiple (`ordinal mod m = 0`), so intercalary units are skipped. Base-unit ticks are the
+     offsets inside each level-0 unit that are multiples of `m`. Year multiples align on **era
+     years** within each era, the interval being split at era starts; calendars without eras use
+     astronomical years (product decision, 2026-10-03: "10 BC", "AD 10").
+  4. Major ticks are the starts of the units of the next coarser level (level 0 for base ticks).
+     For year ticks they are the years aligned to the next power of ten above the multiple
+     (1, 2, 5 → 10; 20, 50 → 100), plus **era starts**.
+  5. Labels (product decisions, 2026-10-03): major ticks use the calendar's format at their
+     level's precision ("March 2024", "16 March 2024", "AD 1"); minor ticks use short labels: the
+     year as formatted at the top precision ("2024", "AD 2020", "10 BC"), the slot name for named
+     levels ("Frostfall", "Midyear's Day"), a clock for clock levels (§3.11) down to at least the
+     minutes ("14:00", "14:30:05"; a one-level clock: "14 h"), the number for other levels ("15"),
+     and the offset with the base unit's abbreviation for base ticks ("+30 s"). Years in
+     scientific notation get as many significant digits as tell their multiples apart
+     ("6.32464 × 10^102"); minor year ticks that would need more than 8 show the years since the
+     preceding major tick instead ("+2"; backward eras count from the major tick before them in
+     time), while major ticks keep every digit they need.
+  6. If the ticks generated exceed the budget, the next multiple (or level) is tried, so the
+     result never holds more than `maxTicks`. Generating ticks takes well under 2 ms for typical
+     calendars (`npm run bench -w @lore/chronology`).
 - Python does not implement ticks.
 
 ## 13. Presets

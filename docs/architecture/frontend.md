@@ -224,8 +224,10 @@ dimension with density and the viewport rectangle.
 
 - Viewport math comes **only** from `@lore/chronology/viewport` (bigint-exact). URL keeps
   `from`/`to` (debounced).
-- **Tile-based fetching:** zoom level `z = floor(log2(D / span))`. Tiles at level `z` have size
-  `D / 2^z` (+ remainder handling). The visible range maps to 1–3 tiles. `/timelines/{id}/window`
+- **Tile-based fetching:** zoom level `z = floor(log2(D / span))` (0 when `span ≥ D`). Tiles at
+  level `z` split `[0, D]` into `2^z` tiles of `ceil((D + 1) / 2^z)` base units (the last one is
+  shorter), computed by `tileFor`/`tileBounds` in `@lore/chronology/viewport`. The visible range
+  maps to 1–3 tiles. `/timelines/{id}/window`
   is called per tile with a pixel budget and cached by `(timeline, z, tile index, filters)`, so
   panning reuses tiles and neighbors are prefetched.
 - The server applies LOD: items ordered by importance until the pixel budget is met. The rest
