@@ -1,8 +1,11 @@
 """Per-vault module enablement (``docs/architecture/modules.md`` §4).
 
-State lives in ``vault_meta.settings.modules.<id> = {enabled, settings}``. A module without an
-entry uses its ``default_enabled``, so a module added in a later release follows its default in
-existing vaults. A module is only effectively enabled when its dependencies are.
+State lives in ``vault_meta.settings.modules.<id> = {enabled, settings}``. Every module's state
+is **recorded** (from its ``default_enabled``) when a vault is created, and a module the vault
+hasn't seen yet (added by a later release) is recorded the first time the author opens the
+vault: changing a module's default later never changes existing vaults (decided 2026-10-03).
+Only read-only servers, which never write, fall back to ``default_enabled`` for a missing entry.
+A module is only effectively enabled when its dependencies are.
 """
 
 from dataclasses import dataclass
@@ -57,6 +60,19 @@ def requested_states(session: Session) -> dict[str, bool]:
 
 def enabled_modules(session: Session, registry: ModuleRegistry) -> frozenset[str]:
     return registry.effective(requested_states(session))
+
+
+def record_module_states(session: Session, registry: ModuleRegistry) -> list[str]:
+    """Write ``{enabled: default_enabled}`` for every module without an entry. Returns their ids."""
+    settings = _settings(session)
+    modules = {key: dict(value) for key, value in settings.get("modules", {}).items()}
+    missing = [module for module in registry.modules if module.id not in modules]
+    if not missing:
+        return []
+    for module in missing:
+        modules[module.id] = {"enabled": module.default_enabled, "settings": {}}
+    set_meta(session, "settings", {**settings, "modules": modules})
+    return [module.id for module in missing]
 
 
 def set_module_enabled(
