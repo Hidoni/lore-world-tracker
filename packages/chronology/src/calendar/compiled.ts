@@ -66,6 +66,8 @@ export function segmentRegularCount(segment: Segment): bigint {
 /** One child unit located inside a template. */
 export interface Child {
   readonly segment: Segment
+  /** Index of the segment within the template. */
+  readonly position: number
   /** Index of the child within its segment. */
   readonly index: bigint
   /** Base-unit offset of the child within the parent template. */
@@ -112,27 +114,31 @@ export class CompiledTemplate {
     this.#regularStarts = this.#regularSegments.map((i) => defined(segments[i]).regularStart)
   }
 
-  #child(segment: Segment, index: bigint): Child {
-    return { segment, index, offset: segment.start + index * segment.childLength }
+  #child(position: number, index: bigint): Child {
+    const segment = defined(this.segments[position])
+    return { segment, position, index, offset: segment.start + index * segment.childLength }
   }
 
   /** The child containing `0 ≤ offset < length` (binary search over the prefix sums). */
   childAt(offset: bigint): Child {
-    const segment = defined(this.segments[bisectRight(this.#starts, offset) - 1])
-    return this.#child(segment, (offset - segment.start) / segment.childLength)
+    const position = bisectRight(this.#starts, offset) - 1
+    const segment = defined(this.segments[position])
+    return this.#child(position, (offset - segment.start) / segment.childLength)
   }
 
   /** The regular child with this 0-based ordinal, if it exists. */
   childByRegularIndex(regularIndex: bigint): Child | null {
     if (regularIndex < 0n || regularIndex >= this.regularCount) return null
-    const position = bisectRight(this.#regularStarts, regularIndex) - 1
-    const segment = defined(this.segments[defined(this.#regularSegments[position])])
-    return this.#child(segment, regularIndex - segment.regularStart)
+    const position = defined(
+      this.#regularSegments[bisectRight(this.#regularStarts, regularIndex) - 1],
+    )
+    const segment = defined(this.segments[position])
+    return this.#child(position, regularIndex - segment.regularStart)
   }
 
   childBySlot(slotId: string): Child | null {
     const position = this.slots.get(slotId)
-    return position === undefined ? null : this.#child(defined(this.segments[position]), 0n)
+    return position === undefined ? null : this.#child(position, 0n)
   }
 }
 
@@ -158,6 +164,24 @@ export interface RegimeStructure {
   readonly exceptionStarts: readonly bigint[]
 }
 
+/** A parallel cycle (chronology-engine §3.7), evaluated by the `cycles` module. */
+export interface CompiledCycle {
+  readonly id: string
+  /** Index of the cycle's level. */
+  readonly level: number
+  readonly length: number
+  readonly names: readonly string[] | null
+  readonly abbrs: readonly string[] | null
+  /** Stable value ids (recurrence rules match them, or the number `index + numberStart`). */
+  readonly ids: readonly string[] | null
+  readonly numberStart: number
+  /** Index of the reset level; `null` for a continuous cycle. */
+  readonly reset: number | null
+  readonly anchorIndex: number
+  /** Continuous cycles: counted ordinal of the unit with `anchorIndex`; `null` for reset cycles. */
+  readonly anchorOrdinal: bigint | null
+}
+
 /** One regime: templates, the top-level period and exceptions, and the epoch (§5.1–§5.4). */
 export class CompiledRegime implements RegimeStructure {
   readonly id: string
@@ -172,13 +196,16 @@ export class CompiledRegime implements RegimeStructure {
   readonly exceptionTemplates: readonly string[]
   readonly exceptionDeltas: readonly bigint[]
   readonly exceptionStarts: readonly bigint[]
+  /** Derived structures computed on first use (unit counts per level and filter, `units`). */
+  readonly cache = new Map<string, unknown>()
 
   constructor(
     structure: RegimeStructure,
     /** `E`: the moment year 0 starts. */
     readonly epoch: bigint,
-    /** Resolved start moment (`null` for regime 0, or a `local` start resolved later, #14). */
+    /** Resolved start moment (`null` for regime 0, and before `local` starts are resolved). */
     readonly startsAt: bigint | null,
+    readonly cycles: readonly CompiledCycle[] = [],
   ) {
     this.id = structure.id
     this.index = structure.index
@@ -192,6 +219,19 @@ export class CompiledRegime implements RegimeStructure {
     this.exceptionTemplates = structure.exceptionTemplates
     this.exceptionDeltas = structure.exceptionDeltas
     this.exceptionStarts = structure.exceptionStarts
+  }
+
+  /** A copy with another start or other cycles (compilation resolves them in later steps). */
+  with(changes: {
+    readonly startsAt?: bigint | null
+    readonly cycles?: readonly CompiledCycle[]
+  }): CompiledRegime {
+    return new CompiledRegime(
+      this,
+      this.epoch,
+      changes.startsAt === undefined ? this.startsAt : changes.startsAt,
+      changes.cycles ?? this.cycles,
+    )
   }
 
   template(id: string): CompiledTemplate {
@@ -258,6 +298,38 @@ export class CompiledRegime implements RegimeStructure {
   }
 }
 
+/** An era with its resolved bounds (chronology-engine §3.8). */
+export class CompiledEra {
+  constructor(
+    readonly id: string,
+    readonly name: string,
+    readonly abbr: string,
+    readonly abbrPosition: 'prefix' | 'suffix',
+    readonly backward: boolean,
+    readonly first: bigint,
+    /** Start moment (`null` for era 0: since −∞). */
+    readonly start: bigint | null,
+    /** The next era's start (`null` for the last era). */
+    readonly end: bigint | null,
+    /** `Y(start)`: the year containing the start (forward eras). */
+    readonly startYear: bigint | null,
+    /** `Y_end`: the first year starting at or after `end` (backward eras). */
+    readonly endYear: bigint | null,
+  ) {}
+
+  /** The era-relative number of astronomical year `year`. */
+  eraYear(year: bigint): bigint {
+    if (this.backward) return defined(this.endYear) - year + this.first - 1n
+    return year - defined(this.startYear) + this.first
+  }
+
+  /** The astronomical year of era year `eraYear` (the inverse of `eraYear`). */
+  year(eraYear: bigint): bigint {
+    if (this.backward) return defined(this.endYear) - eraYear + this.first - 1n
+    return eraYear - this.first + defined(this.startYear)
+  }
+}
+
 /** An immutable compiled calendar. Callers cache it (e.g. by calendar id and version). */
 export class CompiledCalendar {
   readonly #levelIndex: ReadonlyMap<string, number>
@@ -269,6 +341,9 @@ export class CompiledCalendar {
     readonly levels: readonly string[],
     readonly numberingStarts: readonly bigint[],
     readonly regimes: readonly CompiledRegime[],
+    readonly eras: readonly CompiledEra[] = [],
+    /** Resolved epoch of each overlay, in definition order (`overlays` module). */
+    readonly overlayEpochs: readonly bigint[] = [],
   ) {
     this.#levelIndex = new Map(levels.map((level, i) => [level, i]))
   }
@@ -277,4 +352,27 @@ export class CompiledCalendar {
   levelIndex(levelId: string): number {
     return this.#levelIndex.get(levelId) ?? -1
   }
+}
+
+export type DateErrorCode =
+  'invalid_date' | 'reform_gap' | 'reform_ambiguous' | 'unknown_cycle' | 'unknown_overlay'
+
+/** A date the calendar can't resolve. `level` names the offending level, if any. */
+export class DateError extends Error {
+  constructor(
+    readonly code: DateErrorCode,
+    message: string,
+    readonly level: string | null = null,
+  ) {
+    super(message)
+    this.name = 'DateError'
+  }
+}
+
+/** The last regime whose start is `≤ t` (regime 0 before every other). */
+export function activeRegime(calendar: CompiledCalendar, t: bigint): CompiledRegime {
+  const regime = calendar.regimes.findLast(
+    (r) => r.index === 0 || (r.startsAt !== null && r.startsAt <= t),
+  )
+  return defined(regime)
 }

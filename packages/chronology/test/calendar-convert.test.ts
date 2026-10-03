@@ -212,7 +212,7 @@ describe('examples', () => {
   })
 })
 
-// --- regimes (single-regime engine; full reform semantics arrive with #24) -----------------------
+// --- regimes -------------------------------------------------------------------------------------
 
 const SWITCH = 10n ** 14n // 2000-01-01 in regime 0
 
@@ -272,7 +272,7 @@ describe('regimes', () => {
     expect(dateError(() => fromFields(cal, fields, 'day'))).toEqual(['reform_ambiguous', null])
   })
 
-  test('regimes with a local start wait for local resolution', () => {
+  test('a local regime start is a date of the previous regime', () => {
     const { definition, context } = load('gregorian-seconds')
     const second = patched(at(definition, '/regimes/0'), {
       '/id': 'later',
@@ -282,8 +282,10 @@ describe('regimes', () => {
       patched(definition, { '/regimes/-': second }),
       patched(context, { '/resolved/~1regimes~11~1alignment~1at': '0' }),
     )
-    expect(toFields(cal, 10n ** 16n).regime).toBe('gregorian')
-    expect(fromFields(cal, { year: '2200' }, 'year')).toBe(defined(cal.regimes[0]).yearStart(2200n))
+    const start = defined(cal.regimes[0]).yearStart(2100n)
+    expect(defined(cal.regimes[1]).startsAt).toBe(start)
+    expect(toFields(cal, start - 1n).regime).toBe('gregorian')
+    expect(toFields(cal, start).regime).toBe('later')
   })
 })
 
