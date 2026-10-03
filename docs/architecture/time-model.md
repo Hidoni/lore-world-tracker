@@ -592,7 +592,8 @@ map_ab(a) = b_i + floor((a − a_i) × (b_{i+1} − b_i) / (a_{i+1} − a_i))
 slopes absorb the conversion. Results outside the target dimension's `[0, D]` mean "no
 corresponding moment".
 
-Details (Python: `lore.chronology.correspondence`; vectors in `cases/correspondences/`):
+Details (Python: `lore.chronology.correspondence`; TS: `validateCorrespondence`, `mapAB`/`mapBA`,
+`compose` in `@lore/chronology`; vectors in `cases/correspondences/`):
 
 - Sync points are sorted by `a`; they must then increase strictly in both coordinates
   (`correspondence.non_monotonic` at the offending point). Rates are slopes in B units per A unit
