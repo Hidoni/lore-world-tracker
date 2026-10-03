@@ -13,4 +13,5 @@ export type * from './schema.gen'
 
 export * from './numbers'
 export * from './calendar'
+export * from './recurrence'
 export { PresetError, type PresetErrorCode, absoluteMoments, instantiatePreset } from './presets'

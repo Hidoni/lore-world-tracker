@@ -281,23 +281,37 @@ export function resolveChild(
   value: string,
   overflow: Overflow,
 ): Child {
-  const levelId = defined(calendar.levels[level])
-  const numbering = defined(calendar.numberingStarts[level])
-  let child: Child | null
+  const child = findChild(calendar, regime, template, level, value, overflow)
+  if (child === null) {
+    const levelId = defined(calendar.levels[level])
+    throw new DateError('invalid_date', `no ${levelId} ${value} here`, levelId)
+  }
+  return child
+}
+
+/** `resolveChild`, but `null` where it would throw (no exception: recurrence rules with
+ * `missing: skip` hit this in many periods). */
+export function findChild(
+  calendar: CompiledCalendar,
+  regime: CompiledRegime,
+  template: CompiledTemplate,
+  level: number,
+  value: string,
+  overflow: Overflow,
+): Child | null {
   if (isNumber(value)) {
-    const index = BigInt(value) - numbering
-    child = template.childByRegularIndex(index)
+    const index = BigInt(value) - defined(calendar.numberingStarts[level])
+    const child = template.childByRegularIndex(index)
     if (child === null && overflow === 'constrain' && template.regularCount > 0n) {
       const last = template.regularCount - 1n
-      child = template.childByRegularIndex(index < 0n ? 0n : index > last ? last : index)
+      return template.childByRegularIndex(index < 0n ? 0n : index > last ? last : index)
     }
-  } else {
-    child = template.childBySlot(value)
-    if (child === null && overflow === 'constrain') {
-      child = fallback(calendar, regime, template, level, value)
-    }
+    return child
   }
-  if (child === null) throw new DateError('invalid_date', `no ${levelId} ${value} here`, levelId)
+  const child = template.childBySlot(value)
+  if (child === null && overflow === 'constrain') {
+    return fallback(calendar, regime, template, level, value)
+  }
   return child
 }
 

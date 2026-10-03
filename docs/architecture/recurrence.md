@@ -331,7 +331,7 @@ server stores `series_start_t` (first occurrence start) and `series_end_t` (end 
 occurrence, or `D` for `never`) in `events`. Window queries use these columns to select candidate
 series (`series_start_t < w1 AND series_end_t > w0`) before expanding.
 
-### 5.6 Searches and limits (Python: `lore.chronology.recurrence`)
+### 5.6 Searches and limits (`lore.chronology.recurrence`, `@lore/chronology` `recurrence/`)
 
 - `occurrence(key)`: keys are canonical (`0`, `12`; never `012` or `1.0` for single-occurrence
   rules); a key whose period yields no occurrence, or whose start is before the series start,

@@ -120,7 +120,9 @@ function step(
 }
 
 /** The units containing a moment, from the top level down to some level. */
-interface Path {
+export interface Path {
+  /** The year containing the moment. */
+  readonly year: bigint
   /** (parent template, child) per level below the top, coarse to fine. */
   readonly children: readonly (readonly [CompiledTemplate, Child])[]
   /** The template of the unit at the lowest level reached. */
@@ -130,7 +132,7 @@ interface Path {
 }
 
 /** The path to the `level` unit containing `t` in `regime` (proleptically). */
-function descend(
+export function descend(
   calendar: CompiledCalendar,
   regime: CompiledRegime,
   t: bigint,
@@ -148,7 +150,7 @@ function descend(
     offset -= found.offset
     template = regime.template(defined(found.segment.child))
   }
-  return { children, template, offset }
+  return { year, children, template, offset }
 }
 
 function variableStep(
@@ -194,13 +196,29 @@ function variableStep(
  * the first regular child). Anything but the same slot id or the same number is a constraining
  * step, which `reject` refuses.
  */
-function reapply(
+export function reapply(
   calendar: CompiledCalendar,
   template: CompiledTemplate,
   parent: CompiledTemplate,
   child: Child,
   overflow: Overflow,
 ): Child {
+  const found = reapplyOrNull(template, parent, child, overflow)
+  if (found === null) {
+    const levelId = defined(calendar.levels[parent.level - 1])
+    throw new DateError('invalid_date', `the ${levelId} doesn't exist in the target`, levelId)
+  }
+  return found
+}
+
+/** `reapply`, but `null` where `reject` refuses a constraining step (no exception: recurrence
+ * rules with `missing: skip` hit this in most periods). */
+export function reapplyOrNull(
+  template: CompiledTemplate,
+  parent: CompiledTemplate,
+  child: Child,
+  overflow: Overflow,
+): Child | null {
   const segment = child.segment
   let regular = childRegularIndex(child)
   const found =
@@ -208,10 +226,7 @@ function reapply(
       ? template.childBySlot(segment.slotId)
       : template.childByRegularIndex(defined(regular)) // unnamed children are never intercalary
   if (found !== null) return found
-  const levelId = defined(calendar.levels[parent.level - 1])
-  if (overflow === 'reject') {
-    throw new DateError('invalid_date', `the ${levelId} doesn't exist in the target`, levelId)
-  }
+  if (overflow === 'reject') return null
   regular ??= regularBefore(template, childIndex(parent, child)) - 1n
   if (template.regularCount === 0n) return template.childAt(0n)
   const last = template.regularCount - 1n

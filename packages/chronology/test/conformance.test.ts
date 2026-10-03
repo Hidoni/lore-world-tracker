@@ -40,7 +40,20 @@ import {
   validateCalendar,
 } from '../src/calendar'
 import { instantiatePreset, PresetError } from '../src/presets'
-import type { BaseUnit, Duration } from '../src/schema.gen'
+import {
+  countInWindow,
+  expand,
+  expansionToJson,
+  occurrence,
+  occurrenceAt,
+  occurrenceNumber,
+  occurrenceToJson,
+  type RecurrenceContext,
+  RecurrenceError,
+  seriesBounds,
+  seriesBoundsToJson,
+} from '../src/recurrence'
+import type { BaseUnit, Duration, EndSpec, RecurrenceRule } from '../src/schema.gen'
 import {
   type BigRational,
   floorDiv,
@@ -216,6 +229,33 @@ function compiled(calendar: CalendarFile | null): CompiledCalendar {
   return result
 }
 
+/** The rule and context of a recurrence case (README "Recurrence ops"). */
+function recurrence(
+  calendar: CalendarFile | null,
+  d: Json,
+): readonly [RecurrenceRule, RecurrenceContext] {
+  const dimensionDuration =
+    calendar === null
+      ? BigInt(str(d, 'dimension_duration'))
+      : BigInt((calendar.context as Json).dimension_duration as string)
+  const resolved = Object.fromEntries(
+    Object.entries(d.resolved as Record<string, string>).map(([key, t]) => [key, BigInt(t)]),
+  )
+  const ctx: RecurrenceContext = {
+    seriesStart: BigInt(str(d, 'series_start')),
+    end: d.end as EndSpec,
+    dimensionDuration,
+    calendar: calendar === null ? null : compiled(calendar),
+    resolved,
+  }
+  return [d.rule as RecurrenceRule, ctx]
+}
+
+const windowOf = (d: Json): readonly [bigint, bigint] => {
+  const [w0, w1] = d.window as [string, string]
+  return [BigInt(w0), BigInt(w1)]
+}
+
 /** op → engine call returning the result in the README's JSON shape (errors as `{error}`). */
 // Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
 const HANDLERS: Partial<Record<Op, Handler>> = {
@@ -309,16 +349,27 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
     const t = nextPhaseAt(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'), rat(d.phase))
     return { t: t.toString() }
   },
+  expand: (calendar, d) => {
+    const [rule, ctx] = recurrence(calendar, d)
+    return expansionToJson(expand(rule, ctx, windowOf(d), d.max_items as number))
+  },
+  series_bounds: (calendar, d) => seriesBoundsToJson(seriesBounds(...recurrence(calendar, d))),
+  occurrence: (calendar, d) =>
+    occurrenceToJson(occurrence(...recurrence(calendar, d), str(d, 'key'))),
+  count_in_window: (calendar, d) => {
+    const found = countInWindow(...recurrence(calendar, d), windowOf(d))
+    return { count: found.count.toString(), exact: found.exact }
+  },
+  occurrence_number: (calendar, d) => ({
+    number: occurrenceNumber(...recurrence(calendar, d), str(d, 'key')).toString(),
+  }),
+  occurrence_at: (calendar, d) => ({
+    key: occurrenceAt(...recurrence(calendar, d), BigInt(str(d, 't'))),
+  }),
 }
 
 /** op → issue that implements it in the TypeScript engine. */
 const PENDING: Partial<Record<Op, number>> = {
-  expand: 26,
-  series_bounds: 26,
-  occurrence: 26,
-  count_in_window: 26,
-  occurrence_number: 26,
-  occurrence_at: 26,
   map: 27,
   compose: 27,
 }
@@ -362,6 +413,7 @@ function run(op: Op, calendarName: string | null, input: Record<string, unknown>
     if (
       error instanceof NumberError ||
       error instanceof DateError ||
+      error instanceof RecurrenceError ||
       error instanceof PresetError
     ) {
       return { error: error.code }
