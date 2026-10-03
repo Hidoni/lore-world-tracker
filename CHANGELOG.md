@@ -20,3 +20,17 @@ All notable changes to this project are documented here. The format follows
   - Makefile entry point, dev orchestration (`make dev`), GitHub Actions CI (backend, frontend,
     contract, chronology, e2e, docker) and Dependabot.
   - Multi-stage Docker image and `docker-compose.yml` (author instance on `127.0.0.1:8080`).
+- **M1 Chronology engine** (#8–#29):
+  - The time engine in Python (`lore.chronology`) and TypeScript (`@lore/chronology`), sharing one
+    spec, exported JSON Schemas and conformance vectors that both engines pass.
+  - Calendars: definition validation and compilation, moment ⇄ fields conversions, unit bounds,
+    ordinals and picker options, parallel cycles (weeks), intercalary units, eras, regimes
+    (calendar reforms) and local anchors, astronomical overlays (moons, seasons).
+  - Calendar arithmetic (add with constrain/reject, diff by largest unit) and formatting
+    (patterns, defaults, intercalary formats, spans, large numbers).
+  - Calendar preset library with base-unit scaling.
+  - Recurrence rules: intervals, calendar rules, filters and selectors, cycle frequencies,
+    counts, exclusions, occurrence numbers and window expansion without bulk storage.
+  - Correspondence mapping between dimensions.
+  - Timeline viewport math, calendar-aware ticks and tiles.
+  - Cross-engine differential fuzzing (`make test-differential`) and benchmarks (`make bench`).
