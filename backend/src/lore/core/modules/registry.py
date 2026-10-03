@@ -12,6 +12,12 @@ from dataclasses import dataclass, replace
 
 from sqlalchemy import MetaData
 
+from lore.core.entities.extensions import (
+    CORE_KIND_EXTENSIONS,
+    CORE_PURGE_HOOKS,
+    KindExtension,
+    PurgeHook,
+)
 from lore.core.modules.spec import ModuleSpec
 from lore.core.registry.core import CORE_FIELD_TYPES, CORE_KINDS, CORE_LINK_TYPES
 from lore.core.registry.types import (
@@ -156,6 +162,18 @@ class ModuleRegistry:
             rules.extend(module.consistency_rules if module else ())
         return rules
 
+    def kind_extensions_for(self, enabled: Iterable[str]) -> dict[str, KindExtension]:
+        """The ``ext`` handler of each kind, from core and the enabled modules."""
+        return {
+            extension.kind: extension
+            for _owner, module in self._owners(enabled)
+            for extension in (CORE_KIND_EXTENSIONS if module is None else module.kind_extensions)
+        }
+
+    def purge_hooks(self) -> list[PurgeHook]:
+        """Purge hooks of core and **every** module (disabled modules keep their data)."""
+        return [*CORE_PURGE_HOOKS, *(hook for m in self.modules for hook in m.purge_hooks)]
+
     def all_kind_keys(self) -> set[str]:
         return {kind.key for kind in CORE_KINDS} | {
             kind.key for module in self.modules for kind in module.kinds
@@ -221,6 +239,7 @@ class ModuleRegistry:
         problems += self._validate_contributions(field_types, fields_by_kind)
         problems += self._validate_link_types()
         problems += self._validate_rules()
+        problems += self._validate_kind_extensions()
         return problems
 
     def _validate_field_types(self) -> tuple[dict[str, str], list[str]]:
@@ -315,6 +334,20 @@ class ModuleRegistry:
                 if rule.id in owners:
                     problems.append(f"{where} is already registered by {owners[rule.id]}")
                 owners[rule.id] = module.id
+        return problems
+
+    def _validate_kind_extensions(self) -> list[str]:
+        problems: list[str] = []
+        known = self.all_kind_keys()
+        owners: dict[str, str] = {e.kind: CORE for e in CORE_KIND_EXTENSIONS}
+        for module in self.modules:
+            for extension in module.kind_extensions:
+                where = f"{module.id}: kind extension for {extension.kind!r}"
+                if extension.kind not in known:
+                    problems.append(f"{where}: unknown kind")
+                if extension.kind in owners:
+                    problems.append(f"{where}: the kind already has one ({owners[extension.kind]})")
+                owners[extension.kind] = module.id
         return problems
 
     def _validate_tables(self) -> list[str]:

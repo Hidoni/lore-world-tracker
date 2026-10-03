@@ -57,11 +57,11 @@
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/vaults/{v}/entities` | list/filter: `kind, dimension, parent, tag, q, include_multiversal, include_trashed, sort, cursor, limit, timeline, at` (at → existence filter) |
-| POST | `/vaults/{v}/entities` | create any kind (`{kind, name, …, ext}`) |
-| GET | `/vaults/{v}/entities/{id}` | full entity: core fields, `ext`, aliases, tags, `state` (if `at`) |
-| PATCH | `/vaults/{v}/entities/{id}` | update (revision required) |
-| DELETE | `/vaults/{v}/entities/{id}` | move to trash (`?purge=true` for permanent, author only) |
-| POST | `/vaults/{v}/entities/{id}/restore` | restore from trash |
+| POST | `/vaults/{v}/entities` | create any kind (`{kind, name, …, aliases, tags, ext}`) → `201 {entity, affected}` |
+| GET | `/vaults/{v}/entities/{id}` | full entity: core fields, `ext`, aliases, tags, `state` (if `at`); trashed entities too (`deleted_at` set) |
+| PATCH | `/vaults/{v}/entities/{id}` | update (revision required) → `{entity, affected}`; `409 conflict` while trashed |
+| DELETE | `/vaults/{v}/entities/{id}` | move to trash (idempotent), or `?purge=true` for permanent (author only) → `{id, purged, entity, affected}` |
+| POST | `/vaults/{v}/entities/{id}/restore` | restore from trash (idempotent) → `{entity, affected}` |
 | GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (sorted) |
 | GET | `/vaults/{v}/tree` | lazy navigation tree: `dimension, parent, kinds` |
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
@@ -73,6 +73,26 @@
 | PATCH/DELETE | `/vaults/{v}/facts/{id}` | update/trash a fact |
 | GET | `/vaults/{v}/trash` | trashed entities |
 | GET | `/vaults/{v}/entities/field-values` | distinct values of a text field (`kind, field, q`) for autocomplete |
+
+Entity write semantics (`lore.core.entities.service`):
+
+- **PATCH** changes only the members sent. `fields` and `field_visibility` are **merged** into the
+  stored values (`null` removes a value or an override); `aliases` (items with an `id` keep that
+  alias) and `tags` (by name, case-insensitive, created when missing) **replace** the list. Any
+  change bumps `revision`, also one that only touches aliases, tags or `ext`.
+- **Field validation** (`data-model.md` §4.3): unknown keys → `422 validation_error` with
+  `errors[].path = "fields.<key>"` (`unknown_field`, `invalid_value`, `required`). Required fields
+  are checked on **every** save, so an entity missing a field that became required must fill it
+  on its next save.
+- **Rules:** home dimension and parent rules per `data-model.md` §3.4 (`422 validation_error` on
+  `dimension_id`, `422 parent_not_allowed`). Entities of kinds whose module is disabled answer
+  `404 module_disabled` on every route (and can't be created).
+- **Purge** only from the trash. It is refused with `409 conflict`
+  (`context.references: {<what>: <count>}`) while the entity has children (trashed ones too) or is
+  still referenced (a dimension's entities, a timeline's branch-only entities or links). Purge
+  hooks run first; aliases, tag assignments and links touching the entity are deleted with it.
+- `affected.entities` lists the entity, its old/new parents and, for a purge, the other endpoints
+  of deleted links. `affected.time_changed` is always `false` until M3.
 
 ### Links & link types
 

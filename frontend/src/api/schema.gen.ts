@@ -137,10 +137,284 @@ export interface paths {
         patch: operations["modules_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create
+         * @description Create an entity of any kind, with its aliases, tags and kind extension data.
+         */
+        post: operations["entities_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description The full entity (also when it is in the trash; ``deleted_at`` is then set).
+         */
+        get: operations["entities_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Move to the trash, or purge from it (``409 conflict`` while the entity isn't trashed, has
+         *     children or is still referenced).
+         */
+        delete: operations["entities_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change the members sent. ``409 revision_conflict`` (with ``context.current``) when
+         *     ``revision`` isn't the current one; ``409 conflict`` while the entity is in the trash.
+         */
+        patch: operations["entities_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Take the entity out of the trash.
+         */
+        post: operations["entities_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Affected
+         * @description What a write changed, for client cache invalidation (``frontend.md`` §5).
+         */
+        Affected: {
+            /** Entities */
+            entities: string[];
+            /** Dimensions */
+            dimensions: string[];
+            /** Time Changed */
+            time_changed: boolean;
+            /** Search Changed */
+            search_changed: boolean;
+        };
+        /**
+         * AliasIn
+         * @description An alias. Send the ``id`` of an existing alias to keep it (and its history).
+         */
+        AliasIn: {
+            id?: components["schemas"]["EntityId"] | null;
+            alias: components["schemas"]["EntityName"];
+            /** @default alias */
+            alias_kind: components["schemas"]["AliasKind"];
+            /** @default public */
+            visibility: components["schemas"]["Visibility"];
+        };
+        /** @enum {string} */
+        AliasKind: "alias" | "title" | "former_name" | "translation" | "nickname";
+        /** AliasOut */
+        AliasOut: {
+            /** Id */
+            id: string;
+            /** Alias */
+            alias: string;
+            alias_kind: components["schemas"]["AliasKind"];
+            visibility: components["schemas"]["Visibility"];
+        };
+        Color: string;
+        /** EntityCreate */
+        EntityCreate: {
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            body?: components["schemas"]["JsonObject"] | null;
+            /**
+             * Fields
+             * @description Field values to set (merged into the stored values; null removes a value).
+             */
+            fields?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Field Visibility
+             * @description Per-field visibility overrides (merged; null removes an override).
+             */
+            field_visibility?: {
+                [key: string]: components["schemas"]["Visibility"] | null;
+            };
+            icon?: components["schemas"]["Icon"] | null;
+            color?: components["schemas"]["Color"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            /** Aliases */
+            aliases?: components["schemas"]["AliasIn"][];
+            /** Tags */
+            tags?: components["schemas"]["TagName"][];
+            /** @description Kind extension data (e.g. a dimension's time spec, M3+). */
+            ext?: components["schemas"]["JsonObject"] | null;
+            /** Kind */
+            kind: string;
+            name: components["schemas"]["EntityName"];
+            /** @description Home dimension; null = multiversal (if the kind allows it). */
+            dimension_id?: components["schemas"]["EntityId"] | null;
+            parent_id?: components["schemas"]["EntityId"] | null;
+            /** @description Defaults to the vault's default visibility. */
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /**
+         * EntityDeleteResult
+         * @description ``entity`` is the trashed entity, or null when it was purged.
+         */
+        EntityDeleteResult: {
+            /** Id */
+            id: string;
+            /** Purged */
+            purged: boolean;
+            entity: components["schemas"]["EntityOut"] | null;
+            affected: components["schemas"]["Affected"];
+        };
+        EntityId: string;
+        EntityName: string;
+        /**
+         * EntityOut
+         * @description A full entity. ``fields`` and ``field_visibility`` only hold the kind's active fields
+         *     (values of archived fields and of disabled modules' fields are kept but not shown).
+         */
+        EntityOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Origin Timeline Id */
+            origin_timeline_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            body: components["schemas"]["JsonObject"] | null;
+            /** Body Schema Version */
+            body_schema_version: number | null;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /** Field Visibility */
+            field_visibility: {
+                [key: string]: components["schemas"]["Visibility"];
+            };
+            visibility: components["schemas"]["Visibility"];
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Cover Media Id */
+            cover_media_id: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Aliases */
+            aliases: components["schemas"]["AliasOut"][];
+            /** Tags */
+            tags: components["schemas"]["TagOut"][];
+            ext: components["schemas"]["JsonObject"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
+        /**
+         * EntityUpdate
+         * @description Only the members sent are changed. ``aliases`` and ``tags`` replace the whole list;
+         *     ``fields`` and ``field_visibility`` are merged.
+         */
+        EntityUpdate: {
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            body?: components["schemas"]["JsonObject"] | null;
+            /**
+             * Fields
+             * @description Field values to set (merged into the stored values; null removes a value).
+             */
+            fields?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Field Visibility
+             * @description Per-field visibility overrides (merged; null removes an override).
+             */
+            field_visibility?: {
+                [key: string]: components["schemas"]["Visibility"] | null;
+            };
+            icon?: components["schemas"]["Icon"] | null;
+            color?: components["schemas"]["Color"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            /** Aliases */
+            aliases?: components["schemas"]["AliasIn"][];
+            /** Tags */
+            tags?: components["schemas"]["TagName"][];
+            /** @description Kind extension data (e.g. a dimension's time spec, M3+). */
+            ext?: components["schemas"]["JsonObject"] | null;
+            /**
+             * Revision
+             * @description The revision the edit is based on (409 on mismatch).
+             */
+            revision: number;
+            name?: components["schemas"]["EntityName"] | null;
+            dimension_id?: components["schemas"]["EntityId"] | null;
+            parent_id?: components["schemas"]["EntityId"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** EntityWriteResult */
+        EntityWriteResult: {
+            entity: components["schemas"]["EntityOut"];
+            affected: components["schemas"]["Affected"];
+        };
         /** FieldOptionOut */
         FieldOptionOut: {
             /** Key */
@@ -207,6 +481,10 @@ export interface components {
              * @constant
              */
             status: "ok";
+        };
+        Icon: string;
+        JsonObject: {
+            [key: string]: unknown;
         };
         /** KindCapabilitiesOut */
         KindCapabilitiesOut: {
@@ -428,6 +706,17 @@ export interface components {
             /** Quick Fixes */
             quick_fixes: components["schemas"]["QuickFixOut"][];
         };
+        SortKey: string;
+        TagName: string;
+        /** TagOut */
+        TagOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string | null;
+        };
         /** TriggerOut */
         TriggerOut: {
             /**
@@ -515,6 +804,8 @@ export interface components {
         VaultUpdate: {
             name: components["schemas"]["VaultName"];
         };
+        /** @enum {string} */
+        Visibility: "public" | "spoiler" | "private";
     };
     responses: never;
     parameters: never;
@@ -831,6 +1122,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleUpdateResponse"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_delete: {
+        parameters: {
+            query?: {
+                /** @description Delete permanently (only entities already in the trash). */
+                purge?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDeleteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityWriteResult"];
                 };
             };
             /** @description Problem */

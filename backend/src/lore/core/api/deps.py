@@ -7,6 +7,7 @@ from fastapi import Depends, Path, Request
 from sqlalchemy.orm import Session
 
 from lore.config import Settings
+from lore.core.errors import ReadOnlyError
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.vaults import OpenVault, VaultManager
@@ -38,6 +39,16 @@ def get_vault(vault_id: VaultIdPath, manager: VaultManagerDep) -> OpenVault:
 
 
 VaultDep = Annotated[OpenVault, Depends(get_vault)]
+
+
+def get_writable_vault(vault: VaultDep) -> OpenVault:
+    """``get_vault`` for routes that write: ``403 read_only`` on a read-only server."""
+    if vault.read_only:
+        raise ReadOnlyError("The server is read-only.")
+    return vault
+
+
+WritableVaultDep = Annotated[OpenVault, Depends(get_writable_vault)]
 
 
 _READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
