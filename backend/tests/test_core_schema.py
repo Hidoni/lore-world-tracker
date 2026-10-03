@@ -18,7 +18,7 @@ from lore.core.db import create_vault_engine
 from lore.core.db.base import not_trashed
 from lore.core.db.types import SortableBigInt, UTCDateTime
 from lore.core.entities.models import Entity, EntityAlias, EntityTag, Tag
-from lore.core.links.models import Link, LinkTypeDef
+from lore.core.links.models import CustomLinkType, Link
 from lore.core.richtext.models import Mention
 from lore.core.types import MomentStr
 from tests.migration_harness import FIRST_REVISION, MigrationHarness
@@ -326,7 +326,7 @@ def test_link_overrides_and_type_defs(session: Session) -> None:
     a, b = make_entity(session, "A"), make_entity(session, "B")
     root = make_link(session, a, b, data={"rank": "Captain"})
     override = make_link(session, a, b, overrides_id=root.id, role="admiral")
-    definition = LinkTypeDef(key="custom.sworn_enemy", label="sworn enemy of", symmetric=True)
+    definition = CustomLinkType(key="custom.sworn_enemy", label="sworn enemy of", symmetric=True)
     session.add(definition)
     session.commit()
     assert override.overrides_id == root.id

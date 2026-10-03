@@ -1,16 +1,17 @@
 """FastAPI application factory."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 from lore import __version__
 from lore.config import Settings
 from lore.core.api import system
+from lore.core.api.deps import require_module
 from lore.core.api.errors import (
     PROBLEM_RESPONSES,
     install_error_handlers,
@@ -29,8 +30,12 @@ from lore.core.api.middleware import (
 from lore.core.api.spa import spa_router
 from lore.core.db import ensure_sqlite_capabilities
 from lore.core.logging import configure_logging
+from lore.core.models import load_metadata
+from lore.core.modules import ModuleRegistry, ModuleSpec
+from lore.core.modules import router as modules_router
 from lore.core.vaults import VaultManager
 from lore.core.vaults import router as vaults_router
+from lore.modules import ALL_MODULES
 
 API_BASE_PATH = "/api/v1"
 
@@ -52,7 +57,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.vaults.close()
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) -> FastAPI:
+    """The app. ``modules`` defaults to ``lore.modules.ALL_MODULES`` (tests pass their own); the
+    registry is validated here, so an invalid module set fails at startup."""
     app = FastAPI(
         title="Lore World Tracker",
         version=__version__,
@@ -63,6 +70,9 @@ def create_app(settings: Settings) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.registry = ModuleRegistry(
+        ALL_MODULES if modules is None else modules, core_metadata=load_metadata()
+    )
     app.state.vaults = VaultManager(
         settings.data_dir,
         read_only=settings.read_only,
@@ -74,6 +84,15 @@ def create_app(settings: Settings) -> FastAPI:
     api = APIRouter(prefix=API_BASE_PATH, responses=PROBLEM_RESPONSES)
     api.include_router(system.router)
     api.include_router(vaults_router.router)
+    api.include_router(modules_router.router)
+    for module in app.state.registry.modules:
+        for module_router in module.routers:
+            # Always mounted; require_module answers 404 module_disabled per vault (§2.2).
+            api.include_router(
+                module_router,
+                prefix=f"/vaults/{{vault_id}}/m/{module.id}",
+                dependencies=[Depends(require_module(module.id))],
+            )
     app.include_router(api)
 
     if settings.static_dir is not None:

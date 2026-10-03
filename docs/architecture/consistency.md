@@ -34,6 +34,10 @@ class RuleDef:
     quick_fixes: tuple[QuickFixDef, ...] = ()  # optional automated remedies offered in the UI
 ```
 
+Implementation: `lore.core.registry.RuleDef` (with `Trigger` and `QuickFixDef`). Modules register
+rules in `ModuleSpec.consistency_rules` and the registry endpoint lists those of enabled modules.
+Until the engine exists (M3-12), `check`/`scan` default to returning no findings.
+
 `RuleContext` gives access to the session, `TimelineView`, the existence/as-of helpers, compiled
 calendars and the vault settings. Rules are pure readers. Only quick fixes write, and they do so
 through normal services.

@@ -14,6 +14,7 @@ from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
 from lore.core.vaults import VaultManager
+from lore.modules import load_metadata
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
 chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine assets.")
@@ -156,7 +157,7 @@ def db_revision(
 ) -> None:
     """Write a new migration into src/lore/migrations/versions/."""
     try:
-        path = Migrator().revision(message, autogenerate=autogenerate)
+        path = Migrator(metadata=load_metadata).revision(message, autogenerate=autogenerate)
     except LoreError as exc:
         _fail(exc)
     typer.echo(f"wrote {path}")
@@ -166,7 +167,7 @@ def db_revision(
 @db_app.command("check")
 def db_check() -> None:
     """Fail unless the history has exactly one head and the models match the migrations."""
-    problems = Migrator().check()
+    problems = Migrator(metadata=load_metadata).check()
     for problem in problems:
         typer.echo(problem, err=True)
     if problems:

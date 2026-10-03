@@ -44,8 +44,8 @@
 | GET/POST | `/vaults` | list `{items, problems}` (items most recently modified first; `problems` = folders that can't be opened, `persistence-and-migrations.md` §1) / create (`{name}`) |
 | GET/PATCH/DELETE | `/vaults/{v}` | read / rename (`{name}`; display name only) / move to data trash |
 | POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) → `{vault, from_revision, to_revision, backup}`; vaults carry `schema_status {state, revision, head}` (`persistence-and-migrations.md` §3.3) |
-| GET | `/vaults/{v}/registry` | kinds, field types, field defs, link types, modules, consistency rules (drives the generic UI) |
-| PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) |
+| GET | `/vaults/{v}/registry` | `{kinds (with module, capabilities, allowed parents, fields incl. enabled contributions), field_types, link_types (code-registered + user-defined, hidden when their kinds are unavailable), modules (enabled flags, deps), consistency_rules}` for the vault's enabled modules (drives the generic UI) |
+| PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) → `{enabled, disabled, modules}` (`modules.md` §4) |
 | GET/PATCH | `/vaults/{v}/settings` | display prefs, defaults, backup schedule |
 | GET/POST | `/vaults/{v}/backups` | list / create backup |
 | GET | `/vaults/{v}/backups/{id}/download` | download zip |
@@ -150,7 +150,7 @@
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
 `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,
-`override_not_allowed`, `upload_rejected`, `revert_conflict`, `consistency_error` (an
+`override_not_allowed`, `module_not_found`, `module_has_dependents`, `upload_rejected`, `revert_conflict`, `consistency_error` (an
 error-severity rule blocks the write; `errors` lists findings). Other framework HTTP errors use `http_<status>`.
 
 ## 4. Static-export compatibility

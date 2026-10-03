@@ -48,7 +48,7 @@ class Link(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDeleteM
     )
 
 
-class LinkTypeDef(RevisionMixin, TimestampsMixin, Base):
+class CustomLinkType(RevisionMixin, TimestampsMixin, Base):
     """A user-defined link type (``custom.<slug>``). Core and module link types are registered in
     code; the registry merges both."""
 

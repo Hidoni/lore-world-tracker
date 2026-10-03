@@ -152,7 +152,7 @@ def test_db_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
             "b.py": migration_source("fork00000002", REAL_HEAD, "pass"),
         },
     )
-    monkeypatch.setattr(cli, "Migrator", lambda: Migrator(forked))
+    monkeypatch.setattr(cli, "Migrator", lambda **_: Migrator(forked))
     failed = runner.invoke(cli.app, ["db", "check"])
     assert failed.exit_code == 1
     assert "exactly one head, found 2" in failed.stderr
@@ -163,7 +163,7 @@ def test_db_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 def test_db_revision(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     location = script_directory(tmp_path / "m", {})
-    monkeypatch.setattr(cli, "Migrator", lambda: Migrator(location))
+    monkeypatch.setattr(cli, "Migrator", lambda **_: Migrator(location))
     result = runner.invoke(cli.app, ["db", "revision", "-m", "add things", "--autogenerate"])
     assert result.exit_code == 0, result.output
     [new] = list((location / "versions").glob("*_add_things.py"))

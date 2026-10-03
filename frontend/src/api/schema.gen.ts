@@ -99,10 +99,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["registry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/modules/{module_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Enable (also enables dependencies) or disable (``409 module_has_dependents`` while
+         *     dependents are enabled, unless ``cascade``) a module for this vault. Data is never deleted.
+         */
+        patch: operations["modules_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** FieldOptionOut */
+        FieldOptionOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Color */
+            color: string | null;
+        };
+        /** FieldOut */
+        FieldOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Type */
+            type: string;
+            /** Options */
+            options: components["schemas"]["FieldOptionOut"][];
+            /** Multiple */
+            multiple: boolean;
+            /** Required */
+            required: boolean;
+            /** Temporal */
+            temporal: boolean;
+            /**
+             * Default Visibility
+             * @enum {string}
+             */
+            default_visibility: "public" | "spoiler" | "private";
+            /** Section */
+            section: string | null;
+            /** Sort */
+            sort: number;
+            /** Help */
+            help: string;
+            /** Searchable */
+            searchable: boolean;
+            /** Archived */
+            archived: boolean;
+        };
+        /** FieldTypeOut */
+        FieldTypeOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+        };
+        /** GraphStyleOut */
+        GraphStyleOut: {
+            /** Color */
+            color: string | null;
+            /** Dashed */
+            dashed: boolean;
+            /** Weight */
+            weight: number;
+        };
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -110,6 +207,85 @@ export interface components {
              * @constant
              */
             status: "ok";
+        };
+        /** KindCapabilitiesOut */
+        KindCapabilitiesOut: {
+            /** Has Body */
+            has_body: boolean;
+            /** Can Be Multiversal */
+            can_be_multiversal: boolean;
+            /** Has Existence */
+            has_existence: boolean;
+            /** Can Have Worldline */
+            can_have_worldline: boolean;
+            /** Is Time Bound */
+            is_time_bound: boolean;
+            /** Is System */
+            is_system: boolean;
+        };
+        /** KindOut */
+        KindOut: {
+            /** Key */
+            key: string;
+            /** Module */
+            module: string;
+            /** Label */
+            label: string;
+            /** Plural */
+            plural: string;
+            /** Icon */
+            icon: string;
+            /** Color */
+            color: string;
+            /** Description */
+            description: string;
+            /** Allowed Parents */
+            allowed_parents: string[];
+            capabilities: components["schemas"]["KindCapabilitiesOut"];
+            /** Fields */
+            fields: components["schemas"]["FieldOut"][];
+        };
+        /** LinkTypeOut */
+        LinkTypeOut: {
+            /** Key */
+            key: string;
+            /** Module */
+            module: string;
+            /** User Defined */
+            user_defined: boolean;
+            /** Label */
+            label: string;
+            /** Inverse Label */
+            inverse_label: string | null;
+            /** Description */
+            description: string;
+            /** Source Kinds */
+            source_kinds: string[] | "*";
+            /** Target Kinds */
+            target_kinds: string[] | "*";
+            /** Symmetric */
+            symmetric: boolean;
+            /**
+             * Temporal
+             * @enum {string}
+             */
+            temporal: "never" | "optional" | "required";
+            /**
+             * Unique
+             * @enum {string}
+             */
+            unique: "none" | "per_pair" | "per_pair_per_period";
+            /** Max Targets Per Source */
+            max_targets_per_source: number | null;
+            /** Max Sources Per Target */
+            max_sources_per_target: number | null;
+            /** Data Schema */
+            data_schema: {
+                [key: string]: unknown;
+            } | null;
+            graph: components["schemas"]["GraphStyleOut"];
+            /** Archived */
+            archived: boolean;
         };
         /** MetaResponse */
         MetaResponse: {
@@ -136,6 +312,40 @@ export interface components {
              * @description The pre-migration backup; null if nothing changed.
              */
             backup: string | null;
+        };
+        /** ModuleState */
+        ModuleState: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Depends On */
+            depends_on: string[];
+            /** Default Enabled */
+            default_enabled: boolean;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** ModuleUpdate */
+        ModuleUpdate: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Cascade
+             * @default false
+             */
+            cascade: boolean;
+        };
+        /** ModuleUpdateResponse */
+        ModuleUpdateResponse: {
+            /** Enabled */
+            enabled: string[];
+            /** Disabled */
+            disabled: string[];
+            /** Modules */
+            modules: components["schemas"]["ModuleState"][];
         };
         /**
          * Problem
@@ -167,6 +377,66 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+        };
+        /** QuickFixOut */
+        QuickFixOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * Registry
+         * @description Everything the generic UI is generated from, for this vault's enabled modules.
+         */
+        Registry: {
+            /** Kinds */
+            kinds: components["schemas"]["KindOut"][];
+            /** Field Types */
+            field_types: components["schemas"]["FieldTypeOut"][];
+            /** Link Types */
+            link_types: components["schemas"]["LinkTypeOut"][];
+            /** Modules */
+            modules: components["schemas"]["ModuleState"][];
+            /** Consistency Rules */
+            consistency_rules: components["schemas"]["RuleOut"][];
+        };
+        /** RuleOut */
+        RuleOut: {
+            /** Id */
+            id: string;
+            /** Owner */
+            owner: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "structural" | "narrative" | "advanced_time" | "module";
+            /**
+             * Default Severity
+             * @enum {string}
+             */
+            default_severity: "off" | "warning" | "error";
+            /** Configurable */
+            configurable: boolean;
+            /** Triggers */
+            triggers: components["schemas"]["TriggerOut"][];
+            /** Quick Fixes */
+            quick_fixes: components["schemas"]["QuickFixOut"][];
+        };
+        /** TriggerOut */
+        TriggerOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "record" | "link_type" | "field";
+            /** Key */
+            key: string;
         };
         /**
          * Vault
@@ -491,6 +761,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MigrationResponse"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    registry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Registry"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    modules_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Module id. */
+                module_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleUpdateResponse"];
                 };
             };
             /** @description Problem */

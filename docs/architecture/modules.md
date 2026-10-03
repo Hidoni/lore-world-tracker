@@ -78,7 +78,9 @@ class ModuleSpec:
     default_enabled: bool = True
     kinds: tuple[KindDef, ...] = ()
     field_contributions: tuple[FieldContribution, ...] = ()   # fields added to other modules' kinds
+    field_types: tuple[FieldTypeDef, ...] = ()                # extra field value types (media: "media")
     link_types: tuple[LinkTypeDef, ...] = ()                  # keys must start with "<id>."
+    models: tuple[type, ...] = ()                             # ORM classes of the module's tables ("<id>_…")
     routers: tuple[APIRouter, ...] = ()
     slot_providers: tuple[SlotProvider, ...] = ()             # module records with time slots
     timeline_tables: tuple[TimelineTableSpec, ...] = ()       # module tables readable through TimelineView
@@ -94,22 +96,43 @@ class ModuleSpec:
     on_disable: Callable[[VaultContext], None] | None = None
 ```
 
+Implementation: `lore.core.modules.ModuleSpec`. The definition types (`KindDef`, `FieldDef`,
+`FieldContribution`, `FieldTypeDef`, `LinkTypeDef`, `RuleDef`) live in `lore.core.registry`, which
+also holds core's own definitions (the field types of `data-model.md` §4.2, kinds `dimension`,
+`timeline`, `calendar`, `event`, and link types `core.participant`, `core.causes`,
+`core.related`). Extension points whose machinery comes later (slot providers, search, graph,
+visibility, rich-text, backup and publish contributors) are accepted and stored as opaque objects
+until their issue defines the protocol. `field_types` and `models` were added to the original
+design: the media module provides the `media` field type, and the explicit model list lets the
+registry validate table prefixes and include module tables in the migration metadata
+(`lore.modules.load_metadata`). `on_enable`/`on_disable` receive a `VaultContext` (vault,
+request session inside its transaction, registry).
 ### 2.2 Registration
 
 - `lore/modules/__init__.py` defines `ALL_MODULES: list[ModuleSpec]`. The list is explicit and
   ordered: no entry points and no dynamic discovery.
-- At startup `ModuleRegistry.validate()` checks: unique ids; dependencies exist and are acyclic;
-  kind/link/rule keys are unique and correctly prefixed; table names are prefixed with the
-  module id.
-- Routers are always mounted. A FastAPI dependency (`require_module("<id>")`) returns
-  `404 {code: "module_disabled"}` when the module is disabled for the vault.
+- At startup (`create_app`) `ModuleRegistry.validate()` checks, and reports every problem at
+  once: ids match `^[a-z][a-z0-9_]*$`, are unique and not reserved (`core`, `custom`);
+  dependencies exist and are acyclic; kind keys are unique (also against core's) and their
+  allowed parents exist (or are `misc`); own field keys are unprefixed and contributed ones are
+  `<id>.<key>`, unique per kind, of a known field type, and enums have options; contributions
+  target existing kinds; field types are unique; link-type keys and rule ids start with `<id>.`,
+  are unique, rules' `owner` is the module and link types name existing kinds; module tables are
+  prefixed `<id>_`, unique and not core tables (and no core table uses a module prefix).
+- Routers are always mounted, at `/api/v1/vaults/{vault_id}/m/<id>/`, and `create_app` adds the
+  FastAPI dependency `require_module("<id>")` (`lore.core.api.deps`) to each, which returns
+  `404 {code: "module_disabled"}` when the module is disabled for the vault. Other module-gated
+  code can depend on it too.
 
 ### 2.3 Boundaries (enforced by import-linter)
 
 - `lore.chronology` imports nothing from `lore`.
 - `lore.core` never imports `lore.modules`.
 - `lore.modules.<a>` may import `lore.core.*` (public APIs) and `lore.modules.<b>.api` only if
-  `<b>` is in `<a>.depends_on`.
+  `<b>` is in `<a>.depends_on`. This rule depends on each module's declared dependencies, so it
+  is generated from the registry: `tests/test_architecture.py` parses every file under
+  `lore/modules/<a>/` and fails on imports of another module's non-`api` code, of undeclared
+  dependencies, or of `lore.modules` itself, and on module packages missing from `ALL_MODULES`.
 
 ## 3. Frontend module anatomy
 
@@ -152,11 +175,17 @@ defineModule({
 
 ## 4. Enabling and disabling
 
-- Settings: `vault_meta.settings.modules.<id>.enabled`. New vaults enable every module with
-  `default_enabled`.
+- Settings: `vault_meta.settings.modules.<id> = {enabled, settings}`. A module without an entry
+  uses its `default_enabled`, so new vaults enable every module with `default_enabled`, and a
+  module added in a later release follows its default in existing vaults. Only `PATCH` writes
+  entries. A module is **effectively** enabled only if every dependency is too.
 - `PATCH /api/v1/vaults/{v}/modules/{id} {enabled}`:
-  - enabling a module also enables its dependencies (the response lists them);
-  - disabling a module with enabled dependents fails with `409` unless `cascade: true`.
+  - enabling a module also enables its dependencies;
+  - disabling a module with enabled dependents fails with `409 module_has_dependents`
+    (`context.dependents`) unless `cascade: true`, which disables them too;
+  - the response is `{enabled, disabled, modules}`: the modules switched on and off by the request
+    and every module's resulting state. Hooks run for each switched module, inside the request's
+    transaction. Unknown ids return `404 module_not_found`; read-only servers `403 read_only`.
 - Effects of disabling (data is **never** deleted):
   - entities of the module's kinds are hidden from lists, search, graph, timeline and navigation,
     and direct reads return `404 module_disabled`;
