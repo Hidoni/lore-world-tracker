@@ -71,7 +71,16 @@ npx rolldown packages/chronology/src/index.ts --minify --format esm | gzip -9 | 
 
 `npm run test` runs the unit tests in `src/` and the conformance runner `test/conformance.test.ts`
 (every vector in `spec/chronology/conformance/`; pending ops are listed there with the issue that
-implements them).
+implements them). The ops (op → engine call, in the README's JSON shapes) are in `bin/ops.ts`.
+
+## chrono-exec (differential testing)
+
+`bin/chrono-exec.ts` runs conformance ops read as JSON lines from stdin (`{"op", "calendar",
+"input"}`) and writes one result line each (`{"result"}` or `{"crash"}`). The Python differential
+tests (`make test-differential`, `docs/architecture/testing.md` §6) drive it to compare the two
+engines on random cases. Node can't run the engine source directly (extensionless imports, JSON
+modules), so `npm run build:exec` bundles it with rolldown into `dist/chrono-exec.mjs` first (the
+tests do that themselves).
 
 ## Rules
 
@@ -86,6 +95,9 @@ Rules for code in this package:
 
 ## Benchmarks
 
-`npm run bench -w @lore/chronology` runs `test/**/*.bench.ts` with Vitest's benchmark runner
-(`ticks.bench.ts` asserts the < 2 ms tick target). Benchmarks are kept out of `npm test` and
-`make check`: timings are noisy, and coverage instrumentation skews them.
+`npm run bench -w @lore/chronology` (or `make bench`, with the Python twins) runs
+`test/**/*.bench.ts` with Vitest's benchmark runner: `engine.bench.ts` (compile, conversions,
+ordinals, add/diff, recurrence) and `ticks.bench.ts` (the < 2 ms tick target) each assert their
+budget (`docs/architecture/testing.md` §4.1) on the median. Benchmarks are kept out of `npm test`
+and `make check`: timings are noisy, and coverage instrumentation skews them. CI runs them
+nightly.

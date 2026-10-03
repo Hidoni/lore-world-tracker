@@ -23,6 +23,7 @@ dev = [
     "import-linter>=2.15",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
+    "pytest-benchmark>=5.3.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
 ]
@@ -75,13 +76,13 @@ testpaths = ["tests"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "-m", "not perf",
+    "-m", "not perf and not slow",
     "--cov=lore",
     "--cov-report=term-missing:skip-covered",
 ]
 markers = [
     "perf: performance budget tests (nightly, or with `-m perf`)",
-    "slow: slow tests (large fixtures, many hypothesis examples)",
+    "slow: slow tests: the differential suite (`make test-differential`, needs Node)",
 ]
 filterwarnings = ["error"]
 

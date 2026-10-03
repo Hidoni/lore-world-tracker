@@ -72,6 +72,25 @@ Measured on the `large` sample vault on a typical dev laptop:
 Perf tests are marked `perf` and run nightly and when a PR has the label `perf`. Regressions
 greater than 25% fail the nightly run.
 
+### 4.1 Chronology engine budgets
+
+Both engines, on the conformance calendar `gregorian-seconds` (one-second base units) unless
+noted. `make bench` runs the benchmarks (`backend/tests/chronology/test_benchmarks.py` with
+pytest-benchmark, `packages/chronology/test/*.bench.ts` with Vitest bench), which assert each
+budget on the median; the `perf` tests next to each feature's unit tests check the same budgets
+with plain timers. CI runs them nightly.
+
+| Operation | Budget | Set by |
+|-----------|--------|--------|
+| Compile the Gregorian preset | < 20 ms | #29 |
+| Compile a 1,000,000-year top period (and < 300 MB peak in Python) | < 2 s | #10 |
+| `to_fields` / `from_fields` (years 0 to ~6 million) | ≥ 50,000/s each (< 20 µs) | #11 |
+| `ordinal` + `from_ordinal` (moments up to 10^30; 1,000,000-year periods included) | ≥ 10,000 pairs/s (< 100 µs) | #12 |
+| `diff` (years to seconds) + `add` back, moments up to 10^200 | < 10 ms per pair (300 in < 3 s) | #16 |
+| `expand` a monthly rule in a window 10^90 years after the series start | < 50 ms | #19 |
+| `series_bounds` of a yearly rule with `count` 10^12, calendar freshly compiled | < 100 ms | #21 |
+| `ticks` for any viewport (TS) | < 2 ms | #28 |
+
 ## 5. CI pipeline (GitHub Actions)
 
 Jobs on every PR (and on `main`):
@@ -80,11 +99,11 @@ Jobs on every PR (and on `main`):
 |-----|-------|
 | `backend` | `uv sync --frozen` · `ruff check` · `ruff format --check` · `mypy` · `lint-imports` · `pytest` (units, API, migrations, leak tests) |
 | `frontend` | `npm ci` · `eslint` · `tsc -b` · `vitest run` · `vite build` |
-| `chronology` | `make check-chronology` (JSON Schema export drift · TS schema type drift) · `make test-chronology` (both engines' chronology tests incl. the conformance runners) |
+| `chronology` | `make check-chronology` (JSON Schema export drift · TS schema type drift) · `make test-chronology` (both engines' chronology tests incl. the conformance runners) · `make test-differential` with 1,000 cases (§6) when `spec/chronology`, `backend/src/lore/chronology`, `backend/tests/chronology` or `packages/chronology` changed (a step-level skip, so the check still reports) |
 | `contract` | dump OpenAPI → regenerate `schema.gen.ts` → `git diff --exit-code` · `lore db check` (single head, empty autogenerate diff) |
 | `docker` | `make docker` (build the image) · `make docker-smoke` (`scripts/docker-smoke.sh`): start it through `docker-compose.yml` in a temp project dir, wait for the healthcheck, `GET /api/v1/health` · `/api/v1/meta` has a version · `GET /` (and a client route) serves the SPA · the process is not root · a write to `/data` lands in the host's `./data` |
 | `e2e` | `make e2e` (`scripts/e2e.sh`): build the SPA, `lore serve` it with `LORE_STATIC_DIR` on a temp `LORE_DATA_DIR`, wait for `/api/v1/health`, run the Playwright journeys available so far with `E2E_BASE_URL`. Runs on every PR while it is a fast smoke test; restrict it to `frontend/`, `packages/` and `backend/` changes (with a job-level skip, so the required check still reports) once journeys make it slow |
-| `nightly` (schedule) | full e2e, perf, dependency audit (`uv pip audit`/`npm audit --omit=dev` advisory) |
+| `nightly` (schedule, `.github/workflows/nightly.yml`) | now: `make test-differential` with 10,000 new random cases (§6) · `make bench` (§4.1). Later: full e2e, the other perf budgets, dependency audit (`uv pip audit`/`npm audit --omit=dev` advisory) |
 
 The workflow is `.github/workflows/ci.yml`; each job calls the same `make` target developers run
 locally (`check-backend`, `check-frontend`, `check-contract`, `check-chronology`, `test-chronology`, `e2e`, `docker`
@@ -94,3 +113,32 @@ on green, see `workflow.md` §7). A new push cancels the superseded run of the s
 (`.github/dependabot.yml`) opens weekly grouped updates for `uv` (backend), `npm` (root) and
 GitHub Actions.
 Use caching for uv, npm and Playwright browsers. Keep the PR pipeline under ~12 minutes.
+
+## 6. Differential testing (chronology)
+
+The conformance vectors pin the cases someone thought of. Differential tests look for drift
+between the two engines everywhere else (ADR-0004, `chronology-engine.md` §14):
+`backend/tests/chronology/differential/` generates random cases with hypothesis, runs each through
+the Python engine and through the TypeScript engine (the Node CLI
+`packages/chronology/bin/chrono-exec.ts`, one process for the run), and compares the results
+exactly, like vectors (`validate` errors as a set).
+
+- **Cases.** Random calendars with bounded sizes (2–4 levels, up to two regimes with absolute or
+  `local` starts, uniform and sequence templates with named, run and intercalary children, fixed,
+  cycle and rules top patterns, exceptions, eras, an overlay, continuous and reset cycles with
+  exclusions, formats and display options), each `validate`d as is and with random corruptions.
+  On a valid calendar, ops with moments over the whole dimension and near its special moments:
+  conversions (dates read off the calendar, then perturbed), bounds, ordinals, options, cycles,
+  eras, overlays, add/diff, formatting and calendar recurrence rules. Then calendar-free ops:
+  interval rules, correspondences (`map`, `compose`) and the numeric utilities. Generated
+  documents may be invalid on purpose: both engines must report the same errors.
+- **Sizes.** `DIFFERENTIAL_CASES` (default 200 locally, 1,000 in PR CI, 10,000 nightly). PR runs
+  are derandomized (the same cases every time); the nightly run sets `DIFFERENTIAL_RANDOM=1` to
+  explore new ones.
+- **Findings.** A discrepancy (or a crash of either engine) fails with the case as a ready-made
+  conformance case and its calendar. Add it as a vector with the spec's expected result (note:
+  "found by differential testing"), then fix the engine that is wrong. A random nightly failure
+  also prints a hypothesis `@reproduce_failure` blob.
+- The tests are marked `slow` and excluded from `pytest` by default; `make test-differential`
+  runs them (it needs Node). The engine calls are shared with the conformance runners
+  (`backend/tests/chronology/ops.py`, `packages/chronology/bin/ops.ts`).
