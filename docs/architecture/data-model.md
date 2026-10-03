@@ -33,6 +33,10 @@
 | `created_at` | timestamp |
 | `settings` | `{modules: {<id>: {enabled: bool, settings: {...}}}, consistency: {<rule_id>: "off"|"warning"|"error"}, display: {...}, defaults: {visibility: "public"}}` |
 
+`vault_id`, `name` and `created_at` are seeded by the first migration from `vault.json`, which stays
+authoritative for the name (`vault_meta.name` follows it on rename and on open). Model:
+`lore.core.vaults.meta.VaultMeta` (`get_meta`/`set_meta`).
+
 Alembic's `alembic_version` table holds the schema revision. `vault.json` holds the **vault
 format version** (folder layout; see persistence doc).
 

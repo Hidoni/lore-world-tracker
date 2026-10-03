@@ -28,8 +28,19 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from lore import __version__
 from lore.core.db import create_vault_engine, optimize
-from lore.core.errors import ReadOnlyError
-from lore.core.vaults.errors import VaultNotFoundError
+from lore.core.db.migrate import (
+    Migrator,
+    SchemaState,
+    SchemaStatus,
+    backup_database,
+)
+from lore.core.errors import InvalidInputError, ReadOnlyError
+from lore.core.vaults.errors import (
+    VaultMigrationFailedError,
+    VaultNeedsMigrationError,
+    VaultNewerThanAppError,
+    VaultNotFoundError,
+)
 from lore.core.vaults.format import (
     DATABASE_NAME,
     FORMAT_VERSION,
@@ -47,6 +58,7 @@ from lore.core.vaults.format import (
     write_manifest,
 )
 from lore.core.vaults.lock import VaultLock
+from lore.core.vaults.meta import get_meta, set_meta
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +163,33 @@ class OpenVault:
         return self.info.id
 
 
+type VaultSchemaState = Literal[
+    "current", "needs_migration", "newer_than_app", "migration_failed", "database_unreadable"
+]
+
+
+@dataclass(frozen=True)
+class VaultSchema:
+    """Where a vault's database stands relative to this app's migrations."""
+
+    state: VaultSchemaState
+    revision: str | None
+    head: str
+
+
+@dataclass(frozen=True)
+class MigrationResult:
+    from_revision: str | None
+    to_revision: str
+    backup: Path | None  # None when nothing had to be migrated
+
+
+@dataclass(frozen=True)
+class _Failure:
+    detail: str
+    backup: Path
+
+
 class VaultManager:
     def __init__(
         self,
@@ -158,13 +197,19 @@ class VaultManager:
         *,
         read_only: bool = False,
         exposed_vaults: Iterable[str] = (),
+        auto_migrate: bool = True,
+        migrator: Migrator | None = None,
     ) -> None:
         self.data_dir = data_dir
         self.read_only = read_only
         self.exposed_vaults = frozenset(exposed_vaults)
+        self.auto_migrate = auto_migrate
+        self.migrator = migrator or Migrator()
         self._guard = threading.RLock()
         self._open: dict[str, OpenVault] = {}
         self._locks: dict[str, VaultLock] = {}
+        # Vaults whose migration failed in this process: unusable until restart (§3.3).
+        self._failed: dict[str, _Failure] = {}
 
     @property
     def vaults_dir(self) -> Path:
@@ -259,6 +304,30 @@ class VaultManager:
             raise VaultNotFoundError(f"No vault with id {vault_id!r}.")
         return info
 
+    def resolve(self, reference: str) -> VaultInfo:
+        """A vault by id or folder name (CLI arguments)."""
+        if is_valid_vault_id(reference):
+            return self.get(reference)
+        for info in self._scan().vaults.values():
+            if info.folder == reference:
+                return info
+        raise VaultNotFoundError(f"No vault with id or folder {reference!r}.")
+
+    def schema_status(self, info: VaultInfo) -> VaultSchema:
+        """The vault's schema state, read without opening (or writing) it."""
+        head = self.migrator.head()
+        failure = self._failed.get(info.id)
+        if info.id in self._open:
+            return VaultSchema("current", head, head)
+        try:
+            status = self.migrator.status_of(info.database_path)
+        except Exception:
+            logger.warning("cannot read the database of vault %s", info.id, exc_info=True)
+            return VaultSchema("database_unreadable", None, head)
+        if failure is not None:
+            return VaultSchema("migration_failed", status.revision, head)
+        return VaultSchema(status.state.value, status.revision, head)
+
     # --- writes -------------------------------------------------------------------------------
 
     def _require_writable(self) -> None:
@@ -266,7 +335,7 @@ class VaultManager:
             raise ReadOnlyError("Vaults can't be changed on a read-only server.")
 
     def create(self, name: str) -> VaultInfo:
-        """Create ``vaults/<folder>/`` with ``vault.json`` and an empty database.
+        """Create ``vaults/<folder>/`` with ``vault.json`` and a database migrated to head.
 
         The folder is assembled under a hidden staging name and renamed into place, so a crash
         never leaves a half-created vault in the registry.
@@ -286,6 +355,9 @@ class VaultManager:
         try:
             write_manifest(staging, manifest)
             _create_database(staging / DATABASE_NAME)
+            self.migrator.upgrade(
+                staging / DATABASE_NAME, attributes={"vault": _vault_identity(manifest)}
+            )
             with self._guard:
                 folder = next(
                     candidate
@@ -314,6 +386,7 @@ class VaultManager:
             write_manifest(info.path, renamed.manifest)
             if vault_id in self._open:
                 self._open[vault_id].info = renamed
+                _sync_meta_name(self._open[vault_id])
             return renamed
 
     def trash(self, vault_id: str) -> Path:
@@ -349,14 +422,21 @@ class VaultManager:
         return lock
 
     def open(self, vault_id: str) -> OpenVault:
-        """The opened vault (cached). Author mode takes the lock and runs vault-format upgraders
-        first; read-only mode only reads."""
+        """The opened vault (cached).
+
+        Author mode takes the lock, runs vault-format upgraders, then compares the schema
+        revision with head: newer → ``409 vault_newer_than_app``; older → migrate (with a
+        pre-migration backup) or, with auto-migration off, ``409 vault_needs_migration``.
+        Read-only mode only reads, and refuses vaults that aren't at head.
+        """
         with self._guard:
             opened = self._open.get(vault_id)
             if opened is not None:
                 return opened
             info = self.get(vault_id)
+            self._raise_if_failed(vault_id)
             if self.read_only:
+                self._require_current(self.migrator.status_of(info.database_path))
                 engine = create_vault_engine(
                     info.database_path, read_only=True, immutable=info.manifest.published
                 )
@@ -365,10 +445,87 @@ class VaultManager:
                 if info.needs_format_upgrade:
                     write_manifest(info.path, info.manifest)
                     info = replace(info, needs_format_upgrade=False)
+                status = self.migrator.status_of(info.database_path)
+                if status.state is SchemaState.NEEDS_MIGRATION and self.auto_migrate:
+                    self._migrate(info, status, status.head)
+                else:
+                    self._require_current(status)
                 engine = create_vault_engine(info.database_path)
             opened = OpenVault(info, engine, self.read_only)
+            if not self.read_only:
+                _sync_meta_name(opened)
             self._open[vault_id] = opened
             return opened
+
+    def migrate(self, vault_id: str, target: str = "head") -> MigrationResult:
+        """Upgrade the vault's database to ``target`` (a revision id or ``head``), after a
+        pre-migration backup. A vault already at the target is left alone."""
+        self._require_writable()
+        with self._guard:
+            info = self.get(vault_id)
+            self._raise_if_failed(vault_id)
+            self._lock(info)
+            status = self.migrator.status_of(info.database_path)
+            if status.state is SchemaState.NEWER_THAN_APP:
+                self._require_current(status)
+            to_revision = status.head if target == "head" else target
+            if to_revision == status.revision:
+                return MigrationResult(status.revision, to_revision, None)
+            if not self.migrator.is_ahead(to_revision, status.revision):
+                raise InvalidInputError(
+                    f"{target!r} is not a revision after the vault's current revision "
+                    f"({status.revision or 'none'}); downgrades are done by restoring a backup."
+                )
+            return self._migrate(info, status, to_revision)
+
+    def _migrate(self, info: VaultInfo, status: SchemaStatus, target: str) -> MigrationResult:
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        backup = (
+            info.path
+            / "backups"
+            / "auto"
+            / f"pre-migrate-{status.revision or 'base'}-to-{target}-{stamp}.db"
+        )
+        self._close_engine(info.id)
+        backup_database(info.database_path, backup)
+        logger.info("migrating vault %s from %s to %s", info.id, status.revision, target)
+        try:
+            self.migrator.upgrade(
+                info.database_path, target, attributes={"vault": _vault_identity(info.manifest)}
+            )
+        except Exception as exc:
+            detail = (
+                f"Migrating vault {info.name!r} from {status.revision or 'base'} to {target} "
+                f"failed: {exc}. The database was left untouched; a backup is at {backup}."
+            )
+            logger.exception("migration of vault %s failed", info.id)
+            self._failed[info.id] = _Failure(detail, backup)
+            raise VaultMigrationFailedError(
+                detail, context={"backup": str(backup), "error": str(exc)}
+            ) from exc
+        return MigrationResult(status.revision, target, backup)
+
+    def _raise_if_failed(self, vault_id: str) -> None:
+        failure = self._failed.get(vault_id)
+        if failure is not None:
+            raise VaultMigrationFailedError(
+                failure.detail + " Restart the app to try again.",
+                context={"backup": str(failure.backup)},
+            )
+
+    def _require_current(self, status: SchemaStatus) -> None:
+        if status.state is SchemaState.NEWER_THAN_APP:
+            raise VaultNewerThanAppError(
+                f"The vault's schema revision {status.revision} is unknown to this app version "
+                f"(head {status.head}): it was written by a newer version.",
+                context={"revision": status.revision, "head": status.head},
+            )
+        if status.state is SchemaState.NEEDS_MIGRATION:
+            raise VaultNeedsMigrationError(
+                f"The vault's schema ({status.revision or 'empty'}) is older than this app's "
+                f"({status.head}). Migrate it first.",
+                context={"revision": status.revision, "head": status.head},
+            )
 
     def _close_engine(self, vault_id: str) -> None:
         opened = self._open.pop(vault_id, None)
@@ -389,6 +546,22 @@ class VaultManager:
             for lock in self._locks.values():
                 lock.release()
             self._locks.clear()
+
+
+def _vault_identity(manifest: VaultManifest) -> dict[str, str]:
+    """What the first migration seeds into ``vault_meta``."""
+    return {
+        "vault_id": manifest.vault_id,
+        "name": manifest.name,
+        "created_at": manifest.created_at.isoformat(),
+    }
+
+
+def _sync_meta_name(opened: OpenVault) -> None:
+    """``vault.json`` is authoritative for the name; ``vault_meta.name`` follows it."""
+    with opened.sessions.begin() as session:
+        if get_meta(session, "name") != opened.info.name:
+            set_meta(session, "name", opened.info.name)
 
 
 def _create_database(path: Path) -> None:

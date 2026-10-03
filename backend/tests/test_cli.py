@@ -7,6 +7,8 @@ from typer.testing import CliRunner
 
 from lore import cli
 from lore.app import create_app_from_env
+from lore.core.db.migrate import Migrator
+from tests.migration_harness import FIRST_REVISION, migration_source, script_directory
 
 runner = CliRunner()
 
@@ -98,3 +100,71 @@ def test_vault_create_reports_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     result = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
     assert result.exit_code == 1
     assert "read-only" in result.stderr
+
+
+def test_vault_status_and_migrate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LORE_DATA_DIR", str(tmp_path / "data"))
+    created = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
+    vault_id, folder, _ = created.output.split()
+    head = Migrator().head()
+    for reference in (vault_id, folder):
+        status = runner.invoke(cli.app, ["vault", "status", reference])
+        assert status.exit_code == 0, status.output
+        assert f"folder:    {folder}" in status.stdout
+        assert "schema:    current" in status.stdout
+        assert f"revision:  {head}" in status.stdout
+    migrated = runner.invoke(cli.app, ["vault", "migrate", folder])
+    assert migrated.exit_code == 0
+    assert migrated.stdout == f"already at {head}\n"
+    missing = runner.invoke(cli.app, ["vault", "status", "nope"])
+    assert missing.exit_code == 1
+    assert "No vault with id or folder 'nope'" in missing.stderr
+
+
+def test_vault_migrate_runs_pending_migrations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("LORE_DATA_DIR", str(tmp_path / "data"))
+    created = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
+    folder = created.output.split()[1]
+    newer = script_directory(
+        tmp_path / "newer", {"n.py": migration_source("next00000001", FIRST_REVISION, "pass")}
+    )
+    monkeypatch.setattr("lore.core.vaults.manager.Migrator", lambda: Migrator(newer))
+    status = runner.invoke(cli.app, ["vault", "status", folder])
+    assert "schema:    needs_migration" in status.stdout
+    migrated = runner.invoke(cli.app, ["vault", "migrate", folder, "--to", "next00000001"])
+    assert migrated.exit_code == 0, migrated.output
+    assert migrated.stdout.startswith(f"migrated {FIRST_REVISION} -> next00000001\nbackup: ")
+    refused = runner.invoke(cli.app, ["vault", "migrate", folder, "--to", FIRST_REVISION])
+    assert refused.exit_code == 1
+    assert "downgrades are done by restoring a backup" in refused.stderr
+
+
+def test_db_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    clean = runner.invoke(cli.app, ["db", "check"])
+    assert clean.exit_code == 0
+    assert "migrations are clean" in clean.stdout
+    forked = script_directory(
+        tmp_path / "forked",
+        {
+            "a.py": migration_source("fork00000001", FIRST_REVISION, "pass"),
+            "b.py": migration_source("fork00000002", FIRST_REVISION, "pass"),
+        },
+    )
+    monkeypatch.setattr(cli, "Migrator", lambda: Migrator(forked))
+    failed = runner.invoke(cli.app, ["db", "check"])
+    assert failed.exit_code == 1
+    assert "exactly one head, found 2" in failed.stderr
+    revision = runner.invoke(cli.app, ["db", "revision", "-m", "more"])
+    assert revision.exit_code == 1
+    assert revision.stderr.startswith("error: The migration history must have exactly one head")
+
+
+def test_db_revision(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    location = script_directory(tmp_path / "m", {})
+    monkeypatch.setattr(cli, "Migrator", lambda: Migrator(location))
+    result = runner.invoke(cli.app, ["db", "revision", "-m", "add things", "--autogenerate"])
+    assert result.exit_code == 0, result.output
+    [new] = list((location / "versions").glob("*_add_things.py"))
+    assert f"wrote {new}" in result.stdout

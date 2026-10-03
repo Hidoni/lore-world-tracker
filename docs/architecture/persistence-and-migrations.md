@@ -97,14 +97,20 @@ PRAGMA temp_store = MEMORY;
 
 ### 3.1 Setup
 
-- Migrations live in `backend/src/lore/migrations/` (`env.py`, `versions/`). Alembic is configured
-  **programmatically** (`lore.core.db.migrate`) per vault database. There is no global
-  `alembic.ini` URL.
+- Migrations live in `backend/src/lore/migrations/` (`env.py`, `script.py.mako`, `versions/`).
+  Alembic is configured **programmatically** (`lore.core.db.migrate.Migrator`) per vault
+  database. There is no `alembic.ini`. The migrator opens the connection, passes it to `env.py`
+  (`config.attributes["connection"]`) and runs the whole upgrade in **one transaction it owns**,
+  with `foreign_keys=OFF` (batch mode rebuilds tables) and a `PRAGMA foreign_key_check` before the
+  commit: any violation rolls everything back. `env.py` refuses to run without a connection.
+- The target metadata for autogenerate and `lore db check` is `lore.core.models.load_metadata()`.
+  A new core model module must be imported there (module models: the module framework).
 - `render_as_batch=True` (SQLite ALTER limitations).
 - `include_object` hook: ignore FTS5 virtual tables and their shadow tables (`search_fts*`,
   `search_trigram*`) and SQLite internals. FTS tables are created/changed with explicit
   `op.execute(...)`.
-- File template: `%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s`.
+- File template: `%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s`
+  (UTC).
 - Migration docstrings start with the owner: `[core]`, `[core:time]` or `[module: <id>]`.
 
 ### 3.2 Rules
@@ -146,6 +152,31 @@ When a vault is opened (author mode, `LORE_AUTO_MIGRATE=true` by default):
 Read-only mode **never** migrates. It refuses vaults that are not at head (publish snapshots
 with the same app version that serves them).
 
+Implementation (`VaultManager.open` / `.migrate`):
+
+- **Revision comparison.** The history is linear, so a revision the app knows but that isn't head
+  is behind it, and a revision it doesn't know was written by a newer app. An empty database
+  (no `alembic_version`) is behind head.
+- **New vaults** are migrated to head when they are created (before the folder is renamed into
+  place), so they need no backup and open even with auto-migration off. The first migration
+  seeds `vault_meta` with the vault's identity, which the manager passes to migrations as
+  `context.config.attributes["vault"]` (`{vault_id, name, created_at}`; absent for scratch
+  databases).
+- **Schema state.** Every vault in `GET /vaults` / `GET /vaults/{v}` carries `schema_status
+  {state, revision, head}`, read without opening the vault for writing. `state` is `current`,
+  `needs_migration` (409 `vault_needs_migration` when opened with auto-migration off, or by a
+  read-only server), `newer_than_app` (409 `vault_newer_than_app`), `migration_failed` or
+  `database_unreadable`.
+- **Failure.** A failed upgrade rolls back. The vault is then unusable for this process: opening
+  or migrating it returns `500 vault_migration_failed` with the backup path in `context.backup`
+  until the app restarts, with no second attempt and no second backup.
+- **`POST /vaults/{v}/migrate`** (and `lore vault migrate <vault> [--to REV]`) upgrades to head (or
+  to a later revision), returning `{vault, from_revision, to_revision, backup}`. A vault already
+  at the target is left alone (`backup: null`). Targets behind the current revision are refused
+  (`422`): downgrades are done by restoring a backup.
+- `vault.json` is authoritative for the name. `vault_meta.name` is updated on rename (when the
+  vault is open) and on every author-mode open.
+
 ### 3.4 CLI
 
 ```
@@ -154,6 +185,9 @@ lore vault reindex <vault> | backup <vault> | restore <zip> | publish <vault> --
 lore db revision -m "msg" [--autogenerate]     # wraps alembic with the programmatic config (uses a scratch DB)
 lore db check                                    # empty autogenerate diff + single head
 ```
+
+`lore vault status|migrate` take a vault id or folder name. `make check` (and so CI) runs
+`lore db check`.
 
 ### 3.5 Migration tests
 
@@ -165,7 +199,65 @@ lore db check                                    # empty autogenerate diff + sin
    (`backend/scripts/make_sample_vault.py --size tiny`, see `testing.md` §2) **at each milestone
    release** and committed. Tests upgrade copies to head, then run API smoke tests and invariants
    (`lore vault check`). Old fixtures are never deleted.
-3. **Per data migration:** unit tests with before/after rows.
+3. **Per data migration:** unit tests with before/after rows, using the `migrations` fixture
+   (`backend/tests/migration_harness.py`, below).
+
+### 3.6 How to write a migration
+
+1. Change or add the ORM models (new core model modules: import them in
+   `lore.core.models.load_metadata`).
+2. `cd backend && uv run lore db revision -m "add entity aliases" --autogenerate`. This upgrades a
+   scratch database to head, diffs it against the models and writes
+   `src/lore/migrations/versions/<yyyymmdd_hhmm>_<rev>_<slug>.py` from `script.py.mako`.
+   Without `--autogenerate` you get an empty migration (data migrations).
+3. Edit it:
+   - Set the docstring owner: `"""[core] …`, `"""[core:time] …` or `"""[module: <id>] …`.
+   - Review every operation (autogenerate misses renames, CHECK constraints and server
+     defaults). Name constraints with `op.f(...)` so they match the naming convention in
+     `lore.core.db.base`.
+   - Never import `lore` code (models, services). Declare what you touch locally, copy the logic
+     in, and use the frozen upgraders (§3.2 rule 3) only where they exist for this purpose.
+   - FTS5 and other virtual tables: `op.execute("CREATE VIRTUAL TABLE …")`. Names starting with
+     `search_fts`, `search_trigram` or `sqlite_` are ignored by autogenerate and the check.
+   - Data migration pattern:
+
+     ```python
+     entities = sa.table("entities", sa.column("id", sa.String), sa.column("fields", sa.JSON))
+
+     def upgrade() -> None:
+         connection = op.get_bind()
+         last_id = ""
+         while True:  # batches, keyed on the primary key
+             rows = connection.execute(
+                 sa.select(entities.c.id, entities.c.fields)
+                 .where(entities.c.id > last_id).order_by(entities.c.id).limit(500)
+             ).all()
+             if not rows:
+                 break
+             for row in rows:
+                 connection.execute(
+                     entities.update().where(entities.c.id == row.id)
+                     .values(fields=_upgrade_fields(row.fields))  # a copy, defined in this file
+                 )
+             last_id = rows[-1].id
+     ```
+
+   - `downgrade()`: implement simple schema changes; data migrations may
+     `raise NotImplementedError` (rollback = restore the pre-migration backup).
+4. `uv run lore db check` must report no differences and exactly one head. If `main` gained a
+   migration meanwhile, re-point your `down_revision` to the new head (`workflow.md` §9).
+5. Test it with the `migrations` fixture:
+
+   ```python
+   def test_fields_are_upgraded(migrations: MigrationHarness) -> None:
+       migrations.upgrade("<previous revision>")
+       migrations.execute("INSERT INTO entities (id, fields, …) VALUES (?, ?, …)", (…))
+       migrations.upgrade("<your revision>")
+       assert migrations.rows("SELECT fields FROM entities") == […]
+   ```
+
+   `script_directory()` and `migration_source()` in the same file build throwaway histories, for
+   framework tests that need extra, failing or forked migrations.
 
 ## 4. Versioned JSON documents
 

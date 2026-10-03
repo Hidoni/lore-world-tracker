@@ -64,7 +64,10 @@ def create_app(settings: Settings) -> FastAPI:
     )
     app.state.settings = settings
     app.state.vaults = VaultManager(
-        settings.data_dir, read_only=settings.read_only, exposed_vaults=settings.exposed_vaults
+        settings.data_dir,
+        read_only=settings.read_only,
+        exposed_vaults=settings.exposed_vaults,
+        auto_migrate=settings.auto_migrate,
     )
     install_error_handlers(app)
 

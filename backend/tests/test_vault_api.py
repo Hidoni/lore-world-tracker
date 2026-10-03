@@ -45,8 +45,10 @@ def test_vault_lifecycle(client: TestClient, data_dir: Path) -> None:
     vault = create(client)
     assert (data_dir / "vaults" / vault["folder"] / "vault.json").is_file()
     assert set(vault) == {
-        "id", "name", "folder", "created_at", "created_by_app_version", "modified_at", "published"
+        "id", "name", "folder", "created_at", "created_by_app_version", "modified_at", "published",
+        "schema_status",
     }  # fmt: skip
+    assert vault["schema_status"]["state"] == "current"
     assert vault["name"] == "Aetheria"
     assert vault["folder"] == f"aetheria-{vault['id'][:8]}"
     assert vault["created_by_app_version"] == __version__
@@ -159,6 +161,7 @@ def test_openapi_operations(client: TestClient) -> None:
         ("/api/v1/vaults/{vault_id}", "get"): "vaults_get",
         ("/api/v1/vaults/{vault_id}", "patch"): "vaults_update",
         ("/api/v1/vaults/{vault_id}", "delete"): "vaults_delete",
+        ("/api/v1/vaults/{vault_id}/migrate", "post"): "vaults_migrate",
     }
 
 

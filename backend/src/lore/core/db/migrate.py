@@ -1,0 +1,212 @@
+"""Programmatic Alembic configuration, per vault database (``persistence-and-migrations.md`` §3).
+
+There is no ``alembic.ini``: :class:`Migrator` builds the configuration, hands ``env.py`` an open
+connection (``config.attributes["connection"]``) and runs every upgrade inside **one**
+transaction it owns. SQLite DDL is transactional, so a failing migration leaves the database as
+it was. Upgrades run with ``foreign_keys=OFF`` (batch mode rebuilds tables) and check the foreign
+keys before committing.
+"""
+
+import sqlite3
+import tempfile
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from enum import StrEnum
+from pathlib import Path
+from typing import Any
+
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from alembic.util import CommandError
+from sqlalchemy import Connection, MetaData
+from sqlalchemy.pool import NullPool
+
+from lore.core.db.engine import create_vault_engine, database_uri
+from lore.core.errors import LoreError
+from lore.core.models import load_metadata
+
+MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
+FILE_TEMPLATE = "%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s"
+
+# FTS5 virtual tables and their shadow tables are managed with op.execute(), and SQLite's own
+# tables are none of Alembic's business.
+IGNORED_PREFIXES = ("search_fts", "search_trigram", "sqlite_")
+
+
+def include_object(
+    _object: Any, name: str | None, _type: str, _reflected: bool, _compare_to: Any
+) -> bool:
+    return not (name or "").startswith(IGNORED_PREFIXES)
+
+
+class MigrationError(LoreError):
+    """The migration history or a migration run is broken."""
+
+    code = "migration_error"
+    title = "Migration error"
+
+
+class SchemaState(StrEnum):
+    CURRENT = "current"
+    NEEDS_MIGRATION = "needs_migration"
+    NEWER_THAN_APP = "newer_than_app"
+
+
+@dataclass(frozen=True)
+class SchemaStatus:
+    revision: str | None
+    head: str
+    state: SchemaState
+
+
+class Migrator:
+    """Alembic operations on vault databases. Tests point it at fixture script directories."""
+
+    def __init__(
+        self,
+        script_location: Path = MIGRATIONS_DIR,
+        metadata: Callable[[], MetaData] = load_metadata,
+    ) -> None:
+        self.script_location = script_location
+        self.metadata = metadata
+
+    def config(
+        self, connection: Connection | None = None, attributes: Mapping[str, Any] | None = None
+    ) -> Config:
+        config = Config()
+        config.set_main_option("script_location", str(self.script_location))
+        config.set_main_option("file_template", FILE_TEMPLATE)
+        config.set_main_option("timezone", "UTC")
+        config.attributes.update(
+            connection=connection,
+            target_metadata=self.metadata(),
+            include_object=include_object,
+            **(attributes or {}),
+        )
+        return config
+
+    def script(self) -> ScriptDirectory:
+        return ScriptDirectory.from_config(self.config())
+
+    def heads(self) -> list[str]:
+        return list(self.script().get_heads())
+
+    def head(self) -> str:
+        heads = self.heads()
+        if len(heads) != 1:
+            raise MigrationError(
+                f"The migration history must have exactly one head, found {len(heads)}: "
+                + ", ".join(sorted(heads))
+            )
+        return heads[0]
+
+    def is_known(self, revision: str) -> bool:
+        try:
+            return self.script().get_revision(revision) is not None
+        except CommandError:
+            return False
+
+    def is_ahead(self, target: str, current: str | None) -> bool:
+        """Whether ``target`` comes after ``current`` (``None`` = empty) in the history."""
+        order = [script.revision for script in self.script().walk_revisions()]  # head first
+        if target not in order:
+            return False
+        return current is None or (current in order and order.index(target) < order.index(current))
+
+    def status(self, connection: Connection) -> SchemaStatus:
+        revision = MigrationContext.configure(connection).get_current_revision()
+        head = self.head()
+        if revision == head:
+            state = SchemaState.CURRENT
+        elif revision is None or self.is_known(revision):
+            # One linear history: a known revision other than head is behind it.
+            state = SchemaState.NEEDS_MIGRATION
+        else:
+            state = SchemaState.NEWER_THAN_APP
+        return SchemaStatus(revision, head, state)
+
+    def status_of(self, path: Path) -> SchemaStatus:
+        """The schema status of a database file, read without writing anything."""
+        engine = create_vault_engine(path, read_only=True, pool=NullPool)
+        try:
+            with engine.connect() as connection:
+                return self.status(connection)
+        finally:
+            engine.dispose()
+
+    def upgrade(
+        self, path: Path, target: str = "head", *, attributes: Mapping[str, Any] | None = None
+    ) -> None:
+        """Upgrade ``path`` to ``target`` in one transaction. ``attributes`` reach migrations as
+        ``context.config.attributes`` (the vault's identity for seeding ``vault_meta``)."""
+        engine = create_vault_engine(path, foreign_keys=False, pool=NullPool)
+        try:
+            with engine.connect() as connection, connection.begin():
+                command.upgrade(self.config(connection, attributes), target)
+                violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                if violations:
+                    raise MigrationError(
+                        f"The migration left {len(violations)} foreign key violation(s), "
+                        f"first: {tuple(violations[0])}"
+                    )
+        finally:
+            engine.dispose()
+
+    def _scratch_database(self, directory: Path) -> Path:
+        """An empty database upgraded to head, for autogenerate and checks."""
+        path = directory / "scratch.db"
+        sqlite3.connect(path).close()
+        self.upgrade(path)
+        return path
+
+    def revision(self, message: str, *, autogenerate: bool = False) -> Path:
+        """Write a new migration script (autogenerated against a scratch database at head)."""
+        self.head()  # refuses to add to a forked history
+        with tempfile.TemporaryDirectory(prefix="lore-revision-") as directory:
+            path = self._scratch_database(Path(directory))
+            engine = create_vault_engine(path, pool=NullPool)
+            try:
+                with engine.connect() as connection:
+                    script = command.revision(
+                        self.config(connection), message=message, autogenerate=autogenerate
+                    )
+            finally:
+                engine.dispose()
+        if script is None or isinstance(script, list):
+            raise MigrationError("Alembic did not write exactly one revision")
+        return Path(script.path)
+
+    def check(self) -> list[str]:
+        """Problems with the migrations: not exactly one head, or a difference between the
+        models and the schema the migrations build. Empty means clean."""
+        try:
+            self.head()
+        except MigrationError as exc:
+            return [exc.detail]
+        with tempfile.TemporaryDirectory(prefix="lore-check-") as directory:
+            path = self._scratch_database(Path(directory))
+            engine = create_vault_engine(path, pool=NullPool)
+            try:
+                with engine.connect() as connection:
+                    context = MigrationContext.configure(
+                        connection,
+                        opts={"include_object": include_object, "compare_type": True},
+                    )
+                    diffs = compare_metadata(context, self.metadata())
+            finally:
+                engine.dispose()
+        return [f"model/migration mismatch: {diff}" for diff in diffs]
+
+
+def backup_database(source: Path, target: Path) -> None:
+    """A consistent, compact copy of a live database (``VACUUM INTO``)."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    uri = database_uri(source, read_only=True, immutable=False)
+    connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+    try:
+        connection.execute("VACUUM INTO ?", (str(target),))
+    finally:
+        connection.close()

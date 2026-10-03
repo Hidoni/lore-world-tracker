@@ -36,11 +36,12 @@ dev: ## Backend on :8000 (reload) + Vite on :5173 (proxies /api); data in ./data
 
 check: check-backend check-frontend check-contract check-chronology ## Everything CI runs except e2e/docker: lint, format, types, imports, tests, build, drift
 
-check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, pytest
+check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, lore db check, pytest
 	$(UV) run ruff check
 	$(UV) run ruff format --check
 	$(UV) run mypy
 	$(UV) run lint-imports
+	$(UV) run lore db check
 	$(UV) run pytest
 
 check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build

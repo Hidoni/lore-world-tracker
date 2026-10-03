@@ -1,5 +1,6 @@
 import os
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -9,6 +10,7 @@ from hypothesis import settings as hypothesis_settings
 
 from lore.app import create_app
 from lore.config import Settings
+from tests.migration_harness import MigrationHarness
 
 hypothesis_settings.register_profile("dev", max_examples=50, derandomize=True)
 hypothesis_settings.register_profile("ci", max_examples=500, derandomize=True)
@@ -48,3 +50,9 @@ def make_app() -> AppFactory:
 def client(make_app: AppFactory) -> Iterator[TestClient]:
     with local_client(make_app()) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def migrations(tmp_path: Path) -> MigrationHarness:
+    """An empty database and the real migrations (``tests/migration_harness.py``)."""
+    return MigrationHarness(tmp_path / "migrations.db")
