@@ -26,11 +26,39 @@ $LORE_DATA_DIR/                      # default ./data (dev), /data (Docker)
 ```
 
 - `format_version` covers the **folder layout** (not the DB schema). Upgraders live in
-  `lore.core.vaults.format` and run before DB migrations when a vault is opened.
-- The vault registry scans `vaults/*/vault.json` at startup and on `GET /vaults`.
-- One running author instance per data directory. A lock file (`vaults/<folder>/.lock`
-  containing PID + hostname) prevents two author processes from opening the same vault. A stale
-  lock (dead PID on the same host) is taken over with a warning.
+  `lore.core.vaults.format` (`UPGRADERS[n]` turns version `n` into `n + 1`) and run before DB
+  migrations when a vault is opened in author mode, which writes the upgraded `vault.json` back.
+  Listing never writes. Unknown keys in `vault.json` are preserved on rewrite.
+- **Creating** (`lore.core.vaults.VaultManager`): the folder is assembled as
+  `vaults/.creating-<id>/` (`vault.json` + an empty WAL-mode `lore.db`) and renamed into place,
+  so a crash never leaves a half-made vault. The slug is the name lowercased to ASCII `a-z0-9`
+  with single hyphens, at most 40 characters (`vault` if nothing is left). UUIDv7 ids made within
+  about a minute share their first 8 characters, so if `<slug>-<first 8>` exists, longer id
+  prefixes are used (13, 18, 23 characters, then the whole id). `vaults/` and `trash/` are created
+  on the first vault creation. **Renaming** changes only `name`, never the folder. **Deleting**
+  moves the folder to `trash/<folder>-<UTC yyyymmddThhmmssZ>` (`-2`, `-3`, … on a clash).
+- The vault registry scans `vaults/*/vault.json` at startup and on `GET /vaults`. Hidden entries
+  (`.creating-*`) and plain files are ignored. **Folders that can't be used are listed, never
+  hidden** (decided 2026-10-03), as `problems` with a code: `folder_name_invalid` (not
+  `^[a-z0-9-]+$`), `manifest_invalid` (`vault.json` missing, unreadable or invalid),
+  `format_newer_than_app`, or `duplicate_id` (a copied folder: several folders carry one id).
+  Among duplicates, the folder whose name ends with an id prefix (the one `create` made) wins,
+  then the first by folder name; only that one can be opened.
+- **List order** (decided 2026-10-03): most recently modified first, ties by name
+  (case-insensitive), then id. Until history exists, `modified_at` is the newest mtime of
+  `vault.json`, `lore.db` and a non-empty `lore.db-wal` (an empty WAL only means a connection is
+  open).
+- In read-only mode, `LORE_EXPOSED_VAULTS` (ids or folder names) limits the registry, including
+  `problems`. Author mode always sees every vault.
+- One running author instance per data directory. A lock file (`vaults/<folder>/.lock`, JSON with
+  `pid`, `hostname`, `acquired_at`) prevents two author processes from opening the same vault. It
+  is taken when the author process first opens, renames or trashes the vault and released on
+  shutdown (`409 vault_locked` otherwise, with the owner in `context`). A stale lock is taken over
+  with a warning, which can only be decided **on the same host**: the PID is dead, or it is this
+  process's own PID although this process doesn't hold the lock (a previous run with the same PID,
+  e.g. PID 1 in a restarted container). Locks from other hosts and unreadable lock files are never
+  taken over; `docker-compose.yml` pins `hostname: lore` so a recreated container counts as the
+  same host.
 
 ## 2. SQLite configuration
 
@@ -44,8 +72,15 @@ PRAGMA busy_timeout = 5000;
 PRAGMA temp_store = MEMORY;
 ```
 
-- One SQLAlchemy `Engine` per opened vault (lazy, cached). Sessions are per request with
-  `expire_on_commit=False`. Path operations are sync (FastAPI threadpool).
+- One SQLAlchemy `Engine` per opened vault (lazy, cached, disposed on shutdown), in
+  `lore.core.db`. Connections use `file:` URIs: `mode=rw` in author mode (a missing database is
+  never created by opening it), `mode=ro` in read-only mode. SQLAlchemy emits `BEGIN` itself
+  (pysqlite's implicit transactions are off), so SAVEPOINTs and transactional DDL work.
+- Vault-scoped routes take `VaultDep` (`get_vault(vault_id)`, opens the vault) and `SessionDep`
+  (`lore.core.api.deps`): one session and one transaction per request, committed when the path
+  operation returns and rolled back if it raises, with `expire_on_commit=False`. The dependency
+  uses `scope="function"`, so the commit happens before the response is sent. Path operations are
+  sync (FastAPI threadpool).
 - Run uvicorn with **one worker**. SQLite serializes writes anyway, and per-vault caches (compiled
   calendars, registries) live in-process.
 - `PRAGMA optimize` on vault close and daily. `lore vault check` runs `integrity_check`,
@@ -55,7 +90,8 @@ PRAGMA temp_store = MEMORY;
   (`journal_mode=DELETE`) are additionally opened with `immutable=1`.
 - Requirements: SQLite with FTS5 (incl. trigram tokenizer, ≥ 3.34), JSON1, window functions and
   `contentless_delete` (≥ 3.43). The Python 3.14 builds used locally (3.50.x) and in the Docker
-  image satisfy this. Startup checks it and refuses to run otherwise.
+  image satisfy this. Startup (the app lifespan) checks it with probes on an in-memory database
+  and refuses to run otherwise (`lore.core.db.ensure_sqlite_capabilities`).
 
 ## 3. Schema migrations (Alembic)
 

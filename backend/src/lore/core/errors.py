@@ -59,3 +59,10 @@ class ForbiddenError(LoreError):
     code = "forbidden"
     status = 403
     title = "Forbidden"
+
+
+class ReadOnlyError(ForbiddenError):
+    """A write was attempted on a read-only server (``LORE_READ_ONLY=true``)."""
+
+    code = "read_only"
+    title = "Read-only"

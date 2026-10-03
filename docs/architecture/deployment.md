@@ -91,6 +91,9 @@ services:
   lore: # author instance: bound to localhost only (security.md §1)
     build: .
     image: lore-world-tracker:local
+    # A fixed hostname lets a recreated container take over vault locks left by a crash
+    # (a lock is only taken over on the host that wrote it; persistence-and-migrations.md §1).
+    hostname: lore
     user: '${LORE_UID:-1000}:${LORE_GID:-1000}'
     ports: ['127.0.0.1:8080:8080']
     volumes: ['./data:/data', './published:/published']

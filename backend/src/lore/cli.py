@@ -10,11 +10,15 @@ import uvicorn
 from lore.app import create_app
 from lore.chronology.schema_export import export_schemas
 from lore.config import Settings
+from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
+from lore.core.vaults import VaultManager
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
 chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine assets.")
 app.add_typer(chronology_app, name="chronology")
+vault_app = typer.Typer(no_args_is_help=True, help="Vault administration.")
+app.add_typer(vault_app, name="vault")
 
 
 @app.command()
@@ -64,6 +68,34 @@ def openapi(
         typer.echo(document, nl=False)
     else:
         out.write_text(document, encoding="utf-8")
+
+
+def _vault_manager() -> VaultManager:
+    settings = Settings()
+    return VaultManager(
+        settings.data_dir, read_only=settings.read_only, exposed_vaults=settings.exposed_vaults
+    )
+
+
+@vault_app.command("list")
+def vault_list() -> None:
+    """List the vaults in LORE_DATA_DIR (id, folder, name), then folders that can't be opened."""
+    registry = _vault_manager().registry()
+    for info in registry.sorted_vaults():
+        typer.echo(f"{info.id}  {info.folder}  {info.name}")
+    for problem in registry.problems:
+        typer.echo(f"problem: {problem.folder}: {problem.code}: {problem.detail}", err=True)
+
+
+@vault_app.command("create")
+def vault_create(name: Annotated[str, typer.Argument(help="Display name.")]) -> None:
+    """Create a vault in LORE_DATA_DIR and print its id and folder."""
+    try:
+        info = _vault_manager().create(name)
+    except (LoreError, ValueError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{info.id}  {info.folder}  {info.name}")
 
 
 @chronology_app.command("export-schemas")

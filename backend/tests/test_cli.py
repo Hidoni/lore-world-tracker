@@ -73,3 +73,28 @@ def test_app_factory_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("lore.app.configure_logging", lambda *args: None)
     monkeypatch.setenv("LORE_READ_ONLY", "true")
     assert create_app_from_env().state.settings.read_only is True
+
+
+def test_vault_create_and_list(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LORE_DATA_DIR", str(tmp_path))
+    created = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
+    assert created.exit_code == 0, created.output
+    vault_id, folder, name = created.output.split()
+    assert name == "Aetheria"
+    assert (tmp_path / "vaults" / folder / "vault.json").is_file()
+    (tmp_path / "vaults" / "broken").mkdir()
+    listed = runner.invoke(cli.app, ["vault", "list"])
+    assert listed.exit_code == 0
+    assert listed.stdout == f"{vault_id}  {folder}  Aetheria\n"
+    assert "problem: broken: manifest_invalid" in listed.stderr
+
+
+def test_vault_create_reports_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LORE_DATA_DIR", str(tmp_path))
+    result = runner.invoke(cli.app, ["vault", "create", "   "])
+    assert result.exit_code == 1
+    assert result.stderr.startswith("error:")
+    monkeypatch.setenv("LORE_READ_ONLY", "true")
+    result = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
+    assert result.exit_code == 1
+    assert "read-only" in result.stderr
