@@ -30,6 +30,9 @@ export interface UnitValue {
   readonly slotId: string | null
   readonly name: string | null
   readonly intercalary: boolean
+  readonly abbr: string | null
+  /** The unit is its parent's only child (default formats leave its number out, §3.11). */
+  readonly onlyChild: boolean
 }
 
 /** The result of `toFields` (chronology-engine §5.6). */
@@ -98,12 +101,17 @@ export function toFields(calendar: CompiledCalendar, t: bigint): DateFields {
   let template = regime.yearTemplate(year)
   const levels = calendar.levels
   const values = new Map<string, UnitValue>([
-    [defined(levels.at(-1)), { n: year, slotId: null, name: null, intercalary: false }],
+    [
+      defined(levels.at(-1)),
+      { n: year, slotId: null, name: null, intercalary: false, abbr: null, onlyChild: false },
+    ],
   ])
   for (let level = levels.length - 2; level >= 0; level--) {
     const child = template.childAt(offset)
     offset -= child.offset
-    values.set(defined(levels[level]), unitValue(child, defined(calendar.numberingStarts[level])))
+    const onlyChild = template.totalCount === 1n
+    const numbering = defined(calendar.numberingStarts[level])
+    values.set(defined(levels[level]), unitValue(child, numbering, onlyChild))
     template = regime.template(defined(child.segment.child)) // children of level ≥ 1 templates
   }
   return {
@@ -116,10 +124,11 @@ export function toFields(calendar: CompiledCalendar, t: bigint): DateFields {
   }
 }
 
-function unitValue(child: Child, numberingStart: bigint): UnitValue {
+function unitValue(child: Child, numberingStart: bigint, onlyChild: boolean): UnitValue {
   const regular = childRegularIndex(child)
-  const { slotId, name, intercalary } = child.segment
-  return { n: regular === null ? null : regular + numberingStart, slotId, name, intercalary }
+  const { slotId, name, intercalary, abbr } = child.segment
+  const n = regular === null ? null : regular + numberingStart
+  return { n, slotId, name, intercalary, abbr, onlyChild }
 }
 
 // --- fromFields ----------------------------------------------------------------------------------

@@ -31,7 +31,21 @@ them by hand; `make check-chronology` fails on drift.
 | Module | Contents |
 |--------|----------|
 | `numbers.ts` | exact numeric utilities (§2) |
-| `calendar/` | `validateCalendar`/`compileCalendar` (§4, §11), `toFields`/`fromFields`/`normalizeFields` (§5.3–§5.7, §6) |
+| `calendar/` | `validateCalendar`/`compileCalendar` (§4, §11), `toFields`/`fromFields`/`normalizeFields`/`options` (§5.3–§5.7, §6), `unitBounds`/`ordinal`/`fromOrdinal` (§5.8), `cycleValue`/`eraOf`/`overlayPhase`/`nextPhaseAt` (§8), `add`/`diff`/`durationUpperBound` (§9), `formatDate`/`formatSpan`/`formatAbsolute` (§10) |
+| `presets.ts` | `instantiatePreset`, `absoluteMoments` (§13) |
+| `preset-library.ts` | the separate entry point `@lore/chronology/presets` (below) |
+
+## Presets
+
+The preset calendars live in `spec/chronology/presets/*.json`, the same files the server reads at
+runtime (`LORE_SPEC_DIR`). `@lore/chronology/presets` (`src/preset-library.ts`, mapped in
+`package.json` `exports`) imports them statically as JSON modules and exports `PRESETS` (by id)
+plus `instantiatePreset`. The app bundles them at build time: Vite inlines the JSON into the chunk
+that imports the entry point, so only the code that creates calendars (the dimension wizard) pays
+for them, and a lazy `import('@lore/chronology/presets')` keeps them out of the initial load. The
+Docker image's frontend stage copies `spec/` for this reason. Adding a preset means adding its JSON
+file and one import line in `preset-library.ts`; the TS tests check that the bundled set equals
+the required presets.
 
 ## Bundle size
 
@@ -46,6 +60,8 @@ npx rolldown packages/chronology/src/index.ts --minify --format esm | gzip -9 | 
 |-------|----------------------------|
 | #9 numeric utilities | 1.4 kB |
 | #23 compilation and conversions (incl. ≈2.9 kB of generated schema) | 12.2 kB |
+| #24–#25 navigation, cycles, eras, overlays, arithmetic, formatting | 20.4 kB |
+| `@lore/chronology/presets` entry point (8 presets + instantiation) | 7.9 kB |
 
 ## Tests
 

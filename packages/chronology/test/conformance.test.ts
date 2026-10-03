@@ -10,12 +10,20 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, test } from 'vitest'
 
+import { PRESETS } from '../src/preset-library'
 import {
+  add,
   type Bounds,
   CompiledCalendar,
   cycleValue,
   DateError,
   dateFieldsToJson,
+  diff,
+  differenceToJson,
+  type DisplayPoint,
+  formatAbsolute,
+  formatDate,
+  formatSpan,
   eraOf,
   eraValueToJson,
   fromFields,
@@ -31,6 +39,8 @@ import {
   unitBounds,
   validateCalendar,
 } from '../src/calendar'
+import { instantiatePreset, PresetError } from '../src/presets'
+import type { BaseUnit, Duration } from '../src/schema.gen'
 import {
   type BigRational,
   floorDiv,
@@ -182,6 +192,16 @@ function displayOptions(d: Json): IntegerDisplayOptions {
 
 const bounds = ({ start, end }: Bounds) => ({ start: start.toString(), end: end.toString() })
 
+function displayPoint(data: unknown): DisplayPoint | null {
+  if (data === null) return null
+  const { t, precision, approximate } = data as Json
+  return {
+    t: BigInt(t as string),
+    precision: precision as string,
+    approximate: approximate as boolean,
+  }
+}
+
 const COMPILED = new Map<CalendarFile, CompiledCalendar>()
 
 function compiled(calendar: CalendarFile | null): CompiledCalendar {
@@ -254,6 +274,37 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
   },
   overlay_phase: (calendar, d) =>
     overlayValueToJson(overlayPhase(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'))),
+  add: (calendar, d) => {
+    const overflow = (d.overflow ?? 'constrain') as Overflow
+    const t = add(compiled(calendar), BigInt(str(d, 't')), d.duration as Duration, overflow)
+    return { t: t.toString() }
+  },
+  diff: (calendar, d) => {
+    const [t1, t2] = [BigInt(str(d, 't1')), BigInt(str(d, 't2'))]
+    return differenceToJson(diff(compiled(calendar), t1, t2, str(d, 'largest'), str(d, 'smallest')))
+  },
+  format: (calendar, d) => {
+    const approximate = d.approximate as boolean
+    const t = BigInt(str(d, 't'))
+    return { text: formatDate(compiled(calendar), t, str(d, 'precision'), { approximate }) }
+  },
+  format_span: (calendar, d) => ({
+    text: formatSpan(compiled(calendar), displayPoint(d.start), displayPoint(d.end)),
+  }),
+  format_absolute: (_, d) => {
+    const display = d.display ?? null
+    const approximate = (d.approximate ?? false) as boolean
+    const text = formatAbsolute(BigInt(str(d, 't')), d.base_unit as BaseUnit, display, {
+      approximate,
+    })
+    return { text }
+  },
+  preset_instantiate: (_, d) => {
+    const preset = PRESETS.get(str(d, 'preset'))
+    if (preset === undefined) throw new Error(`no preset ${str(d, 'preset')}`)
+    const origin = BigInt((d.origin ?? '0') as string)
+    return { definition: instantiatePreset(preset, rat(d.seconds_per_base_unit), { origin }) }
+  },
   next_phase_at: (calendar, d) => {
     const t = nextPhaseAt(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'), rat(d.phase))
     return { t: t.toString() }
@@ -262,12 +313,6 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
 
 /** op → issue that implements it in the TypeScript engine. */
 const PENDING: Partial<Record<Op, number>> = {
-  add: 25,
-  diff: 25,
-  format: 25,
-  format_span: 25,
-  format_absolute: 25,
-  preset_instantiate: 25,
   expand: 26,
   series_bounds: 26,
   occurrence: 26,
@@ -314,7 +359,13 @@ function run(op: Op, calendarName: string | null, input: Record<string, unknown>
   try {
     return handler(calendar, input)
   } catch (error) {
-    if (error instanceof NumberError || error instanceof DateError) return { error: error.code }
+    if (
+      error instanceof NumberError ||
+      error instanceof DateError ||
+      error instanceof PresetError
+    ) {
+      return { error: error.code }
+    }
     throw error
   }
 }

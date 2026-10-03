@@ -1,4 +1,14 @@
-/** Calendars: compilation, conversions and unit navigation (chronology-engine.md §3–§8). */
+/** Calendars: compilation, conversions, navigation, arithmetic and formatting (chronology-engine.md
+ * §3–§10). */
+export {
+  type Difference,
+  add,
+  diff,
+  differenceDuration,
+  differenceToJson,
+  durationUpperBound,
+  isUniform,
+} from './arithmetic'
 export { type ValidationError, compileCalendar, pointer, validateCalendar } from './compile'
 export {
   type Child,
@@ -44,3 +54,13 @@ export {
   ordinal,
   unitBounds,
 } from './units'
+export {
+  BASE,
+  type Display,
+  type DisplayPoint,
+  displayOptions,
+  formatAbsolute,
+  formatDate,
+  formatSpan,
+} from './formatting'
+export { type Piece, PatternError, type Token, parsePattern } from './formats'
