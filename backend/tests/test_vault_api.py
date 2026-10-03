@@ -154,7 +154,7 @@ def test_openapi_operations(client: TestClient) -> None:
         (path, method): operation["operationId"]
         for path, methods in paths.items()
         for method, operation in methods.items()
-        if path.startswith("/api/v1/vaults")
+        if operation["operationId"].startswith("vaults_")
     }
     assert operations == {
         ("/api/v1/vaults", "get"): "vaults_list",

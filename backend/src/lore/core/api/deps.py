@@ -1,12 +1,14 @@
 """Request-scoped dependencies shared by routers."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Annotated
 
 from fastapi import Depends, Path, Request
 from sqlalchemy.orm import Session
 
 from lore.config import Settings
+from lore.core.modules.registry import ModuleRegistry
+from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import VAULT_ID_PATTERN
 
@@ -53,3 +55,22 @@ def get_session(request: Request, vault: VaultDep) -> Iterator[Session]:
 
 
 SessionDep = Annotated[Session, Depends(get_session, scope="function")]
+
+
+def get_module_registry(request: Request) -> ModuleRegistry:
+    registry: ModuleRegistry = request.app.state.registry
+    return registry
+
+
+ModuleRegistryDep = Annotated[ModuleRegistry, Depends(get_module_registry)]
+
+
+def require_module(module_id: str) -> Callable[..., None]:
+    """A dependency for a module's routes: ``404 module_disabled`` unless the module is enabled
+    for the request's vault. The app adds it to every module router it mounts."""
+
+    def check(session: SessionDep, registry: ModuleRegistryDep) -> None:
+        if module_id not in enabled_modules(session, registry):
+            raise ModuleDisabledError(f"The {module_id!r} module is disabled for this vault.")
+
+    return check

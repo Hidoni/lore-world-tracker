@@ -48,7 +48,8 @@ which issue adds them. If reality and this file diverge, fix this file in your P
    with upgraders (`persistence-and-migrations.md`).
 8. **Module boundaries:** `lore.chronology` imports nothing from `lore`; core never imports
    modules; a module imports only core public APIs and the `api.py`/`public.ts` of modules it
-   declares in `depends_on`. Enforced by import-linter and eslint-boundaries.
+   declares in `depends_on`. Enforced by import-linter, `backend/tests/test_architecture.py`
+   (module → module imports, from the registry) and eslint-boundaries.
 9. **New read endpoint ⇒ leak-test recipe**, and if reader-facing, an entry in
    `docs/architecture/visibility-and-sharing.md` §6.
 10. **API contract:** after backend API changes run `make gen` and commit the regenerated files.
