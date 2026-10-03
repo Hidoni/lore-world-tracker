@@ -23,6 +23,7 @@ TOP_LEVEL_TYPES: dict[str, tuple[str, Any]] = {
     "end-spec.json": ("EndSpec", schema.EndSpec),
     "calendar-definition.json": ("CalendarDefinition", schema.CalendarDefinition),
     "compile-context.json": ("CompileContext", schema.CompileContext),
+    "preset.json": ("Preset", schema.Preset),
     "recurrence-rule.json": ("RecurrenceRule", schema.RecurrenceRule),
     "correspondence.json": ("CorrespondenceDef", schema.CorrespondenceDef),
 }

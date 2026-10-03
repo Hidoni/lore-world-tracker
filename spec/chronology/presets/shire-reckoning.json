@@ -1,0 +1,379 @@
+{
+  "id": "shire-reckoning",
+  "name": "Shire Reckoning",
+  "description": "The hobbits' calendar (The Lord of the Rings, Appendix D): twelve 30-day months, with 2 Yule and 1 Yule around the year and 1 Lithe, Midyear's Day, Overlithe (leap years) and 2 Lithe in the middle, all days outside the months. Midyear's Day and Overlithe have no weekday, so every year starts on Sterday. Leap years: every 4th year except the last of a century.",
+  "origin": "the start of 2 Yule, year 1",
+  "requires": {
+    "duration_seconds": "0"
+  },
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "shire",
+        "name": "Shire Reckoning",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "d1": {
+            "level": "month",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "yule2",
+                "template": "d1",
+                "name": "2 Yule",
+                "intercalary": true
+              },
+              {
+                "id": "afteryule",
+                "template": "m30",
+                "name": "Afteryule"
+              },
+              {
+                "id": "solmath",
+                "template": "m30",
+                "name": "Solmath"
+              },
+              {
+                "id": "rethe",
+                "template": "m30",
+                "name": "Rethe"
+              },
+              {
+                "id": "astron",
+                "template": "m30",
+                "name": "Astron"
+              },
+              {
+                "id": "thrimidge",
+                "template": "m30",
+                "name": "Thrimidge"
+              },
+              {
+                "id": "forelithe",
+                "template": "m30",
+                "name": "Forelithe"
+              },
+              {
+                "id": "lithe1",
+                "template": "d1",
+                "name": "1 Lithe",
+                "intercalary": true
+              },
+              {
+                "id": "midyear",
+                "template": "d1",
+                "name": "Midyear's Day",
+                "intercalary": true,
+                "cycle_excluded": [
+                  "week"
+                ]
+              },
+              {
+                "id": "lithe2",
+                "template": "d1",
+                "name": "2 Lithe",
+                "intercalary": true
+              },
+              {
+                "id": "afterlithe",
+                "template": "m30",
+                "name": "Afterlithe"
+              },
+              {
+                "id": "wedmath",
+                "template": "m30",
+                "name": "Wedmath"
+              },
+              {
+                "id": "halimath",
+                "template": "m30",
+                "name": "Halimath"
+              },
+              {
+                "id": "winterfilth",
+                "template": "m30",
+                "name": "Winterfilth"
+              },
+              {
+                "id": "blotmath",
+                "template": "m30",
+                "name": "Blotmath"
+              },
+              {
+                "id": "foreyule",
+                "template": "m30",
+                "name": "Foreyule"
+              },
+              {
+                "id": "yule1",
+                "template": "d1",
+                "name": "1 Yule",
+                "intercalary": true
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "yule2",
+                "template": "d1",
+                "name": "2 Yule",
+                "intercalary": true
+              },
+              {
+                "id": "afteryule",
+                "template": "m30",
+                "name": "Afteryule"
+              },
+              {
+                "id": "solmath",
+                "template": "m30",
+                "name": "Solmath"
+              },
+              {
+                "id": "rethe",
+                "template": "m30",
+                "name": "Rethe"
+              },
+              {
+                "id": "astron",
+                "template": "m30",
+                "name": "Astron"
+              },
+              {
+                "id": "thrimidge",
+                "template": "m30",
+                "name": "Thrimidge"
+              },
+              {
+                "id": "forelithe",
+                "template": "m30",
+                "name": "Forelithe"
+              },
+              {
+                "id": "lithe1",
+                "template": "d1",
+                "name": "1 Lithe",
+                "intercalary": true
+              },
+              {
+                "id": "midyear",
+                "template": "d1",
+                "name": "Midyear's Day",
+                "intercalary": true,
+                "cycle_excluded": [
+                  "week"
+                ]
+              },
+              {
+                "id": "overlithe",
+                "template": "d1",
+                "name": "Overlithe",
+                "intercalary": true,
+                "cycle_excluded": [
+                  "week"
+                ]
+              },
+              {
+                "id": "lithe2",
+                "template": "d1",
+                "name": "2 Lithe",
+                "intercalary": true
+              },
+              {
+                "id": "afterlithe",
+                "template": "m30",
+                "name": "Afterlithe"
+              },
+              {
+                "id": "wedmath",
+                "template": "m30",
+                "name": "Wedmath"
+              },
+              {
+                "id": "halimath",
+                "template": "m30",
+                "name": "Halimath"
+              },
+              {
+                "id": "winterfilth",
+                "template": "m30",
+                "name": "Winterfilth"
+              },
+              {
+                "id": "blotmath",
+                "template": "m30",
+                "name": "Blotmath"
+              },
+              {
+                "id": "foreyule",
+                "template": "m30",
+                "name": "Foreyule"
+              },
+              {
+                "id": "yule1",
+                "template": "d1",
+                "name": "1 Yule",
+                "intercalary": true
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "rules",
+            "default": "year_common",
+            "rules": [
+              {
+                "when": {
+                  "all": [
+                    {
+                      "mod": "4",
+                      "eq": "0"
+                    },
+                    {
+                      "not": {
+                        "mod": "100",
+                        "eq": "0"
+                      }
+                    }
+                  ]
+                },
+                "template": "year_leap"
+              }
+            ]
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "yule2"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "0"
+            },
+            "precision": "base"
+          }
+        },
+        "cycles": [
+          {
+            "id": "week",
+            "level": "day",
+            "length": 7,
+            "names": [
+              "Sterday",
+              "Sunday",
+              "Monday",
+              "Trewsday",
+              "Hevensday",
+              "Mersday",
+              "Highday"
+            ],
+            "ids": [
+              "sterday",
+              "sunday",
+              "monday",
+              "trewsday",
+              "hevensday",
+              "mersday",
+              "highday"
+            ],
+            "anchor": {
+              "fields": {
+                "year": "1",
+                "month": "yule2",
+                "day": "1"
+              },
+              "index": 0
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

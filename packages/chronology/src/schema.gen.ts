@@ -27,6 +27,7 @@ export interface ChronologySchemas {
   EndSpec?: EndSpec
   CalendarDefinition?: CalendarDefinition
   CompileContext?: CompileContext
+  Preset?: Preset
   RecurrenceRule?: RecurrenceRule
   CorrespondenceDef?: CorrespondenceDef
 }
@@ -557,6 +558,29 @@ export interface BaseUnit {
   singular: string
   plural: string
   abbr: string
+}
+/**
+ * A preset calendar (``chronology-engine.md`` §13), instantiated per dimension.
+ *
+ * The definition uses a level ``second`` as level 0 (``uniform.count = 1``); its absolute time
+ * points hold seconds after the **origin**, the moment the alignment unit starts.
+ */
+export interface Preset {
+  id: string
+  name: string
+  description: string
+  /**
+   * What the origin is, e.g. "the start of 1 January AD 1".
+   */
+  origin: string
+  requires: PresetRequirements
+  definition: CalendarDefinition
+}
+export interface PresetRequirements {
+  /**
+   * The dimension must last at least this long after the origin (the latest absolute anchor).
+   */
+  duration_seconds: string
 }
 /**
  * An RRULE-like rule generalized to any calendar (recurrence §2).

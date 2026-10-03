@@ -1,0 +1,196 @@
+{
+  "description": "The mayan preset: Long Count and Calendar Round against inscriptions and the GMT correlation.",
+  "calendar": "preset-mayan",
+  "generated": false,
+  "verification": "Day counts from the Long Count digits (1 bakʼtun = 144,000 days); the GMT correlation 584283 (JDN of 0.0.0.0.0) with the Gregorian JDN formula gives 13.0.0.0.0 = 21 December 2012. Calendar Round from 4 Ajaw 8 Kumkʼu at the creation; checked against inscriptions: 13.0.0.0.0 4 Ajaw 3 Kʼankʼin, Kʼinich Janaabʼ Pakal's accession 9.9.2.4.8 5 Lamat 1 Mol and death 9.12.11.5.18 6 Etzʼnabʼ 11 Yax (Palenque, Temple of the Inscriptions).",
+  "cases": [
+    {
+      "id": "creation",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "kin",
+        "approximate": false
+      },
+      "expected": {
+        "text": "0.0.0.0.0 4 Ajaw 8 Kumkʼu"
+      }
+    },
+    {
+      "id": "end-of-13th-baktun",
+      "op": "format",
+      "input": {
+        "t": "100161740800000",
+        "precision": "kin",
+        "approximate": false
+      },
+      "expected": {
+        "text": "13.0.0.0.0 4 Ajaw 3 Kʼankʼin"
+      },
+      "note": "21 December 2012 (GMT)"
+    },
+    {
+      "id": "2012-from-fields",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "baktun": "13",
+          "katun": "0",
+          "tun": "0",
+          "winal": "0",
+          "kin": "0"
+        },
+        "precision": "kin"
+      },
+      "expected": {
+        "t": "100161740800000"
+      }
+    },
+    {
+      "id": "pakal-accession",
+      "op": "format",
+      "input": {
+        "t": "100117642931200",
+        "precision": "kin",
+        "approximate": false
+      },
+      "expected": {
+        "text": "9.9.2.4.8 5 Lamat 1 Mol"
+      }
+    },
+    {
+      "id": "pakal-death",
+      "op": "format",
+      "input": {
+        "t": "100119791699200",
+        "precision": "kin",
+        "approximate": false
+      },
+      "expected": {
+        "text": "9.12.11.5.18 6 Etzʼnabʼ 11 Yax"
+      }
+    },
+    {
+      "id": "tzolkin-name-2012",
+      "op": "cycle_value",
+      "input": {
+        "t": "100161740800000",
+        "cycle": "tzolkin_name"
+      },
+      "expected": {
+        "index": 19,
+        "name": "Ajaw",
+        "n": 20
+      }
+    },
+    {
+      "id": "tzolkin-number-2012",
+      "op": "cycle_value",
+      "input": {
+        "t": "100161740800000",
+        "cycle": "tzolkin_number"
+      },
+      "expected": {
+        "index": 3,
+        "name": null,
+        "n": 4
+      }
+    },
+    {
+      "id": "haab-2012",
+      "op": "cycle_value",
+      "input": {
+        "t": "100161740800000",
+        "cycle": "haab"
+      },
+      "expected": {
+        "index": 263,
+        "name": "3 Kʼankʼin",
+        "n": 263
+      },
+      "note": "number_start 0: n is the Haabʼ day of the year"
+    },
+    {
+      "id": "haab-wayeb",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000001036800",
+        "cycle": "haab"
+      },
+      "expected": {
+        "index": 360,
+        "name": "0 Wayebʼ",
+        "n": 360
+      },
+      "note": "12 days after 8 Kumkʼu (index 348): 19 Kumkʼu is index 359"
+    },
+    {
+      "id": "haab-new-year",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000001468800",
+        "cycle": "haab"
+      },
+      "expected": {
+        "index": 0,
+        "name": "0 Pop",
+        "n": 0
+      },
+      "note": "17 days after 8 Kumkʼu the Haabʼ wraps to 0 Pop"
+    },
+    {
+      "id": "katun",
+      "op": "format",
+      "input": {
+        "t": "100119791699200",
+        "precision": "katun",
+        "approximate": false
+      },
+      "expected": {
+        "text": "9.12"
+      }
+    },
+    {
+      "id": "hour",
+      "op": "format",
+      "input": {
+        "t": "100161740821600",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "13.0.0.0.0 4 Ajaw 3 Kʼankʼin, 6 h"
+      }
+    },
+    {
+      "id": "before-creation",
+      "op": "format",
+      "input": {
+        "t": "99999999913600",
+        "precision": "kin",
+        "approximate": false
+      },
+      "expected": {
+        "text": "-1.19.19.17.19 3 Kawak 7 Kumkʼu"
+      },
+      "note": "the day before 0.0.0.0.0: the bakʼtun count is negative"
+    },
+    {
+      "id": "winal-out-of-range",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "baktun": "9",
+          "katun": "0",
+          "tun": "0",
+          "winal": "18"
+        },
+        "precision": "winal"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "a tun has 18 winals (0-17)"
+    }
+  ]
+}

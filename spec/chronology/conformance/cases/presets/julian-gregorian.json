@@ -1,0 +1,187 @@
+{
+  "description": "The julian-gregorian preset: the 1582 reform, weekdays across it, regimes and eras.",
+  "calendar": "preset-julian-gregorian",
+  "generated": false,
+  "verification": "Moments from Julian Day Numbers (Julian formula before the reform, Gregorian after; JD 1,721,423.5 is Julian 1 January AD 1); the reform: Thursday 4 October 1582 (Julian) is followed by Friday 15 October 1582 (Gregorian); weekdays from JDN mod 7.",
+  "cases": [
+    {
+      "id": "reform-eve",
+      "op": "format",
+      "input": {
+        "t": "100049916390400",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "4 October AD 1582"
+      }
+    },
+    {
+      "id": "reform-day",
+      "op": "format",
+      "input": {
+        "t": "100049916476800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 October AD 1582"
+      }
+    },
+    {
+      "id": "reform-is-next-day",
+      "op": "unit_bounds",
+      "input": {
+        "t": "100049916390400",
+        "level": "day"
+      },
+      "expected": {
+        "start": "100049916390400",
+        "end": "100049916476800"
+      }
+    },
+    {
+      "id": "reform-eve-thursday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100049916390400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      }
+    },
+    {
+      "id": "reform-day-friday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100049916476800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "reform-gap",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "10"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "reform_gap"
+      }
+    },
+    {
+      "id": "forced-julian",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "15"
+        },
+        "precision": "day",
+        "regime": "julian"
+      },
+      "expected": {
+        "t": "100049917340800"
+      },
+      "note": "proleptic Julian 15 October 1582 lies after the reform"
+    },
+    {
+      "id": "y2k",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2000",
+          "month": "jan",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100063082454400"
+      }
+    },
+    {
+      "id": "y2k-saturday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100063082454400",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      }
+    },
+    {
+      "id": "hastings-saturday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100033633532800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      }
+    },
+    {
+      "id": "julian-1500-leap-day",
+      "op": "format",
+      "input": {
+        "t": "100047309875200",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February AD 1500"
+      }
+    },
+    {
+      "id": "across-reform",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100049916390400",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100049916476800",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "4 – 15 October AD 1582"
+      }
+    },
+    {
+      "id": "era-of-ad-1",
+      "op": "era_of",
+      "input": {
+        "t": "100000000000000"
+      },
+      "expected": {
+        "id": "ad",
+        "year": "1",
+        "abbr": "AD",
+        "name": "Anno Domini"
+      }
+    }
+  ]
+}

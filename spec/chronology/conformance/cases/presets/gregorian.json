@@ -1,0 +1,249 @@
+{
+  "description": "The gregorian preset: conversions, weekdays, eras and formats checked against real dates.",
+  "calendar": "preset-gregorian",
+  "generated": false,
+  "verification": "Moments from the Julian Day Number of each date (Fliegel & Van Flandern's Gregorian formula; JDN 1,721,426 is 1 January AD 1) and Python's proleptic-Gregorian datetime; weekdays from JDN mod 7 (0 = Monday); historical dates: Unix epoch, Apollo 11 landing 1969-07-20 20:17:40 UTC, US Declaration of Independence 1776-07-04 (a Thursday), Gregorian reform 1582-10-15 (a Friday).",
+  "cases": [
+    {
+      "id": "unix-epoch",
+      "op": "format",
+      "input": {
+        "t": "100062135596800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 January AD 1970"
+      }
+    },
+    {
+      "id": "apollo-11",
+      "op": "format",
+      "input": {
+        "t": "100062121413860",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "20 July AD 1969, 20:17:40"
+      }
+    },
+    {
+      "id": "leap-day-2024",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100063844761600"
+      }
+    },
+    {
+      "id": "no-leap-day-2023",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2023",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "no-leap-day-1900",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1900",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "century not divisible by 400"
+    },
+    {
+      "id": "leap-day-2024-thursday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100063844761600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      }
+    },
+    {
+      "id": "independence-thursday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100056029536000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 3,
+        "name": "Thursday",
+        "n": 4
+      }
+    },
+    {
+      "id": "reform-friday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100049916304000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Friday",
+        "n": 5
+      }
+    },
+    {
+      "id": "ad-1-monday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000000000000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Monday",
+        "n": 1
+      },
+      "note": "the origin"
+    },
+    {
+      "id": "ides-of-march-44-bc",
+      "op": "format",
+      "input": {
+        "t": "99998617772800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 March 44 BC"
+      },
+      "note": "proleptic Gregorian; astronomical year -43"
+    },
+    {
+      "id": "era-date",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "44",
+          "month": "mar",
+          "day": "15"
+        },
+        "precision": "day",
+        "era": "bc"
+      },
+      "expected": {
+        "t": "99998617772800"
+      }
+    },
+    {
+      "id": "era-of-1-bc",
+      "op": "era_of",
+      "input": {
+        "t": "99999999913600"
+      },
+      "expected": {
+        "id": "bc",
+        "year": "1",
+        "abbr": "BC",
+        "name": "Before Christ"
+      },
+      "note": "no year zero: astronomical 0 is 1 BC"
+    },
+    {
+      "id": "year-0-end",
+      "op": "format",
+      "input": {
+        "t": "99999999999999",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "31 December 1 BC, 23:59"
+      }
+    },
+    {
+      "id": "month",
+      "op": "format",
+      "input": {
+        "t": "100063844761600",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "February AD 2024"
+      }
+    },
+    {
+      "id": "days-across-months",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100063844761600",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100063844848000",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February – 1 March AD 2024"
+      }
+    },
+    {
+      "id": "moon-epoch-new",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100063082779240",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "0",
+          "den": "1"
+        },
+        "name": "New Moon"
+      },
+      "note": "the preset's reference new moon, 2000-01-06 18:14 UTC"
+    },
+    {
+      "id": "full-moon-2024-03-25",
+      "op": "overlay_phase",
+      "input": {
+        "t": "100063846946800",
+        "overlay": "moon"
+      },
+      "expected": {
+        "phase": {
+          "num": "3215407",
+          "den": "6378607"
+        },
+        "name": "Full Moon"
+      },
+      "note": "a real full moon (2024-03-25 07:00 UTC); the mean-month model puts it in the Full Moon phase (7/16 ≤ phase < 9/16)"
+    }
+  ]
+}

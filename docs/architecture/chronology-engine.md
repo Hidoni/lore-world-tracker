@@ -817,15 +817,33 @@ violations are reported before semantic checks run.
 
 ## 13. Presets
 
-`spec/chronology/presets/<id>.json` = `{id, name, description, definition, requires}`. Presets are
-written with a level named `second` as level 0 (`uniform.count = 1`) and absolute alignment
-values expressed in seconds relative to a parameter. Instantiation for a dimension takes
-`seconds_per_base_unit` (rational):
+`spec/chronology/presets/<id>.json` = `{id, name, description, origin, requires, definition}`
+(`lore.chronology.schema.Preset`, exported to `spec/chronology/schema/preset.json`). Presets are
+written with a level named `second` as level 0 (`uniform.count = 1`). Their absolute time
+points hold **seconds after the origin**, the moment the alignment unit starts. `origin`
+describes it ("the start of 1 January AD 1 (00:00)"), so a wizard can ask "Year 1 begins at…".
+`requires.duration_seconds` is the latest absolute anchor: the dimension must last at least that
+long after the origin. Python: `lore.chronology.presets` (`load_presets(spec_dir)` reads
+`<LORE_SPEC_DIR>/chronology/presets/`, `instantiate_preset`, `absolute_moments` building
+`CompileContext.resolved`).
 
-- `1/k` (base finer than a second): set the level-0 count to `k`.
-- `k` (base coarser than a second): drop levels finer than the first level whose length in
-  seconds is a multiple of `k`, and make that level the new level 0 with `count = length/k`. If no
-  level qualifies, return the error `preset.incompatible_base_unit`.
+`instantiate_preset(preset, seconds_per_base_unit, origin = 0)` takes the base unit as a positive
+rational `p/q` seconds and the origin as a moment in base units:
+
+- The new level 0 is the **first level whose every template, in every regime, lasts a whole
+  number of base units** (`length · q` divisible by `p`). Its templates become
+  `uniform` with `count = length · q / p`; finer levels, their templates and their date fields
+  are dropped. This covers both cases of the original rule: `1/k` (finer than a second) keeps
+  `second` with count `k`, and `k` keeps the first level lasting a multiple of `k` seconds.
+- Absolute time points become `origin + floor(seconds · q / p)`. Overlay periods are divided by
+  the base unit exactly. Time points at a dropped precision take the new level 0's.
+- Formats of dropped precisions, and patterns using dropped levels, are removed (the generated
+  defaults take over).
+- `preset.incompatible_base_unit`: no level qualifies, the base unit is not positive, a cycle
+  counts a dropped level, or a date names a dropped level at anything but its first unit (it
+  would move).
+
+The result is the preset's JSON with these edits (members it doesn't mention keep their form).
 
 Required presets (MVP): `gregorian` (proleptic; BC/AD without year 0; continuous Monday-first
 week; moon and seasons overlays), `julian`, `julian-gregorian` (two regimes, 1582 reform, week
@@ -834,7 +852,19 @@ the week, years always start on the same weekday), `alternating-years` (the brie
 example), `mayan` (Long Count levels kin → winal → tun → kʼatun → bakʼtun as top; Tzolkʼin 13-number
 and 20-name cycles and a 365-name Haabʼ cycle), `lunisolar-metonic` (19-year cycle of 12/13-month
 years with 29/30-day months). A user's first calendar is typically instantiated from a preset and
-then edited.
+then edited. Choices beyond this list (each preset file's `description` has the details):
+
+- `gregorian`, `julian`, `julian-gregorian`: origin 1 January AD 1 (Julian for the last two;
+  the Gregorian regime is aligned 2 days later, at Gregorian 1 January AD 1). The moon and
+  seasons of `gregorian` are the overlays of the conformance calendar `gregorian-moon`.
+- `shire-reckoning` follows *The Lord of the Rings*, Appendix D: Midyear's Day and Overlithe
+  (not the Yule and Lithe days) are outside the week, so years start on Sterday.
+- `alternating-years` adds the week (Moonday …) and the BF/AF eras of `time-model.md` §13.
+- `mayan` numbers the bakʼtun from the creation 0.0.0.0.0 4 Ajaw 8 Kumkʼu (Y = 13 is
+  21 December 2012 with the GMT correlation 584283); its formats show
+  `9.12.11.5.18 6 Etzʼnabʼ 11 Yax`. The Haabʼ cycle has `number_start` 0 (n = day of the year).
+- `simple-360` has unnamed months and `year-month-day` formats (`1023-03-12`).
+- `lunisolar-metonic` makes 4 common years "full" (355 days) so the 19 years have 6940 days.
 
 ## 14. Conformance suite
 

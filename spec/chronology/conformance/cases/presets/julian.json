@@ -1,0 +1,171 @@
+{
+  "description": "The julian preset: conversions, weekdays, eras and formats checked against Meeus's examples.",
+  "calendar": "preset-julian",
+  "generated": false,
+  "verification": "Moments from Julian Day Numbers (the Julian-calendar JDN formula; JD 1,721,423.5 is Julian 1 January AD 1, 00:00). Jean Meeus, Astronomical Algorithms (2nd ed.), chapter 7: 333 January 27 12h = JD 1,842,713.0, −1000 July 12 12h = JD 1,356,001.0, 837 April 10.3 = JD 2,026,871.8. Weekdays from JDN mod 7 (0 = Monday); the Battle of Hastings (14 October 1066) was a Saturday.",
+  "cases": [
+    {
+      "id": "meeus-333",
+      "op": "format",
+      "input": {
+        "t": "100010479412800",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "27 January AD 333, 12:00"
+      },
+      "note": "Meeus example 7.b"
+    },
+    {
+      "id": "meeus-minus-1000",
+      "op": "format",
+      "input": {
+        "t": "99968427496000",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "12 July 1001 BC, 12:00"
+      },
+      "note": "Meeus: −1000 July 12.5 (astronomical year −1000 is 1001 BC)"
+    },
+    {
+      "id": "meeus-837",
+      "op": "format",
+      "input": {
+        "t": "100026390733120",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "10 April AD 837, 07:12"
+      },
+      "note": "Meeus: 837 April 10.3"
+    },
+    {
+      "id": "hastings-saturday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100033633532800",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      }
+    },
+    {
+      "id": "ad-1-saturday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000000000000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 5,
+        "name": "Saturday",
+        "n": 6
+      }
+    },
+    {
+      "id": "reform-eve",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1582",
+          "month": "oct",
+          "day": "4"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100049916390400"
+      }
+    },
+    {
+      "id": "julian-leap-1500",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1500",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100047309875200"
+      },
+      "note": "every 4th year is leap, centuries too"
+    },
+    {
+      "id": "julian-leap-1700",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1700",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100053621395200"
+      }
+    },
+    {
+      "id": "no-leap-2023",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2023",
+          "month": "feb",
+          "day": "29"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "era-of-year-0",
+      "op": "era_of",
+      "input": {
+        "t": "99999981510400"
+      },
+      "expected": {
+        "id": "bc",
+        "year": "1",
+        "abbr": "BC",
+        "name": "Before Christ"
+      }
+    },
+    {
+      "id": "year",
+      "op": "format",
+      "input": {
+        "t": "100063840960000",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "AD 2024"
+      }
+    },
+    {
+      "id": "hastings",
+      "op": "format",
+      "input": {
+        "t": "100033633565200",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "14 October AD 1066, 9 h"
+      }
+    }
+  ]
+}

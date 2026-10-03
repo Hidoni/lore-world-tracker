@@ -1,0 +1,175 @@
+{
+  "description": "The simple-360 preset: twelve 30-day months shown year-month-day.",
+  "calendar": "preset-simple-360",
+  "generated": false,
+  "verification": "Day counting: day d of month m of year y starts (y − 1)·360 + (m − 1)·30 + d − 1 days after the origin.",
+  "cases": [
+    {
+      "id": "origin",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1-01-01"
+      }
+    },
+    {
+      "id": "second",
+      "op": "format",
+      "input": {
+        "t": "100031794440767",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1023-03-12 05:06:07"
+      }
+    },
+    {
+      "id": "minute",
+      "op": "format",
+      "input": {
+        "t": "100031794440760",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1023-03-12 05:06"
+      }
+    },
+    {
+      "id": "hour",
+      "op": "format",
+      "input": {
+        "t": "100031794440400",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1023-03-12 05 h"
+      }
+    },
+    {
+      "id": "month",
+      "op": "format",
+      "input": {
+        "t": "100031819305600",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1023-12"
+      }
+    },
+    {
+      "id": "year",
+      "op": "format",
+      "input": {
+        "t": "100031819305600",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1023"
+      }
+    },
+    {
+      "id": "last-day",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1023",
+          "month": "12",
+          "day": "30"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100031819305600"
+      }
+    },
+    {
+      "id": "no-month-13",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1023",
+          "month": "13"
+        },
+        "precision": "month"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "no-day-31",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1023",
+          "month": "1",
+          "day": "31"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "negative-year",
+      "op": "format",
+      "input": {
+        "t": "99999937792000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "-1-01-01"
+      }
+    },
+    {
+      "id": "days",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100031794422400",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100031794681600",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "1023-03-12 – 15"
+      },
+      "note": "the varying day comes last: the end keeps only it"
+    },
+    {
+      "id": "months",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100031794422400",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100031796150400",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "1023-03-12 – 04-02"
+      }
+    }
+  ]
+}

@@ -204,8 +204,14 @@ alignment fields are invalid).
 
 ### `preset_instantiate` (§13), calendar-free
 
-- input: `{"preset": "<preset id>", "seconds_per_base_unit": Rational}`
-- expected: `{"definition": CalendarDefinition}` or `{"error": "preset.incompatible_base_unit"}`
+- input: `{"preset": "<preset id>", "seconds_per_base_unit": Rational, "origin": "<moment>" | absent}`
+  (`origin` absent = `0`; presets load from `spec/chronology/presets/`)
+- expected: `{"definition": CalendarDefinition}` (the preset's JSON with the §13 edits, compared
+  exactly) or `{"error": "preset.incompatible_base_unit"}`
+
+The calendar files `calendars/preset-<id>.json` are the presets instantiated with one-second base
+units and the origin at `t = 10^14`. They are written out (so runners need no preset support to
+load them), and the Python tests check they equal the instantiation.
 
 ### Recurrence ops (recurrence.md §4)
 

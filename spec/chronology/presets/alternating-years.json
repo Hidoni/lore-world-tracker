@@ -1,0 +1,237 @@
+{
+  "id": "alternating-years",
+  "name": "Alternating years",
+  "description": "The brief's example: odd years have the months Frostfall, Thawing and Bloom (30, 31 and 30 days), even years Ember, Ash and Cinder (31, 30 and 31 days). A continuous 7-day week starts with Moonday on 1 Frostfall 1 AF; eras BF/AF without a year zero.",
+  "origin": "the start of 1 Frostfall 1 AF",
+  "requires": {
+    "duration_seconds": "0"
+  },
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "imperial",
+        "name": "Imperial Reckoning",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m31": {
+            "level": "month",
+            "uniform": {
+              "count": "31"
+            }
+          },
+          "year_odd": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "frostfall",
+                "template": "m30",
+                "name": "Frostfall",
+                "abbr": "Fro"
+              },
+              {
+                "id": "thawing",
+                "template": "m31",
+                "name": "Thawing",
+                "abbr": "Tha"
+              },
+              {
+                "id": "bloom",
+                "template": "m30",
+                "name": "Bloom",
+                "abbr": "Blo"
+              }
+            ]
+          },
+          "year_even": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "ember",
+                "template": "m31",
+                "name": "Ember",
+                "abbr": "Emb"
+              },
+              {
+                "id": "ash",
+                "template": "m30",
+                "name": "Ash",
+                "abbr": "Ash"
+              },
+              {
+                "id": "cinder",
+                "template": "m31",
+                "name": "Cinder",
+                "abbr": "Cin"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "cycle",
+            "templates": [
+              "year_odd",
+              "year_even"
+            ],
+            "start": "1"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "frostfall",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "0"
+            },
+            "precision": "base"
+          }
+        },
+        "cycles": [
+          {
+            "id": "week",
+            "level": "day",
+            "length": 7,
+            "names": [
+              "Moonday",
+              "Twosday",
+              "Threeday",
+              "Fourday",
+              "Fiveday",
+              "Sixday",
+              "Restday"
+            ],
+            "ids": [
+              "moonday",
+              "twosday",
+              "threeday",
+              "fourday",
+              "fiveday",
+              "sixday",
+              "restday"
+            ],
+            "anchor": {
+              "fields": {
+                "year": "1",
+                "month": "frostfall",
+                "day": "1"
+              },
+              "index": 0
+            }
+          }
+        ]
+      }
+    ],
+    "eras": [
+      {
+        "id": "bf",
+        "name": "Before the Founding",
+        "abbr": "BF",
+        "numbering": {
+          "direction": "backward",
+          "first": "1"
+        }
+      },
+      {
+        "id": "af",
+        "name": "After the Founding",
+        "abbr": "AF",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1",
+              "month": "frostfall",
+              "day": "1"
+            }
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        }
+      }
+    ]
+  }
+}
