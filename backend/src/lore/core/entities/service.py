@@ -23,7 +23,6 @@ from lore.core.entities.models import (
     tag_name_key,
 )
 from lore.core.entities.schemas import (
-    Affected,
     AliasIn,
     AliasOut,
     EntityCreate,
@@ -36,10 +35,13 @@ from lore.core.entities.schemas import (
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.fields import KindFields
 from lore.core.links.models import Link
+from lore.core.links.schemas import EntityLinkAdd, LinkCreate
+from lore.core.links.service import LinkService
 from lore.core.modules.registry import RegisteredKind
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext import SCHEMA_VERSION as RICHTEXT_SCHEMA_VERSION
+from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
 
 DIMENSION_KIND = "dimension"
@@ -190,10 +192,11 @@ class EntityService:
         self._replace_tags(entity, data.tags)
         if extension is not None:
             extension.write(self.context, entity, data.ext, True)
+        links = self._add_links(entity, data.links_add)
         self.session.flush()
+        affected = self._affected([entity.id, entity.parent_id], [entity.dimension_id], True)
         return EntityWriteResult(
-            entity=self.to_out(entity),
-            affected=self._affected([entity.id, entity.parent_id], [entity.dimension_id], True),
+            entity=self.to_out(entity), affected=self._with_links(affected, links)
         )
 
     def update(self, entity_id: str, data: EntityUpdate) -> EntityWriteResult:
@@ -209,6 +212,10 @@ class EntityService:
             )
         sent = data.model_fields_set - {"revision"}
         old_parent, old_dimension = entity.parent_id, entity.dimension_id
+        if sent:
+            # First, so queries that autoflush midway don't update the row (and revision) twice;
+            # also bumps the revision when only aliases, tags, ext or links change.
+            entity.updated_at = utc_now()
 
         self._apply_members(entity, kind, data, sent)
         self._move(entity, kind, data, sent)
@@ -220,17 +227,19 @@ class EntityService:
             extension = self._extension_for(kind, data.ext)
             if extension is not None:
                 extension.write(self.context, entity, data.ext, False)
-        if sent:
-            # Also bumps the revision when only aliases, tags or ext changed.
-            entity.updated_at = utc_now()
+        links: list[Link] = []
+        if "links_remove" in sent:  # first, so a link can be replaced under a uniqueness rule
+            links += self._links().trash_for_entity(entity.id, data.links_remove)
+        if "links_add" in sent:
+            links += self._add_links(entity, data.links_add)
         self.session.flush()
+        affected = self._affected(
+            [entity.id, old_parent, entity.parent_id],
+            [old_dimension, entity.dimension_id],
+            bool(sent & _SEARCH_MEMBERS),
+        )
         return EntityWriteResult(
-            entity=self.to_out(entity),
-            affected=self._affected(
-                [entity.id, old_parent, entity.parent_id],
-                [old_dimension, entity.dimension_id],
-                bool(sent & _SEARCH_MEMBERS),
-            ),
+            entity=self.to_out(entity), affected=self._with_links(affected, links)
         )
 
     def _apply_members(
@@ -491,6 +500,54 @@ class EntityService:
             )
 
     # --- aliases and tags -----------------------------------------------------------------------
+
+    # --- inline links (composite writes, api.md §1) ----------------------------------------------
+
+    def _links(self) -> LinkService:
+        return LinkService(self.session, self.registry)
+
+    def _add_links(self, entity: Entity, items: Sequence[EntityLinkAdd]) -> list[Link]:
+        """Create ``links_add``: the entity fills the end the item leaves out. Error paths are
+        prefixed ``links_add.<index>``."""
+        if not items:
+            return []
+        service = self._links()
+        links = []
+        for index, item in enumerate(items):
+            prefix = f"links_add.{index}"
+            if (item.source_id is None) == (item.target_id is None):
+                raise _invalid(prefix, "Give exactly one of source_id and target_id.")
+            members = item.model_dump(
+                include=item.model_fields_set - {"link_type", "source_id", "target_id"}
+            )
+            try:
+                links.append(
+                    service.add(
+                        LinkCreate(
+                            **members,
+                            link_type=item.link_type,
+                            source_id=item.source_id or entity.id,
+                            target_id=item.target_id or entity.id,
+                        )
+                    )
+                )
+            except InvalidInputError as exc:
+                exc.errors = [
+                    {**error, "path": f"{prefix}.{error['path']}"} for error in exc.errors or []
+                ] or [_error(prefix, exc.detail, exc.code)]
+                raise
+        return links
+
+    def _with_links(self, affected: Affected, links: Sequence[Link]) -> Affected:
+        if not links:
+            return affected
+        extra = self._links().affected(links)
+        return affected.model_copy(
+            update={
+                "entities": _unique([*affected.entities, *extra.entities]),
+                "dimensions": _unique([*affected.dimensions, *extra.dimensions]),
+            }
+        )
 
     def _replace_aliases(self, entity: Entity, items: Sequence[AliasIn]) -> None:
         existing = {

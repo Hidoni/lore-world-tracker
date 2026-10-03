@@ -174,6 +174,12 @@ class ModuleRegistry:
         """Purge hooks of core and **every** module (disabled modules keep their data)."""
         return [*CORE_PURGE_HOOKS, *(hook for m in self.modules for hook in m.purge_hooks)]
 
+    def all_link_type_keys(self) -> set[str]:
+        """Keys of every code-registered link type (core and all modules, enabled or not)."""
+        return {t.key for t in CORE_LINK_TYPES} | {
+            t.key for module in self.modules for t in module.link_types
+        }
+
     def all_kind_keys(self) -> set[str]:
         return {kind.key for kind in CORE_KINDS} | {
             kind.key for module in self.modules for kind in module.kinds

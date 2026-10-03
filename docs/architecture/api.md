@@ -90,6 +90,10 @@ Entity listings (`lore.core.entities.queries`; decided 2026-10-04):
 
 Entity write semantics (`lore.core.entities.service`):
 
+- **Inline links:** create accepts `links_add` (each item names the other end as `target_id` or
+  `source_id`; the entity is the missing end); PATCH accepts `links_add` and `links_remove` (link
+  ids of this entity), removals first. Errors are prefixed `links_add.<i>` / `links_remove.<i>`.
+  Everything happens in the entity's transaction.
 - **PATCH** changes only the members sent. `fields` and `field_visibility` are **merged** into the
   stored values (`null` removes a value or an override); `aliases` (items with an `id` keep that
   alias) and `tags` (by name, case-insensitive, created when missing) **replace** the list. Any
@@ -112,10 +116,30 @@ Entity write semantics (`lore.core.entities.service`):
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/vaults/{v}/links` | create |
-| PATCH/DELETE | `/vaults/{v}/links/{id}` | update / trash |
-| GET/POST | `/vaults/{v}/link-types` | list (built-in + custom) / create custom |
-| PATCH | `/vaults/{v}/link-types/{key}` | edit/archive a custom type |
+| POST | `/vaults/{v}/links` | create → `201 {link, affected}` |
+| PATCH/DELETE | `/vaults/{v}/links/{id}` | update (revision required; role, data, visibility, validity, `sort_key`; type and ends are fixed) / trash (idempotent) |
+| GET/POST | `/vaults/{v}/link-types` | list (built-in + custom offered by the vault, archived flagged; custom ones carry `revision`) / create custom (`key` optional: derived from the label) |
+| PATCH/DELETE | `/vaults/{v}/link-types/{key}` | edit/archive a custom type (revision required) / delete an unused custom type; built-in types `403 forbidden` |
+| GET | `/vaults/{v}/entities/{id}/links` | the entity's links: `direction` (`out`, `in`, `both`), `type` (repeatable), `include_trashed` (links whose other end is trashed) → items `{link, direction, label, other}` |
+
+Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where marked):
+
+- The type must be offered (its source/target kinds available) and not archived, and the ends'
+  kinds must fit it (`422 link_type_not_allowed`). Ends must exist and not be trashed. An entity
+  can't link to itself (decided).
+- Validity: `temporal: never` refuses bounds, `required` needs one; a link with bounds needs a
+  `timeline_id`, a timeless one has none. Bounds are stored as time-point specs, resolved in #102.
+- Limits (`409 conflict`): `per_pair` counts every link of the pair; `per_pair_per_period` and
+  `max_*` count only timeless links until #102 resolves periods (decided). `data` must match
+  `data_schema` (`errors[].path = "data.…"`).
+- Custom types: deleting one that links use (trashed ones too) is refused (`409`,
+  `context.links`): archive it instead; archived types keep their links, editable, but take no new
+  ones (decided). Edits that existing links would break are refused (`409`,
+  `context.conflicts: {kinds|unique|max_…|temporal|data_schema|symmetric: count}`), and
+  `symmetric` can't change once the type has links (decided).
+- Entity link lists hide trashed links, links of types that aren't offered and links whose other
+  end is of an unavailable kind or (by default) trashed. Order: type key, manual order, the other
+  end's name.
 
 ### Time
 

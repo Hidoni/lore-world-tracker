@@ -282,7 +282,11 @@ Indexes: `(source_id, link_type)`, `(target_id, link_type)`, `(link_type)`,
 
 **Symmetric** link types (`sibling_of`, `allied_with`) are stored once, with
 `source_id < target_id` (string order), and read in both directions. Uniqueness policies
-(`unique: none | per_pair | per_pair_per_period`) are enforced by the link service per link type.
+(`unique: none | per_pair | per_pair_per_period`) are enforced by the link service per link type. A link
+with validity bounds has a `timeline_id`; a timeless link has none, which is how the service tells
+them apart. Until validity periods resolve (#102), `per_pair_per_period` and the `max_*` limits
+only count timeless links (decided 2026-10-04); `per_pair` counts every link. No self-links.
+The full rules are listed in `api.md` §2 (Links & link types).
 
 ### 6.2 Link types
 
