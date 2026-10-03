@@ -39,6 +39,13 @@ import {
   unitBounds,
   validateCalendar,
 } from '../src/calendar'
+import {
+  compose,
+  CorrespondenceError,
+  type Direction,
+  type Step,
+  validateCorrespondence,
+} from '../src/correspondence'
 import { instantiatePreset, PresetError } from '../src/presets'
 import {
   countInWindow,
@@ -256,6 +263,21 @@ const windowOf = (d: Json): readonly [bigint, bigint] => {
   return [BigInt(w0), BigInt(w1)]
 }
 
+/** A correspondence of a `map` / `compose` input (README "`map`"). */
+function correspondence(data: unknown) {
+  const { extrapolation, rate_before, rate_after, points } = data as Json
+  return validateCorrespondence(
+    (points as { a: string; b: string }[]).map(({ a, b }) => [BigInt(a), BigInt(b)] as const),
+    {
+      extrapolation: extrapolation as 'none' | 'rate',
+      rateBefore: rate_before === null ? null : rat(rate_before),
+      rateAfter: rate_after === null ? null : rat(rate_after),
+    },
+  )
+}
+
+const momentOrNull = (t: bigint | null) => ({ t: t === null ? null : t.toString() })
+
 /** op → engine call returning the result in the README's JSON shape (errors as `{error}`). */
 // Inputs named n/a/b are deliberately parsed without validation (they may be out of range).
 const HANDLERS: Partial<Record<Op, Handler>> = {
@@ -366,13 +388,23 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
   occurrence_at: (calendar, d) => ({
     key: occurrenceAt(...recurrence(calendar, d), BigInt(str(d, 't'))),
   }),
+  map: (_, d) => {
+    const found = correspondence(d.correspondence)
+    const t = BigInt(str(d, 't'))
+    return momentOrNull(found.map(t, d.direction as Direction, BigInt(str(d, 'target_duration'))))
+  },
+  compose: (_, d) => {
+    const path = (d.path as Json[]).map((step): Step => ({
+      correspondence: correspondence(step.correspondence),
+      direction: step.direction as Direction,
+      targetDuration: BigInt(str(step, 'target_duration')),
+    }))
+    return momentOrNull(compose(path, BigInt(str(d, 't'))))
+  },
 }
 
 /** op → issue that implements it in the TypeScript engine. */
-const PENDING: Partial<Record<Op, number>> = {
-  map: 27,
-  compose: 27,
-}
+const PENDING: Partial<Record<Op, number>> = {}
 
 function readJson(file: string): unknown {
   return JSON.parse(readFileSync(file, 'utf8'))
@@ -414,7 +446,8 @@ function run(op: Op, calendarName: string | null, input: Record<string, unknown>
       error instanceof NumberError ||
       error instanceof DateError ||
       error instanceof RecurrenceError ||
-      error instanceof PresetError
+      error instanceof PresetError ||
+      error instanceof CorrespondenceError
     ) {
       return { error: error.code }
     }

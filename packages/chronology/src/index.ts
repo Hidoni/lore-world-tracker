@@ -15,3 +15,16 @@ export * from './numbers'
 export * from './calendar'
 export * from './recurrence'
 export { PresetError, type PresetErrorCode, absoluteMoments, instantiatePreset } from './presets'
+export {
+  Correspondence,
+  CorrespondenceError,
+  type CorrespondenceErrorCode,
+  type CorrespondenceOptions,
+  type CorrespondenceValidationError,
+  type Direction,
+  type Step,
+  type SyncMoments,
+  compileCorrespondence,
+  compose,
+  validateCorrespondence,
+} from './correspondence'
