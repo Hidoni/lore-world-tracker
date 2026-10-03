@@ -887,8 +887,20 @@ class _Compiler:
                 found = self.locate(
                     compiled, cycle.anchor.fields, path, "cycle.anchor_invalid", finest=cycle.level
                 )
-                if found is not None:
-                    anchors[c] = found
+                if found is None:
+                    continue
+                # The anchor unit must count: neither it nor an ancestor is excluded.
+                year, offset = found
+                level = self.level_index[cycle.level]
+                start = compiled.year_start(year) + offset
+                top = len(self.levels) - 1
+                if not counted_position(top, compiled, start, level, cycle_filter(cycle.id))[1]:
+                    self.error(
+                        "cycle.anchor_invalid",
+                        pointer(*path),
+                        "the anchor unit is excluded from the cycle",
+                    )
+                anchors[c] = found
         return anchors
 
     def build_cycles(
@@ -904,7 +916,6 @@ class _Compiler:
         result: list[CompiledCycle] = []
         for c, cycle in enumerate(regime.cycles):
             level = self.level_index[cycle.level]
-            path = ("regimes", r, "cycles", c)
             unit_filter = cycle_filter(cycle.id)
             anchor_index = cycle.anchor.index if cycle.anchor is not None else 0
             anchor_ordinal: int | None = None
@@ -922,15 +933,9 @@ class _Compiler:
                         previous=previous,
                     )
                 else:
-                    year, offset = anchors[c]
+                    year, offset = anchors[c]  # a counted unit (check_cycle_anchors)
                     start = compiled.year_start(year) + offset
-                    before, counted, _ = counted_position(top, compiled, start, level, unit_filter)
-                    if not counted:
-                        self.error(
-                            "cycle.anchor_invalid",
-                            pointer(*path, "anchor", "fields"),
-                            "the anchor unit is excluded from the cycle",
-                        )
+                    before, _, _ = counted_position(top, compiled, start, level, unit_filter)
                     anchor_ordinal = before
             result.append(
                 CompiledCycle(
@@ -1143,57 +1148,65 @@ def _local_era(point: Any, path: tuple[str | int, ...]) -> list[ValidationError]
     return []
 
 
+type _Located = tuple[tuple[tuple[str, str], ...], ValidationError]
+"""An error with the union members its location passes through, outermost first."""
+
+
 def _schema_errors(
     error: PydanticValidationError, root: dict[str, Any], prefix: str, skip: Sequence[str]
 ) -> list[ValidationError]:
-    groups: dict[tuple[str, str], list[ValidationError]] = {}
+    located: list[_Located] = []
     for detail in error.errors():
-        path, union = _clean_location(root[""], detail["loc"])
+        path, unions = _clean_location(root[""], detail["loc"])
         code = _schema_code(path, detail["type"], detail.get("input"))
-        item = ValidationError(code, prefix + path, detail["msg"])
-        groups.setdefault(union or ("", ""), []).append(item)
+        located.append((unions, ValidationError(code, prefix + path, detail["msg"])))
     return [
         e
-        for e in _best_union_members(groups)
+        for e in _best_union_members(located)
         if not any(e.path == s or e.path.startswith(s + "/") for s in skip)
     ]
 
 
 def _clean_location(
     document: Any, location: Sequence[str | int]
-) -> tuple[str, tuple[str, str] | None]:
-    """Drop union-member names from a pydantic location (they aren't document keys)."""
+) -> tuple[str, tuple[tuple[str, str], ...]]:
+    """Drop union-member names from a pydantic location (they aren't document keys); return
+    the path and the ``(union node, member)`` pairs passed, outermost first."""
     parts: list[str | int] = []
     node = document
-    union: tuple[str, str] | None = None
+    unions: list[tuple[str, str]] = []
+    tagged = False  # the node's `kind` tag was seen (it comes before the node's members)
     for part in location:
         in_list = isinstance(node, list) and isinstance(part, int) and 0 <= part < len(node)
-        if in_list or (isinstance(node, dict) and part in node):
+        is_tag = isinstance(node, dict) and node.get("kind") == part and not tagged
+        if is_tag and isinstance(
+            part, str
+        ):  # a `kind` tag before the node's members (`rules` is also a member name)
+            unions.append((pointer(*parts), part))
+            tagged = True
+        elif in_list or (isinstance(node, dict) and part in node):
             node = node[part]
             parts.append(part)
-        elif isinstance(part, str) and _is_member(node, part):
-            union = union or (pointer(*parts), part)
+            tagged = False
+        elif isinstance(part, str) and (part[:1].isupper() or "[" in part):
+            unions.append((pointer(*parts), part))  # a model or validator name
         else:
             parts.append(part)
             node = None
-    return pointer(*parts), union
+            tagged = False
+    return pointer(*parts), tuple(unions)
 
 
-def _is_member(node: Any, part: str) -> bool:
-    """A union member in a location: a model name, a validator name, or a ``kind`` tag."""
-    if part[:1].isupper() or "[" in part:
-        return True
-    return isinstance(node, dict) and node.get("kind") == part
-
-
-def _best_union_members(
-    groups: dict[tuple[str, str], list[ValidationError]],
-) -> list[ValidationError]:
-    """Of a union's members, keep those whose errors are not about the member's own shape."""
-    result = list(groups.pop(("", ""), []))
-    by_node: dict[str, list[tuple[str, list[ValidationError]]]] = {}
-    for (node, member), items in groups.items():
-        by_node.setdefault(node, []).append((member, items))
+def _best_union_members(located: list[_Located]) -> list[ValidationError]:
+    """Of each failed union's members, keep those whose errors are not about the member's own
+    shape (all of them if none fits). Nested unions are decided first, innermost out, so a
+    member is judged by the errors it would report."""
+    result = [e for unions, e in located if not unions]
+    by_node: dict[str, dict[str, list[_Located]]] = {}
+    for unions, e in located:
+        if unions:
+            (node, member), inner = unions[0], unions[1:]
+            by_node.setdefault(node, {}).setdefault(member, []).append((inner, e))
     for node, members in by_node.items():
 
         def shaped(items: list[ValidationError], node: str = node) -> bool:
@@ -1203,8 +1216,8 @@ def _best_union_members(
                 for e in items
             )
 
-        fitting = [items for _, items in members if shaped(items)]
-        for items in fitting or [items for _, items in members]:
+        chosen = [_best_union_members(items) for items in members.values()]
+        for items in [items for items in chosen if shaped(items)] or chosen:
             result.extend(items)
     return result
 

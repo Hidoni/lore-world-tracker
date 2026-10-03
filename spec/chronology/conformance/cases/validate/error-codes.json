@@ -3729,6 +3729,140 @@
       "note": "the anchor unit must not be excluded from its cycle (here its month is)"
     },
     {
+      "id": "cycle-anchor-excluded-with-other-errors",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First",
+                      "cycle_excluded": [
+                        "week"
+                      ]
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              },
+              "cycles": [
+                {
+                  "id": "week",
+                  "level": "day",
+                  "length": 7,
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "first",
+                      "day": "1"
+                    }
+                  }
+                },
+                {
+                  "id": "tide",
+                  "level": "day",
+                  "length": 3,
+                  "anchor": {
+                    "fields": {
+                      "year": "1",
+                      "month": "nope",
+                      "day": "1"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "cycle.anchor_invalid",
+            "path": "/regimes/0/cycles/0/anchor/fields"
+          },
+          {
+            "code": "cycle.anchor_invalid",
+            "path": "/regimes/0/cycles/1/anchor/fields/month"
+          }
+        ]
+      },
+      "note": "an excluded anchor unit is reported with the regime's other errors, not only when everything else is valid (found by differential testing)"
+    },
+    {
       "id": "cycle-continue-across-regimes",
       "op": "validate",
       "input": {
@@ -8400,6 +8534,414 @@
         ]
       },
       "note": "other schema violations are schema.invalid at the offending member"
+    },
+    {
+      "id": "schema-nested-union-run-not-object",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": ""
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "schema.invalid",
+            "path": "/regimes/0/templates/year/sequence/1/run"
+          }
+        ]
+      },
+      "note": "a sequence child is a named slot or a run, inside the template union (uniform or sequence): nested unions report the best-fitting branch, innermost first (§11). {run: \"\"} fits the run branch, so only its error counts, not the named slot's missing members (found by differential testing)"
+    },
+    {
+      "id": "schema-nested-union-bad-slot-id",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "schema.invalid",
+            "path": "/regimes/0/templates/year/sequence/0/id"
+          }
+        ]
+      },
+      "note": "the named-slot branch fits (only its id is invalid); the run branch's missing run and unknown members are not reported (found by differential testing)"
+    },
+    {
+      "id": "schema-nested-union-run-missing-count",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "schema.invalid",
+            "path": "/regimes/0/templates/year/sequence/1/run/count"
+          }
+        ]
+      },
+      "note": "a missing member deeper than the union's own members doesn't disqualify the run branch (found by differential testing)"
+    },
+    {
+      "id": "schema-tagged-union-missing-member",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "rules",
+                  "rules": [
+                    {
+                      "when": {
+                        "mod": "4",
+                        "eq": "0"
+                      },
+                      "template": "year"
+                    }
+                  ]
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base"
+                }
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": [
+          {
+            "code": "schema.invalid",
+            "path": "/regimes/0/top/pattern/default"
+          }
+        ]
+      },
+      "note": "a rules pattern without default: the error is at the pattern's missing member, even though the kind tag rules is also the name of a member (found by differential testing)"
     },
     {
       "id": "root-cause-only",
