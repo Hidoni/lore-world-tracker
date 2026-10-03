@@ -203,3 +203,23 @@ class LinkDeleteResult(BaseModel):
     id: str
     link: LinkOut
     affected: Affected
+
+
+class MentionCountsOut(BaseModel):
+    """Mentions in the source's text, by the visibility of the block they're in."""
+
+    public: int
+    spoiler: int
+    private: int
+
+
+class Backlink(BaseModel):
+    """One entity pointing at this one: its incoming links and its mentions."""
+
+    entity: LinkedEntity
+    links: list[EntityLink]
+    mentions: MentionCountsOut
+
+
+class Backlinks(BaseModel):
+    items: list[Backlink]

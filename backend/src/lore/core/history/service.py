@@ -48,11 +48,11 @@ from lore.core.registry.types import LinkTypeDef
 from lore.core.types import Affected
 from lore.core.vaults import OpenVault
 
-type RevertHook = Callable[[Session, Sequence[Change]], None]
+type RevertHook = Callable[[VaultContext, Sequence[Change]], None]
 
 REVERT_HOOKS: list[RevertHook] = []
 """Called after a revert with the reverted changes, to recompute derived data (extension
-point: search #39, mentions #38, time propagation M3 append here)."""
+point: search #39 and time propagation M3 append here; mentions are refreshed by core)."""
 
 
 SHOWN_PROBLEMS = 3  # in the detail message; context.problems lists all
@@ -260,6 +260,14 @@ class HistoryService:
         unique = {(p["table_name"], p["row_id"], p["message"]): p for p in problems}
         return list(unique.values())
 
+    def _refresh_derived(self, context: VaultContext, changes: Sequence[Change]) -> None:
+        """Core derived data of the reverted rows: mentions of every entity whose row changed."""
+        entities = EntityService(context)
+        for entity_id in {c.row_id for c in changes if c.table_name == "entities"}:
+            entity = self.session.get(Entity, entity_id)
+            if entity is not None:
+                entities.refresh_mentions(entity)
+
     def _dangling_references(self) -> list[dict[str, str]]:
         """Foreign keys left pointing at rows the revert removed (checks are deferred until the
         commit, so they're looked up here to answer with a conflict instead of failing)."""
@@ -356,8 +364,10 @@ class HistoryService:
         assert undo_id is not None
         changeset.reverted_by_changeset_id = undo_id
         self.session.flush()
+        context = VaultContext(self.vault, self.session, self.registry)
+        self._refresh_derived(context, changes)
         for hook in REVERT_HOOKS:
-            hook(self.session, changes)
+            hook(context, changes)
         detail = self.detail(undo_id)
         entity_ids = sorted({e for c in detail.changes for e in c.entity_ids})
         dimensions = self.session.scalars(

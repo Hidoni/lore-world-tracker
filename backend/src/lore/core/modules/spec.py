@@ -7,7 +7,6 @@ the issue that builds each one replaces its alias with a real protocol:
 - ``SearchContributor``: search (#39)
 - ``GraphContributor``: graph module (M8)
 - ``VisibilityFilter``: visibility framework (#40)
-- ``RichTextNodeHandler``: rich text (#38)
 - ``BackupContributor``: backups (#41)
 - ``PublishContributor``: published snapshots (M12)
 """
@@ -29,6 +28,7 @@ from lore.core.registry.types import (
     LinkTypeDef,
     RuleDef,
 )
+from lore.core.richtext.handlers import RichTextNodeHandler
 
 if TYPE_CHECKING:
     from lore.core.modules.registry import ModuleRegistry
@@ -39,7 +39,6 @@ type TimelineTableSpec = object
 type SearchContributor = object
 type GraphContributor = object
 type VisibilityFilter = object
-type RichTextNodeHandler = object
 type BackupContributor = object
 type PublishContributor = object
 

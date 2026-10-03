@@ -4,6 +4,8 @@
 Their models use their own declarative base so they never leak into the real migration metadata.
 """
 
+from typing import Any
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import Integer, String
@@ -24,6 +26,7 @@ from lore.core.registry import (
     RuleDef,
     Trigger,
 )
+from lore.core.richtext.handlers import RichTextNodeHandler
 
 
 class SampleBase(DeclarativeBase):
@@ -51,6 +54,23 @@ def _hook(event: str, module_id: str):  # type: ignore[no-untyped-def]
 
     return hook
 
+
+def _stamp_attrs(attrs: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(attrs.get("seal"), str):
+        raise ValueError("a stamp needs a seal")
+    return {"seal": attrs["seal"]}
+
+
+# An inline module node: its seal is text; readers only see public seals.
+STAMP = RichTextNodeHandler(
+    type="sampleStamp",
+    group="inline",
+    validate_attrs=_stamp_attrs,
+    filter_for_reader=lambda node, _visible: None if node["attrs"]["seal"] == "secret" else node,
+    extract_text=lambda node: node["attrs"]["seal"],
+    ref_kind="stamp",
+    extract_refs=lambda node: [node["attrs"]["seal"]],
+)
 
 sample_router = APIRouter(tags=["sample"])
 
@@ -163,7 +183,7 @@ SAMPLE = ModuleSpec(
         ),
     ),
     visibility_filters=(object(),),
-    richtext_nodes=(object(),),
+    richtext_nodes=(STAMP,),
     backup_contributors=(object(),),
     publish_contributors=(object(),),
     settings_model=SampleSettings,

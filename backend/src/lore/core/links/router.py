@@ -8,6 +8,7 @@ from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep, Writable
 from lore.core.links.schemas import (
     ID_PATTERN,
     LINK_TYPE_KEY_PATTERN,
+    Backlinks,
     EntityLinks,
     LinkCreate,
     LinkDeleteResult,
@@ -117,3 +118,17 @@ def list_entity_links(
     return LinkService(session, registry).entity_links(
         entity_id, direction=direction, types=types, include_trashed=include_trashed
     )
+
+
+@entity_router.get("/{entity_id}/backlinks", name="backlinks")
+def list_backlinks(
+    *,
+    entity_id: Annotated[str, Path(pattern=ID_PATTERN, description="Entity id.")],
+    _vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    include_trashed: Annotated[bool, Query(description="Also entities in the trash.")] = False,
+) -> Backlinks:
+    """Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
+    block visibility, by name."""
+    return LinkService(session, registry).backlinks(entity_id, include_trashed=include_trashed)
