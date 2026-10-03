@@ -1,16 +1,42 @@
 /**
- * Format pattern tokens (chronology-engine.md §3.11): parsing and validation. Rendering arrives with
- * formatting (#25); compilation only checks that every token is known.
+ * Format pattern tokens (chronology-engine.md §3.11): parsing and validation. Compilation checks
+ * that every token is known; `formatting` renders parsed patterns. The Python twin is
+ * backend/src/lore/chronology/calendar/formats.py.
  */
 
 // Groups: level, attribute, modifier.
 const TOKEN = /^([a-z][a-z0-9_]*)(?:\.(name|abbr|id))?(?::(pad2|pad3|ordinal))?$/
-// Groups: cycle id, overlay id.
+// Groups: era attribute, cycle id, cycle attribute, overlay id, overlay attribute.
 const SPECIAL =
-  /^(?:era(?:\.name)?|cycle\.([a-z][a-z0-9_]*)(?:\.(?:abbr|n))?|overlay\.([a-z][a-z0-9_]*)(?:\.fraction)?)$/
-const NUMERIC_TOKENS = new Set(['year', 'era_year', 'base'])
+  /^(?:era(?:\.(name))?|cycle\.([a-z][a-z0-9_]*)(?:\.(abbr|n))?|overlay\.([a-z][a-z0-9_]*)(?:\.(fraction))?)$/
+const NUMERIC_KINDS = new Set(['year', 'era_year', 'base'] as const)
 
-/** A pattern with unbalanced braces. */
+export type TokenKind = 'level' | 'year' | 'era_year' | 'base' | 'era' | 'cycle' | 'overlay'
+export type Modifier = 'pad2' | 'pad3' | 'ordinal'
+
+/** A parsed token: `{<id>.<attr>:<modifier>}` of some `kind`. */
+export interface Token {
+  readonly kind: TokenKind
+  /** The level, cycle or overlay id (`null` for `year`, `era_year`, `base`, `era`). */
+  readonly id: string | null
+  /** `name`/`abbr`/`id` (levels), `name` (era), `abbr`/`n` (cycles), `fraction` (overlays). */
+  readonly attr: string | null
+  readonly modifier: Modifier | null
+}
+
+/** A literal text (braces unescaped) or a token. */
+export type Piece = string | Token
+
+export function token(
+  kind: TokenKind,
+  id: string | null = null,
+  attr: string | null = null,
+  modifier: Modifier | null = null,
+): Token {
+  return { kind, id, attr, modifier }
+}
+
+/** A pattern with unbalanced braces or an unknown token. */
 export class PatternError extends Error {
   constructor(message: string) {
     super(message)
@@ -18,27 +44,67 @@ export class PatternError extends Error {
   }
 }
 
-/** The tokens (text between single braces) of a pattern; `{{` and `}}` are literal braces. */
-export function patternTokens(pattern: string): string[] {
-  const found: string[] = []
+/** [isToken, text] pieces; `{{` and `}}` become literal braces. */
+function split(pattern: string): [boolean, string][] {
+  const pieces: [boolean, string][] = []
+  let literal = ''
   let i = 0
   while (i < pattern.length) {
-    const char = pattern[i]
+    const char = pattern.charAt(i)
     const pair = pattern.slice(i, i + 2)
     if (pair === '{{' || pair === '}}') {
+      literal += char
       i += 2
     } else if (char === '{') {
       const end = pattern.indexOf('}', i)
       if (end < 0) throw new PatternError("unclosed '{'")
-      found.push(pattern.slice(i + 1, end))
+      if (literal !== '') pieces.push([false, literal])
+      literal = ''
+      pieces.push([true, pattern.slice(i + 1, end)])
       i = end + 1
     } else if (char === '}') {
       throw new PatternError("unmatched '}'")
     } else {
+      literal += char
       i += 1
     }
   }
-  return found
+  if (literal !== '') pieces.push([false, literal])
+  return pieces
+}
+
+/** The tokens (text between single braces) of a pattern; `{{` and `}}` are literal braces. */
+export function patternTokens(pattern: string): string[] {
+  return split(pattern).flatMap(([isToken, text]) => (isToken ? [text] : []))
+}
+
+/** The structure of a token, or `null` if it has no valid syntax (ids are not checked). */
+export function parseToken(text: string): Token | null {
+  const special = SPECIAL.exec(text)
+  if (special !== null) {
+    const [, eraAttr, cycle, cycleAttr, overlay, overlayAttr] = special
+    const kind = cycle !== undefined ? 'cycle' : overlay !== undefined ? 'overlay' : 'era'
+    return token(kind, cycle ?? overlay ?? null, eraAttr ?? cycleAttr ?? overlayAttr ?? null)
+  }
+  const match = TOKEN.exec(text)
+  if (match === null) return null
+  const [, level = '', attr] = match
+  const modifier = match[3] as Modifier | undefined // the regex only matches modifiers
+  const numeric = NUMERIC_KINDS.has(level as 'year')
+  // modifiers apply to numbers, and the numeric tokens have no attributes
+  if (attr !== undefined && (modifier !== undefined || numeric)) return null
+  if (numeric) return token(level as TokenKind, null, null, modifier ?? null)
+  return token('level', level, attr ?? null, modifier ?? null)
+}
+
+/** The pieces of a valid pattern. Throws `PatternError` for bad braces or tokens. */
+export function parsePattern(pattern: string): Piece[] {
+  return split(pattern).map(([isToken, text]) => {
+    if (!isToken) return text
+    const parsed = parseToken(text)
+    if (parsed === null) throw new PatternError(`unknown token ${text}`)
+    return parsed
+  })
 }
 
 export interface TokenScope {
@@ -55,20 +121,14 @@ export function unknownTokens(pattern: string, scope: TokenScope): string[] {
   } catch {
     return ['{'] // the only error is a PatternError
   }
-  return found.filter((token) => !known(token, scope))
+  return found.filter((text) => !known(parseToken(text), scope))
 }
 
-function known(token: string, scope: TokenScope): boolean {
-  const special = SPECIAL.exec(token)
-  if (special !== null) {
-    const [, cycle, overlay] = special
-    if (cycle !== undefined) return scope.cycles.has(cycle)
-    if (overlay !== undefined) return scope.overlays.has(overlay)
-    return true
-  }
-  const match = TOKEN.exec(token)
-  if (match === null) return false
-  const [, level = '', attr, modifier] = match
-  if (NUMERIC_TOKENS.has(level)) return attr === undefined
-  return scope.levels.has(level) && (attr === undefined || modifier === undefined)
+function known(parsed: Token | null, scope: TokenScope): boolean {
+  if (parsed === null) return false
+  const id = parsed.id ?? ''
+  if (parsed.kind === 'cycle') return scope.cycles.has(id)
+  if (parsed.kind === 'overlay') return scope.overlays.has(id)
+  if (parsed.kind === 'level') return scope.levels.has(id)
+  return true
 }

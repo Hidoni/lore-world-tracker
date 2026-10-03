@@ -358,7 +358,7 @@ Tokens (in braces, `{{`/`}}` escape a literal brace):
 | `{base}` | base-unit remainder below level 0. |
 
 Unknown tokens are validation errors. Values in detail (Python:
-`lore.chronology.calendar.formatting`):
+`lore.chronology.calendar.formatting`; TS: `formatDate`, `formatSpan`, `formatAbsolute`):
 
 - **Numbers** (`{<level>}`, `{year}`, `{era_year}`, `{base}`) use the `display` options: up to 4
   digits they are plain (`2024`, `-500`); longer ones are grouped with `digit_group`
@@ -696,7 +696,7 @@ level in a year. When some year has none, the engine assumes runs of `(exception
 years, which is loose but safe.
 
 Python: `lore.chronology.calendar.arithmetic` (`is_uniform`, `add`, `diff` returning
-`Difference`, `duration_upper_bound`).
+`Difference`, `duration_upper_bound`). TS: `isUniform`, `add`, `diff`, `durationUpperBound`.
 
 ## 10. Formatting
 
@@ -825,7 +825,9 @@ describes it ("the start of 1 January AD 1 (00:00)"), so a wizard can ask "Year 
 `requires.duration_seconds` is the latest absolute anchor: the dimension must last at least that
 long after the origin. Python: `lore.chronology.presets` (`load_presets(spec_dir)` reads
 `<LORE_SPEC_DIR>/chronology/presets/`, `instantiate_preset`, `absolute_moments` building
-`CompileContext.resolved`).
+`CompileContext.resolved`). TS: `instantiatePreset` and `absoluteMoments` in `@lore/chronology`;
+the entry point `@lore/chronology/presets` bundles the preset files at build time (JSON imports;
+`packages/chronology/README.md` "Presets").
 
 `instantiate_preset(preset, seconds_per_base_unit, origin = 0)` takes the base unit as a positive
 rational `p/q` seconds and the origin as a moment in base units:
