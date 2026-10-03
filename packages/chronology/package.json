@@ -7,7 +7,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./presets": "./src/preset-library.ts"
+    "./presets": "./src/preset-library.ts",
+    "./viewport": "./src/viewport/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -15,7 +16,8 @@
     "test": "vitest run --coverage",
     "build": "tsc -p tsconfig.json",
     "gen:schema": "node scripts/gen-schema.ts",
-    "check:schema": "node scripts/gen-schema.ts --check"
+    "check:schema": "node scripts/gen-schema.ts --check",
+    "bench": "vitest bench --run"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

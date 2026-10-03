@@ -34,6 +34,7 @@ them by hand; `make check-chronology` fails on drift.
 | `calendar/` | `validateCalendar`/`compileCalendar` (§4, §11), `toFields`/`fromFields`/`normalizeFields`/`options` (§5.3–§5.7, §6), `unitBounds`/`ordinal`/`fromOrdinal` (§5.8), `cycleValue`/`eraOf`/`overlayPhase`/`nextPhaseAt` (§8), `add`/`diff`/`durationUpperBound` (§9), `formatDate`/`formatSpan`/`formatAbsolute` (§10) |
 | `recurrence/` | `validateRule`, `expand`, `occurrence`, `occurrenceAt`, `nextOccurrences`, `occurrenceNumber`, `countInWindow`, `seriesBounds` (`recurrence.md` §2–§5, §9) |
 | `presets.ts` | `instantiatePreset`, `absoluteMoments` (§13) |
+| `viewport/` | the separate entry point `@lore/chronology/viewport`: `toPx`/`fromPx`/`zoomAt`/`panBy`/`fit`/`clamp`, `ticks`, `tileFor`/`tileBounds` (§12, `frontend.md` §9.2) |
 | `preset-library.ts` | the separate entry point `@lore/chronology/presets` (below) |
 
 ## Presets
@@ -62,7 +63,9 @@ npx rolldown packages/chronology/src/index.ts --minify --format esm | gzip -9 | 
 | #9 numeric utilities | 1.4 kB |
 | #23 compilation and conversions (incl. ≈2.9 kB of generated schema) | 12.2 kB |
 | #24–#25 navigation, cycles, eras, overlays, arithmetic, formatting | 20.4 kB |
+| #26 recurrence | 28.1 kB |
 | `@lore/chronology/presets` entry point (8 presets + instantiation) | 7.9 kB |
+| `@lore/chronology/viewport` entry point, standalone (#28; most of it is calendar code shared with the main entry) | 7.6 kB |
 
 ## Tests
 
@@ -80,3 +83,9 @@ Rules for code in this package:
   rejects `node:*` imports in `src/` (tests, `test/` and `scripts/` may use Node).
 - In-world time is `bigint`. Never `number`, `Date` or float math, except for pixel projection in
   `viewport`.
+
+## Benchmarks
+
+`npm run bench -w @lore/chronology` runs `test/**/*.bench.ts` with Vitest's benchmark runner
+(`ticks.bench.ts` asserts the < 2 ms tick target). Benchmarks are kept out of `npm test` and
+`make check`: timings are noisy, and coverage instrumentation skews them.
