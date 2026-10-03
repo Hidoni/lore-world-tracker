@@ -17,7 +17,7 @@ from lore.core.db.migrate import (
 )
 from lore.core.models import load_metadata
 from tests.migration_harness import (
-    FIRST_REVISION,
+    REAL_HEAD,
     MigrationHarness,
     migration_source,
     script_directory,
@@ -25,7 +25,7 @@ from tests.migration_harness import (
 
 NOTES = migration_source(
     "notes0000001",
-    FIRST_REVISION,
+    REAL_HEAD,
     'op.create_table("notes", sa.Column("id", sa.Integer(), primary_key=True))',
     'op.drop_table("notes")',
 )
@@ -49,7 +49,7 @@ def test_upgrade_an_empty_database_to_head(migrations: MigrationHarness) -> None
         vault={"vault_id": "v-1", "name": "Aetheria", "created_at": "2026-10-03T00:00:00+00:00"}
     )
     assert migrations.revision == Migrator().head()
-    assert migrations.tables() == {"alembic_version", "vault_meta"}
+    assert migrations.tables() == {"alembic_version", *load_metadata().tables}
     meta = {key: json.loads(value) for key, value in migrations.rows("SELECT * FROM vault_meta")}
     assert meta == {
         "vault_id": "v-1",
@@ -98,24 +98,24 @@ def test_status_compares_with_head(tmp_path: Path) -> None:
     shorter = Migrator()
     database = MigrationHarness(tmp_path / "x.db", longer)
     assert shorter.status_of(database.path).state is SchemaState.NEEDS_MIGRATION
-    database.upgrade(FIRST_REVISION)
+    database.upgrade(REAL_HEAD)
     assert shorter.status_of(database.path).state is SchemaState.CURRENT
     assert longer.status_of(database.path).state is SchemaState.NEEDS_MIGRATION
     database.upgrade()
     status = shorter.status_of(database.path)
     assert status.state is SchemaState.NEWER_THAN_APP
-    assert (status.revision, status.head) == ("notes0000001", FIRST_REVISION)
+    assert (status.revision, status.head) == ("notes0000001", REAL_HEAD)
 
 
 def test_is_ahead(tmp_path: Path) -> None:
     migrator = Migrator(script_directory(tmp_path / "m", {"notes.py": NOTES}))
-    assert migrator.is_ahead("notes0000001", FIRST_REVISION)
+    assert migrator.is_ahead("notes0000001", REAL_HEAD)
     assert migrator.is_ahead("notes0000001", None)
-    assert migrator.is_ahead(FIRST_REVISION, None)
-    assert not migrator.is_ahead(FIRST_REVISION, "notes0000001")
-    assert not migrator.is_ahead(FIRST_REVISION, FIRST_REVISION)
+    assert migrator.is_ahead(REAL_HEAD, None)
+    assert not migrator.is_ahead(REAL_HEAD, "notes0000001")
+    assert not migrator.is_ahead(REAL_HEAD, REAL_HEAD)
     assert not migrator.is_ahead("unknown", None)
-    assert not migrator.is_ahead(FIRST_REVISION, "unknown")
+    assert not migrator.is_ahead(REAL_HEAD, "unknown")
 
 
 # --- failure handling -----------------------------------------------------------------------
@@ -124,7 +124,7 @@ def test_is_ahead(tmp_path: Path) -> None:
 def test_a_failing_migration_leaves_the_database_untouched(tmp_path: Path) -> None:
     failing = migration_source(
         "fail00000001",
-        FIRST_REVISION,
+        REAL_HEAD,
         """
         op.create_table("half_done", sa.Column("id", sa.Integer(), primary_key=True))
         op.execute("UPDATE vault_meta SET value = '\\"changed\\"' WHERE key = 'name'")
@@ -133,11 +133,11 @@ def test_a_failing_migration_leaves_the_database_untouched(tmp_path: Path) -> No
     )
     migrator = Migrator(script_directory(tmp_path / "m", {"fail.py": failing}))
     database = MigrationHarness(tmp_path / "x.db", migrator)
-    database.upgrade(FIRST_REVISION, vault={"name": "Aetheria"})
+    database.upgrade(REAL_HEAD, vault={"name": "Aetheria"})
     before = database.path.read_bytes()
     with pytest.raises(RuntimeError, match="boom"):
         database.upgrade()
-    assert database.revision == FIRST_REVISION
+    assert database.revision == REAL_HEAD
     assert "half_done" not in database.tables()
     assert database.rows("SELECT value FROM vault_meta WHERE key = 'name'") == [('"Aetheria"',)]
     assert database.path.read_bytes() == before
@@ -146,7 +146,7 @@ def test_a_failing_migration_leaves_the_database_untouched(tmp_path: Path) -> No
 def test_foreign_key_violations_abort_the_migration(tmp_path: Path) -> None:
     orphans = migration_source(
         "fk0000000001",
-        FIRST_REVISION,
+        REAL_HEAD,
         """
         op.create_table("parents", sa.Column("id", sa.Integer(), primary_key=True))
         op.create_table(
@@ -178,8 +178,8 @@ def test_backup_is_a_restorable_copy(tmp_path: Path, migrations: MigrationHarnes
 
 
 def test_check_fails_with_two_heads(tmp_path: Path) -> None:
-    fork = migration_source("fork00000001", FIRST_REVISION, "pass")
-    other = migration_source("fork00000002", FIRST_REVISION, "pass")
+    fork = migration_source("fork00000001", REAL_HEAD, "pass")
+    other = migration_source("fork00000002", REAL_HEAD, "pass")
     migrator = Migrator(script_directory(tmp_path / "m", {"a.py": fork, "b.py": other}))
     [problem] = migrator.check()
     assert "exactly one head, found 2" in problem
@@ -205,7 +205,7 @@ def test_check_fails_when_models_and_migrations_differ(tmp_path: Path) -> None:
 def test_check_ignores_fts_tables(tmp_path: Path) -> None:
     fts = migration_source(
         "fts000000001",
-        FIRST_REVISION,
+        REAL_HEAD,
         """
         op.execute("CREATE VIRTUAL TABLE search_fts USING fts5(body)")
         op.execute("CREATE VIRTUAL TABLE search_trigram USING fts5(body, tokenize='trigram')")
@@ -222,7 +222,7 @@ def test_revision_autogenerates_from_the_models(tmp_path: Path) -> None:
     assert re.fullmatch(r"\d{8}_\d{4}_[0-9a-f]{12}_add_notes\.py", path.name)
     source = path.read_text(encoding="utf-8")
     assert source.startswith('"""[core] Add notes')
-    assert f"down_revision: str | None = {FIRST_REVISION!r}" in source
+    assert f"down_revision: str | None = {REAL_HEAD!r}" in source
     assert 'op.create_table("notes"' in source or "op.create_table('notes'" in source
     assert migrator.check() == []  # the new migration matches the models
 
@@ -233,7 +233,7 @@ def test_plain_revision(tmp_path: Path) -> None:
     source = path.read_text(encoding="utf-8")
     assert "def upgrade() -> None:\n    pass" in source
     assert len(migrator.heads()) == 1
-    assert migrator.heads() != [FIRST_REVISION]
+    assert migrator.heads() != [REAL_HEAD]
 
 
 def test_env_refuses_to_run_without_a_connection() -> None:

@@ -219,9 +219,13 @@ lore db check                                    # empty autogenerate diff + sin
    Without `--autogenerate` you get an empty migration (data migrations).
 3. Edit it:
    - Set the docstring owner: `"""[core] …`, `"""[core:time] …` or `"""[module: <id>] …`.
-   - Review every operation (autogenerate misses renames, CHECK constraints and server
-     defaults). Name constraints with `op.f(...)` so they match the naming convention in
-     `lore.core.db.base`.
+   - Review every operation. Autogenerate misses renames, **CHECK constraints** (add
+     `sa.CheckConstraint(..., name=op.f("ck_<table>_<name>"))` yourself; `lore db check` can't see
+     them either, so test them by behavior) and expression indexes (avoid them: SQLite can't
+     reflect them; prefer a computed column such as `tags.name_key`). Name constraints with
+     `op.f(...)` so they match the naming convention in `lore.core.db.base`.
+   - Our column types (`SortableBigInt`, `UTCDateTime`) are rendered as their storage type
+     (`sa.String()`), so the migration never imports `lore`.
    - Never import `lore` code (models, services). Declare what you touch locally, copy the logic
      in, and use the frozen upgraders (§3.2 rule 3) only where they exist for this purpose.
    - FTS5 and other virtual tables: `op.execute("CREATE VIRTUAL TABLE …")`. Names starting with

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from lore import cli
 from lore.app import create_app_from_env
 from lore.core.db.migrate import Migrator
-from tests.migration_harness import FIRST_REVISION, migration_source, script_directory
+from tests.migration_harness import REAL_HEAD, migration_source, script_directory
 
 runner = CliRunner()
 
@@ -128,15 +128,15 @@ def test_vault_migrate_runs_pending_migrations(
     created = runner.invoke(cli.app, ["vault", "create", "Aetheria"])
     folder = created.output.split()[1]
     newer = script_directory(
-        tmp_path / "newer", {"n.py": migration_source("next00000001", FIRST_REVISION, "pass")}
+        tmp_path / "newer", {"n.py": migration_source("next00000001", REAL_HEAD, "pass")}
     )
     monkeypatch.setattr("lore.core.vaults.manager.Migrator", lambda: Migrator(newer))
     status = runner.invoke(cli.app, ["vault", "status", folder])
     assert "schema:    needs_migration" in status.stdout
     migrated = runner.invoke(cli.app, ["vault", "migrate", folder, "--to", "next00000001"])
     assert migrated.exit_code == 0, migrated.output
-    assert migrated.stdout.startswith(f"migrated {FIRST_REVISION} -> next00000001\nbackup: ")
-    refused = runner.invoke(cli.app, ["vault", "migrate", folder, "--to", FIRST_REVISION])
+    assert migrated.stdout.startswith(f"migrated {REAL_HEAD} -> next00000001\nbackup: ")
+    refused = runner.invoke(cli.app, ["vault", "migrate", folder, "--to", REAL_HEAD])
     assert refused.exit_code == 1
     assert "downgrades are done by restoring a backup" in refused.stderr
 
@@ -148,8 +148,8 @@ def test_db_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     forked = script_directory(
         tmp_path / "forked",
         {
-            "a.py": migration_source("fork00000001", FIRST_REVISION, "pass"),
-            "b.py": migration_source("fork00000002", FIRST_REVISION, "pass"),
+            "a.py": migration_source("fork00000001", REAL_HEAD, "pass"),
+            "b.py": migration_source("fork00000002", REAL_HEAD, "pass"),
         },
     )
     monkeypatch.setattr(cli, "Migrator", lambda: Migrator(forked))

@@ -21,6 +21,7 @@
 | Soft delete | Authored rows that users delete get `deleted_at` (trash). Purge is an explicit service operation. Queries exclude trashed rows by default (helper). |
 | Optimistic concurrency | Authored rows that the API edits directly carry `revision INTEGER` (incremented on each update; PATCH must send the expected revision → `409` on mismatch). |
 | Visibility | `visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','spoiler','private'))` on every user-facing authored row type listed in §8. |
+| Implementation | `lore.core.db.base`: `Base` (constraint naming convention), mixins `IdMixin` (UUIDv7 `id`), `TimestampsMixin`, `SoftDeleteMixin`, `RevisionMixin` (ORM `version_id_col`: incremented on every UPDATE, `StaleDataError` on a concurrent change), `VisibilityMixin` (column + named CHECK `ck_<table>_visibility`), and `not_trashed(Model)`. `lore.core.db.types`: `SortableBigInt`, `UTCDateTime` (fixed-width ISO-8601 UTC text; naive datetimes rejected). API models use `lore.core.types.MomentStr` / `BigIntStr`. |
 
 ## 2. Vault metadata
 
@@ -71,8 +72,10 @@ Indexes: `(kind)`, `(dimension_id, kind)`, `(parent_id)`, `(origin_timeline_id)`
 ### 3.2 Aliases and tags
 
 - `entity_aliases(id, entity_id → entities, alias, alias_kind ('alias'|'title'|'former_name'|'translation'|'nickname'), visibility, sort_key)`, indexes `(entity_id)`, `(alias)`.
-- `tags(id, name, color)` with a unique index on `lower(name)`. `entity_tags(entity_id, tag_id)`,
-  PK both.
+- `tags(id, name, name_key, color)`. Tag names are unique ignoring case: `name_key` is
+  `casefold(NFC(name))`, computed in Python whenever `name` is set, with a unique constraint.
+  (SQLite's `lower()` only folds ASCII, so "Élan" and "élan" would both pass an index on
+  `lower(name)`.) `entity_tags(entity_id, tag_id)`, PK both.
 
 ### 3.3 Kinds
 
@@ -272,7 +275,10 @@ max_targets_per_source?, max_sources_per_target?, data_schema? (JSON Schema for 
 graph: {color, dashed, weight}, archived
 ```
 
-`link_type_defs(key PK 'custom.<slug>', …, created_at, archived)`. These are **core**: every vault
+`link_type_defs(key PK 'custom.<slug>', label, inverse_label, description, source_kinds,
+target_kinds, symmetric, temporal, unique_policy, max_targets_per_source, max_sources_per_target,
+data_schema, graph, archived, revision, created_at, updated_at)` (`unique` is stored as
+`unique_policy`). These are **core**: every vault
 can define link types (managed in settings). The custom-fields module only adds "relation field"
 sugar on top.
 

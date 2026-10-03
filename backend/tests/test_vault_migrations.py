@@ -17,7 +17,7 @@ from lore.core.vaults.errors import (
 from lore.core.vaults.meta import get_meta
 from tests.conftest import AppFactory, local_client
 from tests.migration_harness import (
-    FIRST_REVISION,
+    REAL_HEAD,
     MigrationHarness,
     migration_source,
     script_directory,
@@ -26,7 +26,7 @@ from tests.migration_harness import (
 NOTES_REVISION = "notes0000001"
 NOTES = migration_source(
     NOTES_REVISION,
-    FIRST_REVISION,
+    REAL_HEAD,
     """
     op.create_table("notes", sa.Column("id", sa.Integer(), primary_key=True))
     op.execute("INSERT INTO notes (id) VALUES (1)")
@@ -34,7 +34,7 @@ NOTES = migration_source(
 )
 FAILING = migration_source(
     "fail00000001",
-    FIRST_REVISION,
+    REAL_HEAD,
     """
     op.create_table("half_done", sa.Column("id", sa.Integer(), primary_key=True))
     raise RuntimeError("boom")
@@ -61,7 +61,7 @@ def failing(tmp_path: Path) -> Migrator:
 
 @pytest.fixture
 def old_vault(data_dir: Path) -> VaultInfo:
-    """A vault created by the current app (at FIRST_REVISION), with some content."""
+    """A vault created by the current app (at REAL_HEAD), with some content."""
     manager = VaultManager(data_dir)
     info = manager.create("Aetheria")
     manager.close()
@@ -131,13 +131,13 @@ def test_open_auto_migrates_after_a_backup(
         assert connection.execute(text("SELECT id FROM notes")).scalar() == 1
     assert manager.schema_status(old_vault).state == "current"
     [backup] = backups(old_vault)
-    assert backup.name.startswith(f"pre-migrate-{FIRST_REVISION}-to-{NOTES_REVISION}-")
+    assert backup.name.startswith(f"pre-migrate-{REAL_HEAD}-to-{NOTES_REVISION}-")
     assert backup.suffix == ".db"
     # the backup is the vault as it was, and restoring it brings the old schema back
     manager.close()
     shutil.copy(backup, old_vault.database_path)
     restored = MigrationHarness(old_vault.database_path)
-    assert restored.revision == FIRST_REVISION
+    assert restored.revision == REAL_HEAD
     assert "notes" not in restored.tables()
 
 
@@ -159,7 +159,7 @@ def test_a_failed_migration_marks_the_vault_unusable(
     # the original file is untouched
     assert old_vault.database_path.read_bytes() == before
     harness = MigrationHarness(old_vault.database_path)
-    assert harness.revision == FIRST_REVISION
+    assert harness.revision == REAL_HEAD
     assert "half_done" not in harness.tables()
     # unusable for this process: no second attempt, no second backup
     assert manager.schema_status(old_vault).state == "migration_failed"
@@ -180,7 +180,7 @@ def test_a_newer_vault_is_refused(
     assert (status.state, status.revision, status.head) == (
         "newer_than_app",
         NOTES_REVISION,
-        FIRST_REVISION,
+        REAL_HEAD,
     )
     for attempt in (current_app.open, current_app.migrate):
         with pytest.raises(VaultNewerThanAppError) as caught:
@@ -196,10 +196,10 @@ def test_auto_migrate_off_needs_an_explicit_migration(
     with pytest.raises(VaultNeedsMigrationError) as caught:
         manager.open(old_vault.id)
     assert caught.value.code == "vault_needs_migration"
-    assert caught.value.context == {"revision": FIRST_REVISION, "head": NOTES_REVISION}
+    assert caught.value.context == {"revision": REAL_HEAD, "head": NOTES_REVISION}
     assert backups(old_vault) == []
     result = manager.migrate(old_vault.id)
-    assert (result.from_revision, result.to_revision) == (FIRST_REVISION, NOTES_REVISION)
+    assert (result.from_revision, result.to_revision) == (REAL_HEAD, NOTES_REVISION)
     assert result.backup == backups(old_vault)[0]
     manager.open(old_vault.id)
     again = manager.migrate(old_vault.id)
@@ -224,7 +224,7 @@ def test_migrate_to_a_revision(
     result = manager.migrate(info.id, NOTES_REVISION)
     assert result.to_revision == NOTES_REVISION
     assert manager.schema_status(info).revision == NOTES_REVISION
-    for target in (FIRST_REVISION, "unknown", "base"):
+    for target in (REAL_HEAD, "unknown", "base"):
         with pytest.raises(InvalidInputError, match="downgrades are done by restoring"):
             manager.migrate(info.id, target)
     assert manager.migrate(info.id).to_revision == "more00000001"
@@ -263,13 +263,13 @@ def test_schema_status_and_migrate_endpoint(
         vault = client.get(f"/api/v1/vaults/{old_vault.id}").json()
         assert vault["schema_status"] == {
             "state": "needs_migration",
-            "revision": FIRST_REVISION,
+            "revision": REAL_HEAD,
             "head": NOTES_REVISION,
         }
         response = client.post(f"/api/v1/vaults/{old_vault.id}/migrate")
         assert response.status_code == 200
         body = response.json()
-        assert body["from_revision"] == FIRST_REVISION
+        assert body["from_revision"] == REAL_HEAD
         assert body["to_revision"] == NOTES_REVISION
         assert body["backup"] == str(backups(old_vault)[0])
         assert body["vault"]["schema_status"]["state"] == "current"

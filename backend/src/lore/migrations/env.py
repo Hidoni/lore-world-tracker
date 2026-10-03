@@ -14,6 +14,7 @@ context.configure(
     connection=connection,
     target_metadata=config.attributes["target_metadata"],
     include_object=config.attributes["include_object"],
+    render_item=config.attributes["render_item"],
     render_as_batch=True,
     compare_type=True,
 )
