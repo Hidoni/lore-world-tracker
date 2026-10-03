@@ -39,6 +39,8 @@ from lore.core.errors import (
 from lore.core.links.catalog import LinkTypeCatalog, LinkTypeInfo, allows
 from lore.core.links.models import Link
 from lore.core.links.schemas import (
+    Backlink,
+    Backlinks,
     EntityLink,
     EntityLinks,
     LinkCreate,
@@ -47,9 +49,11 @@ from lore.core.links.schemas import (
     LinkOut,
     LinkUpdate,
     LinkWriteResult,
+    MentionCountsOut,
 )
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
+from lore.core.richtext.models import Mention
 from lore.core.types import Affected
 
 TIMELINE_KIND = "timeline"
@@ -96,6 +100,18 @@ def link_out(link: Link) -> LinkOut:
         created_at=link.created_at,
         updated_at=link.updated_at,
         deleted_at=link.deleted_at,
+    )
+
+
+def _linked(entity: Entity) -> LinkedEntity:
+    return LinkedEntity(
+        id=entity.id,
+        kind=entity.kind,
+        name=entity.name,
+        icon=entity.icon,
+        color=entity.color,
+        dimension_id=entity.dimension_id,
+        deleted_at=entity.deleted_at,
     )
 
 
@@ -270,15 +286,7 @@ class LinkService:
                     link=link_out(link),
                     direction=side,
                     label=label,
-                    other=LinkedEntity(
-                        id=end.id,
-                        kind=end.kind,
-                        name=end.name,
-                        icon=end.icon,
-                        color=end.color,
-                        dimension_id=end.dimension_id,
-                        deleted_at=end.deleted_at,
-                    ),
+                    other=_linked(end),
                 )
             )
         return EntityLinks(items=items)
@@ -306,6 +314,56 @@ class LinkService:
             except LoreError as exc:
                 problems.append(exc.detail)
         return problems
+
+    def backlinks(self, entity_id: str, *, include_trashed: bool = False) -> Backlinks:
+        """Entities pointing at this one through incoming links (and symmetric ones) or mentions
+        in their text, by name (decided 2026-10-04). Self-mentions aren't recorded."""
+        incoming = self.entity_links(entity_id, direction="in", include_trashed=include_trashed)
+        source = aliased(Entity)
+        conditions = [
+            Mention.target_entity_id == entity_id,
+            Mention.source_entity_id != entity_id,
+            source.kind.in_(self.kinds),
+        ]
+        if not include_trashed:
+            conditions.append(source.deleted_at.is_(None))
+        mentioned = self.session.execute(
+            select(Mention, source)
+            .join(source, source.id == Mention.source_entity_id)
+            .where(*conditions)
+        ).all()
+        by_source: dict[str, Backlink] = {}
+        for item in incoming.items:
+            entry = by_source.setdefault(
+                item.other.id,
+                Backlink(
+                    entity=item.other,
+                    links=[],
+                    mentions=MentionCountsOut(public=0, spoiler=0, private=0),
+                ),
+            )
+            entry.links.append(item)
+        for mention, end in mentioned:
+            entry = by_source.setdefault(
+                end.id,
+                Backlink(
+                    entity=_linked(end),
+                    links=[],
+                    mentions=MentionCountsOut(public=0, spoiler=0, private=0),
+                ),
+            )
+            entry.mentions = MentionCountsOut(
+                public=mention.count_public,
+                spoiler=mention.count_spoiler,
+                private=mention.count_private,
+            )
+        sort_names = dict(
+            self.session.execute(
+                select(Entity.id, Entity.sort_name).where(Entity.id.in_(list(by_source)))
+            ).all()
+        )
+        ordered = sorted(by_source.values(), key=lambda b: (sort_names[b.entity.id], b.entity.id))
+        return Backlinks(items=ordered)
 
     # --- rules ----------------------------------------------------------------------------------
 

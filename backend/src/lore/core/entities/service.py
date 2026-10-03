@@ -41,6 +41,8 @@ from lore.core.modules.registry import RegisteredKind
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext import SCHEMA_VERSION as RICHTEXT_SCHEMA_VERSION
+from lore.core.richtext.mentions import count_mentions, replace_mentions
+from lore.core.richtext.schema import validate_document
 from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
 
@@ -93,6 +95,7 @@ class EntityService:
         self.kinds = {kind.key: kind for kind in self.registry.kinds_for(enabled)}
         self.field_types = self.registry.field_types_for(enabled)
         self.extensions = self.registry.kind_extensions_for(enabled)
+        self.richtext = self.registry.richtext_handlers()
         self._kind_fields: dict[str, KindFields] = {}
 
     # --- reads ----------------------------------------------------------------------------------
@@ -174,9 +177,9 @@ class EntityService:
             name=data.name,
             slug=slugify(data.name),
             summary=data.summary,
-            body=data.body,
+            body=self._document(data.body, "body"),
             body_schema_version=RICHTEXT_SCHEMA_VERSION if data.body is not None else None,
-            fields=kind_fields.merge_values({}, data.fields),
+            fields=self._rich_fields(kind, kind_fields.merge_values({}, data.fields), data.fields),
             field_visibility=kind_fields.merge_visibility({}, data.field_visibility),
             visibility=data.visibility or self._default_visibility(),
             icon=data.icon,
@@ -193,6 +196,7 @@ class EntityService:
         if extension is not None:
             extension.write(self.context, entity, data.ext, True)
         links = self._add_links(entity, data.links_add)
+        self.refresh_mentions(entity)
         self.session.flush()
         affected = self._affected([entity.id, entity.parent_id], [entity.dimension_id], True)
         return EntityWriteResult(
@@ -232,6 +236,8 @@ class EntityService:
             links += self._links().trash_for_entity(entity.id, data.links_remove)
         if "links_add" in sent:
             links += self._add_links(entity, data.links_add)
+        if sent & {"body", "fields", "field_visibility"}:
+            self.refresh_mentions(entity)
         self.session.flush()
         affected = self._affected(
             [entity.id, old_parent, entity.parent_id],
@@ -259,10 +265,12 @@ class EntityService:
             entity.summary = data.summary
         if "body" in sent:
             self._check_body(kind, data.body)
-            entity.body = data.body
+            entity.body = self._document(data.body, "body")
             entity.body_schema_version = RICHTEXT_SCHEMA_VERSION if data.body is not None else None
         if "fields" in sent:
-            entity.fields = kind_fields.merge_values(entity.fields, data.fields)
+            entity.fields = self._rich_fields(
+                kind, kind_fields.merge_values(entity.fields, data.fields), data.fields
+            )
         elif sent:
             # Required fields are checked on every save, also when the PATCH doesn't touch them.
             kind_fields.merge_values(entity.fields, {})
@@ -334,6 +342,44 @@ class EntityService:
         self.session.flush()
         affected = self._affected(touched, [entity.dimension_id], True)
         return EntityDeleteResult(id=entity.id, purged=True, entity=None, affected=affected)
+
+    # --- rich text ------------------------------------------------------------------------------
+
+    def _document(self, doc: dict[str, Any] | None, path: str) -> dict[str, Any] | None:
+        return None if doc is None else validate_document(doc, self.richtext, path=path)
+
+    def _rich_fields(
+        self, kind: RegisteredKind, values: dict[str, Any], changes: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Validate (and normalize) the changed values of ``rich_text`` fields."""
+        active = self.kind_fields(kind).active
+        for key in changes:
+            field = active.get(key)
+            if field is None or field.type != "rich_text" or values.get(key) is None:
+                continue
+            if field.multiple:
+                values[key] = [
+                    validate_document(doc, self.richtext, path=f"fields.{key}.{index}")
+                    for index, doc in enumerate(values[key])
+                ]
+            else:
+                values[key] = validate_document(values[key], self.richtext, path=f"fields.{key}")
+        return values
+
+    def refresh_mentions(self, entity: Entity) -> None:
+        """Rebuild the entity's mentions from its body (public base) and its active ``rich_text``
+        fields (base: the field's effective visibility)."""
+        kind = self.kinds.get(entity.kind)
+        if kind is None:
+            return  # a disabled module's entity: kept as it is until it's saved again
+        documents: list[tuple[dict[str, Any] | None, Visibility]] = [(entity.body, "public")]
+        for key, field in self.kind_fields(kind).active.items():
+            value = entity.fields.get(key)
+            if field.type != "rich_text" or value is None:
+                continue
+            level = entity.field_visibility.get(key, field.default_visibility)
+            documents += [(doc, level) for doc in (value if field.multiple else [value])]
+        replace_mentions(self.session, entity.id, count_mentions(documents, self.richtext))
 
     def stored_problems(self, entity: Entity) -> list[str]:
         """Rules a stored entity breaks (used to vet an undo): required fields, its home

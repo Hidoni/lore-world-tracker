@@ -406,6 +406,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/backlinks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backlinks
+         * @description Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
+         *     block visibility, by name.
+         */
+        get: operations["entities_backlinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/changes": {
         parameters: {
             query?: never;
@@ -541,6 +562,21 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
         };
         Anchor: components["schemas"]["AbsoluteAnchor"] | components["schemas"]["CalendarAnchor"] | components["schemas"]["RelativeAnchor"];
+        /**
+         * Backlink
+         * @description One entity pointing at this one: its incoming links and its mentions.
+         */
+        Backlink: {
+            entity: components["schemas"]["LinkedEntity"];
+            /** Links */
+            links: components["schemas"]["EntityLink"][];
+            mentions: components["schemas"]["MentionCountsOut"];
+        };
+        /** Backlinks */
+        Backlinks: {
+            /** Items */
+            items: components["schemas"]["Backlink"][];
+        };
         /**
          * BaseDuration
          * @description An exact, signed number of base units.
@@ -1378,6 +1414,18 @@ export interface components {
             dimension_id: string | null;
             /** Deleted At */
             deleted_at: string | null;
+        };
+        /**
+         * MentionCountsOut
+         * @description Mentions in the source's text, by the visibility of the block they're in.
+         */
+        MentionCountsOut: {
+            /** Public */
+            public: number;
+            /** Spoiler */
+            spoiler: number;
+            /** Private */
+            private: number;
         };
         /** MetaResponse */
         MetaResponse: {
@@ -2749,6 +2797,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_backlinks: {
+        parameters: {
+            query?: {
+                /** @description Also entities in the trash. */
+                include_trashed?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backlinks"];
                 };
             };
             /** @description Problem */

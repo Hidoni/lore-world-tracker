@@ -65,7 +65,7 @@
 | GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (every dimension, not trashed; `kind`, `cursor`, `limit`), sorted like the tree → `{items: TreeNode[], next_cursor}` |
 | GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal` |
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
-| GET | `/vaults/{v}/entities/{id}/backlinks` | incoming links and mentions |
+| GET | `/vaults/{v}/entities/{id}/backlinks` | entities pointing at this one: incoming (and symmetric) links and mentions with counts by block visibility, by name (decided 2026-10-04); `include_trashed` → `{items: [{entity, links, mentions: {public, spoiler, private}}]}` |
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |
 | GET | `/vaults/{v}/entities/{id}/history` | changesets touching the entity (its row, aliases, tags, links), newest first; kept after a purge |
 | GET | `/vaults/{v}/entities/{id}/state` | as-of state (`timeline, at`) per `time-model.md` §10.5 |

@@ -175,6 +175,26 @@ Behaviors: a slash menu (`/`), markdown shortcuts, paste-from-Markdown (`[[Name]
 `entityLink` when the name resolves uniquely), and a word count. The backend validates allowed node
 types and extracts mentions, time refs, media refs and plain text (`lore.core.richtext`).
 
+Server rules for saved documents (bodies and `rich_text` fields; `lore.core.richtext.schema`):
+
+- Node and mark types, where each may appear (blocks vs inline content, list items in lists,
+  rows/cells in tables, plain text in code blocks) and their attributes are validated. Unknown
+  node types, mark types **and attributes** fail the save with `422` and a path into the document
+  (decided 2026-10-04): an editor feature the server schema doesn't know must surface in tests,
+  not be silently lost, so adding one updates the server schema in the same PR. The only ignored
+  attributes are editor defaults deliberately not stored: the `link` mark's `target`, `rel` and
+  `class` (the app sets them when rendering).
+- `link` marks whose `href` isn't `http(s)`/`mailto` are **removed, keeping the text** (decided
+  2026-10-04), so a pasted unsafe link never makes autosave fail.
+- Attribute values per node: `heading.level` 1–4, `orderedList.start` ≥ 0, `codeBlock.language`,
+  table cells `colspan`/`rowspan`/`colwidth`, `visibilityBlock.level` spoiler/private with an
+  optional `label`, `callout.tone` note/warning/quote, `timeRef` exactly one of `timePoint`
+  (TimePoint JSON) or `ref` (slot ref), `entityLink.entityId` (a UUID; missing entities are
+  allowed). Missing defaults are filled in. Nesting is limited to 64 levels.
+- Module node types come with a `RichTextNodeHandler` (`ModuleSpec.richtext_nodes`): attribute
+  validation, reader filtering, text and reference extraction. Handlers of every module apply,
+  enabled or not.
+
 ## 7. Registry-driven entity UI
 
 - On vault open, `GET /registry` is merged with module UI configs into the **KindRegistry**

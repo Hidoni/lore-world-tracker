@@ -323,7 +323,11 @@ time).
 
 `(source_entity_id, target_entity_id) PK, count_public, count_spoiler, count_private` (counts by
 the visibility of the containing block). Rebuilt from the rich-text body on every body save.
-`ON DELETE CASCADE`.
+`ON DELETE CASCADE`. Also rebuilt from the entity's active `rich_text` field values (whose base
+visibility is the field's effective visibility) and after an undo touching the entity. A
+position's visibility is the strictest of the base and every enclosing `visibilityBlock`.
+Mentions of the entity itself and of missing entities aren't recorded (decided 2026-10-04); the
+`entityLink` stays in the text.
 
 ## 7. History: changesets
 

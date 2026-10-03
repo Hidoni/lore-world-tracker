@@ -29,6 +29,8 @@ from lore.core.registry.types import (
     LinkTypeDef,
     RuleDef,
 )
+from lore.core.richtext.handlers import RichTextNodeHandler
+from lore.core.richtext.schema import CORE_NODE_TYPES
 
 CORE = "core"
 MISC_KIND = "misc"  # the misc module's catch-all parent; always allowed in allowed_parents
@@ -175,6 +177,11 @@ class ModuleRegistry:
         """Purge hooks of core and **every** module (disabled modules keep their data)."""
         return [*CORE_PURGE_HOOKS, *(hook for m in self.modules for hook in m.purge_hooks)]
 
+    def richtext_handlers(self) -> dict[str, RichTextNodeHandler]:
+        """Rich-text node handlers of **every** module (documents keep module nodes while the
+        module is disabled), by node type."""
+        return {h.type: h for module in self.modules for h in module.richtext_nodes}
+
     def history_tables(self) -> tuple[HistoryTable, ...]:
         """Core's recorded tables plus every module's (enabled or not)."""
         return core_history_tables() + tuple(t for m in self.modules for t in m.history_tables)
@@ -251,6 +258,20 @@ class ModuleRegistry:
         problems += self._validate_link_types()
         problems += self._validate_rules()
         problems += self._validate_kind_extensions()
+        problems += self._validate_richtext_nodes()
+        return problems
+
+    def _validate_richtext_nodes(self) -> list[str]:
+        problems: list[str] = []
+        owners: dict[str, str] = dict.fromkeys(CORE_NODE_TYPES, CORE)
+        for module in self.modules:
+            for handler in module.richtext_nodes:
+                if handler.type in owners:
+                    problems.append(
+                        f"{module.id}: rich-text node {handler.type!r} is already defined by "
+                        f"{owners[handler.type]}"
+                    )
+                owners[handler.type] = module.id
         return problems
 
     def _validate_field_types(self) -> tuple[dict[str, str], list[str]]:

@@ -1,5 +1,6 @@
-"""Rich-text documents and the mentions derived from them (``data-model.md`` §6.4)."""
+"""Rich-text documents (``frontend.md`` §6): the node schema and validator (``schema``), text,
+mention and reference extraction and reader filtering (``extract``), mentions maintenance
+(``mentions``), upgraders (``upgrade``) and module node handlers (``handlers``)."""
 
 # The rich-text node schema version stored in ``body_schema_version`` (shared with the frontend).
-# The schema itself and its validation arrive with #38.
 SCHEMA_VERSION = 1

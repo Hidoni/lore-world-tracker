@@ -104,7 +104,7 @@ Implementation: `lore.core.modules.ModuleSpec`. The definition types (`KindDef`,
 also holds core's own definitions (the field types of `data-model.md` §4.2, kinds `dimension`,
 `timeline`, `calendar`, `event`, and link types `core.participant`, `core.causes`,
 `core.related`). Extension points whose machinery comes later (slot providers, search, graph,
-visibility, rich-text, backup and publish contributors) are accepted and stored as opaque objects
+visibility, backup and publish contributors) are accepted and stored as opaque objects
 until their issue defines the protocol. `field_types` and `models` were added to the original
 design: the media module provides the `media` field type, and the explicit model list lets the
 registry validate table prefixes and include module tables in the migration metadata
@@ -115,7 +115,10 @@ read)` validates and stores the `ext` object of entity writes (called on every c
 patches that send `ext`) and supplies `ext` for reads, for kinds of enabled modules; core registers
 its own for system kinds in M3. `PurgeHook`s of **every** module (enabled or not) run before an
 entity is purged. A module field type may set `FieldTypeDef.validate` (`(value, field) ->
-normalized value`, raising `ValueError`).
+normalized value`, raising `ValueError`). `richtext_nodes` are `RichTextNodeHandler`s
+(`lore.core.richtext.handlers`: node type, block/inline group, attribute validation that rejects
+unknown attributes, reader filter, text and reference extraction); node types must be unique and
+not core's.
 
 ### 2.2 Registration
 
