@@ -213,6 +213,7 @@ def test_next_occurrences_agree_with_expand(found: Series, after: int) -> None:
 # --- examples ------------------------------------------------------------------------------------
 
 
+@pytest.mark.perf
 def test_far_window_is_fast() -> None:
     """No iteration from the series start: a window 10^90 years away expands at once."""
     start = g(2023, "jan", 31, 8)
@@ -587,6 +588,7 @@ def test_counts_agree_with_expansion(found: Series, w0: int, width: int) -> None
     assert numbers == list(range(numbers[0], numbers[0] + len(numbers))) if numbers else True
 
 
+@pytest.mark.perf
 def test_count_limit_far_is_fast() -> None:
     """Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms."""
     fresh = compiled("gregorian-week")  # no cached counters
