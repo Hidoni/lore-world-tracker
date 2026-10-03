@@ -27,7 +27,7 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from lore import __version__
-from lore.core.db import create_vault_engine, optimize
+from lore.core.db import create_vault_engine, for_writing, optimize
 from lore.core.db.migrate import (
     Migrator,
     SchemaState,
@@ -148,15 +148,24 @@ def _primary_first(info: VaultInfo) -> tuple[bool, str]:
 
 @dataclass
 class OpenVault:
-    """An opened vault: its engine and session factory (``expire_on_commit=False``)."""
+    """An opened vault: its engine and session factories (``expire_on_commit=False``).
+
+    ``sessions`` start deferred transactions (reads); ``write_sessions`` start them with
+    ``BEGIN IMMEDIATE`` (see ``lore.core.db.for_writing``). Use ``write_sessions`` for anything
+    that may write.
+    """
 
     info: VaultInfo
     engine: Engine
     read_only: bool
     sessions: sessionmaker[Session] = field(init=False)
+    write_sessions: sessionmaker[Session] = field(init=False)
 
     def __post_init__(self) -> None:
         self.sessions = sessionmaker(self.engine, expire_on_commit=False)
+        # A read-only database can't take the write lock; its writes fail either way.
+        writer = self.engine if self.read_only else for_writing(self.engine)
+        self.write_sessions = sessionmaker(writer, expire_on_commit=False)
 
     @property
     def id(self) -> str:
@@ -559,7 +568,7 @@ def _vault_identity(manifest: VaultManifest) -> dict[str, str]:
 
 def _sync_meta_name(opened: OpenVault) -> None:
     """``vault.json`` is authoritative for the name; ``vault_meta.name`` follows it."""
-    with opened.sessions.begin() as session:
+    with opened.write_sessions.begin() as session:
         if get_meta(session, "name") != opened.info.name:
             set_meta(session, "name", opened.info.name)
 

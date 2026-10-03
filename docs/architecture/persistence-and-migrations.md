@@ -76,9 +76,16 @@ PRAGMA temp_store = MEMORY;
   `lore.core.db`. Connections use `file:` URIs: `mode=rw` in author mode (a missing database is
   never created by opening it), `mode=ro` in read-only mode. SQLAlchemy emits `BEGIN` itself
   (pysqlite's implicit transactions are off), so SAVEPOINTs and transactional DDL work.
+- **Write transactions use `BEGIN IMMEDIATE`** (`lore.core.db.for_writing`,
+  `OpenVault.write_sessions`; migrations too). In WAL mode, a deferred transaction that has read
+  and then writes after another connection committed fails at once with "database is locked"
+  (`SQLITE_BUSY_SNAPSHOT`), and `busy_timeout` doesn't apply. `BEGIN IMMEDIATE` takes the write
+  lock up front, so concurrent writers (an autosave plus a link edit) wait their turn, up to
+  `busy_timeout`. Reads stay deferred and never block or get blocked.
 - Vault-scoped routes take `VaultDep` (`get_vault(vault_id)`, opens the vault) and `SessionDep`
   (`lore.core.api.deps`): one session and one transaction per request, committed when the path
-  operation returns and rolled back if it raises, with `expire_on_commit=False`. The dependency
+  operation returns and rolled back if it raises, with `expire_on_commit=False`. GET/HEAD/OPTIONS
+  requests get a deferred transaction, every other method `BEGIN IMMEDIATE`. The dependency
   uses `scope="function"`, so the commit happens before the response is sent. Path operations are
   sync (FastAPI threadpool).
 - Run uvicorn with **one worker**. SQLite serializes writes anyway, and per-vault caches (compiled

@@ -1,4 +1,6 @@
 import sqlite3
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,7 @@ from lore.core.db import (
     SQLiteCapabilityError,
     create_vault_engine,
     ensure_sqlite_capabilities,
+    for_writing,
     missing_sqlite_capabilities,
 )
 from tests.conftest import AppFactory, local_client
@@ -167,3 +170,53 @@ def test_app_refuses_to_start_without_capabilities(
     monkeypatch.setattr("lore.app.ensure_sqlite_capabilities", fail)
     with pytest.raises(SQLiteCapabilityError), local_client(make_app()):
         pass
+
+
+def test_deferred_read_then_write_fails_after_a_concurrent_commit(database: Path) -> None:
+    """Why writers use BEGIN IMMEDIATE: this fails at once, busy_timeout doesn't help."""
+    engine = create_vault_engine(database)
+    try:
+        with engine.connect() as first, engine.connect() as second:
+            transaction = first.begin()
+            first.execute(text("SELECT count(*) FROM notes")).scalar()
+            with second.begin():
+                second.execute(text("INSERT INTO notes (body) VALUES ('other')"))
+            started = time.perf_counter()
+            with pytest.raises(OperationalError, match="database is locked"):
+                first.execute(text("INSERT INTO notes (body) VALUES ('mine')"))
+            assert time.perf_counter() - started < 1
+            transaction.rollback()
+    finally:
+        engine.dispose()
+
+
+def test_writers_queue_with_begin_immediate(database: Path) -> None:
+    engine = for_writing(create_vault_engine(database))
+    first_has_read = threading.Event()
+    seen: dict[str, int] = {}
+
+    def first() -> None:
+        with engine.begin() as connection:
+            seen["first"] = connection.execute(text("SELECT count(*) FROM notes")).scalar_one()
+            first_has_read.set()
+            time.sleep(0.2)  # the second writer starts meanwhile
+            connection.execute(text("INSERT INTO notes (body) VALUES ('first')"))
+
+    def second() -> None:
+        first_has_read.wait()
+        with engine.begin() as connection:  # waits for the first writer's commit
+            seen["second"] = connection.execute(text("SELECT count(*) FROM notes")).scalar_one()
+            connection.execute(text("INSERT INTO notes (body) VALUES ('second')"))
+
+    try:
+        threads = [threading.Thread(target=first), threading.Thread(target=second)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+        assert seen == {"first": 1, "second": 2}
+        with engine.connect() as connection:
+            bodies = [row.body for row in connection.execute(text("SELECT body FROM notes"))]
+        assert bodies == ["hello", "first", "second"]
+    finally:
+        engine.dispose()

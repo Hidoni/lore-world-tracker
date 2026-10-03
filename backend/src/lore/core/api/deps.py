@@ -38,11 +38,17 @@ def get_vault(vault_id: VaultIdPath, manager: VaultManagerDep) -> OpenVault:
 VaultDep = Annotated[OpenVault, Depends(get_vault)]
 
 
-def get_session(vault: VaultDep) -> Iterator[Session]:
+_READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def get_session(request: Request, vault: VaultDep) -> Iterator[Session]:
     """One transaction per request: committed when the path operation returns, rolled back if it
     raises. ``scope="function"`` commits before the response is sent, so a failed commit is
-    reported to the client."""
-    with vault.sessions() as session, session.begin():
+    reported to the client. Requests that may write (anything but GET/HEAD/OPTIONS) begin with
+    ``BEGIN IMMEDIATE``, so overlapping writes queue instead of failing with "database is
+    locked"."""
+    factory = vault.sessions if request.method in _READ_METHODS else vault.write_sessions
+    with factory() as session, session.begin():
         yield session
 
 

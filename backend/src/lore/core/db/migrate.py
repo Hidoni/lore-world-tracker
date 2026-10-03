@@ -24,7 +24,7 @@ from alembic.util import CommandError
 from sqlalchemy import Connection, MetaData
 from sqlalchemy.pool import NullPool
 
-from lore.core.db.engine import create_vault_engine, database_uri
+from lore.core.db.engine import create_vault_engine, database_uri, for_writing
 from lore.core.errors import LoreError
 from lore.core.models import load_metadata
 
@@ -142,7 +142,7 @@ class Migrator:
     ) -> None:
         """Upgrade ``path`` to ``target`` in one transaction. ``attributes`` reach migrations as
         ``context.config.attributes`` (the vault's identity for seeding ``vault_meta``)."""
-        engine = create_vault_engine(path, foreign_keys=False, pool=NullPool)
+        engine = for_writing(create_vault_engine(path, foreign_keys=False, pool=NullPool))
         try:
             with engine.connect() as connection, connection.begin():
                 command.upgrade(self.config(connection, attributes), target)
