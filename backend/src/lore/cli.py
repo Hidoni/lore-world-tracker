@@ -13,8 +13,10 @@ from lore.config import Settings
 from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
+from lore.core.models import load_metadata as load_core_metadata
+from lore.core.modules import ModuleRegistry
 from lore.core.vaults import VaultManager
-from lore.modules import load_metadata
+from lore.modules import ALL_MODULES, load_metadata
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
 chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine assets.")
@@ -83,6 +85,7 @@ def _vault_manager() -> VaultManager:
         read_only=settings.read_only,
         exposed_vaults=settings.exposed_vaults,
         auto_migrate=settings.auto_migrate,
+        module_registry=ModuleRegistry(ALL_MODULES, core_metadata=load_core_metadata()),
     )
 
 

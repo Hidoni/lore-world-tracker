@@ -20,11 +20,12 @@ from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import TypeAdapter
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from lore import __version__
 from lore.core.db import create_vault_engine, for_writing, optimize
@@ -58,6 +59,9 @@ from lore.core.vaults.format import (
     write_manifest,
 )
 from lore.core.vaults.lock import VaultLock
+
+if TYPE_CHECKING:
+    from lore.core.modules.registry import ModuleRegistry
 from lore.core.vaults.meta import get_meta, set_meta
 
 logger = logging.getLogger(__name__)
@@ -208,12 +212,15 @@ class VaultManager:
         exposed_vaults: Iterable[str] = (),
         auto_migrate: bool = True,
         migrator: Migrator | None = None,
+        module_registry: ModuleRegistry | None = None,
     ) -> None:
         self.data_dir = data_dir
         self.read_only = read_only
         self.exposed_vaults = frozenset(exposed_vaults)
         self.auto_migrate = auto_migrate
         self.migrator = migrator or Migrator()
+        # Module states are recorded in new vaults and on author open (modules.md §4).
+        self.module_registry = module_registry
         self._guard = threading.RLock()
         self._open: dict[str, OpenVault] = {}
         self._locks: dict[str, VaultLock] = {}
@@ -367,6 +374,8 @@ class VaultManager:
             self.migrator.upgrade(
                 staging / DATABASE_NAME, attributes={"vault": _vault_identity(manifest)}
             )
+            if self.module_registry is not None:
+                _record_modules(staging / DATABASE_NAME, self.module_registry)
             with self._guard:
                 folder = next(
                     candidate
@@ -463,6 +472,9 @@ class VaultManager:
             opened = OpenVault(info, engine, self.read_only)
             if not self.read_only:
                 _sync_meta_name(opened)
+                if self.module_registry is not None:
+                    with opened.write_sessions.begin() as session:
+                        _record_module_states(session, self.module_registry)
             self._open[vault_id] = opened
             return opened
 
@@ -571,6 +583,22 @@ def _sync_meta_name(opened: OpenVault) -> None:
     with opened.write_sessions.begin() as session:
         if get_meta(session, "name") != opened.info.name:
             set_meta(session, "name", opened.info.name)
+
+
+def _record_module_states(session: Session, registry: ModuleRegistry) -> None:
+    # Imported here: lore.core.modules.service imports vault_meta from this package.
+    from lore.core.modules.service import record_module_states  # noqa: PLC0415
+
+    record_module_states(session, registry)
+
+
+def _record_modules(path: Path, registry: ModuleRegistry) -> None:
+    engine = for_writing(create_vault_engine(path, pool=NullPool))
+    try:
+        with Session(engine) as session, session.begin():
+            _record_module_states(session, registry)
+    finally:
+        engine.dispose()
 
 
 def _create_database(path: Path) -> None:

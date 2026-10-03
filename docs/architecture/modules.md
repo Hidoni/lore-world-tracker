@@ -175,10 +175,14 @@ defineModule({
 
 ## 4. Enabling and disabling
 
-- Settings: `vault_meta.settings.modules.<id> = {enabled, settings}`. A module without an entry
-  uses its `default_enabled`, so new vaults enable every module with `default_enabled`, and a
-  module added in a later release follows its default in existing vaults. Only `PATCH` writes
-  entries. A module is **effectively** enabled only if every dependency is too.
+- Settings: `vault_meta.settings.modules.<id> = {enabled, settings}`. **Every module's state is
+  recorded** (decided 2026-10-03): a new vault stores `enabled = default_enabled` for every
+  module when it is created, and a module the vault hasn't seen yet (added by a later release, or
+  a vault created before modules existed) is recorded with its default the first time the author
+  opens the vault. After that, only `PATCH` changes it, so **changing a module's
+  `default_enabled` later never changes existing vaults**. Read-only servers never write; they
+  fall back to `default_enabled` for a missing entry. A module is **effectively** enabled only if
+  every dependency is too.
 - `PATCH /api/v1/vaults/{v}/modules/{id} {enabled}`:
   - enabling a module also enables its dependencies;
   - disabling a module with enabled dependents fails with `409 module_has_dependents`
@@ -217,7 +221,9 @@ defineModule({
 
 Removal is a data-affecting change and must be deliberate:
 
-1. Release N: set `default_enabled = False`, and add a **conversion** data migration path, e.g.
+1. Release N: set `default_enabled = False` (this only affects vaults created from now on:
+   existing vaults keep their recorded state, §4), and add a **conversion** data migration path,
+   e.g.
    entities of the module's kinds become `misc` with the category set to the old kind label,
    module link types become `core.related` with the old label kept in `role`, and module fields
    are copied into custom fields where possible.

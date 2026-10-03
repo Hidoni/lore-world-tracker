@@ -78,6 +78,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
         read_only=settings.read_only,
         exposed_vaults=settings.exposed_vaults,
         auto_migrate=settings.auto_migrate,
+        module_registry=app.state.registry,
     )
     install_error_handlers(app)
 

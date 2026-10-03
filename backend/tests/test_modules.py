@@ -1,3 +1,5 @@
+import json
+import sqlite3
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -378,7 +380,12 @@ def test_settings_are_stored_in_vault_meta(app: FastAPI, client: TestClient) -> 
     manager: VaultManager = app.state.vaults
     with manager.open(vault).sessions() as session:
         settings = get_meta(session, "settings")
-    assert settings["modules"] == {"optional": {"settings": {}, "enabled": True}}
+    assert settings["modules"] == {
+        "base": {"enabled": True, "settings": {}},
+        "sample": {"enabled": True, "settings": {}},
+        "addon": {"enabled": True, "settings": {}},
+        "optional": {"enabled": True, "settings": {}},
+    }
     assert settings["defaults"] == {"visibility": "public"}  # the rest is untouched
 
 
@@ -446,3 +453,90 @@ def test_unused_extension_points_are_stored() -> None:
     assert (BASE.default_enabled, OPTIONAL.default_enabled, ADDON.depends_on) == (
         True, False, ("sample",),
     )  # fmt: skip
+
+
+# --- recorded states (modules.md §4, decided 2026-10-03) ------------------------------------
+
+
+def stored_modules(path: Path) -> dict[str, Any]:
+    """vault_meta.settings.modules read straight from the file (no app, no open)."""
+    connection = sqlite3.connect(path)
+    try:
+        (value,) = connection.execute(
+            "SELECT value FROM vault_meta WHERE key = 'settings'"
+        ).fetchone()
+    finally:
+        connection.close()
+    modules: dict[str, Any] = json.loads(value)["modules"]
+    return modules
+
+
+def flipped(module: ModuleSpec) -> ModuleSpec:
+    return replace(module, default_enabled=not module.default_enabled)
+
+
+def test_new_vaults_record_every_module_state(tmp_path: Path) -> None:
+    manager = VaultManager(tmp_path, module_registry=ModuleRegistry(SAMPLE_MODULES))
+    info = manager.create("Aetheria")
+    assert stored_modules(info.database_path) == {
+        "base": {"enabled": True, "settings": {}},
+        "sample": {"enabled": True, "settings": {}},
+        "addon": {"enabled": True, "settings": {}},
+        "optional": {"enabled": False, "settings": {}},
+    }
+
+
+def test_later_default_changes_do_not_affect_existing_vaults(tmp_path: Path) -> None:
+    VaultManager(tmp_path, module_registry=ModuleRegistry(SAMPLE_MODULES)).create("Aetheria")
+    # a later release turns optional on by default and retires addon (default off, §7)
+    later = (BASE, SAMPLE, flipped(ADDON), flipped(OPTIONAL))
+    app = create_app(Settings(data_dir=tmp_path), modules=later)
+    with local_client(app, headers=HEADERS) as client:
+        [vault] = client.get("/api/v1/vaults").json()["items"]
+        assert states(client, vault["id"]) == {
+            "base": True, "sample": True, "addon": True, "optional": False,
+        }  # fmt: skip
+        assert client.get(f"/api/v1/vaults/{vault['id']}/m/addon/ping").status_code == 200
+        # ...but vaults created now get the new defaults
+        fresh = new_vault(client, "Fresh")
+        assert states(client, fresh)["addon"] is False
+        assert states(client, fresh)["optional"] is True
+
+
+def test_modules_added_later_are_recorded_on_first_open(tmp_path: Path) -> None:
+    info = VaultManager(tmp_path, module_registry=ModuleRegistry((BASE,))).create("Aetheria")
+    assert set(stored_modules(info.database_path)) == {"base"}
+    manager = VaultManager(tmp_path, module_registry=ModuleRegistry(SAMPLE_MODULES))
+    manager.open(info.id)
+    manager.close()
+    assert stored_modules(info.database_path) == {
+        "base": {"enabled": True, "settings": {}},
+        "sample": {"enabled": True, "settings": {}},
+        "addon": {"enabled": True, "settings": {}},
+        "optional": {"enabled": False, "settings": {}},
+    }
+    # recorded now: flipping sample's default afterwards changes nothing
+    later = (BASE, flipped(SAMPLE), ADDON, OPTIONAL)
+    with local_client(create_app(Settings(data_dir=tmp_path), modules=later),
+                      headers=HEADERS) as client:  # fmt: skip
+        assert states(client, info.id)["sample"] is True
+
+
+def test_vaults_without_states_are_recorded_and_toggles_are_kept(tmp_path: Path) -> None:
+    info = VaultManager(tmp_path).create("Older")  # no registry: nothing recorded
+    assert stored_modules(info.database_path) == {}
+    app = create_app(Settings(data_dir=tmp_path), modules=SAMPLE_MODULES)
+    with local_client(app, headers=HEADERS) as client:
+        patch(client, info.id, "optional", enabled=True)
+    assert stored_modules(info.database_path)["optional"] == {"enabled": True, "settings": {}}
+    assert stored_modules(info.database_path)["base"] == {"enabled": True, "settings": {}}
+
+
+def test_read_only_servers_never_record(tmp_path: Path) -> None:
+    info = VaultManager(tmp_path).create("Older")
+    app = create_app(Settings(data_dir=tmp_path, read_only=True), modules=SAMPLE_MODULES)
+    with local_client(app, headers=HEADERS) as client:
+        assert states(client, info.id) == {
+            "base": True, "sample": True, "addon": True, "optional": False,
+        }  # fmt: skip
+    assert stored_modules(info.database_path) == {}
