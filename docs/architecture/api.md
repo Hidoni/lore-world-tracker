@@ -43,7 +43,7 @@
 |--------|------|---------|
 | GET/POST | `/vaults` | list `{items, problems}` (items most recently modified first; `problems` = folders that can't be opened, `persistence-and-migrations.md` §1) / create (`{name}`) |
 | GET/PATCH/DELETE | `/vaults/{v}` | read / rename (`{name}`; display name only) / move to data trash |
-| POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) |
+| POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) → `{vault, from_revision, to_revision, backup}`; vaults carry `schema_status {state, revision, head}` (`persistence-and-migrations.md` §3.3) |
 | GET | `/vaults/{v}/registry` | kinds, field types, field defs, link types, modules, consistency rules (drives the generic UI) |
 | PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) |
 | GET/PATCH | `/vaults/{v}/settings` | display prefs, defaults, backup schedule |
@@ -146,7 +146,7 @@
 
 `not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, and returned only with `LORE_DEBUG=true`), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
 `missing_client_header`, `bad_origin`, `invalid_host`, `payload_too_large`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
-`vault_newer_than_app`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
+`vault_newer_than_app`, `vault_migration_failed` (500; `context.backup`), `time_cycle`, `time_constraint` (hard structural violation; `errors`
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
 `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,

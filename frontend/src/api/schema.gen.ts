@@ -79,6 +79,26 @@ export interface paths {
         patch: operations["vaults_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Migrate
+         * @description Run pending migrations (after a pre-migration backup); a no-op for a current vault.
+         */
+        post: operations["vaults_migrate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -103,6 +123,19 @@ export interface components {
             exposed_vaults: string[];
             /** Features */
             features: string[];
+        };
+        /** MigrationResponse */
+        MigrationResponse: {
+            vault: components["schemas"]["Vault"];
+            /** From Revision */
+            from_revision: string | null;
+            /** To Revision */
+            to_revision: string;
+            /**
+             * Backup
+             * @description The pre-migration backup; null if nothing changed.
+             */
+            backup: string | null;
         };
         /**
          * Problem
@@ -160,6 +193,7 @@ export interface components {
             modified_at: string;
             /** Published */
             published: boolean;
+            schema_status: components["schemas"]["VaultSchemaStatus"];
         };
         /** VaultCreate */
         VaultCreate: {
@@ -193,6 +227,20 @@ export interface components {
         };
         /** @enum {string} */
         VaultProblemCode: "folder_name_invalid" | "manifest_invalid" | "format_newer_than_app" | "duplicate_id";
+        /** @enum {string} */
+        VaultSchemaState: "current" | "needs_migration" | "newer_than_app" | "migration_failed" | "database_unreadable";
+        /**
+         * VaultSchemaStatus
+         * @description The vault database's migration state. ``needs_migration``: ``POST /vaults/{v}/migrate``
+         *     upgrades it (shown when ``LORE_AUTO_MIGRATE=false``).
+         */
+        VaultSchemaStatus: {
+            state: components["schemas"]["VaultSchemaState"];
+            /** Revision */
+            revision: string | null;
+            /** Head */
+            head: string;
+        };
         /** VaultUpdate */
         VaultUpdate: {
             name: components["schemas"]["VaultName"];
@@ -411,6 +459,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Vault"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_migrate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationResponse"];
                 };
             };
             /** @description Problem */

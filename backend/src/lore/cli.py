@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import typer
 import uvicorn
@@ -10,6 +10,7 @@ import uvicorn
 from lore.app import create_app
 from lore.chronology.schema_export import export_schemas
 from lore.config import Settings
+from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
 from lore.core.vaults import VaultManager
@@ -19,6 +20,10 @@ chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine asset
 app.add_typer(chronology_app, name="chronology")
 vault_app = typer.Typer(no_args_is_help=True, help="Vault administration.")
 app.add_typer(vault_app, name="vault")
+db_app = typer.Typer(no_args_is_help=True, help="Migration tooling (developers).")
+app.add_typer(db_app, name="db")
+
+VaultArgument = Annotated[str, typer.Argument(help="Vault id or folder name.")]
 
 
 @app.command()
@@ -73,8 +78,16 @@ def openapi(
 def _vault_manager() -> VaultManager:
     settings = Settings()
     return VaultManager(
-        settings.data_dir, read_only=settings.read_only, exposed_vaults=settings.exposed_vaults
+        settings.data_dir,
+        read_only=settings.read_only,
+        exposed_vaults=settings.exposed_vaults,
+        auto_migrate=settings.auto_migrate,
     )
+
+
+def _fail(exc: Exception) -> NoReturn:
+    typer.echo(f"error: {exc}", err=True)
+    raise typer.Exit(1) from exc
 
 
 @vault_app.command("list")
@@ -93,9 +106,72 @@ def vault_create(name: Annotated[str, typer.Argument(help="Display name.")]) -> 
     try:
         info = _vault_manager().create(name)
     except (LoreError, ValueError) as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(1) from exc
+        _fail(exc)
     typer.echo(f"{info.id}  {info.folder}  {info.name}")
+
+
+@vault_app.command("status")
+def vault_status(vault: VaultArgument) -> None:
+    """Show a vault's folder, name and schema state (revision vs. this app's head)."""
+    manager = _vault_manager()
+    try:
+        info = manager.resolve(vault)
+    except LoreError as exc:
+        _fail(exc)
+    schema = manager.schema_status(info)
+    typer.echo(f"id:        {info.id}")
+    typer.echo(f"folder:    {info.folder}")
+    typer.echo(f"name:      {info.name}")
+    typer.echo(f"schema:    {schema.state}")
+    typer.echo(f"revision:  {schema.revision or '(none)'}")
+    typer.echo(f"head:      {schema.head}")
+
+
+@vault_app.command("migrate")
+def vault_migrate(
+    vault: VaultArgument,
+    to: Annotated[str, typer.Option(help="Target revision (default: head).")] = "head",
+) -> None:
+    """Upgrade a vault's database (after a pre-migration backup)."""
+    manager = _vault_manager()
+    try:
+        result = manager.migrate(manager.resolve(vault).id, to)
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    if result.backup is None:
+        typer.echo(f"already at {result.to_revision}")
+    else:
+        typer.echo(f"migrated {result.from_revision or 'base'} -> {result.to_revision}")
+        typer.echo(f"backup: {result.backup}")
+
+
+@db_app.command("revision")
+def db_revision(
+    message: Annotated[str, typer.Option("-m", "--message", help="What the migration does.")],
+    autogenerate: Annotated[
+        bool, typer.Option(help="Diff the models against a scratch database at head.")
+    ] = False,
+) -> None:
+    """Write a new migration into src/lore/migrations/versions/."""
+    try:
+        path = Migrator().revision(message, autogenerate=autogenerate)
+    except LoreError as exc:
+        _fail(exc)
+    typer.echo(f"wrote {path}")
+    typer.echo("Edit the docstring owner ([core], [core:time] or [module: <id>]) and review it.")
+
+
+@db_app.command("check")
+def db_check() -> None:
+    """Fail unless the history has exactly one head and the models match the migrations."""
+    problems = Migrator().check()
+    for problem in problems:
+        typer.echo(problem, err=True)
+    if problems:
+        raise typer.Exit(1)
+    typer.echo("migrations are clean (one head, no model/migration differences)")
 
 
 @chronology_app.command("export-schemas")

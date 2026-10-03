@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import quote
 
 from sqlalchemy import Engine, create_engine, event
-from sqlalchemy.pool import ConnectionPoolEntry, QueuePool
+from sqlalchemy.pool import ConnectionPoolEntry, Pool, QueuePool
 
 from lore.core.errors import LoreError
 
@@ -91,7 +91,7 @@ def ensure_sqlite_capabilities(
         )
 
 
-def _database_uri(path: Path, *, read_only: bool, immutable: bool) -> str:
+def database_uri(path: Path, *, read_only: bool, immutable: bool) -> str:
     # URIs give explicit modes: rw refuses to create a missing database, ro refuses writes.
     uri = f"file:{quote(str(path.resolve()))}?mode={'ro' if read_only else 'rw'}"
     if immutable:
@@ -99,22 +99,35 @@ def _database_uri(path: Path, *, read_only: bool, immutable: bool) -> str:
     return uri
 
 
-def create_vault_engine(path: Path, *, read_only: bool = False, immutable: bool = False) -> Engine:
+def create_vault_engine(
+    path: Path,
+    *,
+    read_only: bool = False,
+    immutable: bool = False,
+    foreign_keys: bool = True,
+    pool: type[Pool] = QueuePool,
+) -> Engine:
     """An engine on an existing vault database.
 
     ``read_only`` opens with ``mode=ro`` (writes fail), ``immutable`` additionally tells SQLite the
     file cannot change (published snapshots, ``journal_mode=DELETE``). Connections are opened
-    lazily; the PRAGMAs run on each new one.
+    lazily; the PRAGMAs run on each new one. ``foreign_keys=False`` is for migrations only
+    (``lore.core.db.migrate``), which check the foreign keys themselves before committing.
     """
     if immutable and not read_only:
         raise ValueError("immutable requires read_only")
-    uri = _database_uri(path, read_only=read_only, immutable=immutable)
-    pragmas = READ_ONLY_PRAGMAS if read_only else AUTHOR_PRAGMAS
+    uri = database_uri(path, read_only=read_only, immutable=immutable)
+    pragmas: tuple[str, ...] = READ_ONLY_PRAGMAS if read_only else AUTHOR_PRAGMAS
+    if not foreign_keys:
+        pragmas = tuple(
+            "PRAGMA foreign_keys = OFF" if pragma == "PRAGMA foreign_keys = ON" else pragma
+            for pragma in pragmas
+        )
 
     def creator() -> sqlite3.Connection:
         return sqlite3.connect(uri, uri=True, check_same_thread=False)
 
-    engine = create_engine("sqlite+pysqlite://", creator=creator, poolclass=QueuePool)
+    engine = create_engine("sqlite+pysqlite://", creator=creator, poolclass=pool)
 
     @event.listens_for(engine, "connect")
     def _on_connect(dbapi_connection: sqlite3.Connection, _record: ConnectionPoolEntry) -> None:
