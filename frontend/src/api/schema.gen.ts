@@ -406,6 +406,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description Recent changesets, newest first.
+         */
+        get: operations["changes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/changes/{changeset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description A changeset with its row-level changes.
+         */
+        get: operations["changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/changes/{changeset_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert
+         * @description Undo a changeset (``409 revert_conflict`` when its rows changed since).
+         */
+        post: operations["changes_revert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History
+         * @description Changesets touching the entity (its row, aliases, tags, links), newest first.
+         */
+        get: operations["entities_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -516,6 +596,112 @@ export interface components {
              * @enum {integer}
              */
             sign: 1 | -1;
+        };
+        /**
+         * ChangeOut
+         * @description A row-level change. ``before``/``after`` are the full rows (JSON columns decoded).
+         */
+        ChangeOut: {
+            /** Id */
+            id: number;
+            /** Table Name */
+            table_name: string;
+            /** Row Id */
+            row_id: string;
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "insert" | "update" | "delete";
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /** Entity Ids */
+            entity_ids: string[];
+        };
+        /**
+         * ChangedEntity
+         * @description An entity a changeset touched. Purged entities keep the name and kind they last had.
+         */
+        ChangedEntity: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Kind */
+            kind: string | null;
+            /** Exists */
+            exists: boolean;
+        };
+        /** ChangesetDetail */
+        ChangesetDetail: {
+            /** Id */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Later than created_at when saves were merged in.
+             */
+            updated_at: string;
+            /** Origin */
+            origin: string;
+            /** Summary */
+            summary: string;
+            /** Reverts Changeset Id */
+            reverts_changeset_id: string | null;
+            /** Reverted By Changeset Id */
+            reverted_by_changeset_id: string | null;
+            /** Change Count */
+            change_count: number;
+            /** Entities */
+            entities: components["schemas"]["ChangedEntity"][];
+            /** Changes */
+            changes: components["schemas"]["ChangeOut"][];
+        };
+        /** ChangesetPage */
+        ChangesetPage: {
+            /** Items */
+            items: components["schemas"]["ChangesetSummary"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ChangesetSummary */
+        ChangesetSummary: {
+            /** Id */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Later than created_at when saves were merged in.
+             */
+            updated_at: string;
+            /** Origin */
+            origin: string;
+            /** Summary */
+            summary: string;
+            /** Reverts Changeset Id */
+            reverts_changeset_id: string | null;
+            /** Reverted By Changeset Id */
+            reverted_by_changeset_id: string | null;
+            /** Change Count */
+            change_count: number;
+            /** Entities */
+            entities: components["schemas"]["ChangedEntity"][];
         };
         Color: string;
         Duration: components["schemas"]["BaseDuration"] | components["schemas"]["CalendarDuration"];
@@ -1319,6 +1505,14 @@ export interface components {
             kind: "relative";
             ref: components["schemas"]["SlotRef"];
             offset: components["schemas"]["Duration"];
+        };
+        /**
+         * RevertResult
+         * @description The ``undo`` changeset the revert created.
+         */
+        RevertResult: {
+            changeset: components["schemas"]["ChangesetDetail"];
+            affected: components["schemas"]["Affected"];
         };
         Role: string;
         /** RuleOut */
@@ -2555,6 +2749,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    changes_list: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangesetPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Changeset id. */
+                changeset_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangesetDetail"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    changes_revert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Changeset id. */
+                changeset_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevertResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_history: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangesetPage"];
                 };
             };
             /** @description Problem */

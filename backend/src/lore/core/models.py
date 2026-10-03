@@ -11,6 +11,7 @@ from sqlalchemy import MetaData
 def load_metadata() -> MetaData:
     from lore.core.db.base import Base  # noqa: PLC0415
     from lore.core.entities import models as _entities  # noqa: F401, PLC0415
+    from lore.core.history import models as _history  # noqa: F401, PLC0415
     from lore.core.links import models as _links  # noqa: F401, PLC0415
     from lore.core.richtext import models as _richtext  # noqa: F401, PLC0415
     from lore.core.vaults import meta as _meta  # noqa: F401, PLC0415

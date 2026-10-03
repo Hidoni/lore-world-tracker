@@ -81,6 +81,7 @@ class ModuleSpec:
     field_types: tuple[FieldTypeDef, ...] = ()                # extra field value types (media: "media")
     link_types: tuple[LinkTypeDef, ...] = ()                  # keys must start with "<id>."
     models: tuple[type, ...] = ()                             # ORM classes of the module's tables ("<id>_…")
+    history_tables: tuple[HistoryTable, ...] = ()            # how history treats each table (all must be listed)
     routers: tuple[APIRouter, ...] = ()
     slot_providers: tuple[SlotProvider, ...] = ()             # module records with time slots
     timeline_tables: tuple[TimelineTableSpec, ...] = ()       # module tables readable through TimelineView
@@ -127,7 +128,8 @@ normalized value`, raising `ValueError`).
   `<id>.<key>`, unique per kind, of a known field type, and enums have options; contributions
   target existing kinds; field types are unique; link-type keys and rule ids start with `<id>.`,
   are unique, rules' `owner` is the module and link types name existing kinds; module tables are
-  prefixed `<id>_`, unique and not core tables (and no core table uses a module prefix); kind
+  prefixed `<id>_`, unique, not core tables and listed in `history_tables` (and no core table
+  uses a module prefix); kind
   extensions name existing kinds, at most one per kind.
 - Routers are always mounted, at `/api/v1/vaults/{vault_id}/m/<id>/`, and `create_app` adds the
   FastAPI dependency `require_module("<id>")` (`lore.core.api.deps`) to each, which returns

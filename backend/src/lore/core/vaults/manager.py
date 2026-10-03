@@ -36,6 +36,8 @@ from lore.core.db.migrate import (
     backup_database,
 )
 from lore.core.errors import InvalidInputError, ReadOnlyError
+from lore.core.history.recorder import install as install_history
+from lore.core.history.tables import HistoryTable, core_history_tables
 from lore.core.vaults.errors import (
     VaultMigrationFailedError,
     VaultNeedsMigrationError,
@@ -162,6 +164,9 @@ class OpenVault:
     info: VaultInfo
     engine: Engine
     read_only: bool
+    # The tables history records (core's plus every module's); writes through both factories
+    # are recorded as changesets (lore.core.history).
+    history_tables: tuple[HistoryTable, ...] = field(default_factory=core_history_tables)
     sessions: sessionmaker[Session] = field(init=False)
     write_sessions: sessionmaker[Session] = field(init=False)
 
@@ -170,6 +175,9 @@ class OpenVault:
         # A read-only database can't take the write lock; its writes fail either way.
         writer = self.engine if self.read_only else for_writing(self.engine)
         self.write_sessions = sessionmaker(writer, expire_on_commit=False)
+        if not self.read_only:
+            for factory in (self.sessions, self.write_sessions):
+                install_history(factory, self.history_tables)
 
     @property
     def id(self) -> str:
@@ -469,7 +477,12 @@ class VaultManager:
                 else:
                     self._require_current(status)
                 engine = create_vault_engine(info.database_path)
-            opened = OpenVault(info, engine, self.read_only)
+            tables = (
+                self.module_registry.history_tables()
+                if self.module_registry is not None
+                else core_history_tables()
+            )
+            opened = OpenVault(info, engine, self.read_only, tables)
             if not self.read_only:
                 _sync_meta_name(opened)
                 if self.module_registry is not None:

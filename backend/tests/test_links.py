@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import local_client
-from tests.entity_api import HEADERS, Api, invalid, make_client, new_app, problem
+from tests.entity_api import HEADERS, LinkApi, invalid, make_client, new_app, problem
 
 POINT = {"anchor": {"kind": "absolute", "t": "10"}, "precision": "base"}
 LATER = {"anchor": {"kind": "absolute", "t": "20"}, "precision": "base"}
@@ -16,50 +16,6 @@ LATER = {"anchor": {"kind": "absolute", "t": "20"}, "precision": "base"}
 def client(tmp_path: Path) -> Iterator[TestClient]:
     with local_client(new_app(tmp_path), headers=HEADERS) as test_client:
         yield test_client
-
-
-class LinkApi(Api):
-    def link(
-        self, link_type: str, source: dict[str, Any], target: dict[str, Any], **body: Any
-    ) -> Any:
-        return self.client.post(
-            f"{self.base}/links",
-            json={
-                "link_type": link_type,
-                "source_id": source["id"],
-                "target_id": target["id"],
-                **body,
-            },
-        )
-
-    def made_link(self, *args: Any, **body: Any) -> dict[str, Any]:
-        response = self.link(*args, **body)
-        assert response.status_code == 201, response.json()
-        link: dict[str, Any] = response.json()["link"]
-        return link
-
-    def patch_link(self, link: dict[str, Any], **body: Any) -> Any:
-        body.setdefault("revision", link["revision"])
-        return self.client.patch(f"{self.base}/links/{link['id']}", json=body)
-
-    def delete_link(self, link_id: str) -> Any:
-        return self.client.delete(f"{self.base}/links/{link_id}")
-
-    def links_of(self, entity: dict[str, Any], **params: Any) -> list[dict[str, Any]]:
-        response = self.client.get(f"{self.base}/entities/{entity['id']}/links", params=params)
-        assert response.status_code == 200, response.json()
-        items: list[dict[str, Any]] = response.json()["items"]
-        return items
-
-    def timeline(self) -> dict[str, Any]:
-        return self.make("timeline", "Prime", dimension_id=self.make("dimension")["id"])
-
-    def link_types(self, **body: Any) -> Any:
-        return self.client.post(f"{self.base}/link-types", json=body)
-
-    def patch_type(self, link_type: dict[str, Any], **body: Any) -> Any:
-        body.setdefault("revision", link_type["revision"])
-        return self.client.patch(f"{self.base}/link-types/{link_type['key']}", json=body)
 
 
 @pytest.fixture

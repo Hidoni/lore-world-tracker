@@ -7,7 +7,10 @@ from fastapi import Depends, Path, Request
 from sqlalchemy.orm import Session
 
 from lore.config import Settings
+from lore.core.api.middleware import CLIENT_HEADER
 from lore.core.errors import ReadOnlyError
+from lore.core.history.recorder import context as history_context
+from lore.core.logging import request_id_var
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.vaults import OpenVault, VaultManager
@@ -52,6 +55,8 @@ WritableVaultDep = Annotated[OpenVault, Depends(get_writable_vault)]
 
 
 _READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+# The changeset origin of a request, from its X-Lore-Client header (data-model.md §7).
+_ORIGINS = {"web": "ui", "cli": "cli"}
 
 
 def get_session(request: Request, vault: VaultDep) -> Iterator[Session]:
@@ -62,6 +67,9 @@ def get_session(request: Request, vault: VaultDep) -> Iterator[Session]:
     locked"."""
     factory = vault.sessions if request.method in _READ_METHODS else vault.write_sessions
     with factory() as session, session.begin():
+        history = history_context(session)
+        history.origin = _ORIGINS.get(request.headers.get(CLIENT_HEADER, ""), "api")
+        history.request_id = request_id_var.get()
         yield session
 
 

@@ -30,6 +30,7 @@ from lore.core.api.middleware import (
 from lore.core.api.spa import spa_router
 from lore.core.db import ensure_sqlite_capabilities
 from lore.core.entities import router as entities_router
+from lore.core.history import router as history_router
 from lore.core.links import router as links_router
 from lore.core.logging import configure_logging
 from lore.core.models import load_metadata
@@ -94,6 +95,8 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(links_router.router)
     api.include_router(links_router.types_router)
     api.include_router(links_router.entity_router)
+    api.include_router(history_router.router)
+    api.include_router(history_router.entity_router)
     for module in app.state.registry.modules:
         for module_router in module.routers:
             # Always mounted; require_module answers 404 module_disabled per vault (§2.2).

@@ -67,7 +67,7 @@
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
 | GET | `/vaults/{v}/entities/{id}/backlinks` | incoming links and mentions |
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |
-| GET | `/vaults/{v}/entities/{id}/history` | per-entity changes |
+| GET | `/vaults/{v}/entities/{id}/history` | changesets touching the entity (its row, aliases, tags, links), newest first; kept after a purge |
 | GET | `/vaults/{v}/entities/{id}/state` | as-of state (`timeline, at`) per `time-model.md` §10.5 |
 | GET/POST | `/vaults/{v}/entities/{id}/facts` | list/create temporal facts (`field`, `timeline`) |
 | PATCH/DELETE | `/vaults/{v}/facts/{id}` | update/trash a fact |
@@ -183,9 +183,9 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | POST | `/vaults/{v}/consistency/scan` | full re-scan |
 | GET/PATCH | `/vaults/{v}/consistency/rules` (`/{rule_id}`) | list rules / set severity |
 | POST/DELETE | `/vaults/{v}/consistency/suppressions` (`/{fingerprint}`) | suppress / unsuppress a finding |
-| GET | `/vaults/{v}/changes` | recent changes feed |
-| GET | `/vaults/{v}/changes/{id}` | changeset detail |
-| POST | `/vaults/{v}/changes/{id}/revert` | undo a changeset |
+| GET | `/vaults/{v}/changes` | recent changes feed, newest first (`cursor, limit`) → `{items: [{id, created_at, updated_at, origin, summary, reverts/reverted_by ids, change_count, entities: [{id, name, kind, exists}]}], next_cursor}` |
+| GET | `/vaults/{v}/changes/{id}` | changeset detail with row-level `changes` (`before`/`after` full rows, JSON columns decoded, `entity_ids`) |
+| POST | `/vaults/{v}/changes/{id}/revert` | undo a changeset → `{changeset (the undo), affected}`; `409 revert_conflict` (`context.rows` changed since, or `context.problems` rules the undo would break), `409 conflict` if already undone (`data-model.md` §7) |
 
 ### Content modules (high level; details in `docs/modules/*.md`)
 

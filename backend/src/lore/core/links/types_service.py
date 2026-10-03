@@ -134,7 +134,7 @@ class LinkTypeService:
         if sent:
             row.updated_at = utc_now()  # first: one UPDATE even if a query autoflushes
         self._assign(row, data, sent)
-        conflicts = self._conflicts(before, custom_definition(row))
+        conflicts = self.conflicts(before, custom_definition(row))
         if conflicts:
             raise ConflictError(
                 "Existing links don't allow this change: "
@@ -215,7 +215,7 @@ class LinkTypeService:
             column = "unique_policy" if member == "unique" else member
             setattr(row, column, value)
 
-    def _conflicts(self, before: LinkTypeDef, after: LinkTypeDef) -> dict[str, int]:
+    def conflicts(self, before: LinkTypeDef, after: LinkTypeDef) -> dict[str, int]:
         """How many existing (not trashed) links break each rule of ``after``."""
         source, target = aliased(Entity), aliased(Entity)
         rows = self.session.execute(

@@ -13,6 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from lore.app import create_app
 from lore.config import Settings
+from lore.core.history.tables import HistoryTable
 from lore.core.models import load_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec, RegistryError
 from lore.core.registry import (
@@ -170,10 +171,14 @@ def test_table_errors() -> None:
     core = MetaData()
     Table("entities", core, Column("id", String, primary_key=True))
     Table("b_core_table", core, Column("id", String, primary_key=True))
+
+    def tracked(*models: type) -> tuple[HistoryTable, ...]:
+        return tuple(HistoryTable.of(m) for m in models if hasattr(m, "__table__"))
+
     assert problems(
-        spec("a", models=(Owned, Unprefixed, str)),
-        spec("b", models=(Stolen,)),
-        spec("c", models=(Owned,)),
+        spec("a", models=(Owned, Unprefixed, str), history_tables=tracked(Owned, Unprefixed)),
+        spec("b", models=(Stolen,), history_tables=tracked(Stolen)),
+        spec("c", models=(Owned,), history_tables=tracked(Owned)),
         core_metadata=core,
     ) == [
         "a: table 'notes' must be prefixed 'a_'",
@@ -184,6 +189,16 @@ def test_table_errors() -> None:
         "c: table 'a_things' is also defined by a",
         "core table 'b_core_table' uses module 'b''s prefix",
     ]
+
+
+def test_module_tables_must_be_listed_for_history() -> None:
+    assert problems(spec("a", models=(Owned,))) == [
+        "a: table 'a_things' is missing from history_tables (list it, with derived=True if it "
+        "holds derived data)"
+    ]
+    derived = HistoryTable.of(Owned, derived=True)
+    registry = ModuleRegistry([spec("a", models=(Owned,), history_tables=(derived,))])
+    assert derived in registry.history_tables()
 
 
 def test_create_app_refuses_an_invalid_registry() -> None:

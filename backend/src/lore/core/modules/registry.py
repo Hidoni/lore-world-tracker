@@ -18,6 +18,7 @@ from lore.core.entities.extensions import (
     KindExtension,
     PurgeHook,
 )
+from lore.core.history.tables import HistoryTable, core_history_tables
 from lore.core.modules.spec import ModuleSpec
 from lore.core.registry.core import CORE_FIELD_TYPES, CORE_KINDS, CORE_LINK_TYPES
 from lore.core.registry.types import (
@@ -173,6 +174,10 @@ class ModuleRegistry:
     def purge_hooks(self) -> list[PurgeHook]:
         """Purge hooks of core and **every** module (disabled modules keep their data)."""
         return [*CORE_PURGE_HOOKS, *(hook for m in self.modules for hook in m.purge_hooks)]
+
+    def history_tables(self) -> tuple[HistoryTable, ...]:
+        """Core's recorded tables plus every module's (enabled or not)."""
+        return core_history_tables() + tuple(t for m in self.modules for t in m.history_tables)
 
     def all_link_type_keys(self) -> set[str]:
         """Keys of every code-registered link type (core and all modules, enabled or not)."""
@@ -377,6 +382,11 @@ class ModuleRegistry:
                     problems.append(f"{module.id}: table {name!r} is also defined by "
                                     f"{table_owner[name]}")  # fmt: skip
                 table_owner[name] = module.id
+                if name not in {t.name for t in module.history_tables}:
+                    problems.append(
+                        f"{module.id}: table {name!r} is missing from history_tables "
+                        "(list it, with derived=True if it holds derived data)"
+                    )
         for name in core_tables:
             for module in self.modules:
                 if name.startswith(module.id + "_"):
