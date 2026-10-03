@@ -145,3 +145,83 @@ class EntityDeleteResult(BaseModel):
     purged: bool
     entity: EntityOut | None
     affected: Affected
+
+
+# --- listings ------------------------------------------------------------------------------------
+
+type ListSort = Literal["name", "-name", "created", "-created", "updated", "-updated", "sort_key"]
+
+
+class EntitySummary(BaseModel):
+    """An entity in a list: everything but the body, aliases, tags and ``ext``."""
+
+    id: str
+    kind: str
+    dimension_id: str | None
+    parent_id: str | None
+    name: str
+    slug: str
+    summary: str
+    fields: dict[str, Any]
+    visibility: Visibility
+    icon: str | None
+    color: str | None
+    sort_key: str | None
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None
+
+
+class EntityPage(BaseModel):
+    items: list[EntitySummary]
+    next_cursor: str | None = Field(
+        description="Pass as `cursor` for the next page; null at the end."
+    )
+
+
+class TreeNode(BaseModel):
+    """A navigation tree node. ``child_counts`` counts the children the same tree would show,
+    by kind."""
+
+    id: str
+    kind: str
+    name: str
+    icon: str | None
+    color: str | None
+    dimension_id: str | None
+    parent_id: str | None
+    multiversal: bool
+    visibility: Visibility
+    sort_key: str | None
+    has_children: bool
+    child_counts: dict[str, int]
+
+
+class TreePage(BaseModel):
+    items: list[TreeNode]
+    next_cursor: str | None
+
+
+class TrashItem(EntitySummary):
+    """A trashed entity. ``orphan_count``: its children that are not in the trash (the tree shows
+    them as roots meanwhile)."""
+
+    orphan_count: int
+
+
+class TrashPage(BaseModel):
+    items: list[TrashItem]
+    next_cursor: str | None
+
+
+class FieldValue(BaseModel):
+    """A suggestion: values differing only in case/accents are merged, shown in their most used
+    spelling, with the number of entities (not in the trash) using them."""
+
+    value: str
+    count: int
+
+
+class FieldValueList(BaseModel):
+    items: list[FieldValue]

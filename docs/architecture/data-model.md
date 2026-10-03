@@ -53,6 +53,7 @@ format version** (folder layout; see persistence doc).
 | `origin_timeline_id` | TEXT NULL → entities | Branch-only entity marker (`time-model.md` §4.6). |
 | `parent_id` | TEXT NULL → entities | Organizational/structural parent (§3.4). |
 | `name` | TEXT NOT NULL | |
+| `sort_name` | TEXT NOT NULL | Name sort key, set with the name (`entity_sort_name`): accents removed, case-folded, each run of ASCII digits replaced by its digit count (3 digits) and the digits without leading zeros, so numbers sort by value. Compared as binary text. |
 | `slug` | TEXT NOT NULL | Cosmetic, derived from the name (not unique). URLs use ids. |
 | `summary` | TEXT NOT NULL DEFAULT '' | Short plain text (search, cards, tooltips). |
 | `body` | JSON NULL | Rich-text document (`frontend.md` §6). |
@@ -67,7 +68,7 @@ format version** (folder layout; see persistence doc).
 | `created_at`, `updated_at`, `deleted_at` | | |
 
 Indexes: `(kind)`, `(dimension_id, kind)`, `(parent_id)`, `(origin_timeline_id)`,
-`(deleted_at)`.
+`(deleted_at)`, `(kind, sort_name)`, `(parent_id, sort_name)`.
 
 ### 3.2 Aliases and tags
 

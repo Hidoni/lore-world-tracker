@@ -1,5 +1,6 @@
 """``entities``, ``entity_aliases``, ``tags``, ``entity_tags`` (``data-model.md`` §3.1-§3.2)."""
 
+import re
 import unicodedata
 from typing import Any
 
@@ -14,6 +15,31 @@ from lore.core.db.base import (
     TimestampsMixin,
     VisibilityMixin,
 )
+
+
+def fold_text(text: str) -> str:
+    """Text compared ignoring case and accents: accents removed (NFKD, combining marks dropped),
+    re-composed (NFC) and case-folded. "Élan" and "elan" fold alike."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    stripped = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return unicodedata.normalize("NFC", stripped).casefold()
+
+
+_DIGITS = re.compile(r"[0-9]+")
+MAX_NUMBER_DIGITS = 999
+
+
+def _pad_number(match: re.Match[str]) -> str:
+    digits = match.group().lstrip("0")[:MAX_NUMBER_DIGITS] or "0"
+    return f"{len(digits):03d}{digits}"
+
+
+def entity_sort_name(name: str) -> str:
+    """The key names sort by (decided 2026-10-04): case and accents ignored, and numbers by value
+    ("Chapter 2" before "Chapter 10"): each run of ASCII digits becomes its digit count (3 digits)
+    followed by the digits without leading zeros. Compared as binary text."""
+    return _DIGITS.sub(_pad_number, fold_text(name))
+
 
 # Authored data: deleting a referenced row is refused (services delete children explicitly).
 RESTRICT = "RESTRICT"
@@ -32,6 +58,7 @@ class Entity(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDelet
     )
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
     name: Mapped[str] = mapped_column(String)
+    sort_name: Mapped[str] = mapped_column(String)  # entity_sort_name(name), kept in sync
     slug: Mapped[str] = mapped_column(String)  # cosmetic, not unique
     summary: Mapped[str] = mapped_column(String, default="", server_default=text("''"))
     body: Mapped[Any | None] = mapped_column(JSON)
@@ -52,7 +79,14 @@ class Entity(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDelet
         Index("ix_entities_parent_id", "parent_id"),
         Index("ix_entities_origin_timeline_id", "origin_timeline_id"),
         Index("ix_entities_deleted_at", "deleted_at"),
+        Index("ix_entities_kind_sort_name", "kind", "sort_name"),
+        Index("ix_entities_parent_id_sort_name", "parent_id", "sort_name"),
     )
+
+    @validates("name")
+    def _set_sort_name(self, _key: str, name: str) -> str:
+        self.sort_name = entity_sort_name(name)
+        return name
 
 
 class EntityAlias(IdMixin, VisibilityMixin, Base):
