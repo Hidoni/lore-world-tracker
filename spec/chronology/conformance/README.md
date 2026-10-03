@@ -185,16 +185,22 @@ alignment fields are invalid).
   from `largest` to `smallest`; `sign` is `1` when `t1 = t2`), or `{"error": "invalid_date"}` for
   an unknown level or a `largest` finer than `smallest`
 
-### `format` (§10)
+### `format` (§3.11, §10)
 
 - input: `{"t": "<moment>", "precision": "<level id>" | "base", "approximate": false}`
-- expected: `{"text": "<string>"}`
+- expected: `{"text": "<string>"}`, or `{"error": "invalid_date"}` for an unknown precision
 
 ### `format_span` (§10)
 
-- input: `{"start": {"t", "precision", "approximate"}, "end": {"t", "precision", "approximate"} | null}`
-  (`null` = open end)
+- input: `{"start": {"t", "precision", "approximate"} | null, "end": {"t", "precision", "approximate"} | null}`
+  (`null` = open end, rendered `?`)
 - expected: `{"text": "<string>"}`
+
+### `format_absolute` (§10, time-model §3), calendar-free
+
+- input: `{"t": "<moment>", "base_unit": {"singular", "plural", "abbr"}, "display": DisplayOptions | absent, "approximate": false}`
+  (`display` absent = the default options)
+- expected: `{"text": "t = <number> <abbr>"}`
 
 ### `preset_instantiate` (§13), calendar-free
 

@@ -1,0 +1,293 @@
+{
+  "description": "Formatting showcase: custom formats for every precision (and intercalary ones) using every token and modifier, plus non-default display options (circa 'ca. ', digit group '.', scientific notation from 9 digits with 3 significant digits, range separator ' to '). Base unit second; levels minute (60 s) → hour → day → month → year. A year has 121 days: Frostfall (abbr Fro) and Thawing (30 days), the intercalary one-day month Midyear's Day (excluded from the week), then two unnamed 30-day months (3 and 4). A 5-day named week and an unnamed 3-day market cycle start on 1 Frostfall 1. Eras BF (backward, suffix) and AF (forward from 1 Frostfall 1, prefix). A moon overlay with a 10-day period is new at 1 Frostfall 1, which is aligned with t = 10,454,400,000 so that year −999 starts at t = 0.",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo"
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "showcase",
+        "name": "Showcase",
+        "templates": {
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "m1": {
+            "level": "month",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "year": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "frostfall",
+                "template": "m30",
+                "name": "Frostfall",
+                "abbr": "Fro"
+              },
+              {
+                "id": "thawing",
+                "template": "m30",
+                "name": "Thawing"
+              },
+              {
+                "id": "midyear",
+                "template": "m1",
+                "name": "Midyear's Day",
+                "abbr": "Mid",
+                "intercalary": true,
+                "cycle_excluded": [
+                  "week"
+                ]
+              },
+              {
+                "run": {
+                  "count": "2",
+                  "template": "m30"
+                }
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "fixed",
+            "template": "year"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "frostfall",
+            "day": "1",
+            "hour": "0",
+            "minute": "0"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "10454400000"
+            },
+            "precision": "base"
+          }
+        },
+        "cycles": [
+          {
+            "id": "week",
+            "level": "day",
+            "length": 5,
+            "names": [
+              "Moonday",
+              "Twosday",
+              "Midweek",
+              "Fourday",
+              "Restday"
+            ],
+            "abbrs": [
+              "Mo",
+              "Tw",
+              "Mi",
+              "Fo",
+              "Re"
+            ],
+            "ids": [
+              "moonday",
+              "twosday",
+              "midweek",
+              "fourday",
+              "restday"
+            ],
+            "anchor": {
+              "fields": {
+                "year": "1",
+                "month": "frostfall",
+                "day": "1"
+              },
+              "index": 0
+            }
+          },
+          {
+            "id": "market",
+            "level": "day",
+            "length": 3,
+            "anchor": {
+              "fields": {
+                "year": "1",
+                "month": "frostfall",
+                "day": "1"
+              },
+              "index": 0
+            }
+          }
+        ]
+      }
+    ],
+    "eras": [
+      {
+        "id": "bf",
+        "name": "Before the Founding",
+        "abbr": "BF",
+        "numbering": {
+          "direction": "backward",
+          "first": "1"
+        }
+      },
+      {
+        "id": "af",
+        "name": "After the Founding",
+        "abbr": "AF",
+        "abbr_position": "prefix",
+        "start": {
+          "anchor": {
+            "kind": "local",
+            "fields": {
+              "year": "1",
+              "month": "frostfall",
+              "day": "1"
+            }
+          },
+          "precision": "day"
+        },
+        "numbering": {
+          "direction": "forward",
+          "first": "1"
+        }
+      }
+    ],
+    "overlays": [
+      {
+        "id": "moon",
+        "name": "Moon",
+        "period": {
+          "num": "864000",
+          "den": "1"
+        },
+        "epoch": {
+          "anchor": {
+            "kind": "absolute",
+            "t": "10454400000"
+          },
+          "precision": "base"
+        },
+        "phases": [
+          {
+            "name": "New Moon",
+            "from": {
+              "num": "0",
+              "den": "1"
+            }
+          },
+          {
+            "name": "First Quarter",
+            "from": {
+              "num": "1",
+              "den": "4"
+            }
+          },
+          {
+            "name": "Full Moon",
+            "from": {
+              "num": "1",
+              "den": "2"
+            }
+          },
+          {
+            "name": "Last Quarter",
+            "from": {
+              "num": "3",
+              "den": "4"
+            }
+          }
+        ]
+      }
+    ],
+    "formats": {
+      "year": "Year {era_year:ordinal} of the {era.name} ({year:pad3})",
+      "month": "{month.name} {era_year} {era}",
+      "day": "{cycle.week}, {day} {month.abbr} {era_year} {era}",
+      "hour": "{cycle.week.abbr}/{cycle.week.n}/{cycle.market}/{cycle.market.abbr}/{cycle.market.n} {day:pad3} {month.id} {month:pad2}/{month:ordinal} {year} {hour:ordinal} hour, {{{base}}} {overlay.moon} {overlay.moon.fraction}",
+      "minute": "{day} {month.name} {era_year} {era}, {hour:pad2}:{minute:pad2}",
+      "intercalary": {
+        "day": "{month.name}, {era_year} {era}",
+        "month": "{month.name} ({month.abbr}) {era_year} {era}"
+      }
+    },
+    "display": {
+      "circa": "ca. ",
+      "digit_group": ".",
+      "scientific_threshold": 9,
+      "significant_digits": 3,
+      "range_separator": " to "
+    }
+  },
+  "context": {
+    "base_unit": {
+      "singular": "second",
+      "plural": "seconds",
+      "abbr": "s"
+    },
+    "dimension_duration": "10000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "10454400000",
+      "/overlays/0/epoch": "10454400000"
+    }
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "description": "Generated default formats with a base unit (hour) finer than level 0 (day): base precision adds the remainder; run months show their numbers.",
+  "calendar": "intercalary-exceptions",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "base-remainder",
+      "op": "format",
+      "input": {
+        "t": "1000013",
+        "precision": "base",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Deepwinter 1 + 13 h"
+      },
+      "note": "to-base-remainder"
+    },
+    {
+      "id": "base-remainder-zero",
+      "op": "format",
+      "input": {
+        "t": "1000000",
+        "precision": "base",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Deepwinter 1 + 0 h"
+      },
+      "note": "to-alignment: shown even when 0"
+    },
+    {
+      "id": "day-of-base-remainder",
+      "op": "format",
+      "input": {
+        "t": "1000013",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Deepwinter 1"
+      }
+    },
+    {
+      "id": "yule",
+      "op": "format",
+      "input": {
+        "t": "1000725",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Yule 1"
+      },
+      "note": "to-yule: a one-day intercalary month"
+    },
+    {
+      "id": "yule-base",
+      "op": "format",
+      "input": {
+        "t": "1000725",
+        "precision": "base",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Yule 1 + 5 h"
+      }
+    },
+    {
+      "id": "lithe-days",
+      "op": "format",
+      "input": {
+        "t": "1034063",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "3 Lithe Days 4"
+      },
+      "note": "to-lithe-leap: Lithe Days has three days in leap years"
+    },
+    {
+      "id": "run-month",
+      "op": "format",
+      "input": {
+        "t": "1000744",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 2 1"
+      },
+      "note": "to-first-run-month: unnamed months show their number"
+    },
+    {
+      "id": "huge-year",
+      "op": "format",
+      "input": {
+        "t": "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000123457",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "16 Lastmonth 1.15 × 10^301"
+      },
+      "note": "to-huge-300-digit-year: the 302-digit year 1150|2… keeps 1.150, whose trailing zero is dropped"
+    },
+    {
+      "id": "base-collapse-end",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "1000013",
+          "precision": "base",
+          "approximate": false
+        },
+        "end": {
+          "t": "1000020",
+          "precision": "base",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "1 Deepwinter 1 + 13 h – 20 h"
+      }
+    }
+  ]
+}

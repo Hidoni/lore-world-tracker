@@ -1,0 +1,64 @@
+{
+  "description": "Generated default formats with an intercalary day: {day.name} is the slot name for Midyear's Day and falls back to the number for regular days.",
+  "calendar": "intercalary-day",
+  "generated": false,
+  "verification": "Year 0 starts at t = 0 with First (30 days), Second (30 days and Midyear's Day) and Third (30 days), one base unit per day (calendar description); the texts apply chronology-engine §3.11 by hand.",
+  "cases": [
+    {
+      "id": "regular-day",
+      "op": "format",
+      "input": {
+        "t": "59",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "30 Second 0"
+      }
+    },
+    {
+      "id": "midyear",
+      "op": "format",
+      "input": {
+        "t": "60",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day Second 0"
+      }
+    },
+    {
+      "id": "next-year",
+      "op": "format",
+      "input": {
+        "t": "91",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 First 1"
+      }
+    },
+    {
+      "id": "into-midyear",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "59",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "60",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "30 – Midyear's Day Second 0"
+      },
+      "note": "both ends use the generated day pattern ({day.name} {month.name} {year})"
+    }
+  ]
+}

@@ -26,6 +26,12 @@ from lore.chronology.calendar.convert import (
     to_fields,
 )
 from lore.chronology.calendar.cycles import CycleValue, cycle_value
+from lore.chronology.calendar.formatting import (
+    DisplayPoint,
+    format_absolute,
+    format_date,
+    format_span,
+)
 from lore.chronology.calendar.overlays import OverlayValue, next_phase_at, overlay_phase
 from lore.chronology.calendar.units import (
     REGULAR,
@@ -49,6 +55,7 @@ __all__ = [
     "DateError",
     "DateFields",
     "Difference",
+    "DisplayPoint",
     "Duration",
     "Ordinal",
     "OverlayValue",
@@ -63,6 +70,9 @@ __all__ = [
     "cycle_value",
     "diff",
     "duration_upper_bound",
+    "format_absolute",
+    "format_date",
+    "format_span",
     "from_counted_ordinal",
     "from_fields",
     "from_ordinal",

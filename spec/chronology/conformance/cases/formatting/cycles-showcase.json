@@ -1,0 +1,46 @@
+{
+  "description": "Generated default formats with unnamed levels: numbers for unnamed units, the slot name for Wayeb.",
+  "calendar": "cycles-showcase",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "first-day",
+      "op": "format",
+      "input": {
+        "t": "1000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 1 0"
+      },
+      "note": "year 0 starts at t = 1,000,000 (to-fields-wayeb is 362 days later)"
+    },
+    {
+      "id": "wayeb",
+      "op": "format",
+      "input": {
+        "t": "1000362",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "3 Wayeb 0"
+      },
+      "note": "to-fields-wayeb: the 5-day intercalary month keeps its day numbers"
+    },
+    {
+      "id": "wayeb-month",
+      "op": "format",
+      "input": {
+        "t": "1000362",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Wayeb 0"
+      }
+    }
+  ]
+}

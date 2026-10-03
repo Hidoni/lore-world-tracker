@@ -1,0 +1,430 @@
+{
+  "description": "Generated default formats of a Gregorian calendar without eras (astronomical years): every precision, the clock, digit grouping from 5 digits, scientific notation, circa, and span collapsing.",
+  "calendar": "gregorian-seconds",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "second",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024, 12:34:56"
+      },
+      "note": "to-leap-day-2024: the 0-based unnamed levels second, minute and hour form a pad2 clock"
+    },
+    {
+      "id": "minute",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024, 12:34"
+      }
+    },
+    {
+      "id": "hour-single-clock-component",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024, 12 h"
+      },
+      "note": "a one-component clock gets the level's abbreviation instead of padding"
+    },
+    {
+      "id": "day",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024"
+      }
+    },
+    {
+      "id": "month",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "February 2024"
+      }
+    },
+    {
+      "id": "year",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "2024"
+      },
+      "note": "up to 4 digits a date number is never grouped"
+    },
+    {
+      "id": "base-equals-second",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "base",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024, 12:34:56"
+      },
+      "note": "a second is one base unit: no base remainder suffix"
+    },
+    {
+      "id": "clock-padding",
+      "op": "format",
+      "input": {
+        "t": "99999604059401",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 June 1987, 08:30:01"
+      },
+      "note": "to-mid-month"
+    },
+    {
+      "id": "unix-epoch",
+      "op": "format",
+      "input": {
+        "t": "99999053315200",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 January 1970, 00:00:00"
+      },
+      "note": "to-unix-epoch"
+    },
+    {
+      "id": "year-zero",
+      "op": "format",
+      "input": {
+        "t": "99936917718399",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "31 December 0"
+      },
+      "note": "to-year-0-last-second: astronomical year 0 without eras"
+    },
+    {
+      "id": "negative-year",
+      "op": "format",
+      "input": {
+        "t": "99936859679200",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 March -1"
+      },
+      "note": "to-year-minus-1-march"
+    },
+    {
+      "id": "negative-year-grouped",
+      "op": "format",
+      "input": {
+        "t": "0",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "24 February -3,166,874"
+      },
+      "note": "to-moment-zero: 7 digits are grouped, the sign stays in front"
+    },
+    {
+      "id": "year-9999",
+      "op": "format",
+      "input": {
+        "t": "100252455615999",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "31 December 9999, 23:59"
+      },
+      "note": "to-year-9999-last-second"
+    },
+    {
+      "id": "scientific-year",
+      "op": "format",
+      "input": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012345",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "22 August 3.169 × 10^92"
+      },
+      "note": "to-huge-moment: the 93-digit year 316887385068… has 4 significant digits rounded half to even (3168|8 → 3169)"
+    },
+    {
+      "id": "circa-day",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "day",
+        "approximate": true
+      },
+      "expected": {
+        "text": "c. 29 February 2024"
+      }
+    },
+    {
+      "id": "circa-year",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "year",
+        "approximate": true
+      },
+      "expected": {
+        "text": "c. 2024"
+      }
+    },
+    {
+      "id": "unknown-precision",
+      "op": "format",
+      "input": {
+        "t": "100000762525296",
+        "precision": "week",
+        "approximate": false
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "span-days-collapse-start",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000762566400",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February – 1 March 2024"
+      },
+      "note": "the ends differ at the month: day and month vary, the shared year is written once at the end"
+    },
+    {
+      "id": "span-years",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "99999999999999",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000000000000",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "31 December 1999 – 1 January 2000"
+      },
+      "note": "to-year-1999-last-second → to-alignment: every component differs"
+    },
+    {
+      "id": "span-clock-collapse-end",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "minute",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000762526800",
+          "precision": "minute",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February 2024, 12:34 – 13:00"
+      },
+      "note": "the varying hour and minute come after the shared date: the end keeps only them"
+    },
+    {
+      "id": "span-hours",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "hour",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000762532496",
+          "precision": "hour",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February 2024, 12 h – 14 h"
+      }
+    },
+    {
+      "id": "span-same-unit",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000762528896",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February 2024"
+      },
+      "note": "both ends in the same day: written once"
+    },
+    {
+      "id": "span-same-unit-circa",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": true
+        },
+        "end": {
+          "t": "100000762528896",
+          "precision": "day",
+          "approximate": true
+        }
+      },
+      "expected": {
+        "text": "c. 29 February 2024"
+      }
+    },
+    {
+      "id": "span-same-unit-one-circa",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": true
+        },
+        "end": {
+          "t": "100000762528896",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "c. 29 February 2024 – 29 February 2024"
+      },
+      "note": "differently approximate ends are both written"
+    },
+    {
+      "id": "span-circa-collapsed",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": true
+        },
+        "end": {
+          "t": "100000762566400",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "c. 29 February – 1 March 2024"
+      }
+    },
+    {
+      "id": "span-different-precisions",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100000762566400",
+          "precision": "month",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "29 February 2024 – March 2024"
+      },
+      "note": "different precisions use different patterns: no collapsing"
+    },
+    {
+      "id": "span-open-end",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100000762525296",
+          "precision": "year",
+          "approximate": false
+        },
+        "end": null
+      },
+      "expected": {
+        "text": "2024 – ?"
+      }
+    },
+    {
+      "id": "span-open-start",
+      "op": "format_span",
+      "input": {
+        "start": null,
+        "end": {
+          "t": "100000762525296",
+          "precision": "month",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "? – February 2024"
+      }
+    }
+  ]
+}

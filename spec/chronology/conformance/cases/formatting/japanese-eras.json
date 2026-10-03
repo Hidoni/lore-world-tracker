@@ -1,0 +1,54 @@
+{
+  "description": "Generated default formats with suffix eras that start mid-year.",
+  "calendar": "japanese-eras",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "showa-64",
+      "op": "format",
+      "input": {
+        "t": "99999653535999",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "7 January 64 S, 23:59:59"
+      },
+      "note": "to-fields-showa-64"
+    },
+    {
+      "id": "heisei-1",
+      "op": "format",
+      "input": {
+        "t": "99999653536000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "8 January 1 H"
+      },
+      "note": "the next second starts Heisei"
+    },
+    {
+      "id": "across-eras",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "99999653535999",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "99999653536000",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "7 January 64 S – 8 January 1 H"
+      },
+      "note": "the era differs, so nothing is shared"
+    }
+  ]
+}
