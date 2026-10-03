@@ -62,7 +62,8 @@ key(n) = zero_pad(len(s), 4) + s          e.g. 0 → "00010", 7 → "00017", 102
 
 Byte-wise comparison of keys equals numeric comparison. Columns must use SQLite's default
 `BINARY` collation. Decoding strips the 4-character prefix. The SQLAlchemy `TypeDecorator`
-`SortableBigInt` encodes bound parameters too, so `column < some_int` works in queries. Negative
+`SortableBigInt` (`lore.core.db.types`, built on `lore.chronology.numbers.sortable_key`) encodes
+bound parameters too, so `column < some_int` works in queries. Negative
 values cannot be encoded, and the type rejects them. Signed quantities (offsets, years) are never
 stored as sortable keys.
 

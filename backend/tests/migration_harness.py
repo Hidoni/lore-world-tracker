@@ -21,6 +21,8 @@ from typing import Any
 from lore.core.db.migrate import MIGRATIONS_DIR, Migrator
 
 FIRST_REVISION = "b9f3e4412ccc"
+REAL_HEAD = Migrator().head()
+"""The head of the real history: throwaway migrations in framework tests build on it."""
 
 
 class MigrationHarness:
