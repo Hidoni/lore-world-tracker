@@ -11,12 +11,24 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 
 import {
+  type Bounds,
   CompiledCalendar,
+  cycleValue,
   DateError,
   dateFieldsToJson,
+  eraOf,
+  eraValueToJson,
   fromFields,
+  fromOrdinal,
+  nextPhaseAt,
+  options,
+  optionsToJson,
+  ordinal,
   type Overflow,
+  overlayPhase,
+  overlayValueToJson,
   toFields,
+  unitBounds,
   validateCalendar,
 } from '../src/calendar'
 import {
@@ -168,6 +180,8 @@ function displayOptions(d: Json): IntegerDisplayOptions {
   return options
 }
 
+const bounds = ({ start, end }: Bounds) => ({ start: start.toString(), end: end.toString() })
+
 const COMPILED = new Map<CalendarFile, CompiledCalendar>()
 
 function compiled(calendar: CalendarFile | null): CompiledCalendar {
@@ -211,21 +225,43 @@ const HANDLERS: Partial<Record<Op, Handler>> = {
   to_fields: (calendar, d) => dateFieldsToJson(toFields(compiled(calendar), BigInt(str(d, 't')))),
   from_fields: (calendar, d) => {
     const fields = d.fields as Record<string, string>
-    const options = { regime: d.regime as string | undefined, overflow: d.overflow as Overflow }
-    return { t: fromFields(compiled(calendar), fields, str(d, 'precision'), options).toString() }
+    const settings = {
+      era: d.era as string | undefined,
+      regime: d.regime as string | undefined,
+      overflow: d.overflow as Overflow,
+    }
+    return { t: fromFields(compiled(calendar), fields, str(d, 'precision'), settings).toString() }
+  },
+  unit_bounds: (calendar, d) =>
+    bounds(unitBounds(compiled(calendar), BigInt(str(d, 't')), str(d, 'level'))),
+  ordinal: (calendar, d) => {
+    const found = ordinal(compiled(calendar), BigInt(str(d, 't')), str(d, 'level'))
+    return { ordinal: found.value.toString(), intercalary: !found.counted }
+  },
+  from_ordinal: (calendar, d) =>
+    bounds(fromOrdinal(compiled(calendar), str(d, 'level'), BigInt(str(d, 'ordinal')))),
+  options: (calendar, d) => {
+    const fields = d.fields as Record<string, string>
+    return { options: optionsToJson(options(compiled(calendar), fields, str(d, 'level'))) }
+  },
+  cycle_value: (calendar, d) => {
+    const value = cycleValue(compiled(calendar), BigInt(str(d, 't')), str(d, 'cycle'))
+    return value === null ? null : { ...value }
+  },
+  era_of: (calendar, d) => {
+    const value = eraOf(compiled(calendar), BigInt(str(d, 't')))
+    return value === null ? null : eraValueToJson(value)
+  },
+  overlay_phase: (calendar, d) =>
+    overlayValueToJson(overlayPhase(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'))),
+  next_phase_at: (calendar, d) => {
+    const t = nextPhaseAt(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'), rat(d.phase))
+    return { t: t.toString() }
   },
 }
 
 /** op → issue that implements it in the TypeScript engine. */
 const PENDING: Partial<Record<Op, number>> = {
-  unit_bounds: 24,
-  ordinal: 24,
-  from_ordinal: 24,
-  options: 24,
-  cycle_value: 24,
-  era_of: 24,
-  overlay_phase: 24,
-  next_phase_at: 24,
   add: 25,
   diff: 25,
   format: 25,
@@ -296,79 +332,6 @@ function normalized(op: Op, value: unknown): unknown {
   return { errors: [...(errors as ErrorItem[])].sort((a, b) => (key(a) < key(b) ? -1 : 1)) }
 }
 
-interface DefinitionShape {
-  regimes?: { cycles?: unknown[] }[]
-  eras?: unknown[]
-  overlays?: unknown[]
-}
-
-function definitionOf(calendarName: string | null): DefinitionShape {
-  if (calendarName === null) return {}
-  return CALENDARS.get(calendarName)?.definition ?? {}
-}
-
-/** Whether a calendar file defines parallel cycles in any regime. */
-function hasCycles(calendarName: string | null): boolean {
-  return (definitionOf(calendarName).regimes ?? []).some(
-    (regime) => (regime.cycles ?? []).length > 0,
-  )
-}
-
-function hasOverlays(calendarName: string | null): boolean {
-  return (definitionOf(calendarName).overlays ?? []).length > 0
-}
-
-function hasEras(calendarName: string | null): boolean {
-  return (definitionOf(calendarName).eras ?? []).length > 0
-}
-
-/** Cases that need eras, era input or local anchors (era and regime starts) in this engine. */
-const ERAS_AND_LOCAL_ANCHORS = new Set([
-  'eras/astronomical::from-fields-era-without-eras',
-  ...[
-    'showa-64-jan-7',
-    'showa-64-jan-8',
-    'heisei-1-jan-8',
-    'heisei-1-jan-7',
-    'heisei-31-apr-30',
-    'heisei-31-may-1',
-    'reiwa-1-may-1',
-    'reiwa-1-apr-30',
-    'reiwa-1-year',
-    'heisei-1-january',
-    'before-1-dec-24',
-    'before-1-dec-25',
-    'reiwa-0',
-    'showa-1-year',
-    'reiwa-1-may',
-    'heisei-31-year',
-  ].map((id) => `eras/japanese-eras::from-fields-${id}`),
-  ...[
-    'reform-day',
-    'reform-gap',
-    'late-1582',
-    'bc-1',
-    'bc-2',
-    'ides-of-march-bc',
-    'ad-2024',
-    'ad-0',
-    'bc-0',
-    'unknown-era',
-    'era-year-slot-id',
-  ].map((id) => `regimes/julian-gregorian::from-fields-${id}`),
-  'presets/gregorian::era-date',
-  'presets/julian-gregorian::reform-gap',
-  'presets/julian-gregorian::y2k',
-  ...[
-    'regime-local-not-increasing',
-    'regime-local-invalid-date',
-    'era-local-invalid-date',
-    'era-local-precision',
-    'era-local-unknown-regime',
-    'era-local-not-increasing',
-  ].map((id) => `validate/error-codes::${id}`),
-])
-
 /**
  * Cases of implemented ops that need a feature this engine doesn't have yet → issue. They run
  * normally and must still fail (`test.fails`); once the feature lands they pass, which breaks the
@@ -377,14 +340,7 @@ const ERAS_AND_LOCAL_ANCHORS = new Set([
 const PENDING_CASES: {
   issue: number
   applies: (file: string, calendar: string | null, vector: Case) => boolean
-}[] = [
-  // to_fields' `cycles`, `era` and `overlays` members.
-  {
-    issue: 24,
-    applies: (_, c, v) => v.op === 'to_fields' && (hasCycles(c) || hasEras(c) || hasOverlays(c)),
-  },
-  { issue: 24, applies: (file, _, v) => ERAS_AND_LOCAL_ANCHORS.has(`${file}::${v.id}`) },
-]
+}[] = []
 
 describe.each(CASE_FILES)('$name', ({ name, document }) => {
   for (const vector of document.cases) {

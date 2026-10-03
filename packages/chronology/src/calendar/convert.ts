@@ -4,32 +4,24 @@
  *
  * Every step jumps with prefix sums and binary searches: the cost depends on the number of levels
  * and the logarithm of template widths, never on the year number (years may have 1000 digits).
- * Cycles, eras and overlays arrive with #24; their members of the §5.6 output are `null`/`{}`.
+ * Cycles, eras and overlays come from their modules (`cycles`, `eras`, `overlays`).
  */
 import {
   type Child,
   type CompiledCalendar,
   type CompiledRegime,
   type CompiledTemplate,
+  DateError,
+  activeRegime,
   childRegularIndex,
   defined,
   isNumber,
 } from './compiled'
+import { type CycleValue, cycleValues } from './cycles'
+import { type EraValue, eraOf, eraValueToJson, findEra } from './eras'
+import { type OverlayValue, overlayValueToJson, overlayValues } from './overlays'
 
 export type Overflow = 'reject' | 'constrain'
-export type DateErrorCode = 'invalid_date' | 'reform_gap' | 'reform_ambiguous'
-
-/** A date the calendar can't resolve. `level` names the offending level, if any. */
-export class DateError extends Error {
-  constructor(
-    readonly code: DateErrorCode,
-    message: string,
-    readonly level: string | null = null,
-  ) {
-    super(message)
-    this.name = 'DateError'
-  }
-}
 
 /** One level of a date: its regular number and, for a named slot, the slot's identity. */
 export interface UnitValue {
@@ -47,6 +39,12 @@ export interface DateFields {
   readonly levels: ReadonlyMap<string, UnitValue>
   /** Base-unit remainder inside the level-0 unit. */
   readonly base: bigint
+  /** Every cycle of the regime: its value, or `null` where the unit is excluded. */
+  readonly cycles: ReadonlyMap<string, CycleValue | null>
+  /** The era and era-relative year (`null` for a calendar without eras). */
+  readonly era: EraValue | null
+  /** Every overlay's phase and phase name. */
+  readonly overlays: ReadonlyMap<string, OverlayValue>
 }
 
 /** The §5.6 JSON shape of a date (as in the conformance vectors). */
@@ -63,23 +61,22 @@ export function dateFieldsToJson(date: DateFields): Record<string, unknown> {
     regime: date.regime,
     levels,
     base: date.base.toString(),
-    era: null,
-    cycles: {},
-    overlays: {},
+    era: date.era === null ? null : eraValueToJson(date.era),
+    cycles: Object.fromEntries(
+      [...date.cycles].map(([id, value]) => [id, value === null ? null : { ...value }]),
+    ),
+    overlays: Object.fromEntries(
+      [...date.overlays].map(([id, value]) => [id, overlayValueToJson(value)]),
+    ),
   }
 }
 
 // --- regimes -------------------------------------------------------------------------------------
 
-/**
- * The last regime whose start is `≤ t` (regime 0 before every other). Regimes whose start is a
- * `local` anchor are resolved by #24; until then they never activate.
- */
-export function activeRegime(calendar: CompiledCalendar, t: bigint): CompiledRegime {
-  const regime = calendar.regimes.findLast(
-    (r) => r.index === 0 || (r.startsAt !== null && r.startsAt <= t),
-  )
-  return defined(regime)
+function regimeById(calendar: CompiledCalendar, regime: string): CompiledRegime {
+  const found = calendar.regimes.find((r) => r.id === regime)
+  if (found === undefined) throw new DateError('invalid_date', `unknown regime ${regime}`)
+  return found
 }
 
 function regimeEnd(calendar: CompiledCalendar, regime: CompiledRegime): bigint | null {
@@ -109,7 +106,14 @@ export function toFields(calendar: CompiledCalendar, t: bigint): DateFields {
     values.set(defined(levels[level]), unitValue(child, defined(calendar.numberingStarts[level])))
     template = regime.template(defined(child.segment.child)) // children of level ≥ 1 templates
   }
-  return { regime: regime.id, levels: values, base: offset }
+  return {
+    regime: regime.id,
+    levels: values,
+    base: offset,
+    cycles: cycleValues(levels.length - 1, regime, t),
+    era: eraOf(calendar, t),
+    overlays: overlayValues(calendar, t),
+  }
 }
 
 function unitValue(child: Child, numberingStart: bigint): UnitValue {
@@ -121,6 +125,8 @@ function unitValue(child: Child, numberingStart: bigint): UnitValue {
 // --- fromFields ----------------------------------------------------------------------------------
 
 export interface FromFieldsOptions {
+  /** The year is relative to this era (§3.8); else it is astronomical. */
+  readonly era?: string | null
   /** Interpret the fields in this regime (proleptically); else pick the regime in force. */
   readonly regime?: string | null
   /** `reject` (default): out-of-range values are `invalid_date`; `constrain`: they are clamped. */
@@ -132,7 +138,9 @@ export type FieldsInput = Readonly<Record<string, string | undefined>>
 
 /**
  * The start moment of the unit at `precision` that `fields` denote (§5.7). `fields` hold every
- * level from the top down to `precision` and none below. Throws `DateError`.
+ * level from the top down to `precision` and none below. With `era`, the year is era-relative,
+ * the unit must overlap the era, and a unit that starts before the era resolves to the era's
+ * start. Throws `DateError`.
  */
 export function fromFields(
   calendar: CompiledCalendar,
@@ -142,16 +150,13 @@ export function fromFields(
 ): bigint {
   const overflow = options.overflow ?? 'reject'
   checkShape(calendar, fields, precision)
+  if (options.era != null) return fromEraFields(calendar, fields, precision, options.era, options)
   if (options.regime != null) {
-    const chosen = calendar.regimes.find((r) => r.id === options.regime)
-    if (chosen === undefined)
-      throw new DateError('invalid_date', `unknown regime ${options.regime}`)
-    return resolve(calendar, chosen, fields, precision, overflow)
+    return resolve(calendar, regimeById(calendar, options.regime), fields, precision, overflow)
   }
   const results: bigint[] = []
   const errors: DateError[] = []
   for (const candidate of [...calendar.regimes].reverse()) {
-    if (candidate.index > 0 && candidate.startsAt === null) continue // a local start (#24)
     let t: bigint
     try {
       t = resolve(calendar, candidate, fields, precision, overflow)
@@ -172,6 +177,46 @@ export function fromFields(
   const last = errors.at(-1)
   if (last !== undefined && errors.length === calendar.regimes.length) throw last
   throw new DateError('reform_gap', 'no regime has this date at a moment it is in force')
+}
+
+/** §5.7 step 1: an era year becomes `Y`; the resulting unit must overlap the era. */
+function fromEraFields(
+  calendar: CompiledCalendar,
+  fields: FieldsInput,
+  precision: string,
+  eraId: string,
+  options: FromFieldsOptions,
+): bigint {
+  const top = defined(calendar.levels.at(-1))
+  const era = findEra(calendar, eraId)
+  const yearValue = defined(fields[top])
+  if (!isNumber(yearValue)) throw new DateError('invalid_date', 'the year must be a number', top)
+  const astronomical = { ...fields, [top]: era.year(BigInt(yearValue)).toString() }
+  const regime = options.regime ?? null
+  const start = fromFields(calendar, astronomical, precision, { ...options, era: null })
+  const chosen = regime === null ? activeRegime(calendar, start) : regimeById(calendar, regime)
+  const end = start + unitLength(calendar, chosen, astronomical, precision)
+  if ((era.start !== null && end <= era.start) || (era.end !== null && start >= era.end)) {
+    throw new DateError('invalid_date', `the date is not in the era ${eraId}`, top)
+  }
+  // A unit that straddles the era's start resolves to the era's start ("Reiwa 1" → 1 May 2019).
+  return era.start !== null && era.start > start ? era.start : start
+}
+
+function unitLength(
+  calendar: CompiledCalendar,
+  regime: CompiledRegime,
+  fields: FieldsInput,
+  precision: string,
+): bigint {
+  const levels = calendar.levels
+  let template = regime.yearTemplate(BigInt(defined(fields[defined(levels.at(-1))])))
+  for (let level = levels.length - 2; level >= calendar.levelIndex(precision); level--) {
+    const value = defined(fields[defined(levels[level])])
+    const child = resolveChild(calendar, regime, template, level, value, 'constrain')
+    template = regime.template(defined(child.segment.child))
+  }
+  return template.length
 }
 
 function checkShape(calendar: CompiledCalendar, fields: FieldsInput, precision: string): void {
@@ -208,14 +253,18 @@ function resolve(
   let template = regime.yearTemplate(year)
   for (let level = levels.length - 2; level >= calendar.levelIndex(precision); level--) {
     const value = defined(fields[defined(levels[level])])
-    const child = locateChild(calendar, regime, template, level, value, overflow)
+    const child = resolveChild(calendar, regime, template, level, value, overflow)
     t += child.offset
     template = regime.template(defined(child.segment.child))
   }
   return t
 }
 
-function locateChild(
+/**
+ * The child of `template` (a `level + 1` unit) addressed by `value`: a regular number or a slot
+ * id, constrained per §5.7 step 4 when `overflow` allows. Throws `invalid_date`.
+ */
+export function resolveChild(
   calendar: CompiledCalendar,
   regime: CompiledRegime,
   template: CompiledTemplate,
@@ -275,17 +324,14 @@ export function normalizeFields(
   const precision = levels.find((level) => Object.hasOwn(fields, level)) ?? defined(levels.at(-1))
   const regime = options.regime ?? null
   const t = fromFields(calendar, fields, precision, { regime }) // validates; picks the regime
-  const chosen =
-    regime === null
-      ? activeRegime(calendar, t)
-      : defined(calendar.regimes.find((r) => r.id === regime))
+  const chosen = regime === null ? activeRegime(calendar, t) : regimeById(calendar, regime)
   const top = defined(levels.at(-1))
   const year = BigInt(defined(fields[top]))
   let template = chosen.yearTemplate(year)
   const normalized: Record<string, string> = { [top]: year.toString() }
   for (let level = levels.length - 2; level >= calendar.levelIndex(precision); level--) {
     const id = defined(levels[level])
-    const child = locateChild(calendar, chosen, template, level, defined(fields[id]), 'reject')
+    const child = resolveChild(calendar, chosen, template, level, defined(fields[id]), 'reject')
     // Named units by slot id (intercalary ones have no number); unnamed ones are never intercalary.
     normalized[id] =
       child.segment.slotId ??
@@ -293,4 +339,94 @@ export function normalizeFields(
     template = chosen.template(defined(child.segment.child))
   }
   return normalized
+}
+
+// --- picker options (§6) -------------------------------------------------------------------------
+
+/** A named child: by slot id, with its regular number (`null` if intercalary). */
+export interface SlotOption {
+  readonly kind: 'slot'
+  readonly slotId: string
+  readonly n: bigint | null
+  readonly name: string | null
+  readonly intercalary: boolean
+}
+
+/** Unnamed children numbered `first … last` (`null` bounds: any year). */
+export interface RangeOption {
+  readonly kind: 'range'
+  readonly first: bigint | null
+  readonly last: bigint | null
+}
+
+export type Option = SlotOption | RangeOption
+
+/**
+ * The valid children at `level` given the parents `fields` (top level down to the level just
+ * above), in template order: named slots one by one, unnamed runs as ranges.
+ */
+export function options(
+  calendar: CompiledCalendar,
+  fields: FieldsInput,
+  level: string,
+  { regime = null }: { readonly regime?: string | null } = {},
+): Option[] {
+  const index = calendar.levelIndex(level)
+  if (index < 0) throw new DateError('invalid_date', `unknown level ${level}`, level)
+  const top = calendar.levels.length - 1
+  if (index === top) {
+    if (Object.keys(fields).length > 0) {
+      throw new DateError('invalid_date', 'the top level has no parents', level)
+    }
+    return [{ kind: 'range', first: null, last: null }]
+  }
+  const parent = defined(calendar.levels[index + 1])
+  const start = fromFields(calendar, fields, parent, { regime })
+  const chosen = regime === null ? activeRegime(calendar, start) : regimeById(calendar, regime)
+  const template = templateAt(calendar, chosen, start, index + 1)
+  const numbering = defined(calendar.numberingStarts[index])
+  return template.segments.map((segment): Option => {
+    if (segment.slotId !== null) {
+      const n = segment.intercalary ? null : segment.regularStart + numbering
+      const { slotId, name, intercalary } = segment
+      return { kind: 'slot', slotId, n, name, intercalary }
+    }
+    const first = segment.regularStart + numbering
+    return { kind: 'range', first, last: first + segment.count - 1n }
+  })
+}
+
+/** The template of the `level` unit starting at `t`. */
+function templateAt(
+  calendar: CompiledCalendar,
+  regime: CompiledRegime,
+  t: bigint,
+  level: number,
+): CompiledTemplate {
+  const rel = t - regime.epoch
+  const year = regime.yearOfRel(rel)
+  let template = regime.yearTemplate(year)
+  let offset = rel - regime.relStart(year)
+  for (let parent = calendar.levels.length - 1; parent > level; parent--) {
+    const child = template.childAt(offset)
+    offset -= child.offset
+    template = regime.template(defined(child.segment.child))
+  }
+  return template
+}
+
+/** The conformance-vector form of `options` (README `options`). */
+export function optionsToJson(found: readonly Option[]): Record<string, unknown>[] {
+  const text = (value: bigint | null) => (value === null ? null : value.toString())
+  return found.map((option) =>
+    option.kind === 'slot'
+      ? {
+          kind: 'slot',
+          value: option.slotId,
+          n: text(option.n),
+          name: option.name,
+          intercalary: option.intercalary,
+        }
+      : { kind: 'range', first: text(option.first), last: text(option.last) },
+  )
 }

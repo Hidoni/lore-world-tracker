@@ -235,7 +235,8 @@ carries the calendar's `calendar_id`).
   1582 reform.
 - Several cycles may share a level (e.g. Tzolkʼin numbers 1–13 and names ×20).
 
-Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `cycles`):
+Details (Python: `lore.chronology.calendar.cycles`, TS: `cycleValue`; values also in `to_fields`
+`cycles`):
 
 - A cycle counts every unit of its level **except** those excluded from it: a unit is excluded
   when its own slot or any ancestor's lists the cycle in `cycle_excluded` (an excluded
@@ -250,7 +251,7 @@ Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `
 - `continue_from_previous_regime`: the first counted unit at or after the regime's start gets the
   index following the previous regime's last counted unit before the start. The previous regime
   must have a continuous cycle with the same id and length, and the cycle must be continuous
-  (`cycle.anchor_invalid` otherwise). With a `local` regime start, this waits for #14.
+  (`cycle.anchor_invalid` otherwise). A `local` regime start is resolved first (§4 step 5).
 
 ### 3.8 Eras
 
@@ -276,7 +277,7 @@ Details (Python: `lore.chronology.calendar.cycles`, values also in `to_fields` `
 - An era start given as a calendar anchor of **this** calendar must use the `local` anchor form
   (§3.10) with astronomical years.
 
-Details (Python: `lore.chronology.calendar.eras`):
+Details (Python: `lore.chronology.calendar.eras`, TS: `eraOf` and `fromFields` with `era`):
 
 - `Y(start)` and `Y_end` use the regime in force at the moment in question. A forward era needs a
   start, so era 0 can't be forward (`era.forward_without_start`); a backward era needs a next
@@ -552,8 +553,7 @@ unit; `era` is `null` and `cycles`/`overlays` are `{}` when the calendar has non
 below; any other key, a missing level or a level below the precision is `invalid_date` naming
 that level. Numbers address regular units only (intercalary units only by slot id). Python:
 `lore.chronology.calendar.from_fields`, raising `DateError(code, level)`; TS: `fromFields`,
-throwing `DateError` with the same `code` and `level`. Until `local` regime
-starts are resolved (#14), regimes with a `local` start never activate.
+throwing `DateError` with the same `code` and `level`.
 
 ### 5.8 Unit bounds and ordinals
 
@@ -567,14 +567,15 @@ starts are resolved (#14), regimes with a `local` start never activate.
 - `counted_ordinal(t, cycle)`: the same, counting units at the cycle's level excluding
   excluded ones.
 
-Details (Python: `lore.chronology.calendar.units`):
+Details (Python: `lore.chronology.calendar.units`, TS: `unitBounds`, `ordinal`, `fromOrdinal`,
+`countedOrdinal`, `fromCountedOrdinal`; `options` is in `convert` in both):
 
 - Ordinal 0 is the first regular unit of year 0; units before year 0 have negative ordinals
   (the last regular unit before year 0 is −1). For the top level the ordinal is `Y`.
 - Which units count is a **unit filter**: a predicate on a unit's own segment ("counts") and one
   that excludes a segment with its whole subtree. `ordinal` uses the regular filter (an
   intercalary unit doesn't count, its descendants do); `counted_ordinal` takes a filter, and a
-  cycle's filter (excluded = `cycle_excluded` on the unit or an ancestor) arrives with §3.7 (#13).
+  cycle's filter excludes units with `cycle_excluded` on the unit or an ancestor (§3.7).
   `from_ordinal`/`from_counted_ordinal` raise `invalid_date` when no unit has the ordinal (e.g.
   a level whose units are all intercalary).
 - Counts per (level, filter) are prefix sums over each template's segments and over the period's
@@ -620,7 +621,7 @@ Details (Python: `lore.chronology.calendar.units`):
   returns the first moment `≥ t` at which the phase equals `phase_from`, as
   `ceil((epoch + (n + phase_from)·period))` for the smallest valid `n`.
 
-Overlay details (Python: `lore.chronology.calendar.overlays`):
+Overlay details (Python: `lore.chronology.calendar.overlays`, TS: `overlayPhase`, `nextPhaseAt`):
 
 - The value is `{phase, name}`: `phase` is the exact rational in `[0, 1)` (floor semantics, so
   moments before the epoch wrap) and `name` the last phase whose `from ≤ phase`. Several phases
@@ -780,9 +781,8 @@ Rules behind the codes, where §3 leaves room:
   must be `< length`; a reset level must be coarser than the cycle's level. The anchor unit must not be excluded from its cycle, and
   `continue_from_previous_regime` needs a continuous cycle of the same id and length in the
   previous regime (§3.7).
-- **Ordering:** regime and era starts must increase strictly among the starts that are not
-  `local`; `local` starts are checked when they are resolved (#14). Overlay phases start at 0,
-  increase strictly and stay below 1.
+- **Ordering:** resolved regime and era starts, `local` ones included (§3.10), must increase
+  strictly. Overlay phases start at 0, increase strictly and stay below 1.
 - **Format tokens:** the §3.11 table. `:pad2`/`:pad3`/`:ordinal` apply to number tokens
   (`{<level>}`, `{year}`, `{era_year}`, `{base}`), not to `.name`/`.abbr`/`.id`. Cycle and overlay
   tokens must name an existing cycle (of any regime) or overlay. Unbalanced braces are

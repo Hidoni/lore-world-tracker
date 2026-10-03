@@ -7,8 +7,8 @@
  * only: checks that depend on an invalid part are skipped. `validateCalendar` takes raw JSON
  * documents and also reports structural (schema) errors first.
  *
- * Not yet compiled (later issues): `local` anchors, cycle values, eras and overlays (#24). They
- * are validated here as far as possible without resolving local anchors.
+ * `local` anchors (§3.10) are resolved with the compiled structure once every regime is built:
+ * regime starts first, then cycle anchors, era starts and overlay epochs (§4 steps 5–6).
  */
 import { floorDiv, floorMod, gcd } from '../numbers'
 import type {
@@ -25,17 +25,23 @@ import type {
 import {
   type Child,
   CompiledCalendar,
+  type CompiledCycle,
+  CompiledEra,
   CompiledRegime,
   CompiledTemplate,
+  DateError,
   type RegimeStructure,
   type Segment,
+  activeRegime,
   bisectLeft,
   defined,
   isNumber,
   segmentRegularCount,
 } from './compiled'
+import { fromFields } from './convert'
 import { unknownTokens } from './formats'
 import { type PathPart, type SchemaIssue, checkDocument } from './schema-check'
+import { countedPosition, cycleFilter } from './units'
 
 const RESERVED_LEVEL_IDS = new Set(['base', 'intercalary'])
 const MAX_PERIOD = 1_000_000n
@@ -77,6 +83,8 @@ class Compiler {
   readonly levelIndex: ReadonlyMap<string, number>
   readonly numbering: readonly bigint[]
   readonly resolvedMoments: Readonly<Record<string, string | undefined>>
+  /** Regime index → cycle index → (year, offset in the year) of the cycle's anchor unit. */
+  readonly cycleAnchors = new Map<number, Map<number, readonly [bigint, bigint]>>()
 
   constructor(
     readonly definition: CalendarDefinition,
@@ -104,15 +112,33 @@ class Compiler {
     this.checkTimePoints()
     this.checkEras()
     this.checkOverlays()
-    const regimes = this.definition.regimes.map((regime, r) => this.compileRegime(r, regime))
+    const compiled = this.definition.regimes.map((regime, r) => this.compileRegime(r, regime))
     this.checkFormats()
     if (this.errors.length > 0) return sortedErrors(this.errors)
+    // Local anchors need every regime's structure and epoch (§4 steps 5–6).
+    let regimes = this.resolveRegimeStarts(compiled.map((regime) => defined(regime)))
+    if (this.errors.length > 0) return sortedErrors(this.errors)
+    regimes = this.withCycles(regimes)
+    const eras = this.compileEras(regimes)
+    const overlayEpochs = this.resolveOverlayEpochs(regimes)
+    if (this.errors.length > 0) return sortedErrors(this.errors)
+    return this.calendar(regimes, eras, overlayEpochs)
+  }
+
+  calendar(
+    regimes: readonly CompiledRegime[],
+    eras: readonly CompiledEra[] = [],
+    overlayEpochs: readonly bigint[] = [],
+  ): CompiledCalendar {
+    const { definition, context, levels, numbering } = this
     return new CompiledCalendar(
-      this.definition,
-      this.context,
-      this.levels,
-      this.numbering,
-      regimes.filter((regime) => regime !== null),
+      definition,
+      context,
+      levels,
+      numbering,
+      regimes,
+      eras,
+      overlayEpochs,
     )
   }
 
@@ -137,7 +163,6 @@ class Compiler {
     member: string,
   ): void {
     const seen = new Set<string>()
-    let last: bigint | null = null
     const plural = `${kind}s`
     items.forEach(([id, start], i) => {
       if (seen.has(id)) this.error(`${kind}.duplicate_id`, pointer(plural, i, 'id'), 'duplicate id')
@@ -150,12 +175,17 @@ class Compiler {
       }
       if (start == null) {
         this.error(`${kind}.missing_start`, path, `every ${kind} after the first needs a start`)
-        return
       }
-      if (start.anchor.kind === 'local') return // resolved with the compiled structure (#24)
-      const value = this.resolved(path)
-      if (value === null) return // anchor.unresolved
+    })
+  }
+
+  /** Resolved starts (`null`: unknown, skipped) must increase strictly. */
+  checkIncreasing(kind: 'regime' | 'era', member: string, starts: readonly (bigint | null)[]) {
+    let last: bigint | null = null
+    starts.forEach((value, i) => {
+      if (value === null) return
       if (last !== null && value <= last) {
+        const path = pointer(`${kind}s`, i, member)
         this.error(`${kind}.start_not_increasing`, path, `${kind} starts must increase`)
       }
       last = value
@@ -293,7 +323,7 @@ class Compiler {
       [...base, 'alignment', 'fields'],
       'alignment.invalid_fields',
     )
-    this.checkCycleAnchors(r, regime, located)
+    this.cycleAnchors.set(r, this.checkCycleAnchors(r, regime, located))
     const at = this.resolved(pointer(...base, 'alignment', 'at'))
     if (offset === null || at === null || this.errors.length > before) return null
     const [year, within] = offset
@@ -302,6 +332,177 @@ class Compiler {
       startsAt = this.resolved(pointer(...base, 'starts_at'))
     }
     return new CompiledRegime(structure, at - located.relStart(year) - within, startsAt)
+  }
+
+  // --- local anchors, cycles, eras, overlays (after every regime is compiled) -------------
+
+  /** Resolve a `local` anchor: its fields as a date of this calendar (§3.10). */
+  resolveLocal(
+    regimes: readonly CompiledRegime[],
+    point: DefinitionTimePoint,
+    path: Path,
+    defaultRegime: string | null,
+  ): bigint | null {
+    const anchor = point.anchor
+    if (anchor.kind !== 'local') throw new Error('not a local anchor')
+    const regime = anchor.regime ?? defaultRegime
+    if (regime !== null && !regimes.some((r) => r.id === regime)) {
+      this.error('anchor.invalid_local', pointer(...path, 'anchor', 'regime'), 'unknown regime')
+      return null
+    }
+    try {
+      return fromFields(this.calendar(regimes), anchor.fields, point.precision, { regime })
+    } catch (error) {
+      if (!(error instanceof DateError)) throw error
+      this.error('anchor.invalid_local', pointer(...path, 'anchor', 'fields'), error.message)
+      return null
+    }
+  }
+
+  startMoment(
+    regimes: readonly CompiledRegime[],
+    point: DefinitionTimePoint | null | undefined,
+    path: Path,
+  ): bigint | null {
+    if (point == null) return null
+    if (point.anchor.kind === 'local') return this.resolveLocal(regimes, point, path, null)
+    return this.resolved(pointer(...path))
+  }
+
+  /**
+   * Resolve regime starts in order; a `local` start without `regime` is a date of the regime in
+   * force before it (the previous one).
+   */
+  resolveRegimeStarts(compiled: readonly CompiledRegime[]): CompiledRegime[] {
+    const regimes = [...compiled]
+    for (let j = 1; j < regimes.length; j++) {
+      const point = this.definition.regimes[j]?.starts_at
+      if (point?.anchor.kind === 'local') {
+        const previous = defined(regimes[j - 1]).id
+        const start = this.resolveLocal(regimes, point, ['regimes', j, 'starts_at'], previous)
+        regimes[j] = defined(regimes[j]).with({ startsAt: start })
+      }
+    }
+    this.checkIncreasing(
+      'regime',
+      'starts_at',
+      regimes.map((regime) => regime.startsAt),
+    )
+    return regimes
+  }
+
+  withCycles(regimes: readonly CompiledRegime[]): CompiledRegime[] {
+    const result: CompiledRegime[] = []
+    regimes.forEach((regime, r) => {
+      const cycles = this.buildCycles(r, regime, result.at(-1) ?? null)
+      result.push(regime.with({ cycles }))
+    })
+    return result
+  }
+
+  /** Compile cycles; continuous anchors become counted ordinals (§3.7). */
+  buildCycles(
+    r: number,
+    compiled: CompiledRegime,
+    previous: CompiledRegime | null,
+  ): CompiledCycle[] {
+    const top = this.levels.length - 1
+    const anchors = this.cycleAnchors.get(r)
+    return (defined(this.definition.regimes[r]).cycles ?? []).map((cycle, c) => {
+      const level = defined(this.levelIndex.get(cycle.level))
+      let anchorIndex = cycle.anchor?.index ?? 0
+      let anchorOrdinal: bigint | null = null
+      const mode = cycle.mode ?? 'continuous'
+      let reset: number | null = null
+      if (mode !== 'continuous') {
+        reset = defined(this.levelIndex.get(mode.reset))
+      } else if (cycle.continue_from_previous_regime ?? false) {
+        // regime 0 can't continue (checkCycles)
+        ;[anchorIndex, anchorOrdinal] = this.continueCycle(
+          cycle.id,
+          level,
+          compiled,
+          defined(previous),
+        )
+      } else {
+        const [year, offset] = defined(anchors?.get(c))
+        const start = compiled.yearStart(year) + offset
+        anchorOrdinal = countedPosition(top, compiled, start, level, cycleFilter(cycle.id))[0]
+      }
+      return {
+        id: cycle.id,
+        level,
+        length: cycle.length,
+        names: cycle.names ?? null,
+        abbrs: cycle.abbrs ?? null,
+        ids: cycle.ids ?? null,
+        numberStart: cycle.number_start ?? 1,
+        reset,
+        anchorIndex,
+        anchorOrdinal,
+      }
+    })
+  }
+
+  /**
+   * (anchor index, anchor ordinal) so the first counted unit of this regime follows the previous
+   * regime's last one. Runs once every regime start is resolved.
+   */
+  continueCycle(
+    cycleId: string,
+    level: number,
+    compiled: CompiledRegime,
+    previous: CompiledRegime,
+  ): readonly [number, bigint] {
+    const before = defined(previous.cycles.find((c) => c.id === cycleId)) // checkCycles
+    const start = defined(compiled.startsAt)
+    const top = this.levels.length - 1
+    const filter = cycleFilter(cycleId)
+    const [last, counted] = countedPosition(top, previous, start - 1n, level, filter)
+    const lastOrdinal = counted ? last : last - 1n
+    const length = BigInt(before.length)
+    const offset = lastOrdinal - defined(before.anchorOrdinal) + BigInt(before.anchorIndex)
+    const lastIndex = floorMod(offset, length)
+    const [first] = countedPosition(top, compiled, start, level, filter)
+    return [Number(floorMod(lastIndex + 1n, length)), first]
+  }
+
+  /** Resolve era starts and derive `Y(start)` and `Y_end` (§3.8). */
+  compileEras(regimes: readonly CompiledRegime[]): CompiledEra[] {
+    const eras = this.definition.eras ?? []
+    const starts = eras.map((era, i) => this.startMoment(regimes, era.start, ['eras', i, 'start']))
+    this.checkIncreasing('era', 'start', starts)
+    if (this.errors.length > 0) return []
+    const calendar = this.calendar(regimes)
+    return eras.map((era, i) => {
+      const start = starts[i] ?? null
+      const end = starts[i + 1] ?? null
+      const startYear = start === null ? null : activeRegime(calendar, start).yearOf(start)
+      let endYear: bigint | null = null
+      if (end !== null) {
+        const regime = activeRegime(calendar, end)
+        const year = regime.yearOf(end)
+        endYear = regime.yearStart(year) === end ? year : year + 1n
+      }
+      return new CompiledEra(
+        era.id,
+        era.name,
+        era.abbr,
+        era.abbr_position ?? 'suffix',
+        era.numbering.direction === 'backward',
+        BigInt(era.numbering.first),
+        start,
+        end,
+        startYear,
+        endYear,
+      )
+    })
+  }
+
+  resolveOverlayEpochs(regimes: readonly CompiledRegime[]): bigint[] {
+    return (this.definition.overlays ?? []).flatMap((overlay, o) => {
+      return this.startMoment(regimes, overlay.epoch, ['overlays', o, 'epoch']) ?? []
+    })
   }
 
   // --- templates --------------------------------------------------------------------------
@@ -744,7 +945,13 @@ class Compiler {
     }
   }
 
-  checkCycleAnchors(r: number, regime: Regime, compiled: CompiledRegime): void {
+  /** Locate the anchor date of every anchored continuous cycle: cycle index → position. */
+  checkCycleAnchors(
+    r: number,
+    regime: Regime,
+    compiled: CompiledRegime,
+  ): Map<number, readonly [bigint, bigint]> {
+    const anchors = new Map<number, readonly [bigint, bigint]>()
     ;(regime.cycles ?? []).forEach((cycle, c) => {
       const anchored =
         (cycle.mode ?? 'continuous') === 'continuous' &&
@@ -753,16 +960,19 @@ class Compiler {
       if (anchored && fields != null && this.levelIndex.has(cycle.level)) {
         const path: Path = ['regimes', r, 'cycles', c, 'anchor', 'fields']
         const found = this.locate(compiled, fields, path, 'cycle.anchor_invalid', cycle.level)
+        if (found === null) return
         // The anchor unit must count: neither it nor an ancestor is excluded from the cycle.
-        if (found?.[2].some((segment) => segment.cycleExcluded.includes(cycle.id)) === true) {
+        if (found[2].some((segment) => segment.cycleExcluded.includes(cycle.id))) {
           this.error(
             'cycle.anchor_invalid',
             pointer(...path),
             'the anchor unit is excluded from the cycle',
           )
         }
+        anchors.set(c, [found[0], found[1]])
       }
     })
+    return anchors
   }
 }
 
