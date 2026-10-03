@@ -5,6 +5,7 @@ from lore.core.db.engine import (
     SQLiteCapabilityError,
     create_vault_engine,
     ensure_sqlite_capabilities,
+    for_writing,
     missing_sqlite_capabilities,
     optimize,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "SQLiteCapabilityError",
     "create_vault_engine",
     "ensure_sqlite_capabilities",
+    "for_writing",
     "missing_sqlite_capabilities",
     "optimize",
 ]

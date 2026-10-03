@@ -25,6 +25,9 @@ AUTHOR_PRAGMAS = (
 )
 READ_ONLY_PRAGMAS = AUTHOR_PRAGMAS[1:]
 
+# Execution option read by the "begin" hook (see for_writing).
+BEGIN_IMMEDIATE_OPTION = "lore_begin_immediate"
+
 # One probe per required feature: (name, statements). A probe fails if any statement raises.
 _PROBES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("json1", ("SELECT json_extract('{\"a\": 1}', '$.a')",)),
@@ -139,9 +142,22 @@ def create_vault_engine(
 
     @event.listens_for(engine, "begin")
     def _on_begin(connection: Any) -> None:
-        connection.exec_driver_sql("BEGIN")
+        immediate = connection.get_execution_options().get(BEGIN_IMMEDIATE_OPTION, False)
+        connection.exec_driver_sql("BEGIN IMMEDIATE" if immediate else "BEGIN")
 
     return engine
+
+
+def for_writing(engine: Engine) -> Engine:
+    """The same engine (and pool), but transactions start with ``BEGIN IMMEDIATE``.
+
+    Use it for every transaction that may write. A deferred transaction that has read and then
+    writes after another connection committed fails at once with "database is locked"
+    (``SQLITE_BUSY_SNAPSHOT``): ``busy_timeout`` can't help, because waiting wouldn't make its
+    snapshot current. ``BEGIN IMMEDIATE`` takes the write lock up front, so concurrent writers
+    wait their turn (up to ``busy_timeout``) instead. Reads stay deferred and never block.
+    """
+    return engine.execution_options(**{BEGIN_IMMEDIATE_OPTION: True})
 
 
 def optimize(engine: Engine) -> None:

@@ -133,6 +133,9 @@ squash-merge after green CI (details in `docs/plan/workflow.md`).
 - SQLite + Alembic: `render_as_batch=True`; FTS5 tables are created with `op.execute` and excluded
   from autogenerate; `PRAGMA foreign_keys=ON` is per connection (set in the connect hook).
 - Run uvicorn with **one worker** (per-vault engines and caches are in-process).
+- Transactions that may write must start with `BEGIN IMMEDIATE` (`SessionDep` does it for non-GET
+  requests; elsewhere use `OpenVault.write_sessions` / `lore.core.db.for_writing`). A deferred
+  read-then-write fails instantly with "database is locked" if another write committed meanwhile.
 - Sortable keys compare as text: never `CAST` them to numbers in SQL, and never apply a non-binary
   collation to them.
 - Calendar field values in anchors are **strings** (numbers or slot ids). Store named units by

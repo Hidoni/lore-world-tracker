@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from lore import __version__
 from lore.core.api.deps import SessionDep
+from lore.core.db.engine import BEGIN_IMMEDIATE_OPTION
 from lore.core.errors import ConflictError
 from lore.core.vaults import VaultManager
 from tests.conftest import AppFactory, local_client
@@ -196,6 +197,12 @@ def session_app(app: FastAPI) -> FastAPI:
             "in_transaction": session.in_transaction(),
         }
 
+    @router.get("/begin")
+    @router.post("/begin")
+    def begin_mode(session: SessionDep) -> dict[str, bool]:
+        options = session.connection().get_execution_options()
+        return {"immediate": options.get(BEGIN_IMMEDIATE_OPTION, False)}
+
     app.include_router(router)
     return app
 
@@ -219,3 +226,11 @@ def test_vault_scoped_routes_resolve_the_vault(session_app: FastAPI) -> None:
         assert unknown.json()["code"] == "vault_not_found"
         malformed = client.get("/api/v1/vaults/NOT-A-VAULT/test/notes")
         assert malformed.status_code == 422
+
+
+def test_writes_begin_immediate_and_reads_deferred(session_app: FastAPI) -> None:
+    with local_client(session_app, headers=HEADERS) as client:
+        vault = create(client)
+        base = f"/api/v1/vaults/{vault['id']}/test/begin"
+        assert client.get(base).json() == {"immediate": False}
+        assert client.post(base).json() == {"immediate": True}
