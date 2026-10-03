@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from lore.core.db.base import Visibility
+from lore.core.links.schemas import EntityLinkAdd
+from lore.core.types import Affected
 
 ID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 MAX_NAME_LENGTH = 500
@@ -56,6 +58,9 @@ class _EntityWrite(_Input):
     ext: JsonObject | None = Field(
         default=None, description="Kind extension data (e.g. a dimension's time spec, M3+)."
     )
+    links_add: list[EntityLinkAdd] = Field(
+        default_factory=list, max_length=500, description="Links to create with the entity."
+    )
 
 
 class EntityCreate(_EntityWrite):
@@ -75,6 +80,9 @@ class EntityUpdate(_EntityWrite):
     ``fields`` and ``field_visibility`` are merged."""
 
     revision: int = Field(description="The revision the edit is based on (409 on mismatch).")
+    links_remove: list[EntityId] = Field(
+        default_factory=list, max_length=500, description="Links of this entity to trash."
+    )
     name: EntityName | None = None
     dimension_id: EntityId | None = None
     parent_id: EntityId | None = None
@@ -122,15 +130,6 @@ class EntityOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
-
-
-class Affected(BaseModel):
-    """What a write changed, for client cache invalidation (``frontend.md`` §5)."""
-
-    entities: list[str]
-    dimensions: list[str]
-    time_changed: bool
-    search_changed: bool
 
 
 class EntityWriteResult(BaseModel):

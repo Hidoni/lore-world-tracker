@@ -3,7 +3,7 @@
 import re
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, PlainSerializer, WithJsonSchema
+from pydantic import BaseModel, BeforeValidator, PlainSerializer, WithJsonSchema
 
 from lore.chronology.numbers import MAX_DIGITS, NumberError, parse_moment
 from lore.chronology.schema import MOMENT_PATTERN
@@ -78,3 +78,12 @@ An ``int`` in the backend (stored with ``SortableBigInt``); a canonical decimal 
 wire. Unlike ``lore.chronology.schema.MomentStr`` (a ``str`` inside chronology documents), API
 models get the parsed integer.
 """
+
+
+class Affected(BaseModel):
+    """What a write changed, for client cache invalidation (``frontend.md`` §5)."""
+
+    entities: list[str]
+    dimensions: list[str]
+    time_changed: bool
+    search_changed: bool

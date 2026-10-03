@@ -668,3 +668,10 @@ def test_openapi_operations(client: TestClient) -> None:
     }
     restore = paths["/api/v1/vaults/{vault_id}/entities/{entity_id}/restore"]["post"]
     assert restore["operationId"] == "entities_restore"
+
+
+def test_one_patch_bumps_the_revision_once(api: Api) -> None:
+    entity = api.make("misc", aliases=[{"alias": "A"}])
+    # name + tags + aliases: the tag/alias queries autoflush midway, still one revision step
+    updated = api.patch(entity, name="Renamed", tags=["x"], aliases=[{"alias": "B"}])
+    assert updated.json()["entity"]["revision"] == 2

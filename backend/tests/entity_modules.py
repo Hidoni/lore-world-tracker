@@ -8,7 +8,14 @@ from lore.core.entities.extensions import KindExtension
 from lore.core.entities.models import Entity
 from lore.core.errors import InvalidInputError
 from lore.core.modules import ModuleSpec, VaultContext
-from lore.core.registry import FieldContribution, FieldDef, FieldOption, FieldTypeDef, KindDef
+from lore.core.registry import (
+    FieldContribution,
+    FieldDef,
+    FieldOption,
+    FieldTypeDef,
+    KindDef,
+    LinkTypeDef,
+)
 from lore.core.registry import KindCapabilities as Caps
 
 OPTIONS = (FieldOption("red", "Red"), FieldOption("blue", "Blue"))
@@ -83,6 +90,38 @@ WORLD = ModuleSpec(
             capabilities=Caps(has_body=False, can_be_multiversal=False),
         ),
     ),
+    link_types=(
+        LinkTypeDef(
+            "world.owns",
+            "owns",
+            inverse_label="owned by",
+            source_kinds=("misc",),
+            target_kinds=("gadget",),
+            unique="per_pair",
+            max_sources_per_target=1,
+        ),
+        LinkTypeDef(
+            "world.ally",
+            "allied with",
+            symmetric=True,
+            source_kinds=("misc",),
+            target_kinds=("misc",),
+            unique="per_pair_per_period",
+            max_targets_per_source=2,
+        ),
+        LinkTypeDef(
+            "world.rates",
+            "rates",
+            temporal="never",
+            data_schema={
+                "type": "object",
+                "properties": {"stars": {"type": "integer", "minimum": 1}},
+                "required": ["stars"],
+            },
+        ),
+        LinkTypeDef("world.reigns", "reigns over", temporal="required"),
+        LinkTypeDef("world.old", "old link", archived=True),
+    ),
     purge_hooks=(_purge_hook,),
 )
 
@@ -102,6 +141,7 @@ EXTRA = ModuleSpec(
     ),
     field_types=(FieldTypeDef("extra_stars", "Stars", validate=_stars),),
     kind_extensions=(KindExtension("beast", write=_write_ext, read=_read_ext),),
+    link_types=(LinkTypeDef("extra.hunts", "hunts", source_kinds=("beast",)),),
 )
 
 ENTITY_MODULES = (WORLD, EXTRA)

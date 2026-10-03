@@ -1,19 +1,18 @@
 """Module and registry routes (``docs/architecture/api.md`` §2, Vaults & settings)."""
 
 from dataclasses import asdict
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
 
 from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep
 from lore.core.errors import ReadOnlyError
-from lore.core.links.models import CustomLinkType
-from lore.core.modules.registry import CORE, ModuleRegistry, RegisteredKind, RegisteredLinkType
+from lore.core.links.catalog import LinkTypeCatalog, link_type_out
+from lore.core.links.schemas import LinkTypeOut
+from lore.core.modules.registry import ModuleRegistry, RegisteredKind
 from lore.core.modules.service import enabled_modules, set_module_enabled
 from lore.core.modules.spec import VaultContext
-from lore.core.registry.types import ANY_KIND
 
 router = APIRouter(prefix="/vaults/{vault_id}")
 
@@ -77,31 +76,6 @@ class FieldTypeOut(BaseModel):
     key: str
     label: str
     description: str
-
-
-class GraphStyleOut(BaseModel):
-    color: str | None
-    dashed: bool
-    weight: int
-
-
-class LinkTypeOut(BaseModel):
-    key: str
-    module: str  # "core" (incl. user-defined types) or the owning module id
-    user_defined: bool
-    label: str
-    inverse_label: str | None
-    description: str
-    source_kinds: list[str] | Literal["*"]
-    target_kinds: list[str] | Literal["*"]
-    symmetric: bool
-    temporal: Literal["never", "optional", "required"]
-    unique: Literal["none", "per_pair", "per_pair_per_period"]
-    max_targets_per_source: int | None
-    max_sources_per_target: int | None
-    data_schema: dict[str, Any] | None
-    graph: GraphStyleOut
-    archived: bool
 
 
 class TriggerOut(BaseModel):
@@ -171,59 +145,17 @@ def _kind_out(kind: RegisteredKind) -> KindOut:
     return KindOut.model_validate({**definition, "module": kind.owner})
 
 
-def _link_type_out(link_type: RegisteredLinkType) -> LinkTypeOut:
-    return LinkTypeOut.model_validate(
-        {**asdict(link_type.definition), "module": link_type.owner, "user_defined": False}
-    )
-
-
-def _custom_link_type_out(row: CustomLinkType) -> LinkTypeOut:
-    return LinkTypeOut(
-        key=row.key,
-        module=CORE,
-        user_defined=True,
-        label=row.label,
-        inverse_label=row.inverse_label,
-        description=row.description,
-        source_kinds=row.source_kinds,
-        target_kinds=row.target_kinds,
-        symmetric=row.symmetric,
-        temporal=row.temporal,  # type: ignore[arg-type]
-        unique=row.unique_policy,  # type: ignore[arg-type]
-        max_targets_per_source=row.max_targets_per_source,
-        max_sources_per_target=row.max_sources_per_target,
-        data_schema=row.data_schema,
-        graph=GraphStyleOut.model_validate(
-            {"color": None, "dashed": False, "weight": 1, **row.graph}
-        ),
-        archived=row.archived,
-    )
-
-
-def _offered(kinds: list[str] | str, available: set[str]) -> bool:
-    return kinds == ANY_KIND or any(kind in available for kind in kinds)
-
-
 @router.get("/registry", name="get", tags=["registry"])
 def get_registry(session: SessionDep, registry: ModuleRegistryDep) -> Registry:
     enabled = enabled_modules(session, registry)
     kinds = registry.kinds_for(enabled)
-    available = {kind.key for kind in kinds}
-    custom = [
-        _custom_link_type_out(row)
-        for row in session.scalars(select(CustomLinkType).order_by(CustomLinkType.key))
-    ]
     return Registry(
         kinds=[_kind_out(kind) for kind in kinds],
         field_types=[
             FieldTypeOut.model_validate(asdict(t)) for t in registry.field_types_for(enabled)
         ],
-        link_types=[_link_type_out(t) for t in registry.link_types_for(enabled)]
-        + [
-            link_type
-            for link_type in custom
-            if _offered(link_type.source_kinds, available)
-            and _offered(link_type.target_kinds, available)
+        link_types=[
+            link_type_out(info) for info in LinkTypeCatalog(session, registry, enabled).offered()
         ],
         modules=_module_states(registry, enabled),
         consistency_rules=[RuleOut.model_validate(asdict(r)) for r in registry.rules_for(enabled)],

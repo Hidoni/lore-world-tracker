@@ -298,7 +298,7 @@ def test_registry_endpoint(client: TestClient) -> None:
         "target_kinds": "*", "symmetric": False, "temporal": "optional", "unique": "per_pair",
         "max_targets_per_source": 3, "max_sources_per_target": None,
         "data_schema": {"type": "object"}, "graph": {"color": "#f00", "dashed": True, "weight": 2},
-        "archived": False,
+        "archived": False, "revision": None,
     }  # fmt: skip
     assert links["core.related"]["symmetric"] is True
     assert "optional.studies" not in links
@@ -327,6 +327,7 @@ def test_registry_includes_user_defined_link_types(app: FastAPI, client: TestCli
     }
     assert links["custom.sworn_enemy"]["user_defined"] is True
     assert links["custom.sworn_enemy"]["module"] == "core"
+    assert links["custom.sworn_enemy"]["revision"] == 1
     assert links["custom.sworn_enemy"]["graph"] == {"color": None, "dashed": False, "weight": 1}
     assert "custom.tames" in links
     patch(client, vault, "sample", enabled=False, cascade=True)

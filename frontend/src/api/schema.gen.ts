@@ -293,10 +293,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create
+         * @description Create a link (``422 link_type_not_allowed`` when the type doesn't fit, ``409 conflict``
+         *     when a uniqueness or cardinality limit is reached).
+         */
+        post: operations["links_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Move the link to the trash.
+         */
+        delete: operations["links_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change role, data, visibility, validity or manual order (revision required).
+         */
+        patch: operations["links_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/link-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description Built-in and user-defined link types offered by this vault (archived ones flagged).
+         */
+        get: operations["link_types_list"];
+        put?: never;
+        /**
+         * Create
+         * @description Define a link type (``custom.<slug>``).
+         */
+        post: operations["link_types_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/link-types/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Delete an unused user-defined type (``409 conflict`` while links use it: archive it).
+         */
+        delete: operations["link_types_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Edit or archive a user-defined type. Built-in types: ``403 forbidden``.
+         */
+        patch: operations["link_types_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Links
+         * @description The entity's links in both directions (symmetric ones as ``both``).
+         */
+        get: operations["entities_links"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AbsoluteAnchor
+         * @description A moment given directly.
+         */
+        AbsoluteAnchor: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "absolute";
+            /** T */
+            t: string;
+        };
         /**
          * Affected
          * @description What a write changed, for client cache invalidation (``frontend.md`` §5).
@@ -334,7 +460,65 @@ export interface components {
             alias_kind: components["schemas"]["AliasKind"];
             visibility: components["schemas"]["Visibility"];
         };
+        Anchor: components["schemas"]["AbsoluteAnchor"] | components["schemas"]["CalendarAnchor"] | components["schemas"]["RelativeAnchor"];
+        /**
+         * BaseDuration
+         * @description An exact, signed number of base units.
+         */
+        BaseDuration: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "base";
+            /** Units */
+            units: string;
+        };
+        /**
+         * CalendarAnchor
+         * @description A typed date in a calendar; resolves to the start of the unit at the precision.
+         */
+        CalendarAnchor: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calendar";
+            /** Calendar Id */
+            calendar_id: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Era */
+            era?: string | null;
+            /** Regime */
+            regime?: string | null;
+        };
+        /**
+         * CalendarDuration
+         * @description Amounts of calendar units, applied by calendar arithmetic (chronology-engine §9).
+         */
+        CalendarDuration: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "calendar";
+            /** Calendar Id */
+            calendar_id: string;
+            /** Amounts */
+            amounts: {
+                [key: string]: string;
+            };
+            /**
+             * Sign
+             * @enum {integer}
+             */
+            sign: 1 | -1;
+        };
         Color: string;
+        Duration: components["schemas"]["BaseDuration"] | components["schemas"]["CalendarDuration"];
         /** EntityCreate */
         EntityCreate: {
             /**
@@ -366,6 +550,11 @@ export interface components {
             tags?: components["schemas"]["TagName"][];
             /** @description Kind extension data (e.g. a dimension's time spec, M3+). */
             ext?: components["schemas"]["JsonObject"] | null;
+            /**
+             * Links Add
+             * @description Links to create with the entity.
+             */
+            links_add?: components["schemas"]["EntityLinkAdd"][];
             /** Kind */
             kind: string;
             name: components["schemas"]["EntityName"];
@@ -388,6 +577,50 @@ export interface components {
             affected: components["schemas"]["Affected"];
         };
         EntityId: string;
+        /**
+         * EntityLink
+         * @description A link seen from one entity. ``direction``: ``out`` (the entity is the source), ``in`` (the
+         *     target) or ``both`` (symmetric type). ``label`` reads from the entity's side (the inverse
+         *     label for ``in``).
+         */
+        EntityLink: {
+            link: components["schemas"]["LinkOut"];
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "out" | "in" | "both";
+            /** Label */
+            label: string;
+            other: components["schemas"]["LinkedEntity"];
+        };
+        /**
+         * EntityLinkAdd
+         * @description A link created with an entity write: give the other end as ``target_id`` (the entity is
+         *     the source) or ``source_id`` (the entity is the target).
+         */
+        EntityLinkAdd: {
+            role?: components["schemas"]["Role"] | null;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /** @default public */
+            visibility: components["schemas"]["Visibility"];
+            /** @description Required when the link has validity bounds; null = timeless. */
+            timeline_id?: components["schemas"]["Id"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            link_type: components["schemas"]["LinkTypeKey"];
+            source_id?: components["schemas"]["Id"] | null;
+            target_id?: components["schemas"]["Id"] | null;
+        };
+        /** EntityLinks */
+        EntityLinks: {
+            /** Items */
+            items: components["schemas"]["EntityLink"][];
+        };
         EntityName: string;
         /**
          * EntityOut
@@ -542,10 +775,20 @@ export interface components {
             /** @description Kind extension data (e.g. a dimension's time spec, M3+). */
             ext?: components["schemas"]["JsonObject"] | null;
             /**
+             * Links Add
+             * @description Links to create with the entity.
+             */
+            links_add?: components["schemas"]["EntityLinkAdd"][];
+            /**
              * Revision
              * @description The revision the edit is based on (409 on mismatch).
              */
             revision: number;
+            /**
+             * Links Remove
+             * @description Links of this entity to trash.
+             */
+            links_remove?: components["schemas"]["EntityId"][];
             name?: components["schemas"]["EntityName"] | null;
             dimension_id?: components["schemas"]["EntityId"] | null;
             parent_id?: components["schemas"]["EntityId"] | null;
@@ -622,6 +865,21 @@ export interface components {
             /** Items */
             items: components["schemas"]["FieldValue"][];
         };
+        /** GraphStyleIn */
+        GraphStyleIn: {
+            /** Color */
+            color?: string | null;
+            /**
+             * Dashed
+             * @default false
+             */
+            dashed: boolean;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
         /** GraphStyleOut */
         GraphStyleOut: {
             /** Color */
@@ -640,6 +898,7 @@ export interface components {
             status: "ok";
         };
         Icon: string;
+        Id: string;
         JsonObject: {
             [key: string]: unknown;
         };
@@ -658,6 +917,8 @@ export interface components {
             /** Is System */
             is_system: boolean;
         };
+        KindKey: string;
+        KindList: components["schemas"]["KindKey"][] | "*";
         /** KindOut */
         KindOut: {
             /** Key */
@@ -680,6 +941,138 @@ export interface components {
             /** Fields */
             fields: components["schemas"]["FieldOut"][];
         };
+        Label: string;
+        /** LinkCreate */
+        LinkCreate: {
+            role?: components["schemas"]["Role"] | null;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /** @default public */
+            visibility: components["schemas"]["Visibility"];
+            /** @description Required when the link has validity bounds; null = timeless. */
+            timeline_id?: components["schemas"]["Id"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            link_type: components["schemas"]["LinkTypeKey"];
+            source_id: components["schemas"]["Id"];
+            target_id: components["schemas"]["Id"];
+        };
+        /**
+         * LinkDeleteResult
+         * @description The trashed link.
+         */
+        LinkDeleteResult: {
+            /** Id */
+            id: string;
+            link: components["schemas"]["LinkOut"];
+            affected: components["schemas"]["Affected"];
+        };
+        /**
+         * LinkOut
+         * @description A link. Symmetric links are stored with ``source_id < target_id``.
+         */
+        LinkOut: {
+            /** Id */
+            id: string;
+            /** Link Type */
+            link_type: string;
+            /** Source Id */
+            source_id: string;
+            /** Target Id */
+            target_id: string;
+            /** Role */
+            role: string | null;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            visibility: components["schemas"]["Visibility"];
+            /** Timeline Id */
+            timeline_id: string | null;
+            /** Valid From */
+            valid_from: {
+                [key: string]: unknown;
+            } | null;
+            /** Valid To */
+            valid_to: {
+                [key: string]: unknown;
+            } | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
+        /** LinkTypeCreate */
+        LinkTypeCreate: {
+            inverse_label?: components["schemas"]["Label"] | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** @default * */
+            source_kinds: components["schemas"]["KindList"];
+            /** @default * */
+            target_kinds: components["schemas"]["KindList"];
+            /** @default optional */
+            temporal: components["schemas"]["Temporal"];
+            /** @default none */
+            unique: components["schemas"]["UniquePolicy"];
+            /** Max Targets Per Source */
+            max_targets_per_source?: number | null;
+            /** Max Sources Per Target */
+            max_sources_per_target?: number | null;
+            /**
+             * Data Schema
+             * @description JSON Schema (draft 2020-12) that link `data` must match.
+             */
+            data_schema?: {
+                [key: string]: unknown;
+            } | null;
+            graph?: components["schemas"]["GraphStyleIn"];
+            /**
+             * Key
+             * @description `custom.<slug>`; derived from the label when omitted.
+             */
+            key?: string | null;
+            label: components["schemas"]["Label"];
+            /**
+             * Symmetric
+             * @default false
+             */
+            symmetric: boolean;
+        };
+        /** LinkTypeDeleted */
+        LinkTypeDeleted: {
+            /** Key */
+            key: string;
+        };
+        LinkTypeKey: string;
+        /**
+         * LinkTypeList
+         * @description Every offered link type (built-in and user-defined), archived ones included.
+         */
+        LinkTypeList: {
+            /** Items */
+            items: components["schemas"]["LinkTypeOut"][];
+        };
         /** LinkTypeOut */
         LinkTypeOut: {
             /** Key */
@@ -700,16 +1093,8 @@ export interface components {
             target_kinds: string[] | "*";
             /** Symmetric */
             symmetric: boolean;
-            /**
-             * Temporal
-             * @enum {string}
-             */
-            temporal: "never" | "optional" | "required";
-            /**
-             * Unique
-             * @enum {string}
-             */
-            unique: "none" | "per_pair" | "per_pair_per_period";
+            temporal: components["schemas"]["Temporal"];
+            unique: components["schemas"]["UniquePolicy"];
             /** Max Targets Per Source */
             max_targets_per_source: number | null;
             /** Max Sources Per Target */
@@ -721,6 +1106,92 @@ export interface components {
             graph: components["schemas"]["GraphStyleOut"];
             /** Archived */
             archived: boolean;
+            /**
+             * Revision
+             * @description User-defined types: the revision a PATCH must send.
+             */
+            revision?: number | null;
+        };
+        /**
+         * LinkTypeUpdate
+         * @description Only the members sent change. Changes that existing links would break are refused
+         *     (``409 conflict``, ``context.conflicts``).
+         */
+        LinkTypeUpdate: {
+            inverse_label?: components["schemas"]["Label"] | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** @default * */
+            source_kinds: components["schemas"]["KindList"];
+            /** @default * */
+            target_kinds: components["schemas"]["KindList"];
+            /** @default optional */
+            temporal: components["schemas"]["Temporal"];
+            /** @default none */
+            unique: components["schemas"]["UniquePolicy"];
+            /** Max Targets Per Source */
+            max_targets_per_source?: number | null;
+            /** Max Sources Per Target */
+            max_sources_per_target?: number | null;
+            /**
+             * Data Schema
+             * @description JSON Schema (draft 2020-12) that link `data` must match.
+             */
+            data_schema?: {
+                [key: string]: unknown;
+            } | null;
+            graph?: components["schemas"]["GraphStyleIn"];
+            /** Revision */
+            revision: number;
+            label?: components["schemas"]["Label"] | null;
+            /** Symmetric */
+            symmetric?: boolean | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /**
+         * LinkUpdate
+         * @description Only the members sent change. Type and endpoints are fixed (delete and re-create).
+         */
+        LinkUpdate: {
+            role?: components["schemas"]["Role"] | null;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            /** @description Required when the link has validity bounds; null = timeless. */
+            timeline_id?: components["schemas"]["Id"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            /** Revision */
+            revision: number;
+        };
+        /** LinkWriteResult */
+        LinkWriteResult: {
+            link: components["schemas"]["LinkOut"];
+            affected: components["schemas"]["Affected"];
+        };
+        /** LinkedEntity */
+        LinkedEntity: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Deleted At */
+            deleted_at: string | null;
         };
         /** MetaResponse */
         MetaResponse: {
@@ -836,6 +1307,20 @@ export interface components {
             /** Consistency Rules */
             consistency_rules: components["schemas"]["RuleOut"][];
         };
+        /**
+         * RelativeAnchor
+         * @description A slot of another record plus an offset (which may be negative or zero).
+         */
+        RelativeAnchor: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "relative";
+            ref: components["schemas"]["SlotRef"];
+            offset: components["schemas"]["Duration"];
+        };
+        Role: string;
         /** RuleOut */
         RuleOut: {
             /** Id */
@@ -863,6 +1348,20 @@ export interface components {
             /** Quick Fixes */
             quick_fixes: components["schemas"]["QuickFixOut"][];
         };
+        /**
+         * SlotRef
+         * @description A referenceable time slot of a record (time-model §6).
+         */
+        SlotRef: {
+            /** Type */
+            type: string;
+            /** Id */
+            id: string;
+            /** Slot */
+            slot: string;
+            /** Occurrence */
+            occurrence?: string | null;
+        };
         SortKey: string;
         TagName: string;
         /** TagOut */
@@ -873,6 +1372,24 @@ export interface components {
             name: string;
             /** Color */
             color: string | null;
+        };
+        /** @enum {string} */
+        Temporal: "never" | "optional" | "required";
+        /**
+         * TimePoint
+         * @description An anchor plus precision and the circa flag (time-model §5.1).
+         *
+         *     The member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.
+         */
+        TimePoint: {
+            anchor: components["schemas"]["Anchor"];
+            /** Precision */
+            precision: string;
+            /**
+             * Approximate
+             * @default false
+             */
+            approximate: boolean;
         };
         /**
          * TrashItem
@@ -978,6 +1495,8 @@ export interface components {
             /** Key */
             key: string;
         };
+        /** @enum {string} */
+        UniquePolicy: "none" | "per_pair" | "per_pair_per_period";
         /**
          * Vault
          * @description A vault. ``modified_at`` is derived from its files' modification times.
@@ -1748,6 +2267,294 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrashPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    links_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    links_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Link id. */
+                link_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkDeleteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    links_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Link id. */
+                link_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    link_types_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTypeList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    link_types_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTypeOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    link_types_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Link type key. */
+                key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTypeDeleted"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    link_types_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Link type key. */
+                key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkTypeOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_links: {
+        parameters: {
+            query?: {
+                direction?: "out" | "in" | "both";
+                /** @description Link type keys (repeatable). */
+                type?: string[] | null;
+                /** @description Also links whose other end is in the trash. */
+                include_trashed?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityLinks"];
                 };
             };
             /** @description Problem */
