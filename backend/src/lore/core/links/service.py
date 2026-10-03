@@ -18,7 +18,7 @@ Rules (decided 2026-10-04 where noted):
   asked for) or of an unavailable kind are hidden from entity link lists.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from jsonschema import Draft202012Validator
@@ -29,7 +29,13 @@ from lore.core.db.base import new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.errors import RevisionConflictError
 from lore.core.entities.models import Entity
-from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
+from lore.core.errors import (
+    ConflictError,
+    ErrorItem,
+    InvalidInputError,
+    LoreError,
+    NotFoundError,
+)
 from lore.core.links.catalog import LinkTypeCatalog, LinkTypeInfo, allows
 from lore.core.links.models import Link
 from lore.core.links.schemas import (
@@ -276,6 +282,30 @@ class LinkService:
                 )
             )
         return EntityLinks(items=items)
+
+    def stored_problems(self, link: Link) -> list[str]:
+        """Rules a stored link (not trashed) breaks (used to vet an undo): its type, the kinds of
+        its ends, validity, uniqueness and cardinality. Trashed ends are allowed states."""
+        info = self.catalog.get(link.link_type)
+        if info is None:
+            if self.catalog.is_known(link.link_type):
+                return []  # a disabled module's links are kept as they are
+            return [f"The link type {link.link_type!r} no longer exists."]
+        source = self.session.get(Entity, link.source_id)
+        target = self.session.get(Entity, link.target_id)
+        problems: list[str] = []
+        checks: list[Callable[[], None]] = [
+            lambda: self._check_validity(info, link),
+            lambda: self._check_limits(info, link),
+        ]
+        if source is not None and target is not None:
+            checks.insert(0, lambda: self._check_kinds(info, source, target))
+        for check in checks:
+            try:
+                check()
+            except LoreError as exc:
+                problems.append(exc.detail)
+        return problems
 
     # --- rules ----------------------------------------------------------------------------------
 

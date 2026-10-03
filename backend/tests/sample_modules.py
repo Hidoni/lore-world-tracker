@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from lore.core.history.tables import HistoryTable
 from lore.core.modules import ModuleSpec, VaultContext
 from lore.core.registry import (
     FieldContribution,
@@ -143,6 +144,7 @@ SAMPLE = ModuleSpec(
         ),
     ),
     models=(SampleNote,),
+    history_tables=(HistoryTable.of(SampleNote),),
     routers=(sample_router,),
     slot_providers=(object(),),
     timeline_tables=(object(),),

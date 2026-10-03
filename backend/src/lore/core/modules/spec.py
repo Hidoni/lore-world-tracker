@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from lore.core.entities.extensions import KindExtension, PurgeHook
+from lore.core.history.tables import HistoryTable
 from lore.core.registry.types import (
     FieldContribution,
     FieldTypeDef,
@@ -67,6 +68,8 @@ class ModuleSpec:
     # SQLAlchemy model classes of the module's tables (names start with "<id>_"). Listed
     # explicitly so the registry can validate them and include them in the migration metadata.
     models: tuple[type, ...] = ()
+    # How history treats each model's table (every one must be listed; derived=True: not recorded)
+    history_tables: tuple[HistoryTable, ...] = ()
     routers: tuple[APIRouter, ...] = ()  # mounted at /api/v1/vaults/{vault_id}/m/<id>/
     slot_providers: tuple[SlotProvider, ...] = ()
     timeline_tables: tuple[TimelineTableSpec, ...] = ()

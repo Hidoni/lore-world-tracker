@@ -335,6 +335,43 @@ class EntityService:
         affected = self._affected(touched, [entity.dimension_id], True)
         return EntityDeleteResult(id=entity.id, purged=True, entity=None, affected=affected)
 
+    def stored_problems(self, entity: Entity) -> list[str]:
+        """Rules a stored entity breaks (used to vet an undo): required fields, its home
+        dimension, its parent (kind, cycles, dimension) and its children's dimensions. Trashed
+        or hidden parents are allowed states (orphans), so they aren't problems."""
+        kind = self.kinds.get(entity.kind)
+        if kind is None:
+            return []  # a disabled module's data is kept as it is
+        problems: list[str] = []
+        try:
+            self.kind_fields(kind).merge_values(entity.fields, {})
+        except InvalidInputError as exc:
+            problems += [f"{entity.name}: {e['message']}" for e in exc.errors or []]
+        if entity.dimension_id is not None:
+            dimension = self.session.get(Entity, entity.dimension_id)
+            if dimension is None or dimension.kind != DIMENSION_KIND:
+                problems.append(f"{entity.name}: the home dimension must be a dimension.")
+        if entity.parent_id is not None:
+            problems += self._stored_parent_problems(entity, kind)
+        try:
+            self._check_children(entity, entity.dimension_id)
+        except InvalidInputError as exc:
+            problems.append(f"{entity.name}: {exc.detail}")
+        return problems
+
+    def _stored_parent_problems(self, entity: Entity, kind: RegisteredKind) -> list[str]:
+        parent = self.session.get(Entity, entity.parent_id)
+        if parent is None or parent.kind not in self.kinds:
+            return []
+        problems = []
+        if parent.kind not in kind.definition.allowed_parents:
+            problems.append(f"{entity.name}: can't be placed under a {parent.kind}.")
+        if entity.id in self._ancestors_and_self(parent.id):
+            problems.append(f"{entity.name}: its parent chain would loop back to it.")
+        if not _same_tree(parent.dimension_id, entity.dimension_id):
+            problems.append(f"{entity.name}: its parent is in another dimension.")
+        return problems
+
     # --- rules ----------------------------------------------------------------------------------
 
     def load(self, entity_id: str) -> Entity:

@@ -334,13 +334,37 @@ the visibility of the containing block). Rebuilt from the rich-text body on ever
 - `change_entities(change_id → changes, entity_id)`: the entities a change belongs to, used for
   per-entity history. A link change belongs to both endpoints. A fact change belongs to its entity.
 
-Capture: a SQLAlchemy `before_flush`/`after_flush` hook snapshots full rows of **registered
-authored tables** (every table except derived ones: mentions, search, dependencies, findings,
-proposals). Code that writes with bulk Core statements must call
-`history.record_bulk(table, rows_before, rows_after)`. Undo (`POST /changes/{id}/revert`) inverts
-the changes in reverse order **only if** every affected row still equals its `after` snapshot.
-Otherwise it returns `409` with the conflicting rows. Undo is itself a changeset. Derived data is
-recomputed by the normal service hooks after an undo.
+Capture (`lore.core.history.recorder`, installed on every author vault's session factories): a
+SQLAlchemy `before_flush`/`after_flush` hook snapshots full rows of **registered authored tables**
+(every table except derived ones: mentions, search, dependencies, findings, proposals), as SQLite
+stores them (raw values), so an undo writes back exactly what was there. Core registers its tables
+(`lore.core.history.tables`); a module lists each of its tables in `ModuleSpec.history_tables`
+(`derived=True` for derived ones), which the registry checks. **Vault settings (`vault_meta`) are
+not recorded** (decided 2026-10-04). Code that writes with bulk Core statements must call
+`history.record_bulk(session, table, rows_before, rows_after)`. The net changes of a transaction
+(first `before`, last `after` per row; unchanged rows dropped) are written at commit; a
+transaction without changes writes no changeset. `origin` comes from the request's
+`X-Lore-Client` (`web` → `ui`, `cli` → `cli`, otherwise `api`; `system` outside requests); the
+summary is set by the service (`history.describe`) or generated ("Created misc “Ana”").
+
+**Merging** (decided 2026-10-04): consecutive saves of one entity by the same client within 2
+minutes, with nothing recorded in between, merge into the previous changeset (its `updated_at`
+moves), so an autosave burst is one history entry and one undo. Only plain edits of a single
+entity merge (no creation, trash, restore, purge, link to another entity or undo).
+
+**Undo** (`POST /changes/{id}/revert`) inverts the changes in reverse order **only if** every
+affected row still equals its `after` snapshot, ignoring `revision` and `updated_at`. Otherwise it
+returns `409 revert_conflict` with the conflicting `rows`. Rows get their `before` content back,
+but `revision` moves on and `updated_at` is now (decided 2026-10-04), so stale editors get a
+conflict. **An undo is a save like any other** (decided 2026-10-04): the reverted state must keep
+every rule normal writes enforce (link kinds, uniqueness/cardinality, validity; parent kinds,
+cycles and dimensions; required fields; custom link types against their links) and must not leave
+references to removed rows (e.g. undoing a creation after the entity got children or links);
+otherwise `409 revert_conflict` lists the `problems` and nothing changes. Undo is itself a
+changeset (origin `undo`, `reverts_changeset_id`; the reverted one gets
+`reverted_by_changeset_id`) and can be undone (redo). Derived data is recomputed by
+`REVERT_HOOKS` after an undo. History of purged entities stays available (decided 2026-10-04).
+History is never shown to readers: on a read-only server the history routes answer `404`.
 
 Retention: keep everything by default. A maintenance command can compact history older than
 N days into per-entity snapshots (post-MVP).
