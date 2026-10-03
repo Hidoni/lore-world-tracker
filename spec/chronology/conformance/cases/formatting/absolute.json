@@ -1,0 +1,182 @@
+{
+  "description": "The virtual Absolute calendar (chronology-engine §10, time-model §3): t = <grouped or scientific moment> <base unit abbreviation>.",
+  "calendar": null,
+  "generated": false,
+  "verification": "By hand from the format_integer rules of chronology-engine §2 (every number is grouped, unlike date numbers).",
+  "cases": [
+    {
+      "id": "zero",
+      "op": "format_absolute",
+      "input": {
+        "t": "0",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 0 s"
+      }
+    },
+    {
+      "id": "grouped-4-digits",
+      "op": "format_absolute",
+      "input": {
+        "t": "1234",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 1,234 s"
+      },
+      "note": "the Absolute calendar groups every number, unlike date numbers"
+    },
+    {
+      "id": "grouped",
+      "op": "format_absolute",
+      "input": {
+        "t": "1234567",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 1,234,567 s"
+      }
+    },
+    {
+      "id": "below-threshold",
+      "op": "format_absolute",
+      "input": {
+        "t": "999999999999999",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 999,999,999,999,999 s"
+      },
+      "note": "15 digits: still grouped"
+    },
+    {
+      "id": "scientific-threshold",
+      "op": "format_absolute",
+      "input": {
+        "t": "1000000000000000",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 1 × 10^15 s"
+      },
+      "note": "16 digits: scientific"
+    },
+    {
+      "id": "scientific-rounding",
+      "op": "format_absolute",
+      "input": {
+        "t": "31556925974700000000",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 3.156 × 10^19 s"
+      },
+      "note": "3155|69… rounds up"
+    },
+    {
+      "id": "circa",
+      "op": "format_absolute",
+      "input": {
+        "t": "1234567",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": true
+      },
+      "expected": {
+        "text": "c. t = 1,234,567 s"
+      }
+    },
+    {
+      "id": "other-base-unit",
+      "op": "format_absolute",
+      "input": {
+        "t": "86400",
+        "base_unit": {
+          "singular": "day",
+          "plural": "days",
+          "abbr": "d"
+        },
+        "approximate": false
+      },
+      "expected": {
+        "text": "t = 86,400 d"
+      }
+    },
+    {
+      "id": "display-options",
+      "op": "format_absolute",
+      "input": {
+        "t": "123456789",
+        "base_unit": {
+          "singular": "millisecond",
+          "plural": "milliseconds",
+          "abbr": "ms"
+        },
+        "approximate": true,
+        "display": {
+          "circa": "ca. ",
+          "digit_group": ".",
+          "scientific_threshold": 9,
+          "significant_digits": 3,
+          "range_separator": " to "
+        }
+      },
+      "expected": {
+        "text": "ca. t = 1.23 × 10^8 ms"
+      }
+    },
+    {
+      "id": "display-no-grouping",
+      "op": "format_absolute",
+      "input": {
+        "t": "12345678",
+        "base_unit": {
+          "singular": "second",
+          "plural": "seconds",
+          "abbr": "s"
+        },
+        "approximate": false,
+        "display": {
+          "digit_group": ""
+        }
+      },
+      "expected": {
+        "text": "t = 12345678 s"
+      }
+    }
+  ]
+}

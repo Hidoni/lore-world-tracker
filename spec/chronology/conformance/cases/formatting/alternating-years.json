@@ -1,0 +1,145 @@
+{
+  "description": "Generated default formats of the brief's alternating-years calendar, including the spec's span examples (chronology-engine §10) and huge years.",
+  "calendar": "alternating-years",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "worked-example-second",
+      "op": "format",
+      "input": {
+        "t": "435000008080524000",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "12 Frostfall 1023, 14:00:00"
+      },
+      "note": "to-worked-example-1023"
+    },
+    {
+      "id": "worked-example-day",
+      "op": "format",
+      "input": {
+        "t": "435000008080524000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "12 Frostfall 1023"
+      }
+    },
+    {
+      "id": "even-year-month",
+      "op": "format",
+      "input": {
+        "t": "435000000013076100",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Ash 2"
+      },
+      "note": "to-year-2-ash-30"
+    },
+    {
+      "id": "moment-zero",
+      "op": "format",
+      "input": {
+        "t": "0",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Thawing -55,024,286,581, 18:40"
+      },
+      "note": "to-moment-zero"
+    },
+    {
+      "id": "huge-year",
+      "op": "format",
+      "input": {
+        "t": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "3 Ash 1.265 × 10^93"
+      },
+      "note": "to-huge-moment: the 94-digit year 1264|9… rounds to 1.265"
+    },
+    {
+      "id": "ten-pow-105",
+      "op": "format",
+      "input": {
+        "t": "1100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1.391 × 10^98"
+      },
+      "note": "to-ten-pow-105: the 99-digit year 1391|4… keeps 1.391"
+    },
+    {
+      "id": "spec-days",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "435000008080524000",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "435000008080732800",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "12 – 15 Frostfall 1023"
+      },
+      "note": "chronology-engine §10 example"
+    },
+    {
+      "id": "spec-months",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "435000008080524000",
+          "precision": "month",
+          "approximate": false
+        },
+        "end": {
+          "t": "435000008086025228",
+          "precision": "month",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Frostfall – Bloom 1023"
+      },
+      "note": "to-mid-day is 15 Bloom 1023; §10 example"
+    },
+    {
+      "id": "years",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "435000000000000000",
+          "precision": "year",
+          "approximate": false
+        },
+        "end": {
+          "t": "435000008080524000",
+          "precision": "year",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "1 – 1023"
+      },
+      "note": "only the year: nothing is shared"
+    }
+  ]
+}

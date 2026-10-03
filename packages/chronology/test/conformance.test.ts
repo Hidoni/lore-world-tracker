@@ -87,6 +87,7 @@ const OPS = [
   'diff',
   'format',
   'format_span',
+  'format_absolute',
   'preset_instantiate',
   'expand',
   'series_bounds',
@@ -102,6 +103,7 @@ type Op = (typeof OPS)[number]
 const CALENDAR_FREE_OPS: readonly Op[] = [
   ...NUMBER_OPS,
   'validate',
+  'format_absolute',
   'preset_instantiate',
   'map',
   'compose',
@@ -228,6 +230,7 @@ const PENDING: Partial<Record<Op, number>> = {
   diff: 25,
   format: 25,
   format_span: 25,
+  format_absolute: 25,
   preset_instantiate: 25,
   expand: 26,
   series_bounds: 26,

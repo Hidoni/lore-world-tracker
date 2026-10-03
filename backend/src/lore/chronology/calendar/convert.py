@@ -34,6 +34,9 @@ class UnitValue:
     slot_id: str | None = None
     name: str | None = None
     intercalary: bool = False
+    abbr: str | None = None
+    only_child: bool = False
+    """The unit is its parent's only child (default formats leave its number out, §3.11)."""
 
     def as_json(self) -> dict[str, str | bool | None]:
         number = None if self.n is None else str(self.n)
@@ -108,7 +111,9 @@ def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
     for level in range(len(levels) - 2, -1, -1):
         child = template.child_at(offset)
         offset -= child.offset
-        values[levels[level]] = _unit_value(child, calendar.numbering_starts[level])
+        values[levels[level]] = _unit_value(
+            child, calendar.numbering_starts[level], only_child=template.total_count == 1
+        )
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
     cycles = cycle_values(len(levels) - 1, regime, t)
@@ -116,13 +121,20 @@ def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
     return DateFields(regime.id, values, offset, cycles, era, overlay_values(calendar, t))
 
 
-def _unit_value(child: Child, numbering_start: int) -> UnitValue:
+def _unit_value(child: Child, numbering_start: int, *, only_child: bool) -> UnitValue:
     regular = child.regular_index
     number = None if regular is None else regular + numbering_start
     segment = child.segment
     if segment.slot_id is None:
-        return UnitValue(number)
-    return UnitValue(number, segment.slot_id, segment.name, segment.intercalary)
+        return UnitValue(number, only_child=only_child)
+    return UnitValue(
+        number,
+        segment.slot_id,
+        segment.name,
+        segment.intercalary,
+        abbr=segment.abbr,
+        only_child=only_child,
+    )
 
 
 # --- from_fields ---------------------------------------------------------------------------------

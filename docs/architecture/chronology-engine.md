@@ -338,7 +338,7 @@ moments.
   "month":  "{month.name} {era_year} {era}",
   "day":    "{cycle.week}, {day} {month.name} {era_year} {era}",
   "minute": "{day} {month.name} {era_year} {era}, {hour:pad2}:{minute:pad2}",
-  "intercalary": { "month": "{month.name} {era_year} {era}" }      // used when the unit at that level is intercalary
+  "intercalary": { "day": "{month.name} {era_year} {era}" }        // by precision: used when the deepest named unit at or above it is intercalary
 },
 "display": { "circa": "c. ", "digit_group": ",", "scientific_threshold": 16, "significant_digits": 4,
              "range_separator": " – " }
@@ -356,9 +356,49 @@ Tokens (in braces, `{{`/`}}` escape a literal brace):
 | `{overlay.<id>}`, `{overlay.<id>.fraction}` | phase name, phase as a decimal with 2 digits (display only). |
 | `{base}` | base-unit remainder below level 0. |
 
-Missing formats are generated from the levels: the top-level number, then
-`{<level>.name}` for levels with named slots, and numbers otherwise, coarse to fine. Unknown tokens
-are validation errors.
+Unknown tokens are validation errors. Values in detail (Python:
+`lore.chronology.calendar.formatting`):
+
+- **Numbers** (`{<level>}`, `{year}`, `{era_year}`, `{base}`) use the `display` options: up to 4
+  digits they are plain (`2024`, `-500`); longer ones are grouped with `digit_group`
+  (`12,345,678`); from `scientific_threshold` digits on they are in scientific notation like
+  `format_integer` (§2). `:pad2`/`:pad3` zero-pad the digits after the sign (`05`, `-005`) of a
+  number that isn't grouped or scientific, and never truncate. `:ordinal` adds the English suffix
+  of the absolute value (`1st`, `2nd`, `3rd`, `4th`, `11th`–`13th`, `21st`, `111th`), except in
+  scientific notation (no suffix: `10^8th` would misread).
+- **Fallbacks:** `.name` is the slot name, else the number. `.abbr` is the slot abbreviation, else
+  its name, else the number. `.id` is the slot id, else the number. On the top level all three
+  are the number.
+- **Eras:** without eras, `{era_year}` is the astronomical year and `{era}`/`{era.name}` are
+  empty.
+- **Cycles:** `{cycle.<id>}` is the name, else `n`. `.abbr` is the abbreviation, else the name,
+  else `n`. All of them are empty for an excluded unit or in a regime without the cycle.
+- **Overlays:** `.fraction` truncates the phase to 2 decimals (`0.99`, never `1.00`).
+- **Whitespace:** after rendering, runs of spaces (left by empty values) collapse into one, and
+  the text is trimmed.
+
+**Generated defaults** (a precision missing from `formats`, or from `formats.intercalary` for an
+intercalary date) list the date **fine → coarse**, separated by spaces, then the time as a
+**clock** (product decision, 2026-10-03):
+
+- The **clock levels** are the finest levels, from level 0 up, that have no named slots and
+  `numbering_start` 0, stopping below the top level (hour, minute, second in the Gregorian
+  presets).
+- The **date part** has every level from the precision (or the first non-clock level) up to the
+  level below the top: `{<level>.name}` for levels with named slots in any template, `{<level>}`
+  otherwise. A unit that is its parent's **only child** is left out (the day of the one-day
+  month Midyear's Day: `Midyear's Day 1420`, not `1 Midyear's Day 1420`). Then the year:
+  `{year}` without eras, else `{era_year} {era}`, or `{era} {era_year}` when the era at that
+  moment has `abbr_position: "prefix"` (`44 BC`, `AD 2024`).
+- At a precision inside the clock, `, ` and the clock levels from the coarsest down to the
+  precision follow, each `:pad2` and joined by `:` (`15 March 2024, 14:30:05`). A clock of a
+  single level is the unpadded number and the level's `abbr` (else its `label`):
+  `15 March 2024, 14 h`.
+- Parallel cycles and overlays are not part of the defaults.
+
+Examples: `15 March 2024` (day), `March 2024`, `2024`, `15 March 2024, 14:30`,
+`15 October AD 1582`, `3 Wayeb 0` (an intercalary month of five numbered days),
+`22 August 3.169 × 10^92`.
 
 ## 4. Compilation
 
@@ -659,15 +699,38 @@ Python: `lore.chronology.calendar.arithmetic` (`is_uniform`, `add`, `diff` retur
 
 ## 10. Formatting
 
-- `format(t | fields, precision, calendar, options) → string` uses `formats[precision]`, or
-  `formats.intercalary[<level>]` when the deepest named unit at or above `precision` is
-  intercalary, else a generated default.
+- `format(t, precision, calendar, approximate) → string` renders the date of the unit containing
+  `t`. The pattern is `formats[precision]`, or `formats.intercalary[precision]` when the deepest
+  named unit at or above `precision` is intercalary (`intercalary` is keyed by **precision**,
+  like `formats`; product decision, 2026-10-03), else the generated default (§3.11). An unknown
+  precision is `invalid_date`.
+- Precision `base` uses the level-0 pattern. When some level-0 unit is longer than one base unit
+  and the pattern has no `{base}`, ` + {base} <base unit abbr>` follows:
+  `1 Deepwinter 1 + 13 h` (also `+ 0 h`).
 - `approximate` points get the `display.circa` prefix.
-- `format_span(start_tp, end_tp)` collapses shared coarse components:
-  `12 – 15 Frostfall 1023`, `Frostfall – Bloom 1023`, `1023 – 1025`. Open ends render as `?`.
-- Large numbers: digit grouping, and scientific notation once the digit count reaches
-  `scientific_threshold`.
-- The **Absolute** virtual calendar formats as `t = <grouped or scientific> <abbr>`.
+- `format_span(start_tp, end_tp)` joins both ends with `display.range_separator` and collapses
+  shared coarse components (product decision, 2026-10-03): `12 – 15 Frostfall 1023`,
+  `Frostfall – Bloom 1023`, `1023 – 1025`, `15 March 2024, 14:30 – 16:00`.
+  - Only ends that use the **same pattern** collapse (same precision, the same intercalary
+    choice, the same generated default).
+  - The ends **differ** at the coarsest level whose units differ (comparing the fields top down),
+    or above the top level when the eras differ (or every field is equal but the regimes
+    differ). A token **varies** when the level its value depends on is at or below that level:
+    `{<level>…}` its level, `{year}`/`{era_year}` the top level, `{era…}` above the top level,
+    `{cycle.<id>…}` the cycle's level, `{overlay…}` and `{base}` below level 0 (they always
+    vary). The other tokens are **shared**.
+  - If every varying token comes before every shared token, the start is rendered only up to
+    its last varying token (`12 – 15 Frostfall 1023`). If every varying token comes after every
+    shared token, the end is rendered only from its first varying token
+    (`15 March 2024, 14:30 – 16:00`, `AD 1066 – 1500`). Otherwise, or without shared or
+    varying tokens, both ends are written in full (`1023 – 1025`).
+  - Both ends in the same unit and equally approximate give **one date** (`15 March 2024`).
+  - Each approximate end gets its own circa prefix (`c. 12 – c. 15 Frostfall 1023`).
+  - An **open** end (either one) renders as `?`: `1023 – ?`.
+- Large numbers: §3.11 (dates) and `format_integer` (§2).
+- The **Absolute** virtual calendar formats as `t = <format_integer(t)> <abbr>` with the base unit's
+  abbreviation (`t = 1,234 s`: unlike date numbers, every number is grouped) and the default
+  `display` options unless the caller passes others (`format_absolute`).
 - **Text parsing** of formatted dates is post-MVP. MVP input uses structured pickers.
 
 ## 11. Validation errors
@@ -787,7 +850,7 @@ spec/chronology/conformance/
 
 Case kinds (`op`): `validate`, `to_fields`, `from_fields`, `unit_bounds`, `ordinal`,
 `from_ordinal`, `cycle_value`, `era_of`, `overlay_phase`, `add`, `diff`, `format`,
-`format_span`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
+`format_span`, `format_absolute`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
 `occurrence_number` / `occurrence_at`
 (`recurrence.md`), `map` / `compose` (correspondences), `preset_instantiate`. Expected values are exact.
 Errors are `{"error": "<code>"}`.

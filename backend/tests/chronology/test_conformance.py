@@ -23,6 +23,12 @@ from lore.chronology.calendar.compiled import DateError
 from lore.chronology.calendar.convert import from_fields, options, options_json, to_fields
 from lore.chronology.calendar.cycles import cycle_value
 from lore.chronology.calendar.eras import era_of
+from lore.chronology.calendar.formatting import (
+    DisplayPoint,
+    format_absolute,
+    format_date,
+    format_span,
+)
 from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.correspondence import (
@@ -43,8 +49,10 @@ from lore.chronology.recurrence import (
     series_bounds,
 )
 from lore.chronology.schema import (
+    BaseUnit,
     CalendarDefinition,
     CompileContext,
+    DisplayOptions,
     Duration,
     EndSpec,
     RecurrenceRule,
@@ -92,6 +100,7 @@ OPS = NUMBER_OPS | frozenset(
         "diff",
         "format",
         "format_span",
+        "format_absolute",
         "preset_instantiate",
         "expand",
         "series_bounds",
@@ -105,7 +114,13 @@ OPS = NUMBER_OPS | frozenset(
 )
 """Every op documented in the conformance README."""
 
-CALENDAR_FREE_OPS = NUMBER_OPS | {"validate", "preset_instantiate", "map", "compose"}
+CALENDAR_FREE_OPS = NUMBER_OPS | {
+    "validate",
+    "format_absolute",
+    "preset_instantiate",
+    "map",
+    "compose",
+}
 
 type CalendarFile = dict[str, Any]
 type Handler = Callable[[CalendarFile | None, dict[str, Any]], Any]
@@ -122,6 +137,23 @@ def _binary(operation: Callable[[numbers.Rational, numbers.Rational], numbers.Ra
 def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     options = {key: d[key] for key in d.keys() - {"n"}}
     return {"text": numbers.format_integer(int(d["n"]), **options)}
+
+
+def _display_point(data: dict[str, Any] | None) -> DisplayPoint | None:
+    if data is None:
+        return None
+    return DisplayPoint(int(data["t"]), data["precision"], data["approximate"])
+
+
+def _format_absolute(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    display = DisplayOptions.model_validate(d["display"]) if d.get("display") else None
+    text = format_absolute(
+        int(d["t"]),
+        BaseUnit.model_validate(d["base_unit"]),
+        display,
+        approximate=d.get("approximate", False),
+    )
+    return {"text": text}
 
 
 _COMPILED: dict[int, CompiledCalendar] = {}
@@ -304,6 +336,13 @@ HANDLERS: dict[str, Handler] = {
     "occurrence_at": _occurrence_at,
     "occurrence": _occurrence,
     "diff": _diff,
+    "format": lambda c, d: {
+        "text": format_date(_compiled(c), int(d["t"]), d["precision"], approximate=d["approximate"])
+    },
+    "format_span": lambda c, d: {
+        "text": format_span(_compiled(c), _display_point(d["start"]), _display_point(d["end"]))
+    },
+    "format_absolute": _format_absolute,
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
     },
@@ -311,8 +350,6 @@ HANDLERS: dict[str, Handler] = {
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
 PENDING: dict[str, int] = {
-    "format": 17,
-    "format_span": 17,
     "preset_instantiate": 18,
 }
 """op → issue that implements it in the Python engine."""

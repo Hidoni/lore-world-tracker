@@ -1,0 +1,120 @@
+{
+  "description": "Generated default formats with eras: each era's abbreviation goes on its abbr_position side (BC suffix, AD prefix); spans across the 1582 reform.",
+  "calendar": "julian-gregorian",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "ides-of-march",
+      "op": "format",
+      "input": {
+        "t": "99935535318400",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 March 44 BC"
+      },
+      "note": "to-fields-ides-of-march: BC is a suffix era"
+    },
+    {
+      "id": "hastings",
+      "op": "format",
+      "input": {
+        "t": "99970551121600",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "14 October AD 1066, 12:00"
+      },
+      "note": "to-fields-hastings: AD is a prefix era"
+    },
+    {
+      "id": "year-1",
+      "op": "format",
+      "input": {
+        "t": "99936917545600",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "AD 1"
+      },
+      "note": "to-fields-year-1"
+    },
+    {
+      "id": "year-0-end",
+      "op": "format",
+      "input": {
+        "t": "99936917545599",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 BC"
+      },
+      "note": "to-fields-year-0-end"
+    },
+    {
+      "id": "reform",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "99986834022399",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "99986834022400",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "4 – 15 October AD 1582"
+      },
+      "note": "to-fields-reform-eve-last-second (Julian) → to-fields-reform-first-second (Gregorian): the regimes differ, the shown month and year don't"
+    },
+    {
+      "id": "across-eras",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "99936917545599",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "99936917545600",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "31 December 1 BC – 1 January AD 1"
+      },
+      "note": "different eras use different default patterns: no collapsing"
+    },
+    {
+      "id": "same-era-years",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "99970551121600",
+          "precision": "year",
+          "approximate": false
+        },
+        "end": {
+          "t": "99984227420800",
+          "precision": "year",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "AD 1066 – 1500"
+      },
+      "note": "to-fields-hastings → to-fields-julian-leap-day-1500: {era} is shared and {era_year} varies at the end of the pattern"
+    }
+  ]
+}

@@ -1,0 +1,548 @@
+{
+  "description": "Custom formats: every token and modifier of chronology-engine §3.11, intercalary formats keyed by precision, non-default display options, and span collapsing with custom patterns.",
+  "calendar": "formats-showcase",
+  "generated": false,
+  "verification": "By hand from the calendar description: year Y starts at 10,443,945,600 + 10,454,400·Y; the week index is (counted days since 1 Frostfall 1, Midyear's Day skipped) mod 5; the market n is (days since 1 Frostfall 1) mod 3 + 1; the moon phase is frac((t − 10,454,400,000) / 864,000).",
+  "cases": [
+    {
+      "id": "day-custom",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Restday, 5 Fro 1 AF"
+      },
+      "note": "4 days after the week anchor: index 4"
+    },
+    {
+      "id": "minute-custom",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "5 Frostfall 1 AF, 14:05"
+      },
+      "note": "custom patterns write the era wherever the pattern puts it"
+    },
+    {
+      "id": "hour-every-token",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Re/5/2/2/2 005 frostfall 01/1st 1 14th hour, {7} First Quarter 0.45"
+      },
+      "note": "market: 4 days after its anchor → n 2, no names or abbreviations so the number; {base} is the 7 s below the minute; phase 396,307/864,000 = 0.4586… (truncated to 0.45)"
+    },
+    {
+      "id": "month-custom",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Frostfall 1 AF"
+      }
+    },
+    {
+      "id": "year-ordinal-pad",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 1st of the After the Founding (001)"
+      }
+    },
+    {
+      "id": "base-custom-pattern",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "base",
+        "approximate": false
+      },
+      "expected": {
+        "text": "5 Frostfall 1 AF, 14:05 + 7 s"
+      },
+      "note": "base precision uses the level-0 pattern plus the remainder"
+    },
+    {
+      "id": "circa-custom",
+      "op": "format",
+      "input": {
+        "t": "10454796307",
+        "precision": "day",
+        "approximate": true
+      },
+      "expected": {
+        "text": "ca. Restday, 5 Fro 1 AF"
+      }
+    },
+    {
+      "id": "unnamed-month-fallbacks",
+      "op": "format",
+      "input": {
+        "t": "10470902400",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Re/5/3/3/3 010 3 03/3rd 2 0th hour, {0} New Moon 0.10"
+      },
+      "note": "month 3 is unnamed: {month.id} falls back to its number; 69 counted days into year 2 → week index (120+69−120) mod 5 = 4; market 191 mod 3 + 1 = 3; phase 16,502,400/864,000 = 19.1"
+    },
+    {
+      "id": "unnamed-month-abbr",
+      "op": "format",
+      "input": {
+        "t": "10470902400",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Restday, 10 3 2 AF"
+      },
+      "note": "{month.abbr} falls back to the number"
+    },
+    {
+      "id": "unnamed-month-name",
+      "op": "format",
+      "input": {
+        "t": "10470902400",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "3 2 AF"
+      },
+      "note": "{month.name} falls back to the number"
+    },
+    {
+      "id": "no-abbr-falls-back-to-name",
+      "op": "format",
+      "input": {
+        "t": "10457424000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Moonday, 6 Thawing 1 AF"
+      },
+      "note": "Thawing has no abbreviation, so {month.abbr} falls back to the name; 35 days after the anchor → week index 0"
+    },
+    {
+      "id": "intercalary-day-format",
+      "op": "format",
+      "input": {
+        "t": "10459616400",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day, 1 AF"
+      },
+      "note": "formats.intercalary.day"
+    },
+    {
+      "id": "intercalary-month-format",
+      "op": "format",
+      "input": {
+        "t": "10459616400",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day (Mid) 1 AF"
+      },
+      "note": "formats.intercalary.month"
+    },
+    {
+      "id": "intercalary-without-format",
+      "op": "format",
+      "input": {
+        "t": "10459616400",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day AF 1, 09:00"
+      },
+      "note": "no formats.intercalary.minute: the generated default (the day is the only child of Midyear's Day; AF is a prefix era)"
+    },
+    {
+      "id": "intercalary-without-format-hour",
+      "op": "format",
+      "input": {
+        "t": "10459616400",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day AF 1, 9 h"
+      }
+    },
+    {
+      "id": "excluded-cycle-in-regular-pattern",
+      "op": "format",
+      "input": {
+        "t": "10459702800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Moonday, 1 3 1 AF"
+      },
+      "note": "the day after Midyear's Day (month 3): the week resumes after Restday 30 Thawing with Moonday"
+    },
+    {
+      "id": "year-zero",
+      "op": "format",
+      "input": {
+        "t": "10443945600",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 1st of the Before the Founding (000)"
+      },
+      "note": "BF counts down: year 0 is 1 BF"
+    },
+    {
+      "id": "year-minus-5",
+      "op": "format",
+      "input": {
+        "t": "10391673600",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 6th of the Before the Founding (-005)"
+      },
+      "note": "pad3 pads the digits after the sign"
+    },
+    {
+      "id": "ordinal-2",
+      "op": "format",
+      "input": {
+        "t": "10464854400",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 2nd of the After the Founding (002)"
+      }
+    },
+    {
+      "id": "ordinal-3",
+      "op": "format",
+      "input": {
+        "t": "10475308800",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 3rd of the After the Founding (003)"
+      }
+    },
+    {
+      "id": "ordinal-11",
+      "op": "format",
+      "input": {
+        "t": "10558944000",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 11th of the After the Founding (011)"
+      }
+    },
+    {
+      "id": "ordinal-12",
+      "op": "format",
+      "input": {
+        "t": "10569398400",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 12th of the After the Founding (012)"
+      }
+    },
+    {
+      "id": "ordinal-13",
+      "op": "format",
+      "input": {
+        "t": "10579852800",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 13th of the After the Founding (013)"
+      }
+    },
+    {
+      "id": "ordinal-21",
+      "op": "format",
+      "input": {
+        "t": "10663488000",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 21st of the After the Founding (021)"
+      }
+    },
+    {
+      "id": "ordinal-22",
+      "op": "format",
+      "input": {
+        "t": "10673942400",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 22nd of the After the Founding (022)"
+      }
+    },
+    {
+      "id": "ordinal-23",
+      "op": "format",
+      "input": {
+        "t": "10684396800",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 23rd of the After the Founding (023)"
+      }
+    },
+    {
+      "id": "ordinal-111",
+      "op": "format",
+      "input": {
+        "t": "11604384000",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 111th of the After the Founding (111)"
+      }
+    },
+    {
+      "id": "ordinal-1012",
+      "op": "format",
+      "input": {
+        "t": "21023798400",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 1012th of the After the Founding (1012)"
+      },
+      "note": "pad3 never truncates"
+    },
+    {
+      "id": "grouped-5-digits",
+      "op": "format",
+      "input": {
+        "t": "139503513600",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 12.345th of the After the Founding (12.345)"
+      },
+      "note": "digit_group '.' from 5 digits on; pad3 leaves a grouped number alone"
+    },
+    {
+      "id": "grouped-8-digits",
+      "op": "format",
+      "input": {
+        "t": "129077100028800",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 12.345.678th of the After the Founding (12.345.678)"
+      }
+    },
+    {
+      "id": "scientific-9-digits",
+      "op": "format",
+      "input": {
+        "t": "1290677098867200",
+        "precision": "year",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Year 1.23 × 10^8 of the After the Founding (1.23 × 10^8)"
+      },
+      "note": "scientific_threshold 9, 3 significant digits; scientific numbers get no ordinal suffix"
+    },
+    {
+      "id": "days-collapse-start",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "10455141907",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Restday, 5 to Fourday, 9 Fro 1 AF"
+      },
+      "note": "the weekday and the day vary and come first; the separator is ' to '"
+    },
+    {
+      "id": "clock-collapse-end",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "minute",
+          "approximate": false
+        },
+        "end": {
+          "t": "10454805007",
+          "precision": "minute",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "5 Frostfall 1 AF, 14:05 to 16:30"
+      }
+    },
+    {
+      "id": "months-collapse-start",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "month",
+          "approximate": false
+        },
+        "end": {
+          "t": "10457424000",
+          "precision": "month",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Frostfall to Thawing 1 AF"
+      }
+    },
+    {
+      "id": "hours-overlay-varies",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "hour",
+          "approximate": false
+        },
+        "end": {
+          "t": "10454803507",
+          "precision": "hour",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Re/5/2/2/2 005 frostfall 01/1st 1 14th hour, {7} First Quarter 0.45 to 16th hour, {7} First Quarter 0.46"
+      },
+      "note": "the hour, base and overlay tokens vary and all come after the shared ones; phase 403,507/864,000 = 0.467…"
+    },
+    {
+      "id": "intercalary-vs-regular",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10459497600",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "10459616400",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Restday, 30 Thawing 1 AF to Midyear's Day, 1 AF"
+      },
+      "note": "the ends use different patterns: no collapsing"
+    },
+    {
+      "id": "across-eras",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10443945600",
+          "precision": "year",
+          "approximate": false
+        },
+        "end": {
+          "t": "10454400000",
+          "precision": "year",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "Year 1st of the Before the Founding (000) to Year 1st of the After the Founding (001)"
+      }
+    },
+    {
+      "id": "both-circa-collapsed",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "day",
+          "approximate": true
+        },
+        "end": {
+          "t": "10455141907",
+          "precision": "day",
+          "approximate": true
+        }
+      },
+      "expected": {
+        "text": "ca. Restday, 5 to ca. Fourday, 9 Fro 1 AF"
+      }
+    },
+    {
+      "id": "open-end-circa",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "10454796307",
+          "precision": "day",
+          "approximate": true
+        },
+        "end": null
+      },
+      "expected": {
+        "text": "ca. Restday, 5 Fro 1 AF to ?"
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "description": "Generated default formats leave overlays out (a custom format shows them with {overlay.<id>}).",
+  "calendar": "gregorian-moon",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "moon-epoch",
+      "op": "format",
+      "input": {
+        "t": "100000000497640",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "6 January 2000, 18:14"
+      },
+      "note": "to-fields-at-moon-epoch"
+    },
+    {
+      "id": "2024",
+      "op": "format",
+      "input": {
+        "t": "100000763821005",
+        "precision": "second",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 March 2024, 12:30:05"
+      },
+      "note": "to-fields-2024"
+    }
+  ]
+}

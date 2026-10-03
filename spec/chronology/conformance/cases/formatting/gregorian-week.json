@@ -1,0 +1,34 @@
+{
+  "description": "Generated default formats leave parallel cycles out (a custom format shows them with {cycle.<id>}).",
+  "calendar": "gregorian-week",
+  "generated": false,
+  "verification": "The moments are those of the hand-verified to_fields vectors of this calendar (cited in each note) or offsets from them; the texts apply the default format rules of chronology-engine §3.11 to those fields by hand.",
+  "cases": [
+    {
+      "id": "y2k",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 January 2000"
+      },
+      "note": "to-fields-y2k (a Saturday)"
+    },
+    {
+      "id": "leap-day-2024",
+      "op": "format",
+      "input": {
+        "t": "100000762523200",
+        "precision": "hour",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 February 2024, 12 h"
+      },
+      "note": "to-fields-leap-day-2024"
+    }
+  ]
+}
