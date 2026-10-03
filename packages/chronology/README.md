@@ -32,6 +32,7 @@ them by hand; `make check-chronology` fails on drift.
 |--------|----------|
 | `numbers.ts` | exact numeric utilities (§2) |
 | `calendar/` | `validateCalendar`/`compileCalendar` (§4, §11), `toFields`/`fromFields`/`normalizeFields`/`options` (§5.3–§5.7, §6), `unitBounds`/`ordinal`/`fromOrdinal` (§5.8), `cycleValue`/`eraOf`/`overlayPhase`/`nextPhaseAt` (§8), `add`/`diff`/`durationUpperBound` (§9), `formatDate`/`formatSpan`/`formatAbsolute` (§10) |
+| `recurrence/` | `validateRule`, `expand`, `occurrence`, `occurrenceAt`, `nextOccurrences`, `occurrenceNumber`, `countInWindow`, `seriesBounds` (`recurrence.md` §2–§5, §9) |
 | `presets.ts` | `instantiatePreset`, `absoluteMoments` (§13) |
 | `preset-library.ts` | the separate entry point `@lore/chronology/presets` (below) |
 
