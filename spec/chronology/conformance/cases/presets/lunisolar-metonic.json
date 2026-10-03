@@ -1,0 +1,155 @@
+{
+  "description": "The lunisolar-metonic preset: the 19-year cycle of common, full and leap years.",
+  "calendar": "preset-lunisolar-metonic",
+  "generated": false,
+  "verification": "Day counting from the origin with the cycle of the preset description: cycle position (Y − 1) mod 19 + 1; months alternate 30/29 days, the Twelfth Moon has 30 days in full years (positions 1, 5, 10, 15) and the 30-day Leap Moon follows it in positions 3, 6, 8, 11, 14, 17, 19; a cycle has 6940 days.",
+  "cases": [
+    {
+      "id": "origin",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 First Moon 1"
+      }
+    },
+    {
+      "id": "full-year-twelfth-30",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1",
+          "month": "m12",
+          "day": "30"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100000030585600"
+      }
+    },
+    {
+      "id": "common-year-twelfth-29",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "m12",
+          "day": "30"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "leap-moon",
+      "op": "format",
+      "input": {
+        "t": "100000094348800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "30 Leap Moon 3"
+      }
+    },
+    {
+      "id": "no-leap-moon-in-year-4",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "4",
+          "month": "leap",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "second-cycle",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "20",
+          "month": "m1",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100000599616000"
+      },
+      "note": "one Metonic cycle = 6940 days"
+    },
+    {
+      "id": "year-19-leap-moon",
+      "op": "format",
+      "input": {
+        "t": "100000597024000",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Leap Moon 19"
+      }
+    },
+    {
+      "id": "year-0-is-position-19",
+      "op": "format",
+      "input": {
+        "t": "99999999913600",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "30 Leap Moon 0"
+      },
+      "note": "year 0 is the 19th year of the previous cycle"
+    },
+    {
+      "id": "year-bounds",
+      "op": "unit_bounds",
+      "input": {
+        "t": "100000072230400",
+        "level": "year"
+      },
+      "expected": {
+        "start": "100000061257600",
+        "end": "100000094435200"
+      },
+      "note": "a leap year lasts 384 days"
+    },
+    {
+      "id": "minute",
+      "op": "format",
+      "input": {
+        "t": "100032267021400",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "29 Sixth Moon 1023, 21:30"
+      }
+    },
+    {
+      "id": "month",
+      "op": "format",
+      "input": {
+        "t": "100032267030400",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Seventh Moon 1023"
+      }
+    }
+  ]
+}

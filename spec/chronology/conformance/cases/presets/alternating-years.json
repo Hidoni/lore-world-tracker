@@ -1,0 +1,157 @@
+{
+  "description": "The alternating-years preset: the brief's odd/even years with a week and BF/AF eras (time-model.md §13).",
+  "calendar": "preset-alternating-years",
+  "generated": false,
+  "verification": "Day counting from the origin (1 Frostfall 1 AF, a Moonday): odd years have 30 + 31 + 30 = 91 days, even years 31 + 30 + 31 = 92; weekdays are days since the origin mod 7; BF counts down without a year zero (astronomical 0 is 1 BF).",
+  "cases": [
+    {
+      "id": "origin",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Frostfall 1 AF"
+      }
+    },
+    {
+      "id": "origin-moonday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100000000000000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Moonday",
+        "n": 1
+      }
+    },
+    {
+      "id": "year-0",
+      "op": "format",
+      "input": {
+        "t": "99999992051200",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "1 Ember 1 BF"
+      }
+    },
+    {
+      "id": "year-minus-1",
+      "op": "format",
+      "input": {
+        "t": "99999991964800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "30 Bloom 2 BF"
+      }
+    },
+    {
+      "id": "worked-example",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1023",
+          "month": "frostfall",
+          "day": "12"
+        },
+        "precision": "day",
+        "era": "af"
+      },
+      "expected": {
+        "t": "100008080473600"
+      }
+    },
+    {
+      "id": "worked-example-weekday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100008080473600",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 4,
+        "name": "Fiveday",
+        "n": 5
+      }
+    },
+    {
+      "id": "no-frostfall-in-even-years",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "2",
+          "month": "frostfall",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      }
+    },
+    {
+      "id": "even-year-month",
+      "op": "format",
+      "input": {
+        "t": "100000013046400",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Ash 2 AF"
+      }
+    },
+    {
+      "id": "minute",
+      "op": "format",
+      "input": {
+        "t": "100008086025220",
+        "precision": "minute",
+        "approximate": false
+      },
+      "expected": {
+        "text": "15 Bloom 1023 AF, 06:07"
+      }
+    },
+    {
+      "id": "worked-example-span",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100008080473600",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100008080732800",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "12 – 15 Frostfall 1023 AF"
+      }
+    },
+    {
+      "id": "era-of-year-0",
+      "op": "era_of",
+      "input": {
+        "t": "99999994729600"
+      },
+      "expected": {
+        "id": "bf",
+        "year": "1",
+        "abbr": "BF",
+        "name": "Before the Founding"
+      }
+    }
+  ]
+}

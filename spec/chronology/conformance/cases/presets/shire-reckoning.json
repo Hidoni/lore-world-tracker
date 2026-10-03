@@ -1,0 +1,181 @@
+{
+  "description": "The shire-reckoning preset: the year's layout, leap years and the fixed week (The Lord of the Rings, Appendix D).",
+  "calendar": "preset-shire-reckoning",
+  "generated": false,
+  "verification": "Day counting from the origin (2 Yule of year 1 = Sterday) with 365-day years and 366-day leap years (every 4th year except the last of a century); weekdays count the days of the year except Midyear's Day and Overlithe (Appendix D: every year begins on Sterday and ends on Highday, and Midyear's Day has no weekday).",
+  "cases": [
+    {
+      "id": "origin",
+      "op": "format",
+      "input": {
+        "t": "100000000000000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "2 Yule 1"
+      }
+    },
+    {
+      "id": "fall-of-barad-dur",
+      "op": "format",
+      "input": {
+        "t": "100044754768000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "25 Rethe 1419"
+      },
+      "note": "T.A. 3019 = S.R. 1419"
+    },
+    {
+      "id": "fall-of-barad-dur-weekday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100044754768000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 1,
+        "name": "Sunday",
+        "n": 2
+      }
+    },
+    {
+      "id": "midyear",
+      "op": "format",
+      "input": {
+        "t": "100044794684800",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Midyear's Day 1420"
+      }
+    },
+    {
+      "id": "midyear-no-weekday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100044794684800",
+        "cycle": "week"
+      },
+      "expected": null
+    },
+    {
+      "id": "overlithe",
+      "op": "format",
+      "input": {
+        "t": "100044794771200",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Overlithe 1420"
+      },
+      "note": "1420 is a leap year"
+    },
+    {
+      "id": "no-overlithe-1400",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1400",
+          "month": "overlithe",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the last year of a century is not a leap year"
+    },
+    {
+      "id": "year-starts-on-sterday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100044778960000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 0,
+        "name": "Sterday",
+        "n": 1
+      }
+    },
+    {
+      "id": "year-ends-on-highday",
+      "op": "cycle_value",
+      "input": {
+        "t": "100044810496000",
+        "cycle": "week"
+      },
+      "expected": {
+        "index": 6,
+        "name": "Highday",
+        "n": 7
+      }
+    },
+    {
+      "id": "lithe2-1420",
+      "op": "from_fields",
+      "input": {
+        "fields": {
+          "year": "1420",
+          "month": "lithe2",
+          "day": "1"
+        },
+        "precision": "day"
+      },
+      "expected": {
+        "t": "100044794857600"
+      }
+    },
+    {
+      "id": "bilbo-birthday",
+      "op": "format",
+      "input": {
+        "t": "100040699584000",
+        "precision": "day",
+        "approximate": false
+      },
+      "expected": {
+        "text": "22 Halimath 1290"
+      },
+      "note": "T.A. 2890 = S.R. 1290"
+    },
+    {
+      "id": "month",
+      "op": "format",
+      "input": {
+        "t": "100044795289600",
+        "precision": "month",
+        "approximate": false
+      },
+      "expected": {
+        "text": "Afterlithe 1420"
+      }
+    },
+    {
+      "id": "lithe-days",
+      "op": "format_span",
+      "input": {
+        "start": {
+          "t": "100044794598400",
+          "precision": "day",
+          "approximate": false
+        },
+        "end": {
+          "t": "100044794857600",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "1 Lithe – 2 Lithe 1420"
+      }
+    }
+  ]
+}

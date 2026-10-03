@@ -356,6 +356,9 @@ const ERAS_AND_LOCAL_ANCHORS = new Set([
     'unknown-era',
     'era-year-slot-id',
   ].map((id) => `regimes/julian-gregorian::from-fields-${id}`),
+  'presets/gregorian::era-date',
+  'presets/julian-gregorian::reform-gap',
+  'presets/julian-gregorian::y2k',
   ...[
     'regime-local-not-increasing',
     'regime-local-invalid-date',

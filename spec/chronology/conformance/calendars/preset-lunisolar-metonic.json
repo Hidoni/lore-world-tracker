@@ -1,0 +1,349 @@
+{
+  "description": "The lunisolar-metonic preset (spec/chronology/presets/lunisolar-metonic.json) instantiated with one-second base units and its origin at t = 10^14 (test_presets.py checks that this file equals the instantiation).",
+  "definition": {
+    "schema_version": 1,
+    "levels": [
+      {
+        "id": "second",
+        "label": "second",
+        "plural": "seconds",
+        "abbr": "s",
+        "numbering_start": 0,
+        "default_template": "second"
+      },
+      {
+        "id": "minute",
+        "label": "minute",
+        "plural": "minutes",
+        "abbr": "min",
+        "numbering_start": 0,
+        "default_template": "minute"
+      },
+      {
+        "id": "hour",
+        "label": "hour",
+        "plural": "hours",
+        "abbr": "h",
+        "numbering_start": 0,
+        "default_template": "hour"
+      },
+      {
+        "id": "day",
+        "label": "day",
+        "plural": "days",
+        "abbr": "d",
+        "numbering_start": 1,
+        "default_template": "day"
+      },
+      {
+        "id": "month",
+        "label": "month",
+        "plural": "months",
+        "abbr": "mo",
+        "numbering_start": 1
+      },
+      {
+        "id": "year",
+        "label": "year",
+        "plural": "years",
+        "abbr": "y"
+      }
+    ],
+    "regimes": [
+      {
+        "id": "metonic",
+        "name": "Metonic",
+        "templates": {
+          "second": {
+            "level": "second",
+            "uniform": {
+              "count": "1"
+            }
+          },
+          "minute": {
+            "level": "minute",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "hour": {
+            "level": "hour",
+            "uniform": {
+              "count": "60"
+            }
+          },
+          "day": {
+            "level": "day",
+            "uniform": {
+              "count": "24"
+            }
+          },
+          "m29": {
+            "level": "month",
+            "uniform": {
+              "count": "29"
+            }
+          },
+          "m30": {
+            "level": "month",
+            "uniform": {
+              "count": "30"
+            }
+          },
+          "year_common": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "m1",
+                "template": "m30",
+                "name": "First Moon"
+              },
+              {
+                "id": "m2",
+                "template": "m29",
+                "name": "Second Moon"
+              },
+              {
+                "id": "m3",
+                "template": "m30",
+                "name": "Third Moon"
+              },
+              {
+                "id": "m4",
+                "template": "m29",
+                "name": "Fourth Moon"
+              },
+              {
+                "id": "m5",
+                "template": "m30",
+                "name": "Fifth Moon"
+              },
+              {
+                "id": "m6",
+                "template": "m29",
+                "name": "Sixth Moon"
+              },
+              {
+                "id": "m7",
+                "template": "m30",
+                "name": "Seventh Moon"
+              },
+              {
+                "id": "m8",
+                "template": "m29",
+                "name": "Eighth Moon"
+              },
+              {
+                "id": "m9",
+                "template": "m30",
+                "name": "Ninth Moon"
+              },
+              {
+                "id": "m10",
+                "template": "m29",
+                "name": "Tenth Moon"
+              },
+              {
+                "id": "m11",
+                "template": "m30",
+                "name": "Eleventh Moon"
+              },
+              {
+                "id": "m12",
+                "template": "m29",
+                "name": "Twelfth Moon"
+              }
+            ]
+          },
+          "year_full": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "m1",
+                "template": "m30",
+                "name": "First Moon"
+              },
+              {
+                "id": "m2",
+                "template": "m29",
+                "name": "Second Moon"
+              },
+              {
+                "id": "m3",
+                "template": "m30",
+                "name": "Third Moon"
+              },
+              {
+                "id": "m4",
+                "template": "m29",
+                "name": "Fourth Moon"
+              },
+              {
+                "id": "m5",
+                "template": "m30",
+                "name": "Fifth Moon"
+              },
+              {
+                "id": "m6",
+                "template": "m29",
+                "name": "Sixth Moon"
+              },
+              {
+                "id": "m7",
+                "template": "m30",
+                "name": "Seventh Moon"
+              },
+              {
+                "id": "m8",
+                "template": "m29",
+                "name": "Eighth Moon"
+              },
+              {
+                "id": "m9",
+                "template": "m30",
+                "name": "Ninth Moon"
+              },
+              {
+                "id": "m10",
+                "template": "m29",
+                "name": "Tenth Moon"
+              },
+              {
+                "id": "m11",
+                "template": "m30",
+                "name": "Eleventh Moon"
+              },
+              {
+                "id": "m12",
+                "template": "m30",
+                "name": "Twelfth Moon"
+              }
+            ]
+          },
+          "year_leap": {
+            "level": "year",
+            "sequence": [
+              {
+                "id": "m1",
+                "template": "m30",
+                "name": "First Moon"
+              },
+              {
+                "id": "m2",
+                "template": "m29",
+                "name": "Second Moon"
+              },
+              {
+                "id": "m3",
+                "template": "m30",
+                "name": "Third Moon"
+              },
+              {
+                "id": "m4",
+                "template": "m29",
+                "name": "Fourth Moon"
+              },
+              {
+                "id": "m5",
+                "template": "m30",
+                "name": "Fifth Moon"
+              },
+              {
+                "id": "m6",
+                "template": "m29",
+                "name": "Sixth Moon"
+              },
+              {
+                "id": "m7",
+                "template": "m30",
+                "name": "Seventh Moon"
+              },
+              {
+                "id": "m8",
+                "template": "m29",
+                "name": "Eighth Moon"
+              },
+              {
+                "id": "m9",
+                "template": "m30",
+                "name": "Ninth Moon"
+              },
+              {
+                "id": "m10",
+                "template": "m29",
+                "name": "Tenth Moon"
+              },
+              {
+                "id": "m11",
+                "template": "m30",
+                "name": "Eleventh Moon"
+              },
+              {
+                "id": "m12",
+                "template": "m29",
+                "name": "Twelfth Moon"
+              },
+              {
+                "id": "leap",
+                "template": "m30",
+                "name": "Leap Moon"
+              }
+            ]
+          }
+        },
+        "top": {
+          "pattern": {
+            "kind": "cycle",
+            "templates": [
+              "year_full",
+              "year_common",
+              "year_leap",
+              "year_common",
+              "year_full",
+              "year_leap",
+              "year_common",
+              "year_leap",
+              "year_common",
+              "year_full",
+              "year_leap",
+              "year_common",
+              "year_common",
+              "year_leap",
+              "year_full",
+              "year_common",
+              "year_leap",
+              "year_common",
+              "year_leap"
+            ],
+            "start": "1"
+          }
+        },
+        "alignment": {
+          "fields": {
+            "year": "1",
+            "month": "m1",
+            "day": "1"
+          },
+          "at": {
+            "anchor": {
+              "kind": "absolute",
+              "t": "100000000000000"
+            },
+            "precision": "base"
+          }
+        }
+      }
+    ]
+  },
+  "context": {
+    "base_unit": {
+      "singular": "second",
+      "plural": "seconds",
+      "abbr": "s"
+    },
+    "dimension_duration": "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "resolved": {
+      "/regimes/0/alignment/at": "100000000000000"
+    }
+  }
+}

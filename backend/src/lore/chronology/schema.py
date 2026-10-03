@@ -533,6 +533,33 @@ class CompileContext(_Model):
     """Resolved moments of every non-local time point, keyed by JSON pointer into the definition."""
 
 
+# --- presets -------------------------------------------------------------------------------------
+
+
+Description = Annotated[str, StringConstraints(min_length=1, max_length=5000)]
+
+
+class PresetRequirements(_Model):
+    duration_seconds: NonNegativeIntStr
+    """The dimension must last at least this long after the origin (the latest absolute anchor)."""
+
+
+class Preset(_Model):
+    """A preset calendar (``chronology-engine.md`` §13), instantiated per dimension.
+
+    The definition uses a level ``second`` as level 0 (``uniform.count = 1``); its absolute time
+    points hold seconds after the **origin**, the moment the alignment unit starts.
+    """
+
+    id: SlotId
+    name: Name
+    description: Description
+    origin: Description
+    """What the origin is, e.g. "the start of 1 January AD 1"."""
+    requires: PresetRequirements
+    definition: CalendarDefinition
+
+
 # --- recurrence rules ----------------------------------------------------------------------------
 
 

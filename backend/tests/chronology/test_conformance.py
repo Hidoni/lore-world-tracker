@@ -38,6 +38,7 @@ from lore.chronology.correspondence import (
     compose,
     correspondence,
 )
+from lore.chronology.presets import PresetError, instantiate_preset, load_presets
 from lore.chronology.recurrence import (
     RecurrenceContext,
     RecurrenceError,
@@ -154,6 +155,15 @@ def _format_absolute(_: CalendarFile | None, d: dict[str, Any]) -> Any:
         approximate=d.get("approximate", False),
     )
     return {"text": text}
+
+
+PRESETS = load_presets(CONFORMANCE_DIR.parents[1])
+
+
+def _preset_instantiate(_: CalendarFile | None, d: dict[str, Any]) -> Any:
+    seconds = _rational(d["seconds_per_base_unit"])
+    definition = instantiate_preset(PRESETS[d["preset"]], seconds, origin=int(d.get("origin", "0")))
+    return {"definition": definition.model_dump(mode="json", by_alias=True, exclude_unset=True)}
 
 
 _COMPILED: dict[int, CompiledCalendar] = {}
@@ -343,15 +353,14 @@ HANDLERS: dict[str, Handler] = {
         "text": format_span(_compiled(c), _display_point(d["start"]), _display_point(d["end"]))
     },
     "format_absolute": _format_absolute,
+    "preset_instantiate": _preset_instantiate,
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))
     },
 }
 """op → engine call returning the result in the README's JSON shape (errors as ``{"error": …}``)."""
 
-PENDING: dict[str, int] = {
-    "preset_instantiate": 18,
-}
+PENDING: dict[str, int] = {}
 """op → issue that implements it in the Python engine."""
 
 CASE_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -427,7 +436,13 @@ def test_vector(case: Case) -> None:
     handler = HANDLERS.get(case.op, _not_implemented)
     try:
         result = handler(calendar, case.input)
-    except (numbers.NumberError, DateError, RecurrenceError, CorrespondenceError) as error:
+    except (
+        numbers.NumberError,
+        DateError,
+        RecurrenceError,
+        CorrespondenceError,
+        PresetError,
+    ) as error:
         result = {"error": error.code}
     assert _normalized(case.op, result) == _normalized(case.op, case.expected)
 
