@@ -36,6 +36,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List */
+        get: operations["vaults_list"];
+        put?: never;
+        /** Create */
+        post: operations["vaults_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["vaults_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Move the vault folder to the data directory's trash (it is never deleted).
+         */
+        delete: operations["vaults_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Rename the vault (display name only; the folder keeps its name).
+         */
+        patch: operations["vaults_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -92,6 +135,68 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * Vault
+         * @description A vault. ``modified_at`` is derived from its files' modification times.
+         */
+        Vault: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Folder */
+            folder: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By App Version */
+            created_by_app_version: string;
+            /**
+             * Modified At
+             * Format: date-time
+             */
+            modified_at: string;
+            /** Published */
+            published: boolean;
+        };
+        /** VaultCreate */
+        VaultCreate: {
+            name: components["schemas"]["VaultName"];
+        };
+        /**
+         * VaultList
+         * @description ``items``: most recently modified first, ties by name (case-insensitive).
+         */
+        VaultList: {
+            /** Items */
+            items: components["schemas"]["Vault"][];
+            /** Problems */
+            problems: components["schemas"]["VaultProblem"][];
+        };
+        VaultName: string;
+        /**
+         * VaultProblem
+         * @description A folder in ``vaults/`` that can't be opened (listed so it doesn't look deleted).
+         */
+        VaultProblem: {
+            /** Folder */
+            folder: string;
+            code: components["schemas"]["VaultProblemCode"];
+            /** Detail */
+            detail: string;
+            /** Vault Id */
+            vault_id?: string | null;
+            /** Name */
+            name?: string | null;
+        };
+        /** @enum {string} */
+        VaultProblemCode: "folder_name_invalid" | "manifest_invalid" | "format_newer_than_app" | "duplicate_id";
+        /** VaultUpdate */
+        VaultUpdate: {
+            name: components["schemas"]["VaultName"];
+        };
     };
     responses: never;
     parameters: never;
@@ -146,6 +251,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetaResponse"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VaultCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vault"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vault"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    vaults_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VaultUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vault"];
                 };
             };
             /** @description Problem */

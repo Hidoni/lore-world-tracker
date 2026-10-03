@@ -41,8 +41,8 @@
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET/POST | `/vaults` | list / create (`{name}`) |
-| GET/PATCH/DELETE | `/vaults/{v}` | read / rename / move to data trash |
+| GET/POST | `/vaults` | list `{items, problems}` (items most recently modified first; `problems` = folders that can't be opened, `persistence-and-migrations.md` §1) / create (`{name}`) |
+| GET/PATCH/DELETE | `/vaults/{v}` | read / rename (`{name}`; display name only) / move to data trash |
 | POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) |
 | GET | `/vaults/{v}/registry` | kinds, field types, field defs, link types, modules, consistency rules (drives the generic UI) |
 | PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) |

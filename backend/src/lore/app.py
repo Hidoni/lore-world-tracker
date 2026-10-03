@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import APIRouter, FastAPI
@@ -25,7 +27,10 @@ from lore.core.api.middleware import (
     allowed_hosts,
 )
 from lore.core.api.spa import spa_router
+from lore.core.db import ensure_sqlite_capabilities
 from lore.core.logging import configure_logging
+from lore.core.vaults import VaultManager
+from lore.core.vaults import router as vaults_router
 
 API_BASE_PATH = "/api/v1"
 
@@ -37,6 +42,16 @@ def operation_id(route: APIRoute) -> str:
     return route.name
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Refuse to start on an unsupported SQLite build; close vaults (engines, locks) on exit."""
+    ensure_sqlite_capabilities()
+    try:
+        yield
+    finally:
+        app.state.vaults.close()
+
+
 def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(
         title="Lore World Tracker",
@@ -45,12 +60,17 @@ def create_app(settings: Settings) -> FastAPI:
         docs_url=f"{API_BASE_PATH}/docs",
         redoc_url=None,
         generate_unique_id_function=operation_id,
+        lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.vaults = VaultManager(
+        settings.data_dir, read_only=settings.read_only, exposed_vaults=settings.exposed_vaults
+    )
     install_error_handlers(app)
 
     api = APIRouter(prefix=API_BASE_PATH, responses=PROBLEM_RESPONSES)
     api.include_router(system.router)
+    api.include_router(vaults_router.router)
     app.include_router(api)
 
     if settings.static_dir is not None:
