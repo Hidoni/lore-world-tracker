@@ -4,7 +4,6 @@ Extension points whose machinery doesn't exist yet are accepted and stored as op
 the issue that builds each one replaces its alias with a real protocol:
 
 - ``SlotProvider``, ``TimelineTableSpec``: time core (M3)
-- ``SearchContributor``: search (#39)
 - ``GraphContributor``: graph module (M8)
 - ``VisibilityFilter``: visibility framework (#40)
 - ``BackupContributor``: backups (#41)
@@ -32,11 +31,11 @@ from lore.core.richtext.handlers import RichTextNodeHandler
 
 if TYPE_CHECKING:
     from lore.core.modules.registry import ModuleRegistry
+    from lore.core.search.documents import SearchContributor
     from lore.core.vaults import OpenVault
 
 type SlotProvider = object
 type TimelineTableSpec = object
-type SearchContributor = object
 type GraphContributor = object
 type VisibilityFilter = object
 type BackupContributor = object

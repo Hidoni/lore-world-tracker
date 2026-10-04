@@ -176,8 +176,8 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/vaults/{v}/search` | `q, kinds, dimension, limit, cursor` → hits with highlighted snippets (entities + module docs) |
-| GET | `/vaults/{v}/search/quick` | quick switcher (names/aliases, prefix + trigram) |
+| GET | `/vaults/{v}/search` | `q` (search expression, below), `kind` (entity kinds or module document types, repeatable), `dimension` (+ `include_multiversal`, default true), `cursor, limit` → `{items: [{doc_type, doc_id, entity_id, kind, name, icon, color, dimension_id, visibility, snippet: {source, parts: [{text, match}]} \| null}], next_cursor}`, best first (bm25: name > aliases > summary > body > fields). Entities and module documents. |
+| GET | `/vaults/{v}/search/quick` | quick switcher: `q`, `kind`, `dimension`, `include_multiversal` → `{items}` (≤ 20): names/aliases with words starting with every typed word, then names/public aliases containing the typed text (≥ 3 characters); `alias` = the alias that matched when the name didn't. Typed text is never an expression. |
 | GET | `/vaults/{v}/m/graph/graph` | `dimension, center, depth, kinds, link_types, include_mentions, tags, timeline, at` → `{nodes, edges}` |
 | GET | `/vaults/{v}/consistency/findings` | `status, severity, rule, entity, cursor` |
 | POST | `/vaults/{v}/consistency/scan` | full re-scan |
@@ -186,6 +186,13 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | GET | `/vaults/{v}/changes` | recent changes feed, newest first (`cursor, limit`) → `{items: [{id, created_at, updated_at, origin, summary, reverts/reverted_by ids, change_count, entities: [{id, name, kind, exists}]}], next_cursor}` |
 | GET | `/vaults/{v}/changes/{id}` | changeset detail with row-level `changes` (`before`/`after` full rows, JSON columns decoded, `entity_ids`) |
 | POST | `/vaults/{v}/changes/{id}/revert` | undo a changeset → `{changeset (the undo), affected}`; `409 revert_conflict` (`context.rows` changed since, or `context.problems` rules the undo would break), `409 conflict` if already undone (`data-model.md` §7) |
+
+**Search expressions** (`q` of `/search`, `lore.core.search.expression`): a word matches words
+that start with it (`dra` finds "Dragon"); `"quoted phrases"` match those words in order, exactly
+(`"red dra"*`: the last word as a prefix); words are all required (`AND` is accepted and
+optional); `OR` (upper case) separates alternatives; `-word`, `-"phrase"`, `-(…)` or `NOT word`
+leave out; parentheses group. Matching ignores case and accents. An expression that can't be
+understood, or that only leaves out, answers `422` with the reason on `q`.
 
 ### Content modules (high level; details in `docs/modules/*.md`)
 

@@ -149,16 +149,13 @@ def crippled() -> sqlite3.Connection:
 
 def test_capability_check_reports_what_is_missing() -> None:
     assert missing_sqlite_capabilities(crippled) == [
-        "sqlite>=3.43.0 (found 3.40.1)",
+        "sqlite>=3.45.0 (found 3.40.1)",
         "fts5_trigram",
-        "fts5_contentless_delete",
     ]
     with pytest.raises(SQLiteCapabilityError) as caught:
         ensure_sqlite_capabilities(crippled)
     assert caught.value.code == "sqlite_unsupported"
-    assert caught.value.context == {
-        "missing": ["sqlite>=3.43.0 (found 3.40.1)", "fts5_trigram", "fts5_contentless_delete"]
-    }
+    assert caught.value.context == {"missing": ["sqlite>=3.45.0 (found 3.40.1)", "fts5_trigram"]}
 
 
 def test_app_refuses_to_start_without_capabilities(

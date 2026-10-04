@@ -11,8 +11,9 @@ from sqlalchemy.pool import ConnectionPoolEntry, Pool, QueuePool
 
 from lore.core.errors import LoreError
 
-# FTS5 contentless_delete arrived in 3.43 (trigram in 3.34, window functions in 3.25).
-MIN_SQLITE_VERSION = (3, 43, 0)
+# The trigram tokenizer's remove_diacritics option arrived in 3.45 (trigram in 3.34, window
+# functions in 3.25).
+MIN_SQLITE_VERSION = (3, 45, 0)
 
 # Applied on every new connection, in this order. journal_mode is persistent and needs write
 # access, so read-only connections skip it.
@@ -35,16 +36,9 @@ _PROBES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "fts5_trigram",
         (
-            "CREATE VIRTUAL TABLE temp.lore_probe_trigram USING fts5(x, tokenize = 'trigram')",
+            "CREATE VIRTUAL TABLE temp.lore_probe_trigram"
+            " USING fts5(x, tokenize = 'trigram remove_diacritics 1')",
             "DROP TABLE temp.lore_probe_trigram",
-        ),
-    ),
-    (
-        "fts5_contentless_delete",
-        (
-            "CREATE VIRTUAL TABLE temp.lore_probe_cd"
-            " USING fts5(x, content = '', contentless_delete = 1)",
-            "DROP TABLE temp.lore_probe_cd",
         ),
     ),
 )

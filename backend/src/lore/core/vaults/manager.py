@@ -488,6 +488,8 @@ class VaultManager:
                 if self.module_registry is not None:
                     with opened.write_sessions.begin() as session:
                         _record_module_states(session, self.module_registry)
+                    with opened.write_sessions.begin() as session:
+                        _ensure_search_index(opened, session, self.module_registry)
             self._open[vault_id] = opened
             return opened
 
@@ -603,6 +605,17 @@ def _record_module_states(session: Session, registry: ModuleRegistry) -> None:
     from lore.core.modules.service import record_module_states  # noqa: PLC0415
 
     record_module_states(session, registry)
+
+
+def _ensure_search_index(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:
+    """Build the search index when it is missing or outdated (``data-model.md`` §9)."""
+    # Imported here: the search package depends on core packages that import this one.
+    from lore.core.modules.spec import VaultContext  # noqa: PLC0415
+    from lore.core.search.indexer import ensure_index  # noqa: PLC0415
+
+    count = ensure_index(VaultContext(opened, session, registry))
+    if count is not None:
+        logger.info("indexed vault %s for search (%d documents)", opened.id, count)
 
 
 def _record_modules(path: Path, registry: ModuleRegistry) -> None:

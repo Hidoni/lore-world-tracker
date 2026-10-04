@@ -389,21 +389,46 @@ entries, gallery items), plus `entities.field_visibility` and rich-text block at
 
 ## 9. Search tables (derived)
 
-- `search_docs(rowid INTEGER PK, doc_type ('entity' | '<module>.<type>'), doc_id, entity_id,
-  dimension_id, kind, visibility, deleted)`.
-- `search_fts` (FTS5, `contentless_delete=1`, rowid = `search_docs.rowid`), columns: `name`,
+- `search_docs(rowid INTEGER PK, doc_type ('entity' | '<module>.<type>'), doc_id, entity_id →
+  entities ON DELETE CASCADE, dimension_id, kind, visibility, deleted)`, unique
+  `(doc_type, doc_id)`, index `(entity_id)`, plus the document's **text columns** `name`,
   `aliases_public`, `aliases_restricted`, `summary`, `body_public`, `body_restricted`,
-  `fields_public`, `fields_restricted`, `extra_public`, `extra_restricted`. Tokenizer
-  `unicode61 remove_diacritics 2`, prefix indexes `2 3 4`.
-- `search_trigram` (FTS5 trigram) on `name` + public aliases for substring matching (quick
-  switcher).
+  `fields_public`, `fields_restricted`, `extra_public`, `extra_restricted` (multi-valued text
+  joined with newlines). `kind` is the entity's kind for entity documents and the `doc_type` for
+  module documents; `entity_id` is the entity a module document belongs to (a lexicon entry's
+  language). Model: `lore.core.search.models.SearchDoc`.
+- `search_fts` (FTS5) over the text columns, **external content** `search_docs` (rowid =
+  `search_docs.rowid`). Tokenizer `unicode61 remove_diacritics 2`, prefix indexes `2 3 4`.
+- `search_trigram` (FTS5, tokenizer `trigram remove_diacritics 1`) on `name` + `aliases_public`,
+  also with external content `search_docs`, for substring matching (quick switcher).
+- Triggers on `search_docs` (`search_docs_ai`, `_ad`, `_au`) keep both FTS tables in sync on
+  insert, delete and update, so a purge that cascades to `search_docs` also leaves the FTS tables
+  consistent. (Decided 2026-10-04: external content instead of the originally planned
+  `contentless_delete` tables. The stored text lets snippets be built for the hits of a page and
+  lets the triggers give FTS5 the exact old values on delete.)
 - "Public" columns hold content visible to readers (public and spoiler). "Restricted" columns hold
-  private content. Reader-mode queries are restricted to public columns with FTS5 column
-  filters. Author mode searches all columns.
+  private content: private aliases, private field values (the field's `field_visibility`, else
+  its `default_visibility`) and text in private `visibilityBlock`s of bodies and `rich_text`
+  fields. Reader-mode queries are restricted to public columns with FTS5 column filters, exclude
+  private documents and module documents of private entities, and build snippets from public
+  columns only. Author mode searches all columns.
+- Field text per type (`lore.core.search.documents`): text, long text, URL, integer → the value;
+  decimal → normalized (`1.50` → `1.5`); enum/multi-enum → option labels; measurement → value and
+  unit; rich text → its text; boolean, color, duration, time point and media → nothing. A module
+  field type contributes text through `FieldTypeDef.search_text`. Fields with
+  `searchable: false`, archived fields and fields of disabled modules aren't indexed.
 
-Maintained by the search service in the same transaction as the write. A
-`lore vault reindex` CLI rebuilds everything. Alembic autogenerate must ignore these virtual
-tables (`include_object` hook).
+Maintained by `lore.core.search.indexer.SearchIndexer` in the same transaction as the write: the
+entity service on create, update (when a searched member changes), trash and restore; undo for the
+entities whose row or aliases it touched; enabling or disabling modules for the entities of the
+kinds they own or contribute fields to; modules for their own documents
+(`SearchContributor`, `modules.md` §2.1). Queries hide trashed documents, documents of disabled
+modules' kinds or document types, and module documents whose entity is trashed or unavailable.
+
+`lore vault reindex` rebuilds everything. `vault_meta.search_index = {version}` records the
+`INDEX_VERSION` the index was built with: the first author-mode open of a vault whose index is
+missing (e.g. right after the migration that created the tables) or was built by another version
+rebuilds it. Alembic autogenerate ignores the FTS tables (`include_object` hook).
 
 ## 10. Versioned JSON documents
 

@@ -6,7 +6,8 @@ otherwise ``409 revert_conflict`` lists the rows. The rows get
 their ``before`` values back, except that ``revision`` moves on and ``updated_at`` is now (decided
 2026-10-04), so a client still holding the undone revision gets a conflict instead of silently
 overwriting the undo. The undo is itself a changeset (origin ``undo``), which can be reverted
-(redo). Derived data is recomputed by ``REVERT_HOOKS`` (search, mentions, … register there).
+(redo). Derived data is recomputed: core's (mentions, entity search documents) here, modules'
+by ``REVERT_HOOKS``.
 
 An undo is a save like any other: the reverted state must keep every rule a normal write enforces
 (link kinds, uniqueness and cardinality, validity, parent kinds/cycles/dimensions, required fields,
@@ -45,6 +46,7 @@ from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import LinkTypeDef
+from lore.core.search.indexer import SearchIndexer
 from lore.core.types import Affected
 from lore.core.vaults import OpenVault
 
@@ -52,7 +54,8 @@ type RevertHook = Callable[[VaultContext, Sequence[Change]], None]
 
 REVERT_HOOKS: list[RevertHook] = []
 """Called after a revert with the reverted changes, to recompute derived data (extension
-point: search #39 and time propagation M3 append here; mentions are refreshed by core)."""
+point: modules re-index their search documents and time propagation (M3) appends here; core
+refreshes mentions and entity search documents itself)."""
 
 
 SHOWN_PROBLEMS = 3  # in the detail message; context.problems lists all
@@ -261,12 +264,18 @@ class HistoryService:
         return list(unique.values())
 
     def _refresh_derived(self, context: VaultContext, changes: Sequence[Change]) -> None:
-        """Core derived data of the reverted rows: mentions of every entity whose row changed."""
+        """Core derived data of the reverted rows: mentions of every entity whose row changed,
+        and the search documents of the entities whose row or aliases changed."""
         entities = EntityService(context)
         for entity_id in {c.row_id for c in changes if c.table_name == "entities"}:
             entity = self.session.get(Entity, entity_id)
             if entity is not None:
                 entities.refresh_mentions(entity)
+        searched = {c.row_id for c in changes if c.table_name == "entities"}
+        for change in changes:
+            if change.table_name == "entity_aliases":
+                searched |= {row["entity_id"] for row in (change.before, change.after) if row}
+        SearchIndexer(context).index_entities(searched)
 
     def _dangling_references(self) -> list[dict[str, str]]:
         """Foreign keys left pointing at rows the revert removed (checks are deferred until the

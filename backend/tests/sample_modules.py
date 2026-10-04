@@ -27,6 +27,7 @@ from lore.core.registry import (
     Trigger,
 )
 from lore.core.richtext.handlers import RichTextNodeHandler
+from lore.core.search import SearchContributor
 
 
 class SampleBase(DeclarativeBase):
@@ -168,7 +169,7 @@ SAMPLE = ModuleSpec(
     routers=(sample_router,),
     slot_providers=(object(),),
     timeline_tables=(object(),),
-    search_contributors=(object(),),
+    search_contributors=(SearchContributor("sample.note", lambda _c, _ids: [], "Note", "note"),),
     graph_contributors=(object(),),
     consistency_rules=(
         RuleDef(

@@ -95,8 +95,8 @@ PRAGMA temp_store = MEMORY;
   resolved times).
 - **Read-only mode** opens `file:lore.db?mode=ro&uri=true`. Published snapshots
   (`journal_mode=DELETE`) are additionally opened with `immutable=1`.
-- Requirements: SQLite with FTS5 (incl. trigram tokenizer, ≥ 3.34), JSON1, window functions and
-  `contentless_delete` (≥ 3.43). The Python 3.14 builds used locally (3.50.x) and in the Docker
+- Requirements: SQLite ≥ 3.45 with FTS5 (incl. the trigram tokenizer with `remove_diacritics`),
+  JSON1 and window functions. The Python 3.14 builds used locally (3.50.x) and in the Docker
   image satisfy this. Startup (the app lifespan) checks it with probes on an in-memory database
   and refuses to run otherwise (`lore.core.db.ensure_sqlite_capabilities`).
 

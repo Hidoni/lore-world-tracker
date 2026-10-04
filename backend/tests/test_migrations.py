@@ -9,6 +9,7 @@ from sqlalchemy import Column, Integer, MetaData, Table
 
 from lore.core.db import create_vault_engine
 from lore.core.db.migrate import (
+    IGNORED_PREFIXES,
     MIGRATIONS_DIR,
     MigrationError,
     Migrator,
@@ -49,7 +50,13 @@ def test_upgrade_an_empty_database_to_head(migrations: MigrationHarness) -> None
         vault={"vault_id": "v-1", "name": "Aetheria", "created_at": "2026-10-03T00:00:00+00:00"}
     )
     assert migrations.revision == Migrator().head()
-    assert migrations.tables() == {"alembic_version", *load_metadata().tables}
+    tables = migrations.tables()
+    # FTS5 tables (and their shadow tables) are created with op.execute, outside the metadata.
+    assert {"search_fts", "search_trigram"} <= tables
+    assert {t for t in tables if not t.startswith(IGNORED_PREFIXES)} == {
+        "alembic_version",
+        *load_metadata().tables,
+    }
     meta = {key: json.loads(value) for key, value in migrations.rows("SELECT * FROM vault_meta")}
     assert meta == {
         "vault_id": "v-1",
@@ -207,8 +214,8 @@ def test_check_ignores_fts_tables(tmp_path: Path) -> None:
         "fts000000001",
         REAL_HEAD,
         """
-        op.execute("CREATE VIRTUAL TABLE search_fts USING fts5(body)")
-        op.execute("CREATE VIRTUAL TABLE search_trigram USING fts5(body, tokenize='trigram')")
+        op.execute("CREATE VIRTUAL TABLE search_fts_extra USING fts5(body)")
+        op.execute("CREATE VIRTUAL TABLE search_trigram_extra USING fts5(body, tokenize='trigram')")
         """,
     )
     migrator = Migrator(script_directory(tmp_path / "m", {"fts.py": fts}))
