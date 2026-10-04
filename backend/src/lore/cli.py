@@ -14,7 +14,8 @@ from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
 from lore.core.models import load_metadata as load_core_metadata
-from lore.core.modules import ModuleRegistry
+from lore.core.modules import ModuleRegistry, VaultContext
+from lore.core.search.indexer import SearchIndexer
 from lore.core.vaults import VaultManager
 from lore.modules import ALL_MODULES, load_metadata
 
@@ -149,6 +150,23 @@ def vault_migrate(
     else:
         typer.echo(f"migrated {result.from_revision or 'base'} -> {result.to_revision}")
         typer.echo(f"backup: {result.backup}")
+
+
+@vault_app.command("reindex")
+def vault_reindex(vault: VaultArgument) -> None:
+    """Rebuild a vault's search index."""
+    manager = _vault_manager()
+    try:
+        opened = manager.open(manager.resolve(vault).id)
+        assert manager.module_registry is not None
+        with opened.write_sessions.begin() as session:
+            context = VaultContext(opened, session, manager.module_registry)
+            count = SearchIndexer(context).reindex()
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(f"indexed {count} documents")
 
 
 @db_app.command("revision")

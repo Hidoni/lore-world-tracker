@@ -13,8 +13,9 @@ must be easy to back up, move and share read-only, and needs full-text search an
 - Each **vault** is a folder containing `lore.db` (SQLite, WAL), `media/`, `backups/` and
   `vault.json`.
 - SQLAlchemy 2.0 ORM (sync), one engine per opened vault, one uvicorn worker.
-- SQLite features relied upon: FTS5 (incl. trigram), JSON1, window functions, `VACUUM INTO`,
-  `contentless_delete` (≥ 3.43, the startup check enforces it).
+- SQLite features relied upon: FTS5 (incl. trigram with `remove_diacritics`), JSON1, window
+  functions, `VACUUM INTO` (≥ 3.45, the startup check enforces it; search uses external-content
+  FTS tables rather than `contentless_delete`, see `data-model.md` §9).
 - Alembic migrations, single linear history, applied per vault on open with a pre-migration
   backup (`persistence-and-migrations.md`).
 

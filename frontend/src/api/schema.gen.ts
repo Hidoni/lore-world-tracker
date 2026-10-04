@@ -507,6 +507,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description Full-text search over names, aliases, summaries, bodies, fields and module documents,
+         *     best matches first, with highlighted snippets.
+         */
+        get: operations["search_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/search/quick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quick
+         * @description The quick switcher: up to 20 names or aliases starting with the typed words, then names
+         *     or public aliases containing the typed text.
+         */
+        get: operations["search_quick"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1526,6 +1568,36 @@ export interface components {
             title: string;
         };
         /**
+         * QuickHit
+         * @description A quick-switcher entry. ``alias`` is the alias that matched when the name didn't.
+         */
+        QuickHit: {
+            /** Doc Type */
+            doc_type: string;
+            /** Doc Id */
+            doc_id: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Alias */
+            alias: string | null;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Dimension Id */
+            dimension_id: string | null;
+            visibility: components["schemas"]["Visibility"];
+        };
+        /** QuickResults */
+        QuickResults: {
+            /** Items */
+            items: components["schemas"]["QuickHit"][];
+        };
+        /**
          * Registry
          * @description Everything the generic UI is generated from, for this vault's enabled modules.
          */
@@ -1591,6 +1663,38 @@ export interface components {
             quick_fixes: components["schemas"]["QuickFixOut"][];
         };
         /**
+         * SearchHit
+         * @description A matching document: an entity (``doc_type`` ``entity``, ``doc_id`` = ``entity_id``) or a
+         *     module document (``doc_type`` ``<module>.<type>``, belonging to ``entity_id``).
+         */
+        SearchHit: {
+            /** Doc Type */
+            doc_type: string;
+            /** Doc Id */
+            doc_id: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Dimension Id */
+            dimension_id: string | null;
+            visibility: components["schemas"]["Visibility"];
+            snippet: components["schemas"]["Snippet"] | null;
+        };
+        /** SearchPage */
+        SearchPage: {
+            /** Items */
+            items: components["schemas"]["SearchHit"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
          * SlotRef
          * @description A referenceable time slot of a record (time-model §6).
          */
@@ -1604,6 +1708,27 @@ export interface components {
             /** Occurrence */
             occurrence?: string | null;
         };
+        /**
+         * Snippet
+         * @description Text around the matches, from one column (``source``). ``parts`` joined is the text.
+         */
+        Snippet: {
+            source: components["schemas"]["SnippetSource"];
+            /** Parts */
+            parts: components["schemas"]["SnippetPart"][];
+        };
+        /**
+         * SnippetPart
+         * @description A piece of a snippet; ``match`` pieces are highlighted.
+         */
+        SnippetPart: {
+            /** Text */
+            text: string;
+            /** Match */
+            match: boolean;
+        };
+        /** @enum {string} */
+        SnippetSource: "aliases" | "summary" | "body" | "fields" | "extra";
         SortKey: string;
         TagName: string;
         /** TagOut */
@@ -2974,6 +3099,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChangesetPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_search: {
+        parameters: {
+            query: {
+                /** @description Words match word beginnings; "quoted phrases" match exactly; OR between alternatives; -word or NOT word leaves out; parentheses group. */
+                q: string;
+                /** @description Entity kinds or module document types (repeatable). */
+                kind?: string[] | null;
+                dimension?: string | null;
+                include_multiversal?: boolean;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_quick: {
+        parameters: {
+            query: {
+                q: string;
+                /** @description Entity kinds or module document types (repeatable). */
+                kind?: string[] | null;
+                dimension?: string | null;
+                include_multiversal?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuickResults"];
                 };
             };
             /** @description Problem */

@@ -113,4 +113,8 @@ def set_module_enabled(
         hook = registry.get(switched_off).on_disable  # type: ignore[union-attr]
         if hook is not None:
             hook(context)
+    # Imported here: the search indexer reads the module states through this module.
+    from lore.core.search.indexer import SearchIndexer  # noqa: PLC0415
+
+    SearchIndexer(context).reindex_for_modules([*change.enabled, *change.disabled])
     return change

@@ -43,6 +43,7 @@ from lore.core.modules.spec import VaultContext
 from lore.core.richtext import SCHEMA_VERSION as RICHTEXT_SCHEMA_VERSION
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
+from lore.core.search.indexer import SearchIndexer
 from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
 
@@ -97,6 +98,7 @@ class EntityService:
         self.extensions = self.registry.kind_extensions_for(enabled)
         self.richtext = self.registry.richtext_handlers()
         self._kind_fields: dict[str, KindFields] = {}
+        self._indexer: SearchIndexer | None = None
 
     # --- reads ----------------------------------------------------------------------------------
 
@@ -198,6 +200,7 @@ class EntityService:
         links = self._add_links(entity, data.links_add)
         self.refresh_mentions(entity)
         self.session.flush()
+        self.reindex(entity)
         affected = self._affected([entity.id, entity.parent_id], [entity.dimension_id], True)
         return EntityWriteResult(
             entity=self.to_out(entity), affected=self._with_links(affected, links)
@@ -239,6 +242,8 @@ class EntityService:
         if sent & {"body", "fields", "field_visibility"}:
             self.refresh_mentions(entity)
         self.session.flush()
+        if sent & _SEARCH_MEMBERS:
+            self.reindex(entity)
         affected = self._affected(
             [entity.id, old_parent, entity.parent_id],
             [old_dimension, entity.dimension_id],
@@ -292,6 +297,7 @@ class EntityService:
         if entity.deleted_at is None:
             entity.deleted_at = utc_now()
             self.session.flush()
+            self.reindex(entity)
         return EntityDeleteResult(
             id=entity.id,
             purged=False,
@@ -305,6 +311,7 @@ class EntityService:
         if entity.deleted_at is not None:
             entity.deleted_at = None
             self.session.flush()
+            self.reindex(entity)
         return EntityWriteResult(
             entity=self.to_out(entity),
             affected=self._affected([entity.id, entity.parent_id], [entity.dimension_id], True),
@@ -380,6 +387,12 @@ class EntityService:
             level = entity.field_visibility.get(key, field.default_visibility)
             documents += [(doc, level) for doc in (value if field.multiple else [value])]
         replace_mentions(self.session, entity.id, count_mentions(documents, self.richtext))
+
+    def reindex(self, entity: Entity) -> None:
+        """Update the entity's search document (its purge cascades to it)."""
+        if self._indexer is None:
+            self._indexer = SearchIndexer(self.context)
+        self._indexer.index_entities([entity.id])
 
     def stored_problems(self, entity: Entity) -> list[str]:
         """Rules a stored entity breaks (used to vet an undo): required fields, its home

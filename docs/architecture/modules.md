@@ -103,9 +103,16 @@ Implementation: `lore.core.modules.ModuleSpec`. The definition types (`KindDef`,
 `FieldContribution`, `FieldTypeDef`, `LinkTypeDef`, `RuleDef`) live in `lore.core.registry`, which
 also holds core's own definitions (the field types of `data-model.md` §4.2, kinds `dimension`,
 `timeline`, `calendar`, `event`, and link types `core.participant`, `core.causes`,
-`core.related`). Extension points whose machinery comes later (slot providers, search, graph,
+`core.related`). Extension points whose machinery comes later (slot providers, graph,
 visibility, backup and publish contributors) are accepted and stored as opaque objects
-until their issue defines the protocol. `field_types` and `models` were added to the original
+until their issue defines the protocol. `search_contributors` are
+`lore.core.search.SearchContributor(doc_type, documents, label, icon)`: `doc_type` is
+`<module id>.<type>` (unique, not a kind key), and `documents(context, ids)` returns the current
+`SearchDocument`s with these ids (every document when `ids` is `None`, for reindexing). The
+module's services call `SearchIndexer(context).index_documents(doc_type, ids)` (or
+`remove_documents`) in their write transactions and re-index from a `REVERT_HOOKS` hook after an
+undo (`data-model.md` §9). A module field type can set `FieldTypeDef.search_text` (`(value,
+field) -> str`) to make its values searchable. `field_types` and `models` were added to the original
 design: the media module provides the `media` field type, and the explicit model list lets the
 registry validate table prefixes and include module tables in the migration metadata
 (`lore.modules.load_metadata`). `on_enable`/`on_disable` receive a `VaultContext` (vault,

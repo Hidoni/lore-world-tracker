@@ -31,12 +31,14 @@ from lore.core.registry.types import (
 )
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.richtext.schema import CORE_NODE_TYPES
+from lore.core.search.documents import SearchContributor
 
 CORE = "core"
 MISC_KIND = "misc"  # the misc module's catch-all parent; always allowed in allowed_parents
 RESERVED_IDS = frozenset({CORE, "custom"})
 
 _MODULE_ID = re.compile(r"[a-z][a-z0-9_]*")
+_DOC_TYPE = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")
 _KIND_KEY = re.compile(r"[a-z][a-z0-9_]*")
 _OWN_FIELD_KEY = re.compile(r"[a-z][a-z0-9_]*")
 _SUFFIX = r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*"
@@ -259,6 +261,27 @@ class ModuleRegistry:
         problems += self._validate_rules()
         problems += self._validate_kind_extensions()
         problems += self._validate_richtext_nodes()
+        problems += self._validate_search_contributors()
+        return problems
+
+    def _validate_search_contributors(self) -> list[str]:
+        problems: list[str] = []
+        owners: dict[str, str] = {}
+        kinds = self.all_kind_keys()
+        for module in self.modules:
+            for contributor in module.search_contributors:
+                if not isinstance(contributor, SearchContributor):
+                    problems.append(f"{module.id}: search contributors must be SearchContributor")
+                    continue
+                key = contributor.doc_type
+                where = f"{module.id}: search document type {key!r}"
+                if not _DOC_TYPE.fullmatch(key) or not key.startswith(module.id + "."):
+                    problems.append(f"{where} must be '{module.id}.<type>' (lower case)")
+                if key in owners:
+                    problems.append(f"{where} is also contributed by {owners[key]}")
+                if key in kinds:
+                    problems.append(f"{where} is a kind key")
+                owners[key] = module.id
         return problems
 
     def _validate_richtext_nodes(self) -> list[str]:

@@ -67,12 +67,14 @@ is reported to the client) when the value is invalid."""
 class FieldTypeDef:
     """A field value type (``data-model.md`` §4.2). Core provides the built-in types; a module may
     provide more (``media``). Core types are validated by ``lore.core.fields``; a module type
-    brings its own ``validate`` (``None``: any JSON value is accepted)."""
+    brings its own ``validate`` (``None``: any JSON value is accepted) and ``search_text``, how a
+    value reads in the search index (``None``: it isn't indexed)."""
 
     key: FieldTypeKey
     label: str
     description: str = ""
     validate: FieldValidator | None = None
+    search_text: Callable[[Any, FieldDef], str] | None = None
 
 
 @dataclass(frozen=True)
