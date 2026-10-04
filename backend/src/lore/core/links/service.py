@@ -16,6 +16,8 @@ Rules (decided 2026-10-04 where noted):
 - ``data`` must match the type's ``data_schema`` (JSON Schema draft 2020-12).
 - Trashed links, links of types that aren't offered and links whose other end is trashed (unless
   asked for) or of an unavailable kind are hidden from entity link lists.
+- Reads apply the request's ``VisibilityPolicy``: readers only see visible links between visible
+  entities, and mention counts of private blocks are never reported to them.
 """
 
 from collections.abc import Callable, Sequence
@@ -55,6 +57,7 @@ from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.richtext.models import Mention
 from lore.core.types import Affected
+from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 TIMELINE_KIND = "timeline"
 
@@ -122,9 +125,12 @@ def timeless(link: type[Link] | Any) -> ColumnElement[bool]:
 
 
 class LinkService:
-    def __init__(self, session: Session, registry: ModuleRegistry) -> None:
+    def __init__(
+        self, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy = AUTHOR
+    ) -> None:
         self.session = session
         self.registry = registry
+        self.policy = policy  # applied by reads; writes are author-only
         enabled = enabled_modules(session, registry)
         self.kinds = {kind.key for kind in registry.kinds_for(enabled)}
         self.catalog = LinkTypeCatalog(session, registry, enabled)
@@ -234,10 +240,10 @@ class LinkService:
         include_trashed: bool = False,
     ) -> EntityLinks:
         """The entity's links, by type, then manual order, then the other end's name.
-        ``include_trashed`` also lists links whose other end is in the trash. Hook point: the
-        time cursor (#102) and visibility (#40) add conditions here."""
+        ``include_trashed`` also lists links whose other end is in the trash (never for readers).
+        Hook point: the time cursor (#102) adds conditions here."""
         entity = self.session.get(Entity, entity_id)
-        if entity is None:
+        if entity is None or not self.policy.visible_ids(self.session, [entity_id]):
             raise NotFoundError(f"No entity {entity_id}.")
         if entity.kind not in self.kinds:
             raise ModuleDisabledError(f"The module of kind {entity.kind!r} is disabled.")
@@ -250,6 +256,8 @@ class LinkService:
             Link.link_type.in_(offered),
             or_(Link.source_id == entity_id, Link.target_id == entity_id),
             other.kind.in_(self.kinds),
+            *self.policy.links(Link),
+            *self.policy.entities(other),
         ]
         if not include_trashed:
             conditions.append(other.deleted_at.is_(None))
@@ -324,6 +332,7 @@ class LinkService:
             Mention.target_entity_id == entity_id,
             Mention.source_entity_id != entity_id,
             source.kind.in_(self.kinds),
+            *self.policy.entities(source),
         ]
         if not include_trashed:
             conditions.append(source.deleted_at.is_(None))
@@ -344,6 +353,13 @@ class LinkService:
             )
             entry.links.append(item)
         for mention, end in mentioned:
+            counts = MentionCountsOut(
+                public=mention.count_public,
+                spoiler=mention.count_spoiler,
+                private=mention.count_private if self.policy.shows("private") else 0,
+            )
+            if counts.public + counts.spoiler + counts.private == 0:
+                continue  # only private mentions, hidden from this policy
             entry = by_source.setdefault(
                 end.id,
                 Backlink(
@@ -352,11 +368,7 @@ class LinkService:
                     mentions=MentionCountsOut(public=0, spoiler=0, private=0),
                 ),
             )
-            entry.mentions = MentionCountsOut(
-                public=mention.count_public,
-                spoiler=mention.count_spoiler,
-                private=mention.count_private,
-            )
+            entry.mentions = counts
         sort_names = dict(
             self.session.execute(
                 select(Entity.id, Entity.sort_name).where(Entity.id.in_(list(by_source)))

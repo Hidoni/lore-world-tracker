@@ -5,7 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query
 from sqlalchemy.orm import Session
 
-from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep, WritableVaultDep
+from lore.core.api.deps import (
+    ModuleRegistryDep,
+    PolicyDep,
+    SessionDep,
+    VaultDep,
+    WritableVaultDep,
+)
 from lore.core.entities.queries import EntityQueries
 from lore.core.entities.schemas import (
     ID_PATTERN,
@@ -24,6 +30,7 @@ from lore.core.entities.service import EntityService
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
 from lore.core.vaults import OpenVault
+from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 router = APIRouter(prefix="/vaults/{vault_id}/entities", tags=["entities"])
 tree_router = APIRouter(prefix="/vaults/{vault_id}", tags=["tree"])
@@ -37,12 +44,19 @@ KindsQuery = Annotated[
 CursorQuery = Annotated[str | None, Query(max_length=4096)]
 
 
-def _service(vault: OpenVault, session: Session, registry: ModuleRegistry) -> EntityService:
-    return EntityService(VaultContext(vault, session, registry))
+def _service(
+    vault: OpenVault,
+    session: Session,
+    registry: ModuleRegistry,
+    policy: VisibilityPolicy = AUTHOR,
+) -> EntityService:
+    return EntityService(VaultContext(vault, session, registry), policy)
 
 
-def _queries(vault: OpenVault, session: Session, registry: ModuleRegistry) -> EntityQueries:
-    return EntityQueries(_service(vault, session, registry))
+def _queries(
+    vault: OpenVault, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy
+) -> EntityQueries:
+    return EntityQueries(_service(vault, session, registry, policy))
 
 
 # Static paths first: "/field-values" must not be taken for an entity id.
@@ -54,6 +68,7 @@ def list_entities(
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     kinds: KindsQuery = None,
     dimension: IdQuery = None,
     include_multiversal: bool = True,
@@ -71,7 +86,7 @@ def list_entities(
 ) -> EntityPage:
     """Entities of enabled kinds. ``dimension`` includes multiversal entities unless
     ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value."""
-    return _queries(vault, session, registry).list_entities(
+    return _queries(vault, session, registry, policy).list_entities(
         kinds=kinds,
         dimension=dimension,
         include_multiversal=include_multiversal,
@@ -91,13 +106,16 @@ def list_field_values(
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     kind: Annotated[str, Query(max_length=100)],
     field: Annotated[str, Query(max_length=200)],
     q: Annotated[str | None, Query(max_length=500)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> FieldValueList:
     """Distinct values of a text field for autocomplete, most used first."""
-    return _queries(vault, session, registry).field_values(kind=kind, field=field, q=q, limit=limit)
+    return _queries(vault, session, registry, policy).field_values(
+        kind=kind, field=field, q=q, limit=limit
+    )
 
 
 @tree_router.get("/tree", name="get")
@@ -106,6 +124,7 @@ def get_tree(
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     dimension: IdQuery = None,
     parent: IdQuery = None,
     kinds: KindsQuery = None,
@@ -114,7 +133,7 @@ def get_tree(
 ) -> TreePage:
     """One level of the navigation tree: the roots (entities without a shown parent), or the
     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name."""
-    return _queries(vault, session, registry).tree(
+    return _queries(vault, session, registry, policy).tree(
         dimension=dimension, parent=parent, kinds=kinds, cursor=cursor, limit=limit
     )
 
@@ -125,11 +144,12 @@ def list_trash(
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> TrashPage:
     """Trashed entities, most recently trashed first, with their orphaned children count."""
-    return _queries(vault, session, registry).trash(cursor=cursor, limit=limit)
+    return _queries(vault, session, registry, policy).trash(cursor=cursor, limit=limit)
 
 
 @router.post("", name="create", status_code=201)
@@ -142,10 +162,15 @@ def create_entity(
 
 @router.get("/{entity_id}", name="get")
 def get_entity(
-    entity_id: EntityIdPath, vault: VaultDep, session: SessionDep, registry: ModuleRegistryDep
+    entity_id: EntityIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
 ) -> EntityOut:
-    """The full entity (also when it is in the trash; ``deleted_at`` is then set)."""
-    return _service(vault, session, registry).get(entity_id)
+    """The full entity (for the author also when it is in the trash; ``deleted_at`` is then
+    set)."""
+    return _service(vault, session, registry, policy).get(entity_id)
 
 
 @router.get("/{entity_id}/children", name="children")
@@ -155,12 +180,13 @@ def list_children(
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     kinds: KindsQuery = None,
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> TreePage:
     """Children of every kind and dimension (not in the trash), sorted like the tree."""
-    return _queries(vault, session, registry).children(
+    return _queries(vault, session, registry, policy).children(
         entity_id, kinds=kinds, cursor=cursor, limit=limit
     )
 

@@ -5,12 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from sqlalchemy.orm import Session
 
-from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep
+from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.modules.registry import ModuleRegistry
-from lore.core.search.queries import AUTHOR, READER, SearchQueries
+from lore.core.search.queries import SearchQueries
 from lore.core.search.schemas import QuickResults, SearchPage
-from lore.core.vaults import OpenVault
+from lore.core.visibility import VisibilityPolicy
 
 router = APIRouter(prefix="/vaults/{vault_id}/search", tags=["search"])
 
@@ -21,18 +21,17 @@ KindsQuery = Annotated[
 DimensionQuery = Annotated[str | None, Query(pattern=ID_PATTERN)]
 
 
-def _queries(vault: OpenVault, session: Session, registry: ModuleRegistry) -> SearchQueries:
-    # Until the visibility framework (#40) passes its policy: a read-only server searches as a
-    # reader.
-    return SearchQueries(session, registry, READER if vault.read_only else AUTHOR)
+def _queries(session: Session, registry: ModuleRegistry, policy: VisibilityPolicy) -> SearchQueries:
+    return SearchQueries(session, registry, policy)
 
 
 @router.get("", name="search")
 def search(
     *,
-    vault: VaultDep,
+    _vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     q: Annotated[
         str,
         Query(
@@ -50,7 +49,7 @@ def search(
 ) -> SearchPage:
     """Full-text search over names, aliases, summaries, bodies, fields and module documents,
     best matches first, with highlighted snippets."""
-    return _queries(vault, session, registry).search(
+    return _queries(session, registry, policy).search(
         q,
         kinds=kinds,
         dimension=dimension,
@@ -63,9 +62,10 @@ def search(
 @router.get("/quick", name="quick")
 def quick(
     *,
-    vault: VaultDep,
+    _vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     q: Annotated[str, Query(max_length=200)],
     kinds: KindsQuery = None,
     dimension: DimensionQuery = None,
@@ -73,6 +73,6 @@ def quick(
 ) -> QuickResults:
     """The quick switcher: up to 20 names or aliases starting with the typed words, then names
     or public aliases containing the typed text."""
-    return _queries(vault, session, registry).quick(
+    return _queries(session, registry, policy).quick(
         q, kinds=kinds, dimension=dimension, include_multiversal=include_multiversal
     )

@@ -4,7 +4,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path, Query
 
-from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep, WritableVaultDep
+from lore.core.api.deps import (
+    ModuleRegistryDep,
+    PolicyDep,
+    SessionDep,
+    VaultDep,
+    WritableVaultDep,
+)
 from lore.core.links.schemas import (
     ID_PATTERN,
     LINK_TYPE_KEY_PATTERN,
@@ -106,6 +112,7 @@ def list_entity_links(
     _vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     direction: Literal["out", "in", "both"] = "both",
     types: Annotated[
         list[str] | None, Query(alias="type", description="Link type keys (repeatable).")
@@ -115,7 +122,7 @@ def list_entity_links(
     ] = False,
 ) -> EntityLinks:
     """The entity's links in both directions (symmetric ones as ``both``)."""
-    return LinkService(session, registry).entity_links(
+    return LinkService(session, registry, policy).entity_links(
         entity_id, direction=direction, types=types, include_trashed=include_trashed
     )
 
@@ -127,8 +134,11 @@ def list_backlinks(
     _vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    policy: PolicyDep,
     include_trashed: Annotated[bool, Query(description="Also entities in the trash.")] = False,
 ) -> Backlinks:
     """Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
     block visibility, by name."""
-    return LinkService(session, registry).backlinks(entity_id, include_trashed=include_trashed)
+    return LinkService(session, registry, policy).backlinks(
+        entity_id, include_trashed=include_trashed
+    )

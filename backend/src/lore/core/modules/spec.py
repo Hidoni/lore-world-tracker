@@ -5,7 +5,6 @@ the issue that builds each one replaces its alias with a real protocol:
 
 - ``SlotProvider``, ``TimelineTableSpec``: time core (M3)
 - ``GraphContributor``: graph module (M8)
-- ``VisibilityFilter``: visibility framework (#40)
 - ``BackupContributor``: backups (#41)
 - ``PublishContributor``: published snapshots (M12)
 """
@@ -28,6 +27,7 @@ from lore.core.registry.types import (
     RuleDef,
 )
 from lore.core.richtext.handlers import RichTextNodeHandler
+from lore.core.visibility.filters import VisibilityFilter
 
 if TYPE_CHECKING:
     from lore.core.modules.registry import ModuleRegistry
@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 type SlotProvider = object
 type TimelineTableSpec = object
 type GraphContributor = object
-type VisibilityFilter = object
 type BackupContributor = object
 type PublishContributor = object
 

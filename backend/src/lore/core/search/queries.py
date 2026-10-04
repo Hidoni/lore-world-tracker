@@ -3,10 +3,9 @@ snippets, and the quick switcher.
 
 Documents are found when they aren't trashed, their kind (entities) or type (module documents) is
 available (its module enabled), and, for module documents, the entity they belong to is shown
-too. **Readers** (``SearchAudience.reader``) only search the public columns, through an FTS5
-column filter, never see private documents (or documents of private entities), and get snippets
-from public columns only. Full reader enforcement (effective visibility) arrives with the
-visibility framework (#40), which passes its policy object here.
+too. **Readers** (``VisibilityPolicy.reader``) only search the public columns, through an FTS5
+column filter, never see private documents or documents whose entity the policy hides (effective
+visibility: e.g. an entity in a private dimension), and get snippets from public columns only.
 """
 
 import base64
@@ -14,11 +13,10 @@ import binascii
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
 
-from sqlalchemy import bindparam, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy import bindparam, exists, literal_column, select, text
+from sqlalchemy.orm import Session, aliased
 
 from lore.core.entities.models import Entity, fold_text
 from lore.core.errors import InvalidInputError
@@ -39,6 +37,7 @@ from lore.core.search.schemas import (
     SnippetPart,
     SnippetSource,
 )
+from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 DIMENSION_KIND = "dimension"
 QUICK_LIMIT = 20
@@ -76,22 +75,6 @@ _QUICK_BM25 = "bm25(search_fts, " + ", ".join(
 ) + ")"  # fmt: skip
 
 
-class SearchAudience(Protocol):
-    """What search needs from a visibility policy: whether the reader restrictions apply."""
-
-    @property
-    def reader(self) -> bool: ...
-
-
-@dataclass(frozen=True)
-class Audience:
-    reader: bool = False
-
-
-AUTHOR = Audience(reader=False)
-READER = Audience(reader=True)
-
-
 def _invalid(path: str, message: str) -> InvalidInputError:
     return InvalidInputError(message, errors=[{"path": path, "code": "invalid_value",
                                                "message": message}])  # fmt: skip
@@ -119,11 +102,12 @@ def _columns_filter(columns: Sequence[str], expression: str) -> str:
 
 class SearchQueries:
     def __init__(
-        self, session: Session, registry: ModuleRegistry, audience: SearchAudience = AUTHOR
+        self, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy = AUTHOR
     ) -> None:
         self.session = session
         self.registry = registry
-        self.reader = audience.reader
+        self.policy = policy
+        self.reader = policy.reader
         enabled = enabled_modules(session, registry)
         self.kinds: dict[str, RegisteredKind] = {k.key: k for k in registry.kinds_for(enabled)}
         self.contributors: dict[str, SearchContributor] = {
@@ -147,11 +131,10 @@ class SearchQueries:
         params["shown"] = shown
         params["entity_kinds"] = list(self.kinds)
         owner = "e.id = d.entity_id AND e.deleted_at IS NULL AND e.kind IN :entity_kinds"
-        if self.reader:
-            conditions.append("d.visibility != 'private'")
-            owner += " AND e.visibility != 'private'"
         conditions.append(f"(d.doc_type = '{ENTITY_DOC}' OR EXISTS "
                           f"(SELECT 1 FROM entities e WHERE {owner}))")  # fmt: skip
+        if self.reader:
+            conditions += ["d.visibility != 'private'", self._visible_owner()]
         if kinds:
             known = self.registry.all_kind_keys() | set(contributors(self.registry))
             unknown = [kind for kind in kinds if kind not in known]
@@ -167,6 +150,16 @@ class SearchQueries:
             else:
                 conditions.append("d.dimension_id = :dimension")
         return " AND ".join(conditions)
+
+    def _visible_owner(self) -> str:
+        """SQL: the policy shows the document's entity (the policy's own conditions, compiled
+        with literal values: they hold no user input)."""
+        owner = aliased(Entity, name="vis_owner")
+        condition = exists().where(
+            owner.id == literal_column("d.entity_id"), *self.policy.entities(owner)
+        )
+        dialect = self.session.get_bind().dialect
+        return str(condition.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
 
     def _execute(self, sql: str, params: dict[str, Any]) -> Sequence[Any]:
         statement = text(sql)

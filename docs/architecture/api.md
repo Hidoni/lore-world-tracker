@@ -22,7 +22,7 @@
 | Request ids | Clients may send `X-Request-Id`. Every response returns one (generated if absent or unsafe), and it appears in the server logs. |
 | Body size | Non-multipart request bodies ≤ 10 MB, otherwise `413 payload_too_large`. |
 | Read-only mode | Every non-GET request returns `403 read_only`. Reads are visibility-filtered (`visibility-and-sharing.md`). |
-| Reader preview | Author mode accepts `?as_reader=true` on reads to apply reader filtering. |
+| Reader preview | Author mode accepts `?as_reader=true` on vault reads to apply reader filtering (`VisibilityPolicy`, `visibility-and-sharing.md` §3). Readers get `404` for history, the trash and hidden entities. |
 | OpenAPI hygiene | Explicit `operation_id` (`<area>_<action>`, e.g. `entities_get`): generated as `<first tag>_<route function name>`, so name path-operation functions after the action. Tags per area/module, response models for every route, examples for time-related schemas. The document is served at `/api/v1/openapi.json` and printed by `lore openapi`. |
 | Versioning | Breaking changes are coordinated in the same repo (frontend + backend in one PR), so `/api/v1` stays until a public consumer exists (e.g. an MCP module). Static-export snapshots carry their own format version. |
 

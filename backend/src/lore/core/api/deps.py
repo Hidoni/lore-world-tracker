@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterator
 from typing import Annotated
 
-from fastapi import Depends, Path, Request
+from fastapi import Depends, Path, Query, Request
 from sqlalchemy.orm import Session
 
 from lore.config import Settings
@@ -15,6 +15,7 @@ from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import VAULT_ID_PATTERN
+from lore.core.visibility import AUTHOR, READER, VisibilityPolicy
 
 
 def get_settings(request: Request) -> Settings:
@@ -52,6 +53,20 @@ def get_writable_vault(vault: VaultDep) -> OpenVault:
 
 
 WritableVaultDep = Annotated[OpenVault, Depends(get_writable_vault)]
+
+
+def get_policy(
+    settings: SettingsDep,
+    as_reader: Annotated[
+        bool, Query(description="Apply reader filtering (preview what readers see).")
+    ] = False,
+) -> VisibilityPolicy:
+    """The request's ``VisibilityPolicy`` (``visibility-and-sharing.md`` §3): readers on a
+    read-only server or with ``?as_reader=true``, otherwise the author."""
+    return READER if settings.read_only or as_reader else AUTHOR
+
+
+PolicyDep = Annotated[VisibilityPolicy, Depends(get_policy)]
 
 
 _READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})

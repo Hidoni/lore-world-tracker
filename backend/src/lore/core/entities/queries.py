@@ -2,9 +2,10 @@
 suggestions (``api.md`` §2, Entities).
 
 Every query starts from ``EntityQueries._shown``: the conditions an entity must meet to appear in
-any listing (its kind's module is enabled). **Hook point:** the time cursor (``timeline``/``at``
-existence filter, M3/M7) and the ``VisibilityPolicy`` (#40) add their conditions there, so the
-endpoints' signatures don't change.
+any listing (its kind's module is enabled, and the request's ``VisibilityPolicy`` shows it).
+**Hook point:** the time cursor (``timeline``/``at`` existence filter, M3/M7) adds its conditions
+there, so the endpoints' signatures don't change. Readers never see the trash; a visible entity
+whose parent they can't see is listed with ``parent_id`` null (a root).
 
 Pagination is keyset based (``api.md`` §1): the cursor holds the sort values of the last item, so
 pages stay stable while entities are inserted or deleted.
@@ -141,12 +142,13 @@ class EntityQueries:
     def __init__(self, service: EntityService) -> None:
         self.service = service
         self.session = service.session
+        self.policy = service.policy
 
     # --- shared conditions ----------------------------------------------------------------------
 
     def _shown(self, e: EntityTable) -> list[ColumnElement[bool]]:
         """What every listed entity must meet (see the module docstring: the hook point)."""
-        return [e.kind.in_(self.service.kinds)]
+        return [e.kind.in_(self.service.kinds), *self.policy.entities(e)]
 
     def _kinds(self, e: EntityTable, kinds: Sequence[str] | None) -> list[ColumnElement[bool]]:
         if not kinds:
@@ -216,7 +218,7 @@ class EntityQueries:
         if not include_trashed:
             conditions.append(e.deleted_at.is_(None))
         if parent is not None:
-            conditions.append(e.parent_id == parent)
+            conditions += [e.parent_id == parent, *self.policy.entity_ref(e.parent_id)]
         for tag_id in tags or ():
             conditions.append(
                 exists().where(EntityTag.entity_id == e.id, EntityTag.tag_id == tag_id)
@@ -244,7 +246,8 @@ class EntityQueries:
         return EntityPage(items=items, next_cursor=next_cursor)
 
     def trash(self, *, cursor: str | None = None, limit: int = 50) -> TrashPage:
-        """Trashed entities, most recently trashed first."""
+        """Trashed entities, most recently trashed first (author-only)."""
+        self.policy.require_author("The trash isn't available to readers.")
         statement = select(Entity).where(*self._shown(Entity), Entity.deleted_at.is_not(None))
         items, next_cursor = self._page(
             statement, e=Entity, sort="deleted", cursor=cursor, limit=limit, build=self._trash_items
@@ -252,19 +255,30 @@ class EntityQueries:
         return TrashPage(items=items, next_cursor=next_cursor)
 
     def _summaries(self, entities: list[Entity]) -> list[EntitySummary]:
-        return [self._summary(entity) for entity in entities]
+        parents = self._visible_parents(entities)
+        return [self._summary(entity, parents) for entity in entities]
 
-    def _summary(self, entity: Entity) -> EntitySummary:
+    def _visible_parents(self, entities: Sequence[Entity]) -> frozenset[str]:
+        return self.policy.visible_ids(self.session, (e.parent_id for e in entities))
+
+    def _summary(self, entity: Entity, parents: frozenset[str]) -> EntitySummary:
         kind_fields = self.service.kind_fields(self.service.kinds[entity.kind])
+        fields, _ = self.policy.fields(
+            self.session,
+            kind_fields.active,
+            entity.fields,
+            entity.field_visibility,
+            self.service.richtext,
+        )
         return EntitySummary(
             id=entity.id,
             kind=entity.kind,
             dimension_id=entity.dimension_id,
-            parent_id=entity.parent_id,
+            parent_id=entity.parent_id if entity.parent_id in parents else None,
             name=entity.name,
             slug=entity.slug,
             summary=entity.summary,
-            fields=kind_fields.visible(entity.fields),
+            fields=fields,
             visibility=entity.visibility,
             icon=entity.icon,
             color=entity.color,
@@ -288,8 +302,9 @@ class EntityQueries:
                 .group_by(child.parent_id)
             ).all()
         )
+        parents = self._visible_parents(entities)
         return [
-            TrashItem(**self._summary(e).model_dump(), orphan_count=counts.get(e.id, 0))
+            TrashItem(**self._summary(e, parents).model_dump(), orphan_count=counts.get(e.id, 0))
             for e in entities
         ]
 
@@ -319,7 +334,7 @@ class EntityQueries:
         e = Entity
         conditions = self._in_tree(e, dimension, kinds)
         if parent is not None:
-            conditions.append(e.parent_id == parent)
+            conditions += [e.parent_id == parent, *self.policy.entity_ref(e.parent_id)]
         else:
             shown_parent = aliased(Entity)
             conditions.append(
@@ -350,7 +365,7 @@ class EntityQueries:
         limit: int = 200,
     ) -> TreePage:
         """The children of an entity (every dimension), sorted like the tree."""
-        self.service.load(entity_id)  # 404 not_found / module_disabled
+        self.service.load_visible(entity_id)  # 404 not_found / module_disabled
         e = Entity
         conditions = [*self._in_tree(e, None, kinds), e.parent_id == entity_id]
         items, next_cursor = self._page(
@@ -377,6 +392,7 @@ class EntityQueries:
         )  # fmt: skip
         for parent_id, kind, count in rows:
             counts[str(parent_id)][kind] = count
+        parents = self._visible_parents(entities)
         return [
             TreeNode(
                 id=e.id,
@@ -385,7 +401,7 @@ class EntityQueries:
                 icon=e.icon,
                 color=e.color,
                 dimension_id=e.dimension_id,
-                parent_id=e.parent_id,
+                parent_id=e.parent_id if e.parent_id in parents else None,
                 multiversal=e.dimension_id is None and e.kind != DIMENSION_KIND,
                 visibility=e.visibility,
                 sort_key=e.sort_key,
@@ -412,7 +428,12 @@ class EntityQueries:
             raise _invalid("field", f"{field!r} is not a text field of this kind.")
 
         path = f'$."{field}"'  # field keys match ^[a-z][a-z0-9_.]*$: nothing to escape
-        conditions = [*self._shown(Entity), Entity.kind == kind, Entity.deleted_at.is_(None)]
+        conditions = [
+            *self._shown(Entity),
+            *self.policy.field(Entity, definition),
+            Entity.kind == kind,
+            Entity.deleted_at.is_(None),
+        ]
         if definition.multiple:
             values = func.json_each(Entity.fields, path).table_valued("value", "type")
             statement = (
