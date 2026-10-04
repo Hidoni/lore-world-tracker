@@ -191,7 +191,8 @@ export interface paths {
         };
         /**
          * Get
-         * @description The full entity (also when it is in the trash; ``deleted_at`` is then set).
+         * @description The full entity (for the author also when it is in the trash; ``deleted_at`` is then
+         *     set).
          */
         get: operations["entities_get"];
         put?: never;
@@ -2288,6 +2289,8 @@ export interface operations {
                 sort?: "name" | "-name" | "created" | "-created" | "updated" | "-updated" | "sort_key";
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2361,6 +2364,8 @@ export interface operations {
                 field: string;
                 q?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2393,7 +2398,10 @@ export interface operations {
     };
     entities_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Entity id. */
@@ -2507,6 +2515,8 @@ export interface operations {
                 kind?: string[] | null;
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2582,6 +2592,8 @@ export interface operations {
                 kind?: string[] | null;
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2617,6 +2629,8 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2903,6 +2917,8 @@ export interface operations {
                 type?: string[] | null;
                 /** @description Also links whose other end is in the trash. */
                 include_trashed?: boolean;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2940,6 +2956,8 @@ export interface operations {
             query?: {
                 /** @description Also entities in the trash. */
                 include_trashed?: boolean;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -2977,6 +2995,8 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -3009,7 +3029,10 @@ export interface operations {
     };
     changes_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Changeset id. */
@@ -3080,6 +3103,8 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -3123,6 +3148,8 @@ export interface operations {
                 include_multiversal?: boolean;
                 cursor?: string | null;
                 limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {
@@ -3161,6 +3188,8 @@ export interface operations {
                 kind?: string[] | null;
                 dimension?: string | null;
                 include_multiversal?: boolean;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
             };
             header?: never;
             path: {

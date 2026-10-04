@@ -41,18 +41,37 @@ correspondences · timelines (as entities) · module rows (map pins, gallery ite
 
 ## 3. Enforcement architecture
 
-1. **`VisibilityPolicy`** (core) is constructed per request: `AuthorPolicy` (sees everything) or
-   `ReaderPolicy` (read-only mode or `?as_reader=true`). Every repository/query helper takes the
-   policy and applies SQL-level filters (`visibility != 'private'` plus endpoint visibility
-   joins). Python-side post-filtering is allowed only for rich text.
+1. **`VisibilityPolicy`** (`lore.core.visibility`) is constructed per request by the `PolicyDep`
+   dependency: `AuthorPolicy` (sees everything) or `ReaderPolicy` (read-only mode or
+   `?as_reader=true`). Every repository/query helper takes the policy and applies SQL-level
+   filters (`visibility != 'private'` plus endpoint visibility joins): `entities(e)`,
+   `entity_ref(column)`, `rows(row)`, `links(link)`, `field(entity, field)`,
+   `module_rows(filter)`. Python-side post-filtering is allowed only for rich text
+   (`filter_richtext`, `fields`). Reader rules beyond §2 (decided 2026-10-04):
+   - An entity is hidden when it is private, **in the trash**, or its home dimension or origin
+     timeline is hidden. The trash is author-only, like history: `GET /trash`, history and
+     changesets answer `404`, `include_trashed` has no effect, and a trashed entity is `404` by id.
+   - A visible entity whose **parent is hidden** stays visible as a root: `parent_id` is `null`
+     in every response, and the tree lists it among the roots.
+   - Hidden entities are `404 not_found` by id (checked before anything else, so readers can't
+     tell them from missing ones), and filters naming them (`parent`, `dimension`, `tag`) match
+     nothing.
+   - A field value is hidden when its effective visibility (the entity's `field_visibility`
+     override, else the field's `default_visibility`) is private. `field_visibility` only lists
+     the fields readers see. `rich_text` values are filtered like bodies.
+   - Backlinks report no private mention counts (`private: 0`), and an entity whose only mentions
+     are in private blocks isn't listed.
 2. **Rich-text filtering** (`lore.core.richtext.filter_for_reader`) removes private
    `visibilityBlock`s, keeps spoilers flagged, and strips links to hidden entities. It is applied
    to bodies, rich-text fields and per-timeline notes.
 3. **Search:** reader queries use only the `*_public` FTS columns (`data-model.md` §9) and join
    `search_docs.visibility`. Snippets are generated from public columns only.
-4. **Modules** declare `visibility_filters` for their tables and `richtext_nodes` handlers for
-   their node types. The module registry refuses to register a module whose read endpoints aren't
-   covered (checked by the leak test suite, §5).
+4. **Modules** declare `visibility_filters` for their tables
+   (`VisibilityFilter(model, visibility_column="visibility", entity_columns=())`: a row is visible
+   when its own column isn't private and every entity it references is visible; queries apply it
+   with `policy.module_rows(filter)`) and `richtext_nodes` handlers for their node types. The
+   registry validates the filters (the module's own models, existing columns). A module whose read
+   endpoints aren't covered fails the leak test suite (§5).
 5. **Defense in depth:** reader-facing deployments serve **published snapshots** (§4), where
    private data does not exist at all.
 
@@ -79,19 +98,25 @@ correspondences · timelines (as entities) · module rows (map pins, gallery ite
 
 ## 5. Leak tests (mandatory)
 
-`backend/tests/visibility/` contains a **canary vault fixture**. Every kind of private content
+`backend/tests/visibility/` contains a **canary vault fixture** (`canary.py`). Every kind of
+private content
 (entities, aliases, field values, facts, links, blocks, notes, segments, correspondences, map
 pins, lexicon entries, media, branch timelines) contains unique canary strings (`CANARY-<n>`) and
 canary ids. The suite:
 
 1. Enumerates **every GET route** in the OpenAPI document (including module routes). A route
-   that isn't covered by a request recipe fails the test, so new endpoints must add recipes.
+   that isn't covered by a request recipe (`recipes.py`, keyed by the OpenAPI path) fails the
+   test, so new endpoints must add recipes. A meta-test checks that an added route without a
+   recipe fails.
 2. Calls each route in reader mode with realistic parameters (ids of public entities, windows
    covering everything, `at` cursors, searches for each canary string).
-3. Asserts that no response body contains any canary string or canary id, that media downloads
-   of private-only media return 404, and that counts exclude private items.
+3. Asserts that no response body contains any canary string or canary id (an error may echo
+   the id the request named), that each call returns the recipe's expected status, that media
+   downloads of private-only media return 404, and that counts exclude private items. It runs on
+   a read-only server and with `?as_reader=true`. A positive control checks that the author sees
+   every canary through the same recipes, so a missing canary means it was filtered.
 4. Runs the same assertions against a **published snapshot** of the fixture, served in read-only
-   mode.
+   mode (with published snapshots, #140).
 
 These tests run in CI on every PR that touches the backend.
 

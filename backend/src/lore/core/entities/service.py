@@ -46,6 +46,7 @@ from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
 from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
+from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 DIMENSION_KIND = "dimension"
 SLUG_MAX = 80
@@ -88,8 +89,9 @@ def _unique(values: Iterable[str | None]) -> list[str]:
 
 
 class EntityService:
-    def __init__(self, context: VaultContext) -> None:
+    def __init__(self, context: VaultContext, policy: VisibilityPolicy = AUTHOR) -> None:
         self.context = context
+        self.policy = policy  # applied by reads; writes are author-only
         self.session = context.session
         self.registry = context.registry
         enabled = enabled_modules(self.session, self.registry)
@@ -103,14 +105,22 @@ class EntityService:
     # --- reads ----------------------------------------------------------------------------------
 
     def get(self, entity_id: str) -> EntityOut:
-        """An entity, also when it is in the trash."""
-        return self.to_out(self._load(entity_id))
+        """An entity, also when it is in the trash (for the author)."""
+        return self.to_out(self.load_visible(entity_id))
 
     def to_out(self, entity: Entity) -> EntityOut:
+        """The entity as the policy may see it."""
         kind_fields = self.kind_fields(self._kind_of(entity))
+        fields, field_visibility = self.policy.fields(
+            self.session,
+            kind_fields.active,
+            entity.fields,
+            entity.field_visibility,
+            self.richtext,
+        )
         aliases = self.session.scalars(
             select(EntityAlias)
-            .where(EntityAlias.entity_id == entity.id)
+            .where(EntityAlias.entity_id == entity.id, *self.policy.rows(EntityAlias))
             .order_by(EntityAlias.sort_key, EntityAlias.id)
         )
         tags = self.session.scalars(
@@ -125,14 +135,14 @@ class EntityService:
             kind=entity.kind,
             dimension_id=entity.dimension_id,
             origin_timeline_id=entity.origin_timeline_id,
-            parent_id=entity.parent_id,
+            parent_id=self.visible_parent(entity),
             name=entity.name,
             slug=entity.slug,
             summary=entity.summary,
-            body=entity.body,
+            body=self.policy.filter_richtext(self.session, entity.body, self.richtext),
             body_schema_version=entity.body_schema_version,
-            fields=kind_fields.visible(entity.fields),
-            field_visibility=kind_fields.visible(entity.field_visibility),
+            fields=fields,
+            field_visibility=field_visibility,
             visibility=entity.visibility,
             icon=entity.icon,
             color=entity.color,
@@ -154,6 +164,15 @@ class EntityService:
             updated_at=entity.updated_at,
             deleted_at=entity.deleted_at,
         )
+
+    def visible_parent(self, entity: Entity) -> str | None:
+        """``parent_id``, or None when the policy hides the parent (the entity is then shown as
+        a root)."""
+        if entity.parent_id is None or entity.parent_id in self.policy.visible_ids(
+            self.session, [entity.parent_id]
+        ):
+            return entity.parent_id
+        return None
 
     def kind_fields(self, kind: RegisteredKind) -> KindFields:
         if kind.key not in self._kind_fields:
@@ -436,6 +455,13 @@ class EntityService:
     def load(self, entity_id: str) -> Entity:
         """The entity, also in the trash: ``404 not_found``, or ``404 module_disabled`` when its
         kind's module is disabled."""
+        return self._load(entity_id)
+
+    def load_visible(self, entity_id: str) -> Entity:
+        """``load`` for reads: also ``404 not_found`` when the policy hides the entity (checked
+        first, so readers can't tell a hidden entity from a missing one)."""
+        if entity_id not in self.policy.visible_ids(self.session, [entity_id]):
+            raise NotFoundError(f"No entity {entity_id}.")
         return self._load(entity_id)
 
     def _load(self, entity_id: str) -> Entity:

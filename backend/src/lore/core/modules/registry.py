@@ -32,6 +32,7 @@ from lore.core.registry.types import (
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.richtext.schema import CORE_NODE_TYPES
 from lore.core.search.documents import SearchContributor
+from lore.core.visibility.filters import VisibilityFilter
 
 CORE = "core"
 MISC_KIND = "misc"  # the misc module's catch-all parent; always allowed in allowed_parents
@@ -262,6 +263,29 @@ class ModuleRegistry:
         problems += self._validate_kind_extensions()
         problems += self._validate_richtext_nodes()
         problems += self._validate_search_contributors()
+        problems += self._validate_visibility_filters()
+        return problems
+
+    def _validate_visibility_filters(self) -> list[str]:
+        problems: list[str] = []
+        for module in self.modules:
+            filtered: set[type] = set()
+            for spec in module.visibility_filters:
+                if not isinstance(spec, VisibilityFilter):
+                    problems.append(f"{module.id}: visibility filters must be VisibilityFilter")
+                    continue
+                where = f"{module.id}: visibility filter of {spec.model.__name__}"
+                if spec.model not in module.models:
+                    problems.append(f"{where}: the model isn't one of the module's models")
+                    continue
+                if spec.model in filtered:
+                    problems.append(f"{where}: the model already has a filter")
+                filtered.add(spec.model)
+                columns = set(spec.model.__table__.columns.keys())  # type: ignore[attr-defined]
+                wanted = [spec.visibility_column, *spec.entity_columns]
+                for column in wanted:
+                    if column is not None and column not in columns:
+                        problems.append(f"{where}: no column {column!r}")
         return problems
 
     def _validate_search_contributors(self) -> list[str]:

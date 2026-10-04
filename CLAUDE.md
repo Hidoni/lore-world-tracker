@@ -50,8 +50,8 @@ which issue adds them. If reality and this file diverge, fix this file in your P
    modules; a module imports only core public APIs and the `api.py`/`public.ts` of modules it
    declares in `depends_on`. Enforced by import-linter, `backend/tests/test_architecture.py`
    (module → module imports, from the registry) and eslint-boundaries.
-9. **New read endpoint ⇒ leak-test recipe**, and if reader-facing, an entry in
-   `docs/architecture/visibility-and-sharing.md` §6.
+9. **New read endpoint ⇒ `PolicyDep` + leak-test recipe** (`backend/tests/visibility/recipes.py`),
+   and if reader-facing, an entry in `docs/architecture/visibility-and-sharing.md` §6.
 10. **API contract:** after backend API changes run `make gen` and commit the regenerated files.
     Never edit `*.gen.ts` or exported schemas by hand.
 11. **Product decisions D1–D16** (`docs/plan/planning-log.md`) are fixed. To change one, or to

@@ -28,6 +28,7 @@ from lore.core.registry import (
 )
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.search import SearchContributor
+from lore.core.visibility import VisibilityFilter
 
 
 class SampleBase(DeclarativeBase):
@@ -183,7 +184,7 @@ SAMPLE = ModuleSpec(
             quick_fixes=(QuickFixDef("sample.calm", "Calm it down"),),
         ),
     ),
-    visibility_filters=(object(),),
+    visibility_filters=(VisibilityFilter(SampleNote, visibility_column=None),),
     richtext_nodes=(STAMP,),
     backup_contributors=(object(),),
     publish_contributors=(object(),),

@@ -131,8 +131,9 @@ a Conventional Commit anyway. The issue closes automatically via `Closes #N`. Co
 - [ ] `make check` passes locally. CI is green.
 - [ ] Schema changes come with Alembic migrations (single head, `lore db check` clean). JSON
       document changes come with versioned upgraders.
-- [ ] New read endpoints have leak-test recipes. Reader-facing endpoints are listed in
-      `visibility-and-sharing.md` §6.
+- [ ] New read endpoints apply the request's `VisibilityPolicy` and have leak-test recipes
+      (`backend/tests/visibility/recipes.py`; extend the canary vault in `canary.py` for new
+      private content). Reader-facing endpoints are listed in `visibility-and-sharing.md` §6.
 - [ ] Docs updated: specs, module docs, API catalog, glossary terms, CLAUDE.md if commands or
       conventions changed.
 - [ ] No `TODO`/`FIXME` without an issue reference.

@@ -104,9 +104,11 @@ Implementation: `lore.core.modules.ModuleSpec`. The definition types (`KindDef`,
 also holds core's own definitions (the field types of `data-model.md` §4.2, kinds `dimension`,
 `timeline`, `calendar`, `event`, and link types `core.participant`, `core.causes`,
 `core.related`). Extension points whose machinery comes later (slot providers, graph,
-visibility, backup and publish contributors) are accepted and stored as opaque objects
+backup and publish contributors) are accepted and stored as opaque objects
 until their issue defines the protocol. `search_contributors` are
-`lore.core.search.SearchContributor(doc_type, documents, label, icon)`: `doc_type` is
+`lore.core.search.SearchContributor(doc_type, documents, label, icon)`; `visibility_filters` are
+`lore.core.visibility.VisibilityFilter(model, visibility_column, entity_columns)`
+(`visibility-and-sharing.md` §3): `doc_type` is
 `<module id>.<type>` (unique, not a kind key), and `documents(context, ids)` returns the current
 `SearchDocument`s with these ids (every document when `ids` is `None`, for reindexing). The
 module's services call `SearchIndexer(context).index_documents(doc_type, ids)` (or
