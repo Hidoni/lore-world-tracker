@@ -37,3 +37,8 @@ class VaultMigrationFailedError(LoreError):
     code = "vault_migration_failed"
     status = 500
     title = "Vault migration failed"
+
+
+class BackupNotFoundError(NotFoundError):
+    code = "backup_not_found"
+    title = "Backup not found"

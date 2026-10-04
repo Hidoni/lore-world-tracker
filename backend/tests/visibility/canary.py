@@ -64,6 +64,7 @@ class Canary:
     public: dict[str, str] = field(default_factory=dict)  # name -> id of visible entities
     tags: dict[str, str] = field(default_factory=dict)  # name -> id
     changeset: str = ""
+    backup: str = ""
 
     @property
     def needles(self) -> Iterator[str]:
@@ -197,4 +198,7 @@ def build_canary_vault(data_dir: Path) -> Canary:
         canary.hidden_ids.update(canary.tags.values())
         changes = client.get(f"{api.base}/changes", params={"limit": 1}).json()
         canary.changeset = changes["items"][0]["id"]
+        backup = client.post(f"{api.base}/backups", json={"include_media": False})
+        assert backup.status_code == 201, backup.json()
+        canary.backup = backup.json()["id"]
         return canary

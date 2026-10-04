@@ -46,10 +46,10 @@
 | POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) → `{vault, from_revision, to_revision, backup}`; vaults carry `schema_status {state, revision, head}` (`persistence-and-migrations.md` §3.3) |
 | GET | `/vaults/{v}/registry` | `{kinds (with module, capabilities, allowed parents, fields incl. enabled contributions), field_types, link_types (code-registered + user-defined, hidden when their kinds are unavailable), modules (enabled flags, deps), consistency_rules}` for the vault's enabled modules (drives the generic UI) |
 | PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) → `{enabled, disabled, modules}` (`modules.md` §4) |
-| GET/PATCH | `/vaults/{v}/settings` | display prefs, defaults, backup schedule |
-| GET/POST | `/vaults/{v}/backups` | list / create backup |
-| GET | `/vaults/{v}/backups/{id}/download` | download zip |
-| POST | `/vaults/restore` | restore a backup zip into a new vault |
+| GET/PATCH | `/vaults/{v}/settings` | `{defaults: {visibility}, backups: {every_hours, keep, include_media}}`; PATCH merges the members sent (not recorded in history). Display prefs arrive with the settings UI |
+| GET/POST | `/vaults/{v}/backups` | list (newest first; author-only: readers get `404`) / create (`{include_media}`, default true) → `201 {id, kind, reason, created_at, size, includes_media, app_version, schema_revision}` |
+| GET | `/vaults/{v}/backups/{id}/download` | download the zip (author-only; `404 backup_not_found`) |
+| POST | `/vaults/restore` | restore a backup zip (multipart `file`) into a new vault → `201 Vault`; `422 invalid_backup`, `409 vault_newer_than_app` |
 | POST | `/vaults/{v}/publish` | write a published snapshot into `LORE_PUBLISH_DIR` (author mode; `visibility-and-sharing.md` §4) |
 
 ### Entities (generic, all kinds)
@@ -211,7 +211,7 @@ understood, or that only leaves out, answers `422` with the reason on `q`.
 
 `not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, and returned only with `LORE_DEBUG=true`), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
 `missing_client_header`, `bad_origin`, `invalid_host`, `payload_too_large`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
-`vault_newer_than_app`, `vault_migration_failed` (500; `context.backup`), `time_cycle`, `time_constraint` (hard structural violation; `errors`
+`vault_newer_than_app`, `vault_migration_failed` (500; `context.backup`), `invalid_backup`, `backup_not_found`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
 `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,

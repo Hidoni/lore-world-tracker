@@ -152,6 +152,38 @@ def vault_migrate(
         typer.echo(f"backup: {result.backup}")
 
 
+@vault_app.command("backup")
+def vault_backup(
+    vault: VaultArgument,
+    media: Annotated[bool, typer.Option(help="Include the media folder.")] = True,
+) -> None:
+    """Write a backup zip into the vault's backups/manual/ (it contains private data)."""
+    manager = _vault_manager()
+    try:
+        info = manager.backup(manager.resolve(vault).id, include_media=media)
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(f"{info.id}  {info.size} bytes")
+    typer.echo(f"backup: {info.path}")
+
+
+@vault_app.command("restore")
+def vault_restore(
+    backup: Annotated[Path, typer.Argument(help="Backup zip.", exists=True, dir_okay=False)],
+) -> None:
+    """Restore a backup zip into a new vault (never overwrites an existing one)."""
+    manager = _vault_manager()
+    try:
+        info = manager.restore(backup)
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(f"{info.id}  {info.folder}  {info.name}")
+
+
 @vault_app.command("reindex")
 def vault_reindex(vault: VaultArgument) -> None:
     """Rebuild a vault's search index."""

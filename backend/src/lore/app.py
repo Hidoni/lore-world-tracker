@@ -37,8 +37,9 @@ from lore.core.models import load_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules import router as modules_router
 from lore.core.search import router as search_router
-from lore.core.vaults import VaultManager
+from lore.core.vaults import VaultManager, backups_router
 from lore.core.vaults import router as vaults_router
+from lore.core.vaults.scheduler import BackupScheduler
 from lore.modules import ALL_MODULES
 
 API_BASE_PATH = "/api/v1"
@@ -53,11 +54,17 @@ def operation_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Refuse to start on an unsupported SQLite build; close vaults (engines, locks) on exit."""
+    """Refuse to start on an unsupported SQLite build; run the backup scheduler (author mode);
+    close vaults (engines, locks) on exit."""
     ensure_sqlite_capabilities()
+    scheduler: BackupScheduler | None = app.state.backup_scheduler
+    if scheduler is not None:
+        scheduler.start()
     try:
         yield
     finally:
+        if scheduler is not None:
+            scheduler.stop()
         app.state.vaults.close()
 
 
@@ -84,11 +91,14 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
         auto_migrate=settings.auto_migrate,
         module_registry=app.state.registry,
     )
+    app.state.backup_scheduler = None if settings.read_only else BackupScheduler(app.state.vaults)
     install_error_handlers(app)
 
     api = APIRouter(prefix=API_BASE_PATH, responses=PROBLEM_RESPONSES)
     api.include_router(system.router)
+    api.include_router(backups_router.router)
     api.include_router(vaults_router.router)
+    api.include_router(backups_router.settings_router)
     api.include_router(modules_router.router)
     api.include_router(entities_router.router)
     api.include_router(entities_router.tree_router)
