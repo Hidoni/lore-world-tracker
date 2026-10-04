@@ -82,6 +82,21 @@ def registry(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/registry")
 
 
+@recipe(f"{V}/settings")
+def settings(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/settings")
+
+
+@recipe(f"{V}/backups")
+def backups(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/backups", status=404)  # backups hold private data: author-only
+
+
+@recipe(f"{V}/backups/{{backup_id}}/download")
+def backup_download(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/backups/{c.backup}/download", status=404)
+
+
 @recipe(f"{V}/link-types")
 def link_types(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/link-types")

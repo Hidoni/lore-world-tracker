@@ -60,8 +60,11 @@ headers → request context → host check → CORS (optional) → mutation guar
 - Serving: `Content-Type` from the stored record, `X-Content-Type-Options: nosniff`,
   `Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'` on
   media responses.
-- Restore/import zips: reject absolute paths and `..`, cap the total uncompressed size and file
-  count, verify checksums from the manifest before use.
+- Restore/import zips: reject absolute paths, `..`, backslashes, drive letters, symbolic links,
+  duplicate entries and files the manifest doesn't list (or that aren't `lore.db`/`media/…`), cap
+  the file count and the bytes actually extracted (not the declared sizes), and verify every
+  checksum from the manifest. Extraction goes into a staging folder that is removed on any
+  failure (`lore.core.vaults.backups`).
 - Vault ids/folder names are validated (`^[a-z0-9-]+$`) before touching the filesystem.
 
 ## 4. Dependencies and supply chain

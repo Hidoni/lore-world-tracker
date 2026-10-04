@@ -36,6 +36,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description Manual, scheduled and pre-operation backups of the vault.
+         */
+        get: operations["backups_list"];
+        put?: never;
+        /**
+         * Create
+         * @description Back up the vault now (a zip with the database and, by default, its media). Backups contain
+         *     private data.
+         */
+        post: operations["backups_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/backups/{backup_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download */
+        get: operations["backups_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Restore a backup zip into a new vault ("<name> (restored <date>)"); existing vaults are
+         *     never touched. ``422 invalid_backup`` for a damaged, unsafe or foreign zip.
+         */
+        post: operations["backups_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults": {
         parameters: {
             query?: never;
@@ -97,6 +160,30 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description Vault settings: defaults for new content and the backup schedule.
+         */
+        get: operations["settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Merge the members sent into the settings (not recorded in history).
+         */
+        patch: operations["settings_update"];
         trace?: never;
     };
     "/api/v1/vaults/{vault_id}/registry": {
@@ -621,6 +708,79 @@ export interface components {
             items: components["schemas"]["Backlink"][];
         };
         /**
+         * Backup
+         * @description A backup zip. ``kind``: ``manual``, ``scheduled`` or ``pre`` (taken before a destructive
+         *     operation, with its ``reason``).
+         */
+        Backup: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Size */
+            size: number;
+            /** Includes Media */
+            includes_media: boolean;
+            /** App Version */
+            app_version: string;
+            /** Schema Revision */
+            schema_revision: string | null;
+        };
+        /** BackupCreate */
+        BackupCreate: {
+            /**
+             * Include Media
+             * @default true
+             */
+            include_media: boolean;
+        };
+        /**
+         * BackupList
+         * @description Newest first.
+         */
+        BackupList: {
+            /** Items */
+            items: components["schemas"]["Backup"][];
+        };
+        /**
+         * BackupSchedule
+         * @description Scheduled backups (``persistence-and-migrations.md`` §5): every ``every_hours`` hours
+         *     while the app runs (0 = off), keeping the newest ``keep``.
+         */
+        BackupSchedule: {
+            /**
+             * Every Hours
+             * @default 24
+             */
+            every_hours: number;
+            /**
+             * Keep
+             * @default 7
+             */
+            keep: number;
+            /**
+             * Include Media
+             * @default true
+             */
+            include_media: boolean;
+        };
+        /** BackupScheduleUpdate */
+        BackupScheduleUpdate: {
+            /** Every Hours */
+            every_hours?: number | null;
+            /** Keep */
+            keep?: number | null;
+            /** Include Media */
+            include_media?: boolean | null;
+        };
+        /**
          * BaseDuration
          * @description An exact, signed number of base units.
          */
@@ -632,6 +792,11 @@ export interface components {
             kind: "base";
             /** Units */
             units: string;
+        };
+        /** Body_backups_restore */
+        Body_backups_restore: {
+            /** File */
+            file: string;
         };
         /**
          * CalendarAnchor
@@ -1896,6 +2061,18 @@ export interface components {
         VaultCreate: {
             name: components["schemas"]["VaultName"];
         };
+        /** VaultDefaults */
+        VaultDefaults: {
+            /**
+             * @description Of new content.
+             * @default public
+             */
+            visibility: components["schemas"]["Visibility"];
+        };
+        /** VaultDefaultsUpdate */
+        VaultDefaultsUpdate: {
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
         /**
          * VaultList
          * @description ``items``: most recently modified first, ties by name (case-insensitive).
@@ -1937,6 +2114,19 @@ export interface components {
             revision: string | null;
             /** Head */
             head: string;
+        };
+        /** VaultSettings */
+        VaultSettings: {
+            defaults?: components["schemas"]["VaultDefaults"];
+            backups?: components["schemas"]["BackupSchedule"];
+        };
+        /**
+         * VaultSettingsUpdate
+         * @description Members sent are merged into the stored settings.
+         */
+        VaultSettingsUpdate: {
+            defaults?: components["schemas"]["VaultDefaultsUpdate"] | null;
+            backups?: components["schemas"]["BackupScheduleUpdate"] | null;
         };
         /** VaultUpdate */
         VaultUpdate: {
@@ -1998,6 +2188,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetaResponse"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    backups_list: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    backups_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backup"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    backups_download: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+                /** @description Backup id. */
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The backup zip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    backups_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_backups_restore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vault"];
                 };
             };
             /** @description Problem */
@@ -2190,6 +2521,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MigrationResponse"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultSettings"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settings_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VaultSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultSettings"];
                 };
             };
             /** @description Problem */

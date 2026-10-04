@@ -18,9 +18,9 @@ import uuid
 from collections.abc import Iterable
 from contextlib import suppress
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import IO, TYPE_CHECKING, Literal
 
 from pydantic import TypeAdapter
 from sqlalchemy import Engine
@@ -38,7 +38,22 @@ from lore.core.db.migrate import (
 from lore.core.errors import InvalidInputError, ReadOnlyError
 from lore.core.history.recorder import install as install_history
 from lore.core.history.tables import HistoryTable, core_history_tables
+from lore.core.vaults.backups import (
+    DEFAULT_LIMITS,
+    BackupInfo,
+    BackupKind,
+    InvalidBackupError,
+    RestoreLimits,
+    backup_info,
+    create_backup,
+    extract_backup,
+    find_backup,
+    last_scheduled,
+    list_backups,
+    prune_scheduled,
+)
 from lore.core.vaults.errors import (
+    BackupNotFoundError,
     VaultMigrationFailedError,
     VaultNeedsMigrationError,
     VaultNewerThanAppError,
@@ -58,6 +73,7 @@ from lore.core.vaults.format import (
     is_valid_folder_name,
     is_valid_vault_id,
     read_manifest,
+    upgrade_manifest,
     write_manifest,
 )
 from lore.core.vaults.lock import VaultLock
@@ -65,6 +81,7 @@ from lore.core.vaults.lock import VaultLock
 if TYPE_CHECKING:
     from lore.core.modules.registry import ModuleRegistry
 from lore.core.vaults.meta import get_meta, set_meta
+from lore.core.vaults.settings import read_settings
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +454,125 @@ class VaultManager:
         logger.info("moved vault %s to %s", vault_id, target)
         return target
 
+    # --- backups and restore (persistence-and-migrations.md §5) ---------------------------------
+
+    def backup(
+        self,
+        vault_id: str,
+        *,
+        include_media: bool = True,
+        kind: BackupKind = "manual",
+        reason: str | None = None,
+    ) -> BackupInfo:
+        """Write a backup zip of the vault (it may be open and in use)."""
+        self._require_writable()
+        with self._guard:
+            info = self.get(vault_id)
+            self._lock(info)
+        revision = self.migrator.status_of(info.database_path).revision
+        path = create_backup(
+            info.path,
+            info.manifest.model_dump(mode="json"),
+            revision,
+            include_media=include_media,
+            kind=kind,
+            reason=reason,
+        )
+        return backup_info(path)
+
+    def backup_before(self, vault_id: str, reason: str) -> BackupInfo:
+        """The automatic backup taken before a destructive bulk operation (``reason``: lowercase
+        words and hyphens, e.g. ``module-removal``). Database only: such operations don't touch
+        media."""
+        return self.backup(vault_id, include_media=False, kind="pre", reason=reason)
+
+    def backups(self, vault_id: str) -> list[BackupInfo]:
+        return list_backups(self.get(vault_id).path)
+
+    def backup_file(self, vault_id: str, backup_id: str) -> Path:
+        path = find_backup(self.get(vault_id).path, backup_id)
+        if path is None:
+            raise BackupNotFoundError(f"No backup {backup_id!r} in this vault.")
+        return path
+
+    def restore(
+        self, source: IO[bytes] | Path, limits: RestoreLimits = DEFAULT_LIMITS
+    ) -> VaultInfo:
+        """Restore a backup zip into a **new** vault folder named "<name> (restored <date>)".
+        The vault keeps its id unless a vault with that id is present (then it gets a new one).
+        Format and database upgrades run; a backup from a newer app is refused. Never touches
+        an existing vault."""
+        self._require_writable()
+        self.vaults_dir.mkdir(parents=True, exist_ok=True)
+        staging = self.vaults_dir / f".creating-{uuid.uuid7()}"
+        staging.mkdir()
+        try:
+            backup = extract_backup(source, staging, limits)
+            try:
+                data, _ = upgrade_manifest(dict(backup.vault))
+                original = VaultManifest.model_validate(data)
+            except (ValueError, ManifestError) as exc:
+                raise InvalidBackupError(f"The backup's vault.json is invalid: {exc}") from exc
+            database = staging / DATABASE_NAME
+            status = self.migrator.status_of(database)
+            self._require_current_or_older(status)
+            with self._guard:
+                registry = self._scan()
+                taken = set(registry.vaults) | {p.vault_id for p in registry.problems}
+                vault_id = original.vault_id
+                if vault_id in taken:
+                    vault_id = str(uuid.uuid7())
+                manifest = original.model_copy(
+                    update={"vault_id": vault_id, "name": restored_name(original.name)}
+                )
+                write_manifest(staging, manifest)
+                if status.state is SchemaState.NEEDS_MIGRATION:
+                    self.migrator.upgrade(database, attributes={"vault": _vault_identity(manifest)})
+                _set_identity(database, manifest)
+                folder = next(
+                    candidate
+                    for candidate in folder_candidates(manifest.name, manifest.vault_id)
+                    if not (self.vaults_dir / candidate).exists()
+                )
+                staging.rename(self.vaults_dir / folder)
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        logger.info("restored vault %s (%s) from a backup", manifest.vault_id, folder)
+        return VaultInfo(manifest, folder, self.vaults_dir / folder)
+
+    def _require_current_or_older(self, status: SchemaStatus) -> None:
+        if status.state is SchemaState.NEWER_THAN_APP:
+            self._require_current(status)
+
+    def run_scheduled_backups(self, now: datetime | None = None) -> list[BackupInfo]:
+        """One scheduler pass: back up every vault this process has open whose last scheduled
+        backup is older than its ``every_hours`` setting, then prune to ``keep``. Author mode
+        only. Failures are logged, never raised."""
+        if self.read_only:
+            return []
+        now = now or datetime.now(UTC)
+        with self._guard:
+            opened = list(self._open.values())
+        made: list[BackupInfo] = []
+        for vault in opened:
+            try:
+                with vault.sessions() as session:
+                    schedule = read_settings(session).backups
+                if schedule.every_hours == 0:
+                    continue
+                last = last_scheduled(vault.info.path)
+                if last is None or now - last >= timedelta(hours=schedule.every_hours):
+                    made.append(
+                        self.backup(
+                            vault.id, include_media=schedule.include_media, kind="scheduled"
+                        )
+                    )
+                prune_scheduled(vault.info.path, schedule.keep)
+            except Exception:
+                logger.exception("scheduled backup of vault %s failed", vault.id)
+        return made
+
     # --- opening ------------------------------------------------------------------------------
 
     def _lock(self, info: VaultInfo) -> VaultLock:
@@ -591,6 +727,23 @@ def _vault_identity(manifest: VaultManifest) -> dict[str, str]:
         "name": manifest.name,
         "created_at": manifest.created_at.isoformat(),
     }
+
+
+def restored_name(name: str, today: datetime | None = None) -> str:
+    """ "Aetheria (restored 2026-10-01)", shortening the name to fit ``VaultName``."""
+    suffix = f" (restored {(today or datetime.now(UTC)).date().isoformat()})"
+    return name[: 200 - len(suffix)].rstrip() + suffix
+
+
+def _set_identity(path: Path, manifest: VaultManifest) -> None:
+    """Point ``vault_meta``'s identity at the restored vault (its id may be new)."""
+    engine = for_writing(create_vault_engine(path, pool=NullPool))
+    try:
+        with Session(engine) as session, session.begin():
+            set_meta(session, "vault_id", manifest.vault_id)
+            set_meta(session, "name", manifest.name)
+    finally:
+        engine.dispose()
 
 
 def _sync_meta_name(opened: OpenVault) -> None:

@@ -188,7 +188,7 @@ Implementation (`VaultManager.open` / `.migrate`):
 
 ```
 lore vault list | create | status <vault> | migrate <vault> [--to REV] | check <vault>
-lore vault reindex <vault> | backup <vault> | restore <zip> | publish <vault> --out DIR
+lore vault reindex <vault> | backup <vault> [--no-media] | restore <zip> | publish <vault> --out DIR
 lore db revision -m "msg" [--autogenerate]     # wraps alembic with the programmatic config (uses a scratch DB)
 lore db check                                    # empty autogenerate diff + single head
 ```
@@ -279,19 +279,40 @@ by data migrations, so at runtime all documents are at the current version. API 
 
 ## 5. Backups and restore
 
-- **Format:** a zip with `manifest.json` (`{format_version, app_version, schema_revision,
-  vault: {...vault.json}, created_at, includes_media, sha256 per file}`), `lore.db` (made with
-  `VACUUM INTO`, which gives a consistent compact copy without stopping writes), and `media/` when
-  included.
-- **Manual:** `POST /vaults/{v}/backups {include_media}` or `lore vault backup`. Listed and
-  downloadable in settings. Backups contain private data, and the UI says so.
+- **Format:** a zip with `manifest.json` (`{format_version: 1, app_version, schema_revision,
+  vault: {...vault.json}, created_at, includes_media, kind, reason, files: {<path>: <sha256>}}`),
+  `lore.db` (made with `VACUUM INTO`, which gives a consistent compact copy without stopping
+  writes), and `media/` when included. Implementation: `lore.core.vaults.backups`, driven by
+  `VaultManager.backup` / `.restore` / `.run_scheduled_backups`.
+- **Where:** `backups/manual/<id>.zip` (manual) and `backups/auto/<id>.zip` (scheduled and
+  pre-operation). The id is `<kind>-<UTC yyyymmdd-hhmmss>` (`-2`, … on a clash) with kind
+  `manual`, `scheduled` or `pre-<reason>`. Zips are assembled under a hidden name and renamed
+  when complete. `GET /vaults/{v}/backups` lists the zips; pre-migration `.db` copies aren't
+  listed.
+- **Manual:** `POST /vaults/{v}/backups {include_media}` (default true, decided 2026-10-04) or
+  `lore vault backup [--no-media]`. Listed and downloadable in settings, by the author only
+  (readers get `404`). Backups contain private data, and the UI says so.
 - **Automatic:** pre-migration (DB only), before destructive bulk operations (calendar proposal
-  apply affecting > 100 records, module removal, restore), and **scheduled** (vault setting:
-  every N hours while the app runs, keep the last K; default 24 h / 7).
+  apply affecting > 100 records, module removal), and **scheduled**. Later issues call
+  `VaultManager.backup_before(vault_id, "<reason>")` for the former: a DB-only zip (such
+  operations don't touch media), never pruned. A restore needs none: it never overwrites
+  anything.
+- **Scheduled:** vault setting `backups {every_hours, keep, include_media}` (default 24 h / 7 /
+  media included, decided 2026-10-04; `every_hours: 0` turns it off; `GET/PATCH
+  /vaults/{v}/settings`). An in-process daemon thread (`lore.core.vaults.scheduler`, author mode
+  only, never on a read-only server) checks every 10 minutes. It backs up each vault **this
+  process has open** whose newest scheduled backup is older than `every_hours` (or that has none),
+  then deletes scheduled backups beyond the newest `keep`. Manual and pre-operation backups are
+  never pruned. Failures are logged and retried at the next check.
 - **Restore:** `POST /vaults/restore` (multipart) or `lore vault restore`. Validates the manifest
-  and checksums, extracts into a **new** vault folder ("Aetheria (restored 2026-10-01)", new
-  folder, same `vault_id` only if no vault with that id is present), runs format and DB upgrades,
-  and registers the vault. It never overwrites an existing vault.
+  and checksums while extracting into a staging folder (`security.md` §3: unsafe names,
+  symlinks, unlisted files, file-count and size caps), then turns it into a **new** vault folder
+  ("Aetheria (restored 2026-10-01)", the name shortened to fit; new folder; same `vault_id` only
+  if no vault or problem folder with that id is present). It runs format upgrades and DB
+  upgrades (the zip itself is the backup), refuses databases from a newer app (`409
+  vault_newer_than_app`), points `vault_meta`'s identity at the new vault, and registers it. It
+  never overwrites an existing vault. Damaged, unsafe or foreign zips get `422 invalid_backup`
+  and leave nothing behind.
 - **Published snapshot** (sanitized copy for read-only serving): see
   `visibility-and-sharing.md` §4.
 
