@@ -218,6 +218,11 @@ def timelines(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/dimensions/{hidden_id}/timelines", status=404)
 
 
+@recipe(f"{V}/calendars/presets")
+def calendar_presets(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/calendars/presets")
+
+
 @recipe(f"{V}/m/sample/ping")
 def sample_ping(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/sample/ping")

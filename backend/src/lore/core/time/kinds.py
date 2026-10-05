@@ -2,8 +2,8 @@
 (``time-model.md`` §6, ``modules.md`` §2.1)."""
 
 from lore.core.entities.extensions import KindExtension
-from lore.core.time import dimensions
-from lore.core.time.models import Dimension, Timeline
+from lore.core.time import calendars, dimensions
+from lore.core.time.models import Calendar, Dimension, Timeline
 from lore.core.time.slots import SlotDef, SlotProvider
 
 CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
@@ -22,6 +22,15 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         id_column="entity_id",
         entity_column="entity_id",
         dimension_column="dimension_id",
+    ),
+    SlotProvider(
+        calendars.CALENDAR,
+        Calendar,
+        (SlotDef("*"),),  # alignment:<regime>, regime:<regime>, era:<era>, overlay:<overlay>
+        id_column="entity_id",
+        load=calendars.load_calendar_slots,
+        write=calendars.write_calendar_slots,
+        beyond=calendars.calendar_moments_beyond,
     ),
 )
 
@@ -43,5 +52,13 @@ CORE_KIND_EXTENSIONS: tuple[KindExtension, ...] = (
         trash=dimensions.trash_timeline,
         purge=dimensions.purge_timeline,
         stored_problems=dimensions.timeline_problems,
+    ),
+    KindExtension(
+        calendars.CALENDAR,
+        write=calendars.write_calendar,
+        read=calendars.read_calendar,
+        trash=calendars.trash_calendar,
+        purge=calendars.purge_calendar,
+        stored_problems=calendars.calendar_problems,
     ),
 )

@@ -38,6 +38,7 @@ from lore.core.db.migrate import (
 from lore.core.errors import InvalidInputError, ReadOnlyError
 from lore.core.history.recorder import install as install_history
 from lore.core.history.tables import HistoryTable, core_history_tables
+from lore.core.time.cache import CALENDARS
 from lore.core.vaults.backups import (
     DEFAULT_LIMITS,
     BackupInfo,
@@ -739,6 +740,7 @@ class VaultManager:
             except Exception:
                 logger.warning("PRAGMA optimize failed for vault %s", vault_id, exc_info=True)
         opened.engine.dispose()
+        CALENDARS.forget_vault(vault_id)
 
     def close(self) -> None:
         """Dispose every engine and release every lock (app shutdown)."""

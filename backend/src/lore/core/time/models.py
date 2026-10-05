@@ -1,5 +1,5 @@
-"""Core time tables: ``dimensions`` and ``timelines`` (entity extension tables, ``data-model.md``
-§5.1-§5.2) and ``time_dependencies`` (§5.5, ``time-model.md`` §7.1).
+"""Core time tables: ``dimensions``, ``timelines`` and ``calendars`` (entity extension tables,
+``data-model.md`` §5.1-§5.3) and ``time_dependencies`` (§5.5, ``time-model.md`` §7.1).
 
 ``time_dependencies`` holds the edges propagation walks. It is derived from the specs, but kept in
 the same transaction as them (not recorded in history). Dependents and targets are polymorphic
@@ -66,6 +66,30 @@ class Timeline(Base):
         Index("ix_timelines_dimension_id", "dimension_id"),
         Index("ix_timelines_parent_timeline_id", "parent_timeline_id"),
     )
+
+
+class Calendar(Base):
+    """A calendar of a dimension (kind ``calendar``, ``chronology-engine.md`` §3-§4): its
+    definition, the moments its non-local anchors resolved to (JSON pointer → moment string) and
+    how its last compilation went."""
+
+    __tablename__ = "calendars"
+
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT), primary_key=True
+    )
+    dimension_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    definition: Mapped[dict[str, Any]] = mapped_column(JSON)
+    definition_revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    resolved_anchors: Mapped[dict[str, str]] = mapped_column(
+        JSON, default=dict, server_default=text("'{}'")
+    )
+    compile_status: Mapped[str] = mapped_column(String)  # ok | error
+    compile_errors: Mapped[list[dict[str, str]]] = mapped_column(
+        JSON, default=list, server_default=text("'[]'")
+    )
+
+    __table_args__ = (Index("ix_calendars_dimension_id", "dimension_id"),)
 
 
 class TimeDependency(Base):

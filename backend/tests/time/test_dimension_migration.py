@@ -60,3 +60,30 @@ def test_backfill(migrations: MigrationHarness) -> None:
     assert migrations.rows(
         "SELECT doc_id, kind, visibility, deleted, name FROM search_docs ORDER BY name"
     ) == [(new_prime, "timeline", "private", 1, "Prime")]
+
+
+def test_calendar_backfill(migrations: MigrationHarness) -> None:
+    migrations.upgrade("39828513f6da")
+    later = "2026-10-04T01:00:00.000000+00:00"
+    migrations.execute(
+        "INSERT INTO entities (id, kind, name, slug, sort_name, created_at, updated_at) "
+        "VALUES ('world', 'dimension', 'world', 'w', 'world', ?, ?)",
+        (T0, T0),
+    )
+    migrations.execute(
+        "INSERT INTO dimensions (entity_id, base_unit, duration) VALUES ('world', '{}', '00011')"
+    )
+    _entity(migrations, "trashed", "calendar", dimension="world", deleted=T0)
+    _entity(migrations, "second", "calendar", dimension="world", created=later)
+    _entity(migrations, "first", "calendar", dimension="world")
+    migrations.upgrade("ce20505bf34f")
+
+    rows = migrations.rows(
+        "SELECT entity_id, resolved_anchors, compile_status, json_extract(definition, "
+        "'$.levels[0].id') FROM calendars ORDER BY entity_id"
+    )
+    anchors = json.dumps({"/regimes/0/alignment/at": "0"})
+    assert rows == [
+        (calendar_id, anchors, "ok", "day") for calendar_id in ("first", "second", "trashed")
+    ]
+    assert migrations.rows("SELECT default_calendar_id FROM dimensions") == [("first",)]

@@ -464,7 +464,9 @@ def test_openapi_operations(client: TestClient) -> None:
 
 def test_unused_extension_points_are_stored() -> None:
     assert len(SAMPLE.publish_contributors) == 1
-    assert REGISTRY.slot_registry().record_types() == ["dimension", "timeline", "sample.note"]
+    assert REGISTRY.slot_registry().record_types() == [
+        "dimension", "timeline", "calendar", "sample.note"
+    ]  # fmt: skip
     assert SAMPLE.settings_model is not None
     assert SAMPLE.settings_model().greeting == "hello"  # type: ignore[attr-defined]
     assert (BASE.default_enabled, OPTIONAL.default_enabled, ADDON.depends_on) == (

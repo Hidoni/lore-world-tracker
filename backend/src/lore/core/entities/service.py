@@ -159,7 +159,7 @@ class EntityService:
                 for alias in aliases
             ],
             tags=[TagOut(id=tag.id, name=tag.name, color=tag.color) for tag in tags],
-            ext=extension.read(self.context, entity) if extension else None,
+            ext=extension.read(self.context, entity, self.policy) if extension else None,
             revision=entity.revision,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
