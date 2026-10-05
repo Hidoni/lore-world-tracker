@@ -72,12 +72,14 @@ class SearchIndexer:
         for start in range(0, len(ids), BATCH):
             chunk = ids[start : start + BATCH]
             entities = list(self.session.scalars(select(Entity).where(Entity.id.in_(chunk))))
-            self._put(
-                ENTITY_DOC, [self._entity_document(e, a) for e, a in self._with_aliases(entities)]
-            )
+            self._put(ENTITY_DOC, self.entity_documents(entities))
             gone = set(chunk) - {entity.id for entity in entities}
             if gone:
                 self._remove(ENTITY_DOC, gone)
+
+    def entity_documents(self, entities: Sequence[Entity]) -> list[SearchDocument]:
+        """The current search documents of these entities (what the index should hold)."""
+        return [self._entity_document(e, a) for e, a in self._with_aliases(entities)]
 
     def _with_aliases(
         self, entities: Sequence[Entity]
@@ -128,11 +130,12 @@ class SearchIndexer:
 
     def reindex(self) -> int:
         """Rebuild the whole index; returns the number of documents."""
+        # The external-content FTS tables are first rebuilt from search_docs: an index that went
+        # out of sync would make the delete triggers below fail ("database disk image is
+        # malformed"). Then they are rebuilt from the emptied table, which clears them.
+        self._rebuild_fts()
         self.session.execute(delete(SearchDoc))
-        # The external-content FTS tables are rebuilt from search_docs (now empty), which also
-        # clears anything left over from an index that went out of sync.
-        self.session.execute(text("INSERT INTO search_fts(search_fts) VALUES ('rebuild')"))
-        self.session.execute(text("INSERT INTO search_trigram(search_trigram) VALUES ('rebuild')"))
+        self._rebuild_fts()
         count = 0
         last = ""
         while True:
@@ -143,9 +146,7 @@ class SearchIndexer:
             )
             if not entities:
                 break
-            self._put(
-                ENTITY_DOC, [self._entity_document(e, a) for e, a in self._with_aliases(entities)]
-            )
+            self._put(ENTITY_DOC, self.entity_documents(entities))
             count += len(entities)
             last = entities[-1].id
         for doc_type, contributor in contributors(self.context.registry).items():
@@ -155,6 +156,10 @@ class SearchIndexer:
         set_meta(self.session, INDEX_META_KEY, {"version": INDEX_VERSION})
         self.session.flush()
         return count
+
+    def _rebuild_fts(self) -> None:
+        self.session.execute(text("INSERT INTO search_fts(search_fts) VALUES ('rebuild')"))
+        self.session.execute(text("INSERT INTO search_trigram(search_trigram) VALUES ('rebuild')"))
 
     def reindex_for_modules(self, module_ids: Iterable[str]) -> None:
         """After modules were enabled or disabled: re-index the entities of the kinds they own

@@ -2,6 +2,7 @@
 
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -154,7 +155,39 @@ def for_writing(engine: Engine) -> Engine:
     return engine.execution_options(**{BEGIN_IMMEDIATE_OPTION: True})
 
 
-def optimize(engine: Engine) -> None:
-    """``PRAGMA optimize`` (on vault close)."""
+def _autocommit(engine: Engine, statement: str) -> None:
+    """Run a statement outside any transaction, on the raw driver connection: SQLAlchemy would
+    wrap it in a ``BEGIN`` that a closing connection rolls back (losing ``ANALYZE`` results), and
+    ``VACUUM`` refuses to run inside a transaction at all."""
     with engine.connect() as connection:
-        connection.exec_driver_sql("PRAGMA optimize")
+        driver = connection.connection.driver_connection
+        assert driver is not None
+        driver.execute(statement)
+
+
+def optimize(engine: Engine) -> None:
+    """``PRAGMA optimize`` (on vault close, daily and ``lore vault optimize``)."""
+    _autocommit(engine, "PRAGMA optimize")
+
+
+def snapshot(source: Path, target: Path) -> None:
+    """Copy a database (including what is still in its WAL) to ``target`` with SQLite's online
+    backup API: a consistent, page-for-page copy that never writes the source.
+
+    A WAL-mode reader creates the ``-wal``/``-shm`` side files when they are missing, even with
+    ``mode=ro``. They are missing only when no connection has the database open and its WAL was
+    checkpointed into the main file, so then the source is read with ``immutable=1``, which
+    creates nothing. Otherwise (a server has it open) it is read like any other reader."""
+    immutable = not source.with_name(source.name + "-wal").exists()
+    uri = database_uri(source, read_only=True, immutable=immutable)
+    with (
+        closing(sqlite3.connect(uri, uri=True)) as reader,
+        closing(sqlite3.connect(target)) as writer,
+    ):
+        reader.backup(writer)
+
+
+def vacuum(engine: Engine) -> None:
+    """``VACUUM``: rebuild the database file without free pages (``lore vault optimize
+    --vacuum``)."""
+    _autocommit(engine, "VACUUM")

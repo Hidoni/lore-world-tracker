@@ -579,7 +579,7 @@ def test_cli_reindex(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert created.exit_code == 0, created.output
     result = runner.invoke(cli.app, ["vault", "reindex", created.output.split()[0]])
     assert result.exit_code == 0, result.output
-    assert result.output == "indexed 0 documents\n"
+    assert result.output == "search: rebuilt 0 documents\nmentions: rebuilt 0 entities\n"
     missing = runner.invoke(cli.app, ["vault", "reindex", "nope"])
     assert missing.exit_code == 1
 

@@ -425,7 +425,8 @@ kinds they own or contribute fields to; modules for their own documents
 (`SearchContributor`, `modules.md` §2.1). Queries hide trashed documents, documents of disabled
 modules' kinds or document types, and module documents whose entity is trashed or unavailable.
 
-`lore vault reindex` rebuilds everything. `vault_meta.search_index = {version}` records the
+`lore vault reindex` rebuilds everything (and `lore vault check` verifies it,
+`persistence-and-migrations.md` §2). `vault_meta.search_index = {version}` records the
 `INDEX_VERSION` the index was built with: the first author-mode open of a vault whose index is
 missing (e.g. right after the migration that created the tables) or was built by another version
 rebuilds it. Alembic autogenerate ignores the FTS tables (`include_object` hook).

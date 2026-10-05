@@ -1,6 +1,7 @@
 """The ``lore`` command line."""
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -13,9 +14,9 @@ from lore.config import Settings
 from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
+from lore.core.maintenance import DERIVED_DATA, check_vault, optimize_vault, reindex_vault
 from lore.core.models import load_metadata as load_core_metadata
-from lore.core.modules import ModuleRegistry, VaultContext
-from lore.core.search.indexer import SearchIndexer
+from lore.core.modules import ModuleRegistry
 from lore.core.vaults import VaultManager
 from lore.modules import ALL_MODULES, load_metadata
 
@@ -184,21 +185,78 @@ def vault_restore(
     typer.echo(f"{info.id}  {info.folder}  {info.name}")
 
 
+@vault_app.command("check")
+def vault_check(
+    vault: VaultArgument,
+    as_json: Annotated[bool, typer.Option("--json", help="Print a JSON report.")] = False,
+) -> None:
+    """Check a vault's health: schema state, SQLite integrity, foreign keys and derived data
+    (search index, mentions). Never changes the vault: the checks run on a temporary copy of its
+    database (needs that much free space in the temp folder). Exits with 1 when problems are
+    found (`lore vault reindex` fixes derived data)."""
+    manager = _vault_manager()
+    try:
+        vault_id = manager.resolve(vault).id
+        report = check_vault(manager, vault_id)
+    except LoreError as exc:
+        _fail(exc)
+    if as_json:
+        document = {
+            "vault": vault_id,
+            "ok": report.ok,
+            "checks": list(report.checks),
+            "problems": [asdict(problem) for problem in report.problems],
+        }
+        typer.echo(json.dumps(document, indent=2, ensure_ascii=False))
+    else:
+        for problem in report.problems:
+            typer.echo(f"{problem.check}: {problem.code}: {problem.message}")
+        if report.ok:
+            typer.echo(f"ok ({', '.join(report.checks)})")
+        else:
+            typer.echo(f"{len(report.problems)} problem(s) found", err=True)
+    if not report.ok:
+        raise typer.Exit(1)
+
+
 @vault_app.command("reindex")
 def vault_reindex(vault: VaultArgument) -> None:
-    """Rebuild a vault's search index."""
+    """Rebuild a vault's derived data (search index, mentions) from its content."""
     manager = _vault_manager()
     try:
         opened = manager.open(manager.resolve(vault).id)
         assert manager.module_registry is not None
-        with opened.write_sessions.begin() as session:
-            context = VaultContext(opened, session, manager.module_registry)
-            count = SearchIndexer(context).reindex()
+        counts = reindex_vault(opened, manager.module_registry)
     except LoreError as exc:
         _fail(exc)
     finally:
         manager.close()
-    typer.echo(f"indexed {count} documents")
+    for check in DERIVED_DATA:
+        typer.echo(f"{check.id}: rebuilt {counts[check.id]} {check.unit}")
+
+
+@vault_app.command("optimize")
+def vault_optimize(
+    vault: VaultArgument,
+    vacuum: Annotated[
+        bool, typer.Option(help="Also VACUUM (rewrites the file; needs that much free space).")
+    ] = False,
+) -> None:
+    """Run PRAGMA optimize on a vault's database (and optionally VACUUM it)."""
+    manager = _vault_manager()
+    try:
+        opened = manager.open(manager.resolve(vault).id)
+        before = opened.info.database_path.stat().st_size
+        optimize_vault(opened, vacuum_database=vacuum)
+        after = opened.info.database_path.stat().st_size
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    if vacuum:
+        typer.echo(f"optimized and vacuumed ({before} -> {after} bytes)")
+    else:
+        typer.echo("optimized")
 
 
 @db_app.command("revision")

@@ -21,7 +21,7 @@ from lore.core.db.migrate import Migrator
 from lore.core.vaults import VaultManager
 from lore.core.vaults.backups import InvalidBackupError, RestoreLimits, prune_scheduled
 from lore.core.vaults.manager import restored_name
-from lore.core.vaults.scheduler import BackupScheduler
+from lore.core.vaults.scheduler import MaintenanceScheduler
 from tests.entity_api import Api, make_client, problem
 
 MEDIA = {"media/ab/abcdef": b"\x89PNG fake image", "media/thumbs/abcdef_64.webp": b"thumb"}
@@ -380,14 +380,14 @@ def test_scheduled_backup_failures_are_logged(
 
 def test_the_scheduler_runs_in_author_mode_only(tmp_path: Path) -> None:
     with make_client(tmp_path) as client:
-        scheduler = client.app.state.backup_scheduler  # type: ignore[attr-defined]
-        assert isinstance(scheduler, BackupScheduler)
+        scheduler = client.app.state.scheduler  # type: ignore[attr-defined]
+        assert isinstance(scheduler, MaintenanceScheduler)
         assert scheduler.running
     assert not scheduler.running
     with make_client(tmp_path, read_only=True) as client:
-        assert client.app.state.backup_scheduler is None
+        assert client.app.state.scheduler is None
     with pytest.raises(ValueError, match="read-only"):
-        BackupScheduler(VaultManager(tmp_path, read_only=True))
+        MaintenanceScheduler(VaultManager(tmp_path, read_only=True))
 
 
 def test_the_scheduler_thread_backs_up(tmp_path: Path) -> None:
@@ -395,7 +395,7 @@ def test_the_scheduler_thread_backs_up(tmp_path: Path) -> None:
         api = Api(client)
         api.make("misc", "Thing")
         manager: VaultManager = client.app.state.vaults  # type: ignore[attr-defined]
-        scheduler = BackupScheduler(manager, interval=0.01)
+        scheduler = MaintenanceScheduler(manager, interval=0.01)
         scheduler.start()
         scheduler.start()  # idempotent
         try:

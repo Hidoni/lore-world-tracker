@@ -28,12 +28,18 @@ def count_mentions(
     return totals
 
 
-def replace_mentions(session: Session, source_id: str, counts: Mapping[str, MentionCounts]) -> None:
-    session.execute(delete(Mention).where(Mention.source_entity_id == source_id))
+def mention_rows(
+    session: Session, source_id: str, counts: Mapping[str, MentionCounts]
+) -> dict[str, MentionCounts]:
+    """The ``mentions`` rows these counts make: targets other than the source that exist."""
     targets = set(counts) - {source_id}
     existing = set(session.scalars(select(Entity.id).where(Entity.id.in_(targets))))
-    for target in sorted(existing):
-        c = counts[target]
+    return {target: counts[target] for target in sorted(existing)}
+
+
+def replace_mentions(session: Session, source_id: str, counts: Mapping[str, MentionCounts]) -> None:
+    session.execute(delete(Mention).where(Mention.source_entity_id == source_id))
+    for target, c in mention_rows(session, source_id, counts).items():
         session.add(
             Mention(
                 source_entity_id=source_id,

@@ -41,6 +41,7 @@ from lore.core.modules.registry import RegisteredKind
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext import SCHEMA_VERSION as RICHTEXT_SCHEMA_VERSION
+from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
@@ -395,9 +396,17 @@ class EntityService:
     def refresh_mentions(self, entity: Entity) -> None:
         """Rebuild the entity's mentions from its body (public base) and its active ``rich_text``
         fields (base: the field's effective visibility)."""
+        counts = self.mention_counts(entity)
+        if counts is None:
+            return  # a disabled module's entity: kept as it is until it's saved again
+        replace_mentions(self.session, entity.id, counts)
+
+    def mention_counts(self, entity: Entity) -> dict[str, MentionCounts] | None:
+        """What the entity's body and rich-text fields mention (``None`` for an entity of a
+        disabled module, whose mentions are left alone)."""
         kind = self.kinds.get(entity.kind)
         if kind is None:
-            return  # a disabled module's entity: kept as it is until it's saved again
+            return None
         documents: list[tuple[dict[str, Any] | None, Visibility]] = [(entity.body, "public")]
         for key, field in self.kind_fields(kind).active.items():
             value = entity.fields.get(key)
@@ -405,7 +414,7 @@ class EntityService:
                 continue
             level = entity.field_visibility.get(key, field.default_visibility)
             documents += [(doc, level) for doc in (value if field.multiple else [value])]
-        replace_mentions(self.session, entity.id, count_mentions(documents, self.richtext))
+        return count_mentions(documents, self.richtext)
 
     def reindex(self, entity: Entity) -> None:
         """Update the entity's search document (its purge cascades to it)."""

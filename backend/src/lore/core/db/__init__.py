@@ -8,6 +8,8 @@ from lore.core.db.engine import (
     for_writing,
     missing_sqlite_capabilities,
     optimize,
+    snapshot,
+    vacuum,
 )
 
 __all__ = [
@@ -18,4 +20,6 @@ __all__ = [
     "for_writing",
     "missing_sqlite_capabilities",
     "optimize",
+    "snapshot",
+    "vacuum",
 ]
