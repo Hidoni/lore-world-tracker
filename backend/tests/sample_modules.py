@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from lore.chronology.schema import TimePoint
 from lore.core.history.tables import HistoryTable
 from lore.core.modules import ModuleSpec, VaultContext
 from lore.core.registry import (
@@ -28,6 +29,7 @@ from lore.core.registry import (
 )
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.search import SearchContributor
+from lore.core.time import SlotDef, SlotProvider, moment_column, spec_column, status_column
 from lore.core.visibility import VisibilityFilter
 
 
@@ -40,6 +42,9 @@ class SampleNote(SampleBase):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     body: Mapped[str] = mapped_column(String)
+    noted_spec: Mapped[TimePoint | None] = spec_column()
+    noted_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
 
 
 class SampleSettings(BaseModel):
@@ -168,7 +173,9 @@ SAMPLE = ModuleSpec(
     models=(SampleNote,),
     history_tables=(HistoryTable.of(SampleNote),),
     routers=(sample_router,),
-    slot_providers=(object(),),
+    slot_providers=(
+        SlotProvider("sample.note", SampleNote, (SlotDef("noted", referenceable=True),)),
+    ),
     timeline_tables=(object(),),
     search_contributors=(SearchContributor("sample.note", lambda _c, _ids: [], "Note", "note"),),
     graph_contributors=(object(),),

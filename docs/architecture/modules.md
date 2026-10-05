@@ -103,7 +103,9 @@ Implementation: `lore.core.modules.ModuleSpec`. The definition types (`KindDef`,
 `FieldContribution`, `FieldTypeDef`, `LinkTypeDef`, `RuleDef`) live in `lore.core.registry`, which
 also holds core's own definitions (the field types of `data-model.md` §4.2, kinds `dimension`,
 `timeline`, `calendar`, `event`, and link types `core.participant`, `core.causes`,
-`core.related`). Extension points whose machinery comes later (slot providers, graph,
+`core.related`). `slot_providers` are `lore.core.time.SlotProvider(record_type, model, slots,
+…)` (`time-model.md` §6; record types `<module id>.<type>`, models among the module's `models`).
+Extension points whose machinery comes later (timeline tables, graph,
 backup and publish contributors) are accepted and stored as opaque objects
 until their issue defines the protocol. `search_contributors` are
 `lore.core.search.SearchContributor(doc_type, documents, label, icon)`; `visibility_filters` are

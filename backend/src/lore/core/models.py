@@ -15,6 +15,7 @@ def load_metadata() -> MetaData:
     from lore.core.links import models as _links  # noqa: F401, PLC0415
     from lore.core.richtext import models as _richtext  # noqa: F401, PLC0415
     from lore.core.search import models as _search  # noqa: F401, PLC0415
+    from lore.core.time import models as _time  # noqa: F401, PLC0415
     from lore.core.vaults import meta as _meta  # noqa: F401, PLC0415
 
     return Base.metadata
