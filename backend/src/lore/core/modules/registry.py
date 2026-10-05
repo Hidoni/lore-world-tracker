@@ -32,6 +32,13 @@ from lore.core.registry.types import (
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.richtext.schema import CORE_NODE_TYPES
 from lore.core.search.documents import SearchContributor
+from lore.core.time.slots import (
+    CORE_SLOT_PROVIDERS,
+    SlotProvider,
+    SlotRegistry,
+    validate_providers,
+    validate_registry,
+)
 from lore.core.visibility.filters import VisibilityFilter
 
 CORE = "core"
@@ -189,6 +196,13 @@ class ModuleRegistry:
         """Core's recorded tables plus every module's (enabled or not)."""
         return core_history_tables() + tuple(t for m in self.modules for t in m.history_tables)
 
+    def slot_registry(self) -> SlotRegistry:
+        """Record types with time slots: core's and **every** module's (anchors into a disabled
+        module's records keep resolving)."""
+        return SlotRegistry(
+            (*CORE_SLOT_PROVIDERS, *(p for m in self.modules for p in m.slot_providers))
+        )
+
     def all_link_type_keys(self) -> set[str]:
         """Keys of every code-registered link type (core and all modules, enabled or not)."""
         return {t.key for t in CORE_LINK_TYPES} | {
@@ -264,6 +278,22 @@ class ModuleRegistry:
         problems += self._validate_richtext_nodes()
         problems += self._validate_search_contributors()
         problems += self._validate_visibility_filters()
+        problems += self._validate_slot_providers()
+        return problems
+
+    def _validate_slot_providers(self) -> list[str]:
+        problems = validate_providers(CORE, CORE_SLOT_PROVIDERS, ())
+        for module in self.modules:
+            problems += validate_providers(module.id, module.slot_providers, module.models)
+        problems += validate_registry(
+            [(CORE, p) for p in CORE_SLOT_PROVIDERS]
+            + [
+                (m.id, p)
+                for m in self.modules
+                for p in m.slot_providers
+                if isinstance(p, SlotProvider)
+            ]
+        )
         return problems
 
     def _validate_visibility_filters(self) -> list[str]:

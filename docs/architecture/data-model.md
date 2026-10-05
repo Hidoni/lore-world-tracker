@@ -230,9 +230,11 @@ Indexes: `(timeline_id, start_t)`, `(timeline_id, end_t)`,
 
 ### 5.5 `time_dependencies`
 
-As in `time-model.md` §7.1. `id INTEGER PK`, dependent `(type, id, slot)`, `target_kind`, target
-`(type, id, slot)` or `target_calendar_id`. Indexes on the dependent triple, the target pair and
-`target_calendar_id`. This table is derived but kept transactional with its owners.
+As in `time-model.md` §7.1. `id INTEGER PK`, dependent `(type, id, slot)`, `target_kind`
+(`slot`/`calendar`/`dimension`), target `(type, id, slot)` or `target_calendar_id`. No foreign keys
+(dependents and targets are polymorphic). Indexes on the dependent triple, the target triple
+(which also serves lookups by record) and `target_calendar_id`. This table is derived (not recorded
+in history) but kept transactional with its owners. Model: `lore.core.time.models.TimeDependency`.
 
 ### 5.6 `entity_time_fields`
 

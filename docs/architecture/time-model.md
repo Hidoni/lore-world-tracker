@@ -324,6 +324,16 @@ Each slot is persisted as three columns: `<slot>_spec` (JSON time point or end s
 `<slot>_t` (`SortableBigInt`, last good resolved moment) and a shared `time_status` per record (or
 per slot where needed).
 
+Implementation: `lore.core.time.specs` (column types `TimePointSpec`/`EndSpecColumn` validating
+with the `lore.chronology.schema` models, `spec_column`/`moment_column`/`status_column`) and
+`lore.core.time.slots`. A `SlotProvider` registers a record type (core: `CORE_SLOT_PROVIDERS`;
+modules: `ModuleSpec.slot_providers`, record types `<module id>.<type>`) with its model and
+`SlotDef`s: a slot name (`start`), a family (`exclusion:*`) or `*`, its spec kind (`time_point` or
+`end`), `referenceable`, and its columns. Fixed slots in columns get a default loader and writer;
+families need the provider's own. `SlotRegistry.check_ref` rejects relative anchors to unknown
+(`unknown_slot`) or non-referenceable (`slot_not_referenceable`) slots. Status values:
+`lore.core.time.TimeStatus`.
+
 **Resolution status** values: `ok`, `trashed_ref` (target is in the trash; still resolves),
 `unresolved_ref` (target purged), `cycle`, `invalid_date` (fields no longer form a valid date),
 `out_of_bounds` (outside `[0, D]`), `calendar_error` (calendar definition invalid). A slot that
@@ -334,19 +344,24 @@ finding.
 
 ### 7.1 Dependency graph
 
-Nodes are **time slots** and **calendars**. Edges are stored in `time_dependencies`:
+Nodes are **time slots**, **calendars** and **dimension durations**. Edges are stored in
+`time_dependencies`:
 
 | Column | Meaning |
 |--------|---------|
-| `dependent_type`, `dependent_id`, `dependent_slot` | the slot (or calendar) that depends |
-| `target_kind` | `slot` or `calendar` |
-| `target_type`, `target_id`, `target_slot` | the referenced slot (when `target_kind = slot`) |
+| `dependent_type`, `dependent_id`, `dependent_slot` | the slot that depends (a calendar's own anchors are slots of record type `calendar`) |
+| `target_kind` | `slot`, `calendar` or `dimension` |
+| `target_type`, `target_id`, `target_slot` | the referenced slot (when `target_kind = slot`); `dimension`, the dimension id and NULL when `target_kind = dimension` |
 | `target_calendar_id` | the referenced calendar (when `target_kind = calendar`) |
 
 Edges are rewritten whenever a slot's spec is written. A calendar depends on the slots used in its
 alignment, era boundaries and regime switch points. A slot depends on a calendar when it uses a
-calendar anchor or a calendar-unit offset/duration. An event's `end` slot depends on its own `start`
-slot when the end is a duration.
+calendar anchor or a calendar-unit offset/duration (never on the virtual `absolute` calendar). A
+relative anchor depends on the referenced slot (an occurrence ref on the series' slot). An event's
+`end` slot depends on its own `start` slot when the end is a duration, an instant or unknown (all
+three resolve from the start), and on its **dimension** when it is `end_of_time` (it follows `D`,
+so a change of `D` re-resolves exactly those slots; decided 2026-10-05). Implementation:
+`lore.core.time.dependencies` (`time_point_targets`, `end_targets`, `DependencyIndex`).
 
 ### 7.2 Write algorithm (inside the service transaction)
 
