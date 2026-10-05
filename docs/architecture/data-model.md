@@ -186,13 +186,16 @@ validated structurally (`lore.chronology.schema`) and stored in `fields`.
 
 `entity_id PK → entities`, `base_unit JSON {singular, plural, abbr}`, `duration SortableBigInt`,
 `default_calendar_id NULL → entities`, `present_spec JSON NULL`, `present_t NULL`,
-`time_status TEXT NULL`.
+`time_status TEXT NULL`. Model `lore.core.time.models.Dimension`; behavior
+`lore.core.time.dimensions` (`time-model.md` §3).
 
 ### 5.2 `timelines` (extension, kind `timeline`)
 
-`entity_id PK`, `dimension_id → entities`, `parent_timeline_id NULL → entities`, `is_prime BOOL`,
+`entity_id PK`, `dimension_id → entities`, `parent_timeline_id NULL → timelines`, `is_prime BOOL`,
 `branch_point_spec JSON NULL`, `branch_t NULL`, `time_status`. Unique partial index:
-`(dimension_id) WHERE is_prime`.
+`(dimension_id) WHERE is_prime`; indexes on `dimension_id` and `parent_timeline_id`. Model
+`lore.core.time.models.Timeline`. Both extension tables are recorded in history (owner: the
+entity); their rows' trash state and revision are the entity's.
 
 ### 5.3 `calendars` (extension, kind `calendar`)
 

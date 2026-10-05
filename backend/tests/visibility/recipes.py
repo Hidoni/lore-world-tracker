@@ -208,6 +208,16 @@ def quick(c: Canary) -> Iterator[Call]:
 # --- module routes (test modules) ----------------------------------------------------------------
 
 
+# --- time ----------------------------------------------------------------------------------------
+
+
+@recipe(f"{V}/dimensions/{{dimension_id}}/timelines")
+def timelines(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/dimensions/{c.public['Aetheria']}/timelines")
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/dimensions/{hidden_id}/timelines", status=404)
+
+
 @recipe(f"{V}/m/sample/ping")
 def sample_ping(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/sample/ping")

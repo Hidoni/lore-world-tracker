@@ -105,6 +105,10 @@ Entity write semantics (`lore.core.entities.service`):
 - **Rules:** home dimension and parent rules per `data-model.md` §3.4 (`422 validation_error` on
   `dimension_id`, `422 parent_not_allowed`). Entities of kinds whose module is disabled answer
   `404 module_disabled` on every route (and can't be created).
+- **Dimensions** are created through `POST /entities` with `ext: {base_unit, duration, present?}`
+  (`422` on `ext.<member>`), which also creates the prime timeline; `ext` patches change only the
+  members sent. `kind: timeline` can't be created there, and a timeline's `ext` is read-only
+  (`time-model.md` §3–§4.1).
 - **Purge** only from the trash. It is refused with `409 conflict`
   (`context.references: {<what>: <count>}`) while the entity has children (trashed ones too) or is
   still referenced (a dimension's entities, a timeline's branch-only entities or links). Purge
@@ -146,7 +150,7 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/vaults/{v}/dimensions` | wizard: dimension + prime timeline + first calendar (from preset or definition) in one transaction |
-| GET | `/vaults/{v}/dimensions/{id}/timelines` | timeline tree |
+| GET | `/vaults/{v}/dimensions/{id}/timelines` | timeline tree → `{dimension_id, items: TimelineNode[]}`: the prime (and its branches as `children`, by name). Hidden timelines hide their branches; trashed ones are left out unless the dimension is trashed (`404` for a dimension the request can't see) |
 | GET | `/vaults/{v}/calendars/presets` | preset catalog |
 | POST | `/vaults/{v}/calendars/preview` | compile an unsaved definition in a dimension context: errors, sample conversions |
 | POST | `/vaults/{v}/calendars/{id}/proposals` | calendar edit impact preview (`time-model.md` §7.4) |

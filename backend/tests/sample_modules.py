@@ -174,7 +174,12 @@ SAMPLE = ModuleSpec(
     history_tables=(HistoryTable.of(SampleNote),),
     routers=(sample_router,),
     slot_providers=(
-        SlotProvider("sample.note", SampleNote, (SlotDef("noted", referenceable=True),)),
+        SlotProvider(
+            "sample.note",
+            SampleNote,
+            (SlotDef("noted", referenceable=True),),
+            beyond=lambda _session, _dimension, _bound: [],  # notes belong to no dimension
+        ),
     ),
     timeline_tables=(object(),),
     search_contributors=(SearchContributor("sample.note", lambda _c, _ids: [], "Note", "note"),),

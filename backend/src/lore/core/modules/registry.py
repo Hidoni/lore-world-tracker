@@ -12,12 +12,7 @@ from dataclasses import dataclass, replace
 
 from sqlalchemy import MetaData
 
-from lore.core.entities.extensions import (
-    CORE_KIND_EXTENSIONS,
-    CORE_PURGE_HOOKS,
-    KindExtension,
-    PurgeHook,
-)
+from lore.core.entities.extensions import CORE_PURGE_HOOKS, KindExtension, PurgeHook
 from lore.core.history.tables import HistoryTable, core_history_tables
 from lore.core.modules.spec import ModuleSpec
 from lore.core.registry.core import CORE_FIELD_TYPES, CORE_KINDS, CORE_LINK_TYPES
@@ -32,8 +27,8 @@ from lore.core.registry.types import (
 from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.richtext.schema import CORE_NODE_TYPES
 from lore.core.search.documents import SearchContributor
+from lore.core.time.kinds import CORE_KIND_EXTENSIONS, CORE_SLOT_PROVIDERS
 from lore.core.time.slots import (
-    CORE_SLOT_PROVIDERS,
     SlotProvider,
     SlotRegistry,
     validate_providers,

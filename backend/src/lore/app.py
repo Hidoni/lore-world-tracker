@@ -37,6 +37,7 @@ from lore.core.models import load_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules import router as modules_router
 from lore.core.search import router as search_router
+from lore.core.time import router as time_router
 from lore.core.vaults import VaultManager, backups_router
 from lore.core.vaults import router as vaults_router
 from lore.core.vaults.scheduler import MaintenanceScheduler
@@ -109,6 +110,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(history_router.router)
     api.include_router(history_router.entity_router)
     api.include_router(search_router.router)
+    api.include_router(time_router.router)
     for module in app.state.registry.modules:
         for module_router in module.routers:
             # Always mounted; require_module answers 404 module_disabled per vault (§2.2).

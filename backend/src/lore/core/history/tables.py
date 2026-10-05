@@ -49,9 +49,12 @@ class HistoryTable:
 def core_history_tables() -> tuple[HistoryTable, ...]:
     from lore.core.entities.models import Entity, EntityAlias, EntityTag, Tag  # noqa: PLC0415
     from lore.core.links.models import CustomLinkType, Link  # noqa: PLC0415
+    from lore.core.time.models import Dimension, Timeline  # noqa: PLC0415
 
     return (
         HistoryTable.of(Entity, columns_owner("id")),
+        HistoryTable.of(Dimension, columns_owner("entity_id")),
+        HistoryTable.of(Timeline, columns_owner("entity_id")),
         HistoryTable.of(EntityAlias, columns_owner("entity_id")),
         HistoryTable.of(Tag),
         HistoryTable.of(EntityTag, columns_owner("entity_id")),

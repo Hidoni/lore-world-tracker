@@ -218,6 +218,8 @@ class HistoryService:
         ``replaced``: each changed row as it was before the revert."""
         problems = self._dangling_references()
         entities = EntityService(VaultContext(self.vault, self.session, self.registry))
+        tables = recorded_tables(self.session)
+        owners: set[str] = set()  # entities owning changed extension rows (dimensions, …)
         links = LinkService(self.session, self.registry)
         link_types = LinkTypeService(self.session, self.registry)
         for change in changes:
@@ -238,6 +240,10 @@ class HistoryService:
                         )
                 continue
             found: list[str] = []
+            if change.table_name not in {"entities", "links", "link_type_defs"}:
+                table = tables.get(change.table_name)
+                if table is not None:
+                    owners.update(table.owners(change.before))
             if change.table_name == "entities":
                 entity = self.session.get(Entity, change.row_id)
                 found = entities.stored_problems(entity) if entity else []
@@ -260,6 +266,13 @@ class HistoryService:
                         else []
                     )
             problems += [_problem(change.table_name, change.row_id, m) for m in found]
+        vetted = {c.row_id for c in changes if c.table_name == "entities"}
+        for owner_id in sorted(owners - vetted):
+            owner = self.session.get(Entity, owner_id)
+            if owner is not None:
+                problems += [
+                    _problem("entities", owner_id, m) for m in entities.stored_problems(owner)
+                ]
         unique = {(p["table_name"], p["row_id"], p["message"]): p for p in problems}
         return list(unique.values())
 

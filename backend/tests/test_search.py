@@ -551,9 +551,9 @@ def test_reindex_equals_the_incremental_index(app: FastAPI, api: Api) -> None:
         SearchIndexer(context).index_documents("lexi.entry", ["k"])
 
     incremental = index_rows(app, api.vault)
-    assert len(incremental) == 5  # 4 entities (one trashed) and a module document
+    assert len(incremental) == 6  # 5 entities (one trashed, one prime timeline), a module document
     for context in in_vault(app, api.vault):
-        assert SearchIndexer(context).reindex() == 5
+        assert SearchIndexer(context).reindex() == 6
     assert index_rows(app, api.vault) == incremental
     assert found(api, "khazad") == ["khazad"]
 

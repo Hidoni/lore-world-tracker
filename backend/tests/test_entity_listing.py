@@ -100,12 +100,26 @@ def test_list_filters(api: Api) -> None:
     trashed = api.make("misc", "Old", dimension_id=first["id"])
     api.delete(trashed["id"])
 
-    assert names(entities(api)) == ["Anywhere", "First", "Folder", "gizmo 9", "Gizmo 10", "Second"]
+    assert names(entities(api)) == [
+        "Anywhere",
+        "First",
+        "Folder",
+        "gizmo 9",
+        "Gizmo 10",
+        "Prime",
+        "Prime",
+        "Second",
+    ]  # each dimension has its prime timeline
     assert names(entities(api, kind="gadget")) == ["Anywhere", "gizmo 9", "Gizmo 10"]
     assert names(entities(api, kind=["misc", "dimension"])) == ["First", "Folder", "Second"]
-    assert names(entities(api, dimension=first["id"])) == ["Anywhere", "Folder", "Gizmo 10"]
+    assert names(entities(api, dimension=first["id"])) == [
+        "Anywhere",
+        "Folder",
+        "Gizmo 10",
+        "Prime",
+    ]
     assert names(entities(api, dimension=first["id"], include_multiversal="false")) == [
-        "Folder", "Gizmo 10",
+        "Folder", "Gizmo 10", "Prime",
     ]  # fmt: skip
     assert names(entities(api, parent=folder["id"])) == ["Gizmo 10"]
     red, blue = (next(t["id"] for t in gadget["tags"] if t["name"] == n) for n in ("Red", "Blue"))
@@ -199,6 +213,7 @@ def test_tree_levels_counts_and_order(api: Api) -> None:
     # the dimension itself isn't part of its tree
     assert [(n["name"], n["has_children"], n["child_counts"]) for n in roots] == [
         ("Folder", True, {"gadget": 4, "misc": 1}),
+        ("Prime", False, {}),  # the dimension's prime timeline
     ]
     children = tree(api, dimension=dimension["id"], parent=folder["id"])
     # manual order first, then by name (numbers by value)
@@ -218,7 +233,7 @@ def test_tree_multiversal_and_orphans(api: Api) -> None:
     nested = api.make("gadget", "Nested", dimension_id=first["id"], parent_id=orphan["id"])
 
     roots = {n["name"]: n for n in tree(api, dimension=first["id"])}
-    assert set(roots) == {"Everywhere", "Folder"}
+    assert set(roots) == {"Everywhere", "Folder", "Prime"}
     assert roots["Everywhere"]["multiversal"] is True
     assert roots["Everywhere"]["has_children"] is False  # "Local" is in the other dimension
     assert [n["name"] for n in tree(api, dimension=second["id"], parent=everywhere["id"])] == [
@@ -228,7 +243,11 @@ def test_tree_multiversal_and_orphans(api: Api) -> None:
     assert [n["name"] for n in tree(api, dimension=first["id"], kind="gadget")] == ["Orphan"]
     # trashed parent: its children become roots
     api.delete(folder["id"])
-    assert {n["name"] for n in tree(api, dimension=first["id"])} == {"Everywhere", "Orphan"}
+    assert {n["name"] for n in tree(api, dimension=first["id"])} == {
+        "Everywhere",
+        "Orphan",
+        "Prime",
+    }
     assert tree(api, dimension=first["id"], parent=orphan["id"])[0]["id"] == nested["id"]
 
 

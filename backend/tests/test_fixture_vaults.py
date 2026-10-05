@@ -179,7 +179,7 @@ def test_the_generator_is_deterministic_for_a_seed(
     second = generate(tmp_path / "b", "small", seed=7)
     other = generate(tmp_path / "c", "small", seed=8)
 
-    assert first.entities == {"calendar": 2, "dimension": 3, "event": 9 + 120, "timeline": 4}
+    assert first.entities == {"calendar": 2, "dimension": 3, "event": 9 + 120, "timeline": 3}
     assert first.links == 6 + 150
     assert (first.entities, first.links) == (second.entities, second.links)
     assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
@@ -201,5 +201,28 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "18 entities, 6 links" in capsys.readouterr().out
+    assert "17 entities, 6 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
+
+
+def test_v0_1_0_timelines_become_a_prime_and_branches(tmp_path: Path) -> None:
+    """Migration ``39828513f6da`` (decided 2026-10-05): the earliest timeline is the prime, the
+    others branch from it at absolute 0; every dimension got a time spec."""
+    expected = json.loads((FIXTURES / "v0.1.0" / "expected.json").read_text("utf-8"))
+    shutil.copytree(FIXTURES / "v0.1.0" / "vault", tmp_path / "vaults" / expected["folder"])
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{expected['vault_id']}"
+        assert client.post(f"{base}/migrate").status_code == 200
+        dimensions = {e["name"]: e for e in _all(client, f"{base}/entities", kind="dimension")}
+        world = client.get(f"{base}/entities/{dimensions['Aetheria']['id']}").json()
+        assert (world["ext"]["base_unit"]["singular"], world["ext"]["duration"]) == (
+            "second", str(10**100)
+        )  # fmt: skip
+        tree = client.get(f"{base}/dimensions/{world['id']}/timelines").json()["items"]
+        assert [(n["name"], n["is_prime"]) for n in tree] == [("Prime", True)]
+        branches = tree[0]["children"]
+        assert [(n["name"], n["branch_t"], n["branch_point"]["anchor"]) for n in branches] == [
+            ("The Unbroken Crown", "0", {"kind": "absolute", "t": "0"})
+        ]
+        prime = client.get(f"{base}/entities/{tree[0]['id']}").json()
+        assert prime["ext"]["is_prime"] is True
