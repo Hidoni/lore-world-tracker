@@ -32,6 +32,7 @@ from lore.chronology.schema import BaseUnit, MomentStr, TimePoint
 from lore.core.db.types import utc_now
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
+from lore.core.time.calendars import check_default_calendar
 from lore.core.time.dependencies import (
     DependencyIndex,
     DimensionNode,
@@ -82,6 +83,7 @@ class DimensionExt(BaseModel):
     base_unit: BaseUnit | None = None
     duration: MomentStr | None = None
     present: TimePoint | None = None
+    default_calendar_id: str | None = None
 
 
 def _parse(ext: dict[str, Any] | None) -> DimensionExt:
@@ -151,6 +153,9 @@ def write_dimension(
         row.duration = duration
     if "present" in sent:
         _set_present(session, row, data.present)
+    if "default_calendar_id" in sent:
+        check_default_calendar(session, entity.id, data.default_calendar_id)
+        row.default_calendar_id = data.default_calendar_id
     session.flush()
 
     if creating:
@@ -266,19 +271,26 @@ def _change_duration(context: VaultContext, row: Dimension) -> None:
         registry.write(context.session, record_type, updates)
 
 
-def read_dimension(context: VaultContext, entity: Entity) -> dict[str, Any] | None:
+def read_dimension(
+    context: VaultContext, entity: Entity, policy: VisibilityPolicy
+) -> dict[str, Any] | None:
     row = context.session.get(Dimension, entity.id)
     if row is None:
         return None
     prime = prime_timeline(context.session, entity.id)
+    visible = policy.visible_ids(
+        context.session, [row.default_calendar_id, prime.id if prime else None]
+    )
     return {
         "base_unit": row.base_unit,
         "duration": str(row.duration),
-        "default_calendar_id": row.default_calendar_id,
+        "default_calendar_id": (
+            row.default_calendar_id if row.default_calendar_id in visible else None
+        ),
         "present": dump_spec(row.present_spec) if row.present_spec is not None else None,
         "present_t": None if row.present_t is None else str(row.present_t),
         "time_status": row.time_status,
-        "prime_timeline_id": prime.id if prime is not None else None,
+        "prime_timeline_id": prime.id if prime is not None and prime.id in visible else None,
     }
 
 
@@ -377,13 +389,18 @@ def write_timeline(
         raise _invalid("ext", "A timeline's settings can't be edited yet.")
 
 
-def read_timeline(context: VaultContext, entity: Entity) -> dict[str, Any] | None:
+def read_timeline(
+    context: VaultContext, entity: Entity, policy: VisibilityPolicy
+) -> dict[str, Any] | None:
     row = context.session.get(Timeline, entity.id)
     if row is None:
         return None
+    visible = policy.visible_ids(context.session, [row.parent_timeline_id])
     return {
         "dimension_id": row.dimension_id,
-        "parent_timeline_id": row.parent_timeline_id,
+        "parent_timeline_id": (
+            row.parent_timeline_id if row.parent_timeline_id in visible else None
+        ),
         "is_prime": row.is_prime,
         "branch_point": dump_spec(row.branch_point_spec) if row.branch_point_spec else None,
         "branch_t": None if row.branch_t is None else str(row.branch_t),

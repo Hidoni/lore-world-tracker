@@ -201,7 +201,10 @@ entity); their rows' trash state and revision are the entity's.
 
 `entity_id PK`, `dimension_id`, `definition JSON` (with `schema_version`),
 `definition_revision INTEGER`, `resolved_anchors JSON` (JSON pointer → moment string),
-`compile_status ('ok'|'error')`, `compile_errors JSON`.
+`compile_status ('ok'|'error')`, `compile_errors JSON`. Index on `dimension_id`. Model
+`lore.core.time.models.Calendar` (recorded in history; owner: the entity). Compiled calendars are
+cached process-wide by `(vault, calendar, definition_revision, compile-context digest)`
+(`lore.core.time.cache`).
 
 ### 5.4 `events`
 

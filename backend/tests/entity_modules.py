@@ -17,6 +17,7 @@ from lore.core.registry import (
     LinkTypeDef,
 )
 from lore.core.registry import KindCapabilities as Caps
+from lore.core.visibility import VisibilityPolicy
 
 OPTIONS = (FieldOption("red", "Red"), FieldOption("blue", "Blue"))
 
@@ -64,7 +65,9 @@ def _write_ext(
     EXT_STORE[entity.id] = ext or {"habitat": "unknown"}
 
 
-def _read_ext(_context: VaultContext, entity: Entity) -> dict[str, Any] | None:
+def _read_ext(
+    _context: VaultContext, entity: Entity, _policy: VisibilityPolicy
+) -> dict[str, Any] | None:
     return EXT_STORE.get(entity.id)
 
 

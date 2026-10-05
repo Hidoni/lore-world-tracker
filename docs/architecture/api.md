@@ -105,6 +105,10 @@ Entity write semantics (`lore.core.entities.service`):
 - **Rules:** home dimension and parent rules per `data-model.md` §3.4 (`422 validation_error` on
   `dimension_id`, `422 parent_not_allowed`). Entities of kinds whose module is disabled answer
   `404 module_disabled` on every route (and can't be created).
+- **Calendars** are created through `POST /entities` (kind `calendar`, `ext: {definition}`) or the
+  wizard; definition errors answer `422 calendar_invalid` with `errors[].path` as JSON pointers
+  into the definition. Entity `ext` objects never show readers ids of entities they can't see
+  (e.g. a private default calendar).
 - **Dimensions** are created through `POST /entities` with `ext: {base_unit, duration, present?}`
   (`422` on `ext.<member>`), which also creates the prime timeline; `ext` patches change only the
   members sent. `kind: timeline` can't be created there, and a timeline's `ext` is read-only
@@ -149,10 +153,10 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/vaults/{v}/dimensions` | wizard: dimension + prime timeline + first calendar (from preset or definition) in one transaction |
+| POST | `/vaults/{v}/dimensions` | wizard: `{name, summary, visibility, ext: time spec, calendar: {name, summary, source}}` → `201 {dimension, prime_timeline, calendar}`: dimension + prime timeline + first calendar (the default; `source` is `{definition}` or `{preset: {id, seconds_per_base_unit, origin}}`) in one transaction. Source errors are located under `calendar.source.…` (`422 preset_incompatible` for a base unit the preset can't use) |
 | GET | `/vaults/{v}/dimensions/{id}/timelines` | timeline tree → `{dimension_id, items: TimelineNode[]}`: the prime (and its branches as `children`, by name). Hidden timelines hide their branches; trashed ones are left out unless the dimension is trashed (`404` for a dimension the request can't see) |
-| GET | `/vaults/{v}/calendars/presets` | preset catalog |
-| POST | `/vaults/{v}/calendars/preview` | compile an unsaved definition in a dimension context: errors, sample conversions |
+| GET | `/vaults/{v}/calendars/presets` | preset catalog (`LORE_SPEC_DIR`; written in seconds) |
+| POST | `/vaults/{v}/calendars/preview` | `{dimension_id | time_spec, calendar_id?, source}` → `{ok, errors, definition, samples}`: compile an unsaved definition (or preset instantiation) in a dimension context; `samples` are the starts of 5 top-level units from the first alignment on (`t`, fields, display at the finest level). Stores nothing |
 | POST | `/vaults/{v}/calendars/{id}/proposals` | calendar edit impact preview (`time-model.md` §7.4) |
 | POST | `/vaults/{v}/calendars/{id}/proposals/{pid}/apply` | apply with per-record strategies |
 | POST | `/vaults/{v}/time/resolve` | batch-resolve time points (validation for pickers; returns moment, status, display) |
@@ -218,7 +222,7 @@ understood, or that only leaves out, answers `422` with the reason on `q`.
 `vault_newer_than_app`, `vault_migration_failed` (500; `context.backup`), `invalid_backup`, `backup_not_found`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
 lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
-`dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,
+`preset_incompatible`, `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,
 `override_not_allowed`, `module_not_found`, `module_has_dependents`, `upload_rejected`, `revert_conflict`, `consistency_error` (an
 error-severity rule blocks the write; `errors` lists findings). Other framework HTTP errors use `http_<status>`.
 

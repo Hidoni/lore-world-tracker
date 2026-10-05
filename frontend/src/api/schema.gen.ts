@@ -658,6 +658,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/dimensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create
+         * @description The dimension wizard: a dimension (with its time spec), its prime timeline and its first
+         *     calendar (from a preset or a full definition, which becomes the default), in one
+         *     transaction.
+         */
+        post: operations["dimensions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/calendars/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Presets
+         * @description The preset calendar catalog (written in seconds; instantiate one with a base unit through
+         *     `preview` or the wizard).
+         */
+        get: operations["calendars_presets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/calendars/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview
+         * @description Compile an unsaved definition (or a preset instantiation) in a dimension's context: its
+         *     errors (`ok: false`) or a few sample dates. Nothing is stored.
+         */
+        post: operations["calendars_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -814,6 +878,15 @@ export interface components {
             /** Units */
             units: string;
         };
+        /** BaseUnit */
+        BaseUnit: {
+            /** Singular */
+            singular: string;
+            /** Plural */
+            plural: string;
+            /** Abbr */
+            abbr: string;
+        };
         /** Body_backups_restore */
         Body_backups_restore: {
             /** File */
@@ -861,6 +934,29 @@ export interface components {
              * @enum {integer}
              */
             sign: 1 | -1;
+        };
+        /**
+         * CalendarPreviewIn
+         * @description Exactly one of ``dimension_id`` (an existing dimension) and ``time_spec`` (one about to be
+         *     created, e.g. in the wizard).
+         */
+        CalendarPreviewIn: {
+            dimension_id?: components["schemas"]["EntityId"] | null;
+            time_spec?: components["schemas"]["TimeSpecIn"] | null;
+            /** @description The calendar being edited (detects self-references). */
+            calendar_id?: components["schemas"]["EntityId"] | null;
+            source: components["schemas"]["CalendarSource"];
+        };
+        /**
+         * CalendarSource
+         * @description Exactly one of ``definition`` (a full definition) and ``preset``.
+         */
+        CalendarSource: {
+            /** Definition */
+            definition?: {
+                [key: string]: unknown;
+            } | null;
+            preset?: components["schemas"]["PresetChoice"] | null;
         };
         /**
          * ChangeOut
@@ -969,6 +1065,33 @@ export interface components {
             entities: components["schemas"]["ChangedEntity"][];
         };
         Color: string;
+        /** DimensionCreated */
+        DimensionCreated: {
+            dimension: components["schemas"]["EntityOut"];
+            prime_timeline: components["schemas"]["EntityOut"];
+            calendar: components["schemas"]["EntityOut"];
+        };
+        /**
+         * DimensionWizardIn
+         * @description A dimension with its time spec, its prime timeline and its first calendar, in one go.
+         */
+        DimensionWizardIn: {
+            name: components["schemas"]["EntityName"];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            visibility?: components["schemas"]["Visibility"] | null;
+            /**
+             * Ext
+             * @description The time spec: `{base_unit, duration, present?}`.
+             */
+            ext: {
+                [key: string]: unknown;
+            };
+            calendar: components["schemas"]["WizardCalendar"];
+        };
         Duration: components["schemas"]["BaseDuration"] | components["schemas"]["CalendarDuration"];
         /** EntityCreate */
         EntityCreate: {
@@ -1717,6 +1840,80 @@ export interface components {
             modules: components["schemas"]["ModuleState"][];
         };
         /**
+         * PresetChoice
+         * @description A preset instantiated for a dimension (``chronology-engine.md`` §13).
+         */
+        PresetChoice: {
+            /** Id */
+            id: string;
+            /**
+             * @description How long one base unit lasts (> 0).
+             * @default {
+             *       "num": "1",
+             *       "den": "1"
+             *     }
+             */
+            seconds_per_base_unit: components["schemas"]["Rational"];
+            /**
+             * Origin
+             * @description The moment at which the preset's alignment unit starts.
+             * @default 0
+             */
+            origin: string;
+        };
+        /** PresetList */
+        PresetList: {
+            /** Items */
+            items: components["schemas"]["PresetOut"][];
+        };
+        /** PresetOut */
+        PresetOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Origin
+             * @description What the preset's origin moment is.
+             */
+            origin: string;
+            /**
+             * Duration Seconds
+             * @description The dimension must last at least this long after the origin (seconds).
+             */
+            duration_seconds: string;
+            /**
+             * Definition
+             * @description The definition, written in seconds.
+             */
+            definition: {
+                [key: string]: unknown;
+            };
+        };
+        /** Preview */
+        Preview: {
+            /** Ok */
+            ok: boolean;
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            }[];
+            /**
+             * Definition
+             * @description The definition previewed (a preset's instantiation).
+             */
+            definition: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Samples
+             * @description The starts of a few top-level units from the first alignment on.
+             */
+            samples: components["schemas"]["Sample"][];
+        };
+        /**
          * Problem
          * @description Body of every error response.
          */
@@ -1785,6 +1982,16 @@ export interface components {
             items: components["schemas"]["QuickHit"][];
         };
         /**
+         * Rational
+         * @description An exact rational ``num/den``, always normalized: gcd 1 and ``den > 0`` (time-model §2.4).
+         */
+        Rational: {
+            /** Num */
+            num: string;
+            /** Den */
+            den: string;
+        };
+        /**
          * Registry
          * @description Everything the generic UI is generated from, for this vault's enabled modules.
          */
@@ -1848,6 +2055,17 @@ export interface components {
             triggers: components["schemas"]["TriggerOut"][];
             /** Quick Fixes */
             quick_fixes: components["schemas"]["QuickFixOut"][];
+        };
+        /** Sample */
+        Sample: {
+            /** T */
+            t: string;
+            /** Display */
+            display: string;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
         };
         /**
          * SearchHit
@@ -1944,6 +2162,12 @@ export interface components {
              * @default false
              */
             approximate: boolean;
+        };
+        /** TimeSpecIn */
+        TimeSpecIn: {
+            base_unit: components["schemas"]["BaseUnit"];
+            /** Duration */
+            duration: string;
         };
         /** TimelineNode */
         TimelineNode: {
@@ -2198,6 +2422,16 @@ export interface components {
         };
         /** @enum {string} */
         Visibility: "public" | "spoiler" | "private";
+        /** WizardCalendar */
+        WizardCalendar: {
+            name: components["schemas"]["EntityName"];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            source: components["schemas"]["CalendarSource"];
+        };
     };
     responses: never;
     parameters: never;
@@ -3707,6 +3941,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineTree"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dimensions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DimensionWizardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DimensionCreated"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    calendars_presets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    calendars_preview: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarPreviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
                 };
             };
             /** @description Problem */

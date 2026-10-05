@@ -108,6 +108,18 @@ Rules:
 - Vaults from v0.1.0 were backfilled (decided 2026-10-05): every dimension got second/seconds/s
   with `D = 10^100`; per dimension, the earliest timeline entity became the prime and the others
   branches of it at absolute 0 (they inherit nothing).
+- **Calendars** (`lore.core.time.calendars`, #46): `ext: {definition}`, validated and compiled
+  with the Python engine in the dimension's context. Until propagation (#48) non-local anchors in
+  definitions must be `absolute` (`anchor.not_supported`), and every anchor must lie in `[0, D]`
+  (`anchor.out_of_bounds`); errors answer `422 calendar_invalid` with JSON pointers into the
+  definition. A definition can be edited directly only while nothing depends on the calendar
+  (`409`, `context.proposals`); otherwise through proposals (§7.4).
+- **Default calendar** (decided 2026-10-05): a dimension's first calendar becomes its default;
+  `ext.default_calendar_id` switches it to another calendar of the dimension that isn't in the
+  trash. The default can't be trashed or purged while another calendar exists (`409`); as the
+  only calendar it can be trashed (the default stays) and purged (the default is cleared).
+  v0.1.0 calendars were backfilled with a minimal calendar (days of 86,400 s, years of 365 days,
+  year 1 at `t = 0`); each dimension's earliest calendar became its default.
 - Implementation: `lore.core.time.dimensions` (the `ext` of kinds `dimension` and `timeline`),
   slot providers `dimension` (`present`) and `timeline` (`branch_point`) in
   `lore.core.time.kinds`.
@@ -333,7 +345,7 @@ others may reference the slot.
 | `link` | `links` | `valid_from`, `valid_to` | yes |
 | `segment` | `worldline_segments` | `start`, `end` | yes |
 | `dimension` | `dimensions` | `present` | no |
-| `calendar` | `calendars` | `alignment`, `era:<id>`, `regime:<id>` | no (internal) |
+| `calendar` | `calendars` | `alignment:<regime>`, `regime:<regime>` (its start), `era:<id>`, `overlay:<id>` (its epoch) | no (internal) |
 | `sync_point` | `correspondence_points` | `a`, `b` | no |
 | module records | module tables | declared by the module | declared |
 

@@ -6,6 +6,7 @@ Extend it whenever a new kind of private content appears (``#139`` completes it 
 content, its canary string, and the ids that must stay hidden.
 """
 
+import copy
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +22,7 @@ from tests.conftest import local_client
 from tests.entity_api import HEADERS, LinkApi
 from tests.entity_modules import ENTITY_MODULES
 from tests.sample_modules import ADDON, BASE, SAMPLE
+from tests.time.test_calendars import YEARS
 
 # The real modules plus test modules with kinds, fields and module routes to cover.
 LEAK_MODULES: tuple[ModuleSpec, ...] = (*ALL_MODULES, *ENTITY_MODULES, BASE, SAMPLE, ADDON)
@@ -108,6 +110,15 @@ def build_canary_vault(data_dir: Path) -> Canary:
         world = b.public("dimension", "Aetheria")
         home = {"dimension_id": world["id"]}
         canary.public["Prime"] = world["ext"]["prime_timeline_id"]
+        # A private calendar that is the world's default (its id must not leak through the
+        # dimension's ext), and a public one.
+        secret_calendar = copy.deepcopy(YEARS)
+        secret_calendar["levels"][1]["label"] = b.canary_string()
+        secret = b.hidden(
+            "calendar", visibility="private", ext={"definition": secret_calendar}, **home
+        )
+        assert api.get(world["id"]).json()["ext"]["default_calendar_id"] == secret["id"]
+        b.public("calendar", "Common Reckoning", ext={"definition": YEARS}, **home)
 
         # Private entities: by visibility, and effectively (home dimension private, trashed).
         ghost = b.hidden(

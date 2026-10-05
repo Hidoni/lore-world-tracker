@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from lore.core.entities.models import Entity
+from lore.core.visibility.policy import VisibilityPolicy
 
 if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
@@ -27,8 +28,9 @@ class KindExtension:
     # (context, entity, ext, creating): validate and store. Called on every create (``ext`` may
     # be None) and on a patch that sends ``ext``. Raise ``InvalidInputError`` for bad data.
     write: Callable[[VaultContext, Entity, dict[str, Any] | None, bool], None]
-    # (context, entity) -> the ``ext`` object of a read.
-    read: Callable[[VaultContext, Entity], dict[str, Any] | None]
+    # (context, entity, policy) -> the ``ext`` object of a read, as the request's visibility
+    # policy may see it (e.g. ids of entities it hides are left out).
+    read: Callable[[VaultContext, Entity, VisibilityPolicy], dict[str, Any] | None]
     # (context, entity, sent): after a PATCH applied its members (``sent``: the member names);
     # may refuse with a ``LoreError`` or update records that follow the entity.
     update: Callable[[VaultContext, Entity, frozenset[str]], None] | None = None

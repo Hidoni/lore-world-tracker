@@ -43,6 +43,7 @@ from typing import Any, Literal, get_args
 from sqlalchemy.orm import Session
 
 from lore import __version__
+from lore.config import detect_spec_dir
 from lore.core.entities.schemas import EntityCreate, EntityUpdate
 from lore.core.entities.service import EntityService
 from lore.core.history.recorder import context as history_context
@@ -53,6 +54,7 @@ from lore.core.links.types_service import LinkTypeService
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules.spec import VaultContext
+from lore.core.time.calendars import CalendarSource, PresetChoice, source_definition
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import DATABASE_NAME, MANIFEST_NAME
 from lore.modules import ALL_MODULES
@@ -143,6 +145,14 @@ def callout(tone: str, *blocks: Doc) -> Doc:
 
 def bullets(*items: Doc) -> Doc:
     return {"type": "bulletList", "content": [{"type": "listItem", "content": [i]} for i in items]}
+
+
+def preset_definition(preset_id: str) -> dict[str, Any]:
+    """A preset instantiated for a dimension in seconds, aligned at t = 0."""
+    definition = source_definition(
+        CalendarSource(preset=PresetChoice(id=preset_id)), detect_spec_dir()
+    )
+    return definition
 
 
 def time_spec(duration: int) -> dict[str, Any]:
@@ -265,8 +275,17 @@ def _core_dimensions(writer: Writer, core: Core, world: SampleWorld) -> None:
             ("Hollow Draft", hollow),
         ):
             core.ids[name] = s.prime_timeline(dimension, name)
-        for name, dimension in (("Spire Reckoning", aetheria), ("Tide Count", aetheria)):
-            core.ids[name] = s.entity("calendar", name, dimension_id=dimension)
+        # Calendars from presets (the first becomes Aetheria's default); #56 adds richer ones.
+        for name, dimension, preset in (
+            ("Spire Reckoning", aetheria, "alternating-years"),
+            ("Tide Count", aetheria, "simple-360"),
+        ):
+            core.ids[name] = s.entity(
+                "calendar",
+                name,
+                dimension_id=dimension,
+                ext={"definition": preset_definition(preset)},
+            )
     world.reader_hidden += ["The Hollow", "Hollow Draft"]
 
 
