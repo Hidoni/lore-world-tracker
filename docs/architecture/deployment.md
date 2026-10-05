@@ -151,7 +151,7 @@ Docker (optional, for image builds/e2e parity).
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image (`lore-world-tracker:local`) |
 | `make docker-smoke` | start the built image through `docker-compose.yml` in a temp project dir (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`) |
-| `make sample-vault SIZE=small` | generate the demo world into `./data` |
+| `make sample-vault SIZE=small` | generate the demo world "Aetheria" as a new vault in `./data` (`SIZE=tiny\|small\|medium\|large`) |
 
 ## 5. Versioning and releases
 

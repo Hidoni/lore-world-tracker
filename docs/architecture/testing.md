@@ -27,10 +27,21 @@
   a vault), builders (`make_dimension(preset="gregorian")`, `make_event(...)`, `make_character(...)`).
   Builders call services, never raw inserts, so invariants (history, search, dependencies)
   hold.
-- Sample world generator: `backend/scripts/make_sample_vault.py --size tiny|small|medium|large` builds
-  the demo world "Aetheria" (every calendar feature, recurring events, branches, worldlines,
-  correspondences, private content, media). It is used for manual testing, e2e, perf and fixture
-  vaults. `large` ≈ 100k entities / 100k events / 500k links.
+- Sample world generator: `backend/scripts/make_sample_vault.py --size tiny|small|medium|large
+  --out DATA_DIR` (`make sample-vault SIZE=…`) builds the demo world "Aetheria" as a new vault.
+  It writes through the services only (one transaction = one changeset, so history, search and
+  mentions stay consistent) and is deterministic for a `--seed` (same content; ids and real-world
+  timestamps differ). It is used for manual testing, e2e, perf and the golden fixture vaults
+  (`--fixture DIR`, `persistence-and-migrations.md` §3.5).
+  - **The core** (every size; `tiny` is only the core): a fixed, hand-written set with stable
+    names that tests rely on, covering every feature the app has.
+  - **The bulk** (`small` and up): seeded random events with mentions, tags, aliases, hierarchy and
+    private/spoiler content, and links between them. `small` ≈ 1k events / 3k links, `medium` ≈
+    10k / 40k, `large` ≈ 100k events / 500k links (takes about 20 minutes to build).
+  - **Every milestone extends it** with the features it adds (target: every calendar feature,
+    recurring events, branches, worldlines, correspondences, facts, module kinds, private
+    content, media): a new step in the core, bulk volume where it matters, and the facts tests
+    should check in `SampleWorld`. The module docstring lists what is planned.
 - Frontend: test behavior through the DOM (Testing Library). MSW handlers are built from the
   generated API types. Never test against implementation details of TipTap/sigma internals.
 
