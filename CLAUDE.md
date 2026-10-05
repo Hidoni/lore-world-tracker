@@ -8,9 +8,9 @@ shipped as a Docker image.
 ## Project status
 
 Planning finished on 2026-10-01. Implementation happens through **GitHub issues** grouped in
-milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). The M0
-scaffold is landing: `make` targets whose tooling isn't in place yet are placeholders that print
-which issue adds them. If reality and this file diverge, fix this file in your PR.
+milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). M0–M2
+are done and released as v0.1.0 (`CHANGELOG.md`). If reality and this file diverge, fix this
+file in your PR.
 
 ## Read before you work
 
@@ -70,7 +70,8 @@ backend/          uv project; package `lore` in src/lore/
   src/lore/core/time/    dimensions, timelines, calendars, time points, propagation, events, …
   src/lore/modules/<id>/ one package per module (see docs/architecture/modules.md)
   src/lore/migrations/   Alembic (single linear history)
-  tests/
+  scripts/               make_sample_vault.py: the sample world generator (testing.md §2)
+  tests/                 fixtures/vaults/v*/: golden fixture vaults (one per release)
 packages/chronology/  @lore/chronology: TS time engine + viewport/tick math
 frontend/         @lore/web: React SPA (src/app, api, data, core, editor, components/ui, modules), e2e/
 spec/chronology/  JSON Schemas (exported), presets, conformance vectors: shared by both engines
@@ -100,7 +101,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image `lore-world-tracker:local` (the tag `docker-compose.yml` uses) |
 | `make docker-smoke` | start the built image via docker compose (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`, CI `docker` job) |
-| `make sample-vault SIZE=small` | generate the demo world into `./data` (placeholder until #43) |
+| `make sample-vault SIZE=small` | generate the demo world "Aetheria" as a new vault in `./data` (`SIZE=tiny\|small\|medium\|large`, `SEED=…`; `backend/scripts/make_sample_vault.py`) |
 | `uv run lore …` (in `backend/`) | CLI: `serve`, `vault list\|create\|status\|migrate\|check\|reindex\|optimize\|backup\|restore`, `db revision -m … [--autogenerate]`, `db check`, `openapi`, `chronology export-schemas [--check]` |
 
 Node version: see `.nvmrc`. Python version: see `backend/.python-version` (3.14).

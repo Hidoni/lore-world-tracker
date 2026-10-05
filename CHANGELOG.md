@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
+The first release that writes vaults: the core platform (M2) on top of the foundations (M0) and
+the chronology engine (M1). It has no UI for worlds yet (M4); everything is reachable through the
+`/api/v1` API and the `lore` CLI.
+
 ### Added
 
 - **M0 Foundations** (#1–#7, #167):
@@ -34,3 +40,29 @@ All notable changes to this project are documented here. The format follows
   - Correspondence mapping between dimensions.
   - Timeline viewport math, calendar-aware ticks and tiles.
   - Cross-engine differential fuzzing (`make test-differential`) and benchmarks (`make bench`).
+- **M2 Core platform** (#30–#43):
+  - Vaults: a data directory of vault folders (`vault.json` + one SQLite database each), with a
+    registry, per-vault locks and engines, and the vault API and `lore vault` CLI.
+  - Migrations: per-vault Alembic upgrades on open with an automatic pre-migration backup,
+    `lore vault migrate` and `lore db check`/`revision` tooling.
+  - Core schema v1 (entities, aliases, tags, links, link types, mentions) with exact sortable
+    integers and UUIDv7 ids.
+  - The backend module framework: module specs, registries of kinds, fields and link types,
+    per-vault module enablement.
+  - Entities: create, read, update, trash, restore and purge with parent rules and optimistic
+    concurrency; listing, the navigation tree, children, the trash and field value suggestions.
+  - Links: core and custom link types, link CRUD, per-entity links and backlinks.
+  - History: every write is a changeset; the recent changes feed, per-entity history and undo.
+  - Rich text: document validation, text and mention extraction, mentions and reader filtering.
+  - Search: FTS5 full-text search (incl. trigram matching) and the quick switcher, kept current in
+    the write transaction, with reindexing.
+  - Visibility: author and reader policies (public, spoiler, private), `?as_reader=true` previews
+    and the canary leak-test harness.
+  - Backups: manual zip backups, scheduled backups with retention, and restore into a new vault.
+  - Maintenance: `lore vault check` (integrity, foreign keys, derived data), `reindex` and
+    `optimize`, plus a daily `PRAGMA optimize`.
+  - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
+    golden fixture vault, which every later migration is tested against.
+
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Hidoni/lore-world-tracker/releases/tag/v0.1.0
