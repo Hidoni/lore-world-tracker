@@ -254,6 +254,9 @@ class EntityService:
             extension = self._extension_for(kind, data.ext)
             if extension is not None:
                 extension.write(self.context, entity, data.ext, False)
+        hooks = self.extensions.get(kind.key)
+        if sent and hooks is not None and hooks.update is not None:
+            hooks.update(self.context, entity, frozenset(sent))
         links: list[Link] = []
         if "links_remove" in sent:  # first, so a link can be replaced under a uniqueness rule
             links += self._links().trash_for_entity(entity.id, data.links_remove)
@@ -315,6 +318,7 @@ class EntityService:
         them as orphans of the trashed parent."""
         entity = self._load(entity_id)
         if entity.deleted_at is None:
+            self._trash_hook(entity, True)
             entity.deleted_at = utc_now()
             self.session.flush()
             self.reindex(entity)
@@ -329,6 +333,7 @@ class EntityService:
         """Take out of the trash (idempotent)."""
         entity = self._load(entity_id)
         if entity.deleted_at is not None:
+            self._trash_hook(entity, False)
             entity.deleted_at = None
             self.session.flush()
             self.reindex(entity)
@@ -345,6 +350,9 @@ class EntityService:
         entity = self._load(entity_id)
         if entity.deleted_at is None:
             raise ConflictError("Only entities in the trash can be purged: trash it first.")
+        extension = self.extensions.get(entity.kind)
+        if extension is not None and extension.purge is not None:
+            extension.purge(self.context, entity)
         self._check_purgeable(entity)
         for hook in self.registry.purge_hooks():
             hook(self.context, entity)
@@ -444,6 +452,9 @@ class EntityService:
             self._check_children(entity, entity.dimension_id)
         except InvalidInputError as exc:
             problems.append(f"{entity.name}: {exc.detail}")
+        extension = self.extensions.get(entity.kind)
+        if extension is not None and extension.stored_problems is not None:
+            problems += extension.stored_problems(self.context, entity)
         return problems
 
     def _stored_parent_problems(self, entity: Entity, kind: RegisteredKind) -> list[str]:
@@ -493,6 +504,11 @@ class EntityService:
         defaults = settings.get("defaults") if isinstance(settings, dict) else None
         value = defaults.get("visibility") if isinstance(defaults, dict) else None
         return value if value in VISIBILITIES else "public"
+
+    def _trash_hook(self, entity: Entity, trashing: bool) -> None:
+        extension = self.extensions.get(entity.kind)
+        if extension is not None and extension.trash is not None:
+            extension.trash(self.context, entity, trashing)
 
     def _check_body(self, kind: RegisteredKind, body: dict[str, Any] | None) -> None:
         if body is not None and not kind.definition.capabilities.has_body:

@@ -2,8 +2,8 @@
 slot is stored and whether other records may anchor to it.
 
 A **slot provider** registers one record type: its ORM model, its slots and how to load and store
-them. Core registers its record types in ``CORE_SLOT_PROVIDERS``; modules through
-``ModuleSpec.slot_providers`` (record types named ``<module id>.<type>``). Resolution and
+them. Core registers its record types in ``lore.core.time.kinds.CORE_SLOT_PROVIDERS``; modules
+through ``ModuleSpec.slot_providers`` (record types named ``<module id>.<type>``). Resolution and
 propagation only ever touch slots through the registry, so they work for any table.
 
 A ``SlotDef`` names one slot (``start``) or a family of slots (``exclusion:*`` covers
@@ -21,6 +21,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lore.chronology.schema import EndSpec, SlotRef, TimePoint
+from lore.core.entities.models import Entity
+from lore.core.time.models import Timeline
 from lore.core.time.status import TimeStatus
 
 type SpecKind = Literal["time_point", "end"]
@@ -108,11 +110,31 @@ type SlotWriter = Callable[[Session, Sequence[SlotUpdate]], None]
 
 
 @dataclass(frozen=True)
+class SlotMoment:
+    """A resolved slot value, e.g. one that a new dimension duration would exclude."""
+
+    record_type: str
+    id: str
+    slot: str
+    t: int
+
+
+type BeyondQuery = Callable[[Session, str, int], list[SlotMoment]]
+"""``(session, dimension id, bound)``: slots of the dimension's records resolved after ``bound``
+(R-DIM-3)."""
+
+
+@dataclass(frozen=True)
 class SlotProvider:
     """A record type with time slots (``ModuleSpec.slot_providers`` for module records).
 
-    ``load``/``write`` default to column access on ``model`` (fixed slots only); a model with
-    ``deleted_at`` reports trashed rows. ``id_column`` is the record id the slot refs use.
+    ``load``/``write`` default to column access on ``model`` (fixed slots only). Trashed rows are
+    reported for a model with ``deleted_at``, or through ``entity_column`` when the row's trash
+    state is its entity's (extension tables). ``id_column`` is the record id the slot refs use.
+
+    How to find the records of a dimension (R-DIM-3): ``dimension_column`` (holds the dimension
+    id), ``timeline_column`` (holds a timeline id) or a custom ``beyond`` query (required for
+    slot families).
     """
 
     record_type: str
@@ -121,6 +143,10 @@ class SlotProvider:
     id_column: str = "id"
     load: SlotLoader | None = None
     write: SlotWriter | None = None
+    entity_column: str | None = None
+    dimension_column: str | None = None
+    timeline_column: str | None = None
+    beyond: BeyondQuery | None = None
 
     def slot(self, name: str) -> SlotDef | None:
         """The definition covering a slot name: an exact name wins over families, ``*`` last."""
@@ -137,6 +163,11 @@ class SlotProvider:
             self.write(session, updates)
         else:
             _write_columns(self, session, updates)
+
+    def moments_beyond(self, session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
+        if self.beyond is not None:
+            return self.beyond(session, dimension_id, bound)
+        return _beyond_columns(self, session, dimension_id, bound)
 
 
 class SlotError(ValueError):
@@ -196,15 +227,21 @@ class SlotRegistry:
             self.slot(record_type, update.key.slot)
         self._provider(record_type).write_slots(session, updates)
 
+    def moments_beyond(self, session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
+        """Every slot of the dimension's records resolved after ``bound``, sorted (R-DIM-3: these
+        block a duration change to ``bound``)."""
+        found = [
+            moment
+            for provider in self.providers
+            for moment in provider.moments_beyond(session, dimension_id, bound)
+        ]
+        return sorted(found, key=lambda m: (m.record_type, m.id, m.slot))
+
     def _provider(self, record_type: str) -> SlotProvider:
         provider = self._by_type.get(record_type)
         if provider is None:
             raise SlotError("unknown_slot", f"unknown record type {record_type!r}")
         return provider
-
-
-# Core record types register here as their tables arrive (events, timelines, facts, …).
-CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = ()
 
 
 def validate_providers(
@@ -254,6 +291,7 @@ def _validate_slots(where: str, provider: SlotProvider) -> list[str]:
         problems.append(f"{where}: no id column {provider.id_column!r}")
     if not provider.slots:
         problems.append(f"{where}: declares no slots")
+    problems += _validate_lookup(where, provider, columns)
     seen: set[str] = set()
     custom = provider.load is not None and provider.write is not None
     if (provider.load is None) != (provider.write is None):
@@ -274,6 +312,27 @@ def _validate_slots(where: str, provider: SlotProvider) -> list[str]:
         missing = [c for c in wanted if c is not None and c not in columns]
         if missing and not custom:
             problems += [f"{where}: slot {name!r} has no column {c!r}" for c in missing]
+    return problems
+
+
+def _validate_lookup(where: str, provider: SlotProvider, columns: set[str]) -> list[str]:
+    """The columns that find a row's trash state and dimension."""
+    problems: list[str] = []
+    for label, column in (
+        ("entity", provider.entity_column),
+        ("dimension", provider.dimension_column),
+        ("timeline", provider.timeline_column),
+    ):
+        if column is not None and column not in columns:
+            problems.append(f"{where}: no {label} column {column!r}")
+    if (provider.dimension_column is None) == (provider.timeline_column is None) and (
+        provider.beyond is None
+    ):
+        problems.append(
+            f"{where}: give one of dimension_column and timeline_column, or a beyond query"
+        )
+    if provider.beyond is None and any(slot.is_family for slot in provider.slots):
+        problems.append(f"{where}: slot families need a beyond query")
     return problems
 
 
@@ -301,7 +360,7 @@ def _load_columns(
     provider: SlotProvider, session: Session, keys: Sequence[SlotKey]
 ) -> dict[SlotKey, SlotValue]:
     rows = _rows(provider, session, (key.id for key in keys))
-    soft_deletes = hasattr(provider.model, "deleted_at")
+    trashed_ids = _trashed(provider, session, rows.values())
     result: dict[SlotKey, SlotValue] = {}
     for key in keys:
         row = rows.get(key.id)
@@ -310,7 +369,7 @@ def _load_columns(
         definition = _fixed(provider, key.slot)
         spec_column, resolved_column = definition.columns or ("", "")
         status = getattr(row, definition.status_column) if definition.status_column else None
-        trashed = soft_deletes and row.deleted_at is not None
+        trashed = key.id in trashed_ids
         result[key] = SlotValue(
             spec=getattr(row, spec_column),
             t=getattr(row, resolved_column),
@@ -318,6 +377,45 @@ def _load_columns(
             trashed=trashed,
         )
     return result
+
+
+def _trashed(provider: SlotProvider, session: Session, rows: Iterable[Any]) -> set[str]:
+    """Ids of the loaded rows that are in the trash (their own ``deleted_at`` or their entity's)."""
+    rows = list(rows)
+    if hasattr(provider.model, "deleted_at"):
+        return {str(getattr(r, provider.id_column)) for r in rows if r.deleted_at is not None}
+    if provider.entity_column is None:
+        return set()
+    owners = {
+        str(getattr(r, provider.entity_column)): str(getattr(r, provider.id_column)) for r in rows
+    }
+    trashed = session.scalars(
+        select(Entity.id).where(Entity.id.in_(sorted(owners)), Entity.deleted_at.is_not(None))
+    )
+    return {owners[entity_id] for entity_id in trashed}
+
+
+def _beyond_columns(
+    provider: SlotProvider, session: Session, dimension_id: str, bound: int
+) -> list[SlotMoment]:
+    model: Any = provider.model
+    if provider.dimension_column is not None:
+        in_dimension = getattr(model, provider.dimension_column) == dimension_id
+    else:
+        timeline_ids = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
+        in_dimension = getattr(model, str(provider.timeline_column)).in_(timeline_ids)
+    found: list[SlotMoment] = []
+    for slot in provider.slots:
+        if slot.columns is None:
+            continue
+        resolved = getattr(model, slot.columns[1])
+        rows = session.execute(
+            select(getattr(model, provider.id_column), resolved).where(
+                in_dimension, resolved > bound
+            )
+        )
+        found += [SlotMoment(provider.record_type, str(i), slot.name, t) for i, t in rows]
+    return found
 
 
 def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[SlotUpdate]) -> None:
@@ -334,11 +432,12 @@ def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[S
 
 
 __all__ = [
-    "CORE_SLOT_PROVIDERS",
+    "BeyondQuery",
     "SlotDef",
     "SlotError",
     "SlotKey",
     "SlotLoader",
+    "SlotMoment",
     "SlotProvider",
     "SlotRegistry",
     "SlotUpdate",

@@ -1,12 +1,71 @@
-"""``time_dependencies`` (``data-model.md`` §5.5, ``time-model.md`` §7.1): the edges propagation
-walks. Derived from the specs, but kept in the same transaction as them (not recorded in history).
-Dependents and targets are polymorphic (any registered record type), so there are no foreign keys.
+"""Core time tables: ``dimensions`` and ``timelines`` (entity extension tables, ``data-model.md``
+§5.1-§5.2) and ``time_dependencies`` (§5.5, ``time-model.md`` §7.1).
+
+``time_dependencies`` holds the edges propagation walks. It is derived from the specs, but kept in
+the same transaction as them (not recorded in history). Dependents and targets are polymorphic
+(any registered record type), so it has no foreign keys.
 """
 
-from sqlalchemy import Index, Integer, String
+from typing import Any
+
+from sqlalchemy import JSON, Boolean, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from lore.chronology.schema import TimePoint
 from lore.core.db.base import Base
+from lore.core.db.types import SortableBigInt
+from lore.core.time.specs import moment_column, spec_column, status_column
+
+RESTRICT = "RESTRICT"
+
+
+class Dimension(Base):
+    """A dimension's time spec (kind ``dimension``, ``time-model.md`` §3). Its trash state and
+    revision are the entity's."""
+
+    __tablename__ = "dimensions"
+
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT), primary_key=True
+    )
+    base_unit: Mapped[dict[str, Any]] = mapped_column(JSON)  # {singular, plural, abbr}
+    duration: Mapped[int] = mapped_column(SortableBigInt)  # D >= 1
+    default_calendar_id: Mapped[str | None] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT)
+    )
+    present_spec: Mapped[TimePoint | None] = spec_column()
+    present_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
+
+
+class Timeline(Base):
+    """A timeline (kind ``timeline``, ``time-model.md`` §4.1): the prime timeline of its dimension
+    or a branch of ``parent_timeline_id`` at ``branch_point``."""
+
+    __tablename__ = "timelines"
+
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT), primary_key=True
+    )
+    dimension_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    parent_timeline_id: Mapped[str | None] = mapped_column(
+        ForeignKey("timelines.entity_id", ondelete=RESTRICT)
+    )
+    is_prime: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    branch_point_spec: Mapped[TimePoint | None] = spec_column()
+    branch_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
+
+    __table_args__ = (
+        Index(
+            "uq_timelines_prime_dimension_id",
+            "dimension_id",
+            unique=True,
+            sqlite_where=text("is_prime"),
+        ),
+        Index("ix_timelines_dimension_id", "dimension_id"),
+        Index("ix_timelines_parent_timeline_id", "parent_timeline_id"),
+    )
 
 
 class TimeDependency(Base):

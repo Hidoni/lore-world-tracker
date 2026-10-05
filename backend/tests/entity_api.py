@@ -14,6 +14,11 @@ from tests.conftest import local_client
 from tests.entity_modules import ENTITY_MODULES
 
 HEADERS = {"X-Lore-Client": "test"}
+# The time spec ``Api.create`` gives dimensions that don't send one.
+DIMENSION_EXT = {
+    "base_unit": {"singular": "second", "plural": "seconds", "abbr": "s"},
+    "duration": str(10**12),
+}
 
 
 def make_client(
@@ -32,6 +37,8 @@ class Api:
         self.base = f"/api/v1/vaults/{self.vault}"
 
     def create(self, kind: str, name: str = "Thing", **body: Any) -> Any:
+        if kind == "dimension":
+            body.setdefault("ext", DIMENSION_EXT)
         return self.client.post(f"{self.base}/entities", json={"kind": kind, "name": name, **body})
 
     def make(self, kind: str, name: str = "Thing", **body: Any) -> dict[str, Any]:
@@ -111,7 +118,11 @@ class LinkApi(Api):
         return items
 
     def timeline(self) -> dict[str, Any]:
-        return self.make("timeline", "Prime", dimension_id=self.make("dimension")["id"])
+        """The prime timeline of a new dimension."""
+        prime = self.get(self.make("dimension")["ext"]["prime_timeline_id"])
+        assert prime.status_code == 200, prime.json()
+        timeline: dict[str, Any] = prime.json()
+        return timeline
 
     def link_types(self, **body: Any) -> Any:
         return self.client.post(f"{self.base}/link-types", json=body)

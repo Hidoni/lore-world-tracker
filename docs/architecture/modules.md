@@ -123,8 +123,11 @@ registry validate table prefixes and include module tables in the migration meta
 request session inside its transaction, registry). `kind_extensions` and `purge_hooks`
 (`lore.core.entities.extensions`) were added with the entity service: a `KindExtension(kind, write,
 read)` validates and stores the `ext` object of entity writes (called on every create and on
-patches that send `ext`) and supplies `ext` for reads, for kinds of enabled modules; core registers
-its own for system kinds in M3. `PurgeHook`s of **every** module (enabled or not) run before an
+patches that send `ext`) and supplies `ext` for reads, for kinds of enabled modules. Optional
+hooks: `update` (after a PATCH applied its members), `trash` (before trash/restore; may refuse),
+`purge` (before the purge checks; deletes the extension rows) and `stored_problems` (vetting an
+undo, which also re-vets the owners of changed extension rows). Core registers its own for system
+kinds (`lore.core.time.kinds`: dimension and timeline since #45). `PurgeHook`s of **every** module (enabled or not) run before an
 entity is purged. A module field type may set `FieldTypeDef.validate` (`(value, field) ->
 normalized value`, raising `ValueError`). `richtext_nodes` are `RichTextNodeHandler`s
 (`lore.core.richtext.handlers`: node type, block/inline group, attribute validation that rejects

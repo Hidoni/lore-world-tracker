@@ -96,7 +96,21 @@ Rules:
   recurrence intervals and calendar leaf counts atomically.
 - **R-DIM-5:** events cannot be created in a dimension that has no calendar. The dimension wizard
   creates the first calendar (usually from a preset).
-- Creating a dimension also creates its **prime timeline** in the same transaction.
+- Creating a dimension also creates its **prime timeline** (named "Prime") in the same
+  transaction. The prime follows its dimension (decided 2026-10-05): it has the dimension's
+  visibility and trash state (changed together; the prime's own can't be set), and it is purged
+  with the dimension, which is refused while anything else lives in it.
+- A violation of R-DIM-3 answers `422 time_constraint` with `context.records`
+  (`{record_type, id, slot, t}`) listing the offending slots. Slots that **are** the end of time
+  (`end_of_time` ends, which depend on the dimension, §7.1) aren't offenders: they move to the new
+  `D`. The present moment must lie in `[0, D]`; until anchor resolution (#47) only absolute
+  anchors are accepted for it (`422`, code `not_supported`).
+- Vaults from v0.1.0 were backfilled (decided 2026-10-05): every dimension got second/seconds/s
+  with `D = 10^100`; per dimension, the earliest timeline entity became the prime and the others
+  branches of it at absolute 0 (they inherit nothing).
+- Implementation: `lore.core.time.dimensions` (the `ext` of kinds `dimension` and `timeline`),
+  slot providers `dimension` (`present`) and `timeline` (`branch_point`) in
+  `lore.core.time.kinds`.
 
 Every dimension also has a **virtual "Absolute" calendar** (id `absolute`, not stored). It
 displays raw base units (`t = 1,234,567 s`, with scientific notation for huge values) and accepts
@@ -115,6 +129,9 @@ extension row:
 | `parent_timeline_id` | Null for the prime timeline. |
 | `branch_point` | Time point (anchorable, e.g. "start of the Assassination"); null for prime. Resolved into `branch_t`. |
 | `is_prime` | Exactly one per dimension. |
+
+Timelines can't be created through the generic entity API: the prime comes with its dimension
+and branches with the branches module (M9). Until then a timeline's `ext` is read-only.
 
 Constraints: a branch point must resolve inside `[0, D]`, and its anchor may only reference
 records visible in the **parent** timeline (otherwise a branch could depend on itself).

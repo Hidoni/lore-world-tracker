@@ -107,6 +107,7 @@ def build_canary_vault(data_dir: Path) -> Canary:
 
         world = b.public("dimension", "Aetheria")
         home = {"dimension_id": world["id"]}
+        canary.public["Prime"] = world["ext"]["prime_timeline_id"]
 
         # Private entities: by visibility, and effectively (home dimension private, trashed).
         ghost = b.hidden(
@@ -122,7 +123,10 @@ def build_canary_vault(data_dir: Path) -> Canary:
         b.hidden("gadget", dimension_id=realm["id"], summary=b.canary_string())
         discarded = b.hidden("gadget", summary=b.canary_string(), **home)
         assert api.delete(discarded["id"]).status_code == 200
-        branch = b.hidden("timeline", visibility="private", **home)
+        # A private timeline: the prime of the private dimension (it copies its visibility).
+        branch = api.get(realm["ext"]["prime_timeline_id"]).json()
+        assert branch["visibility"] == "private"
+        canary.hidden_ids.add(branch["id"])
 
         # A public entity with private parts of every kind.
         lantern = b.public(

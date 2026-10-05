@@ -28,7 +28,7 @@ from lore.core.time import (
     spec_column,
     status_column,
 )
-from lore.core.time.slots import validate_providers
+from lore.core.time.slots import SlotMoment, validate_providers
 
 
 class SlotsBase(DeclarativeBase):
@@ -41,6 +41,7 @@ class Happening(SoftDeleteMixin, SlotsBase):
     __tablename__ = "happenings"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    dimension_id: Mapped[str | None] = mapped_column(String)
     start_spec: Mapped[TimePoint | None] = spec_column()
     start_t: Mapped[int | None] = moment_column()
     end_spec: Mapped[Any] = spec_column(EndSpecColumn)
@@ -65,6 +66,7 @@ HAPPENING = SlotProvider(
         SlotDef("end", spec="end", referenceable=True),
         SlotDef("note_time", spec_column="start_spec", resolved_column="start_t"),
     ),
+    dimension_column="dimension_id",
 )
 
 
@@ -76,6 +78,10 @@ def _write_rules(_session: Session, updates: Sequence[SlotUpdate]) -> None:
     WRITTEN.extend(updates)
 
 
+def NOTHING_BEYOND(_session: Session, _dimension: str, _bound: int) -> list[SlotMoment]:  # noqa: N802
+    return []
+
+
 WRITTEN: list[SlotUpdate] = []
 RULE = SlotProvider(
     "x.rule",
@@ -83,6 +89,7 @@ RULE = SlotProvider(
     (SlotDef("until"), SlotDef("exclusion:*"), SlotDef("*", referenceable=True)),
     load=_load_rules,
     write=_write_rules,
+    beyond=NOTHING_BEYOND,
 )
 REGISTRY = SlotRegistry((HAPPENING, RULE))
 
@@ -250,6 +257,7 @@ def test_modules_register_slot_providers() -> None:
 
 def test_slot_provider_errors() -> None:
     def provider(record_type: str, *slots: SlotDef, **values: Any) -> SlotProvider:
+        values.setdefault("beyond", NOTHING_BEYOND)
         return SlotProvider(record_type, Rule, slots or (SlotDef("until"),), **values)
 
     custom: dict[str, Any] = {"load": _load_rules, "write": _write_rules}
@@ -262,7 +270,7 @@ def test_slot_provider_errors() -> None:
             provider("x.one"),
             provider("x.two", SlotDef("Bad"), SlotDef("a"), SlotDef("a"), load=_load_rules),
             provider("x.three", SlotDef("fam:*"), id_column="uid"),
-            SlotProvider("x.four", Rule, (), **custom),
+            SlotProvider("x.four", Rule, (), beyond=NOTHING_BEYOND, **custom),
             RULE,
             models=(Rule,),
         ),
@@ -298,12 +306,60 @@ def test_slot_provider_errors() -> None:
 
 
 def test_core_providers_are_unprefixed_and_need_mapped_models() -> None:
-    assert validate_providers("core", [SlotProvider("x.rule", Rule, (SlotDef("a"),))], ()) == [
+    rule = SlotProvider("x.rule", Rule, (SlotDef("a"),), beyond=NOTHING_BEYOND)
+    assert validate_providers("core", [rule], ()) == [
         "core: slot provider 'x.rule': core record types are unprefixed",
         "core: slot provider 'x.rule': slot 'a' has no column 'a_spec'",
         "core: slot provider 'x.rule': slot 'a' has no column 'a_t'",
         "core: slot provider 'x.rule': slot 'a' has no column 'time_status'",
     ]
-    assert validate_providers("core", [SlotProvider("thing", str, (SlotDef("a"),))], ()) == [
+    thing = SlotProvider("thing", str, (SlotDef("a"),), beyond=NOTHING_BEYOND)
+    assert validate_providers("core", [thing], ()) == [
         "core: slot provider 'thing': str is not a mapped table model"
     ]
+
+
+def test_dimension_lookup_errors() -> None:
+    def where(**values: Any) -> list[str]:
+        provider = SlotProvider("happening", Happening, (SlotDef("start"),), **values)
+        return validate_providers("core", [provider], ())
+
+    assert where() == [
+        "core: slot provider 'happening': give one of dimension_column and timeline_column, "
+        "or a beyond query"
+    ]
+    assert where(dimension_column="dimension_id", timeline_column="dimension_id") == [
+        "core: slot provider 'happening': give one of dimension_column and timeline_column, "
+        "or a beyond query"
+    ]
+    assert where(dimension_column="dim", entity_column="owner", timeline_column=None) == [
+        "core: slot provider 'happening': no entity column 'owner'",
+        "core: slot provider 'happening': no dimension column 'dim'",
+    ]
+    assert where(timeline_column="tl") == [
+        "core: slot provider 'happening': no timeline column 'tl'"
+    ]
+    family = SlotProvider(
+        "x.rule", Rule, (SlotDef("a:*"),), load=_load_rules, write=_write_rules,
+        dimension_column="id",
+    )  # fmt: skip
+    assert validate_providers("x", [family], (Rule,)) == [
+        "x: slot provider 'x.rule': slot families need a beyond query"
+    ]
+
+
+def test_moments_beyond_by_dimension_column(session: Session) -> None:
+    session.add_all(
+        [
+            Happening(id="a", dimension_id="d", start_t=5, end_t=50),
+            Happening(id="b", dimension_id="d", start_t=10**200),
+            Happening(id="c", dimension_id="other", start_t=10**300),
+        ]
+    )
+    session.flush()
+    assert REGISTRY.moments_beyond(session, "d", 6) == [
+        SlotMoment("happening", "a", "end", 50),
+        SlotMoment("happening", "b", "note_time", 10**200),
+        SlotMoment("happening", "b", "start", 10**200),
+    ]
+    assert REGISTRY.moments_beyond(session, "d", 10**200) == []

@@ -281,7 +281,8 @@ def test_cli_check(cli_vault: tuple[str, Path]) -> None:
 
     fixed = runner.invoke(cli.app, ["vault", "reindex", vault])
     assert fixed.exit_code == 0, fixed.output
-    assert fixed.output == "search: rebuilt 2 documents\nmentions: rebuilt 2 entities\n"
+    # two dimensions and their prime timelines
+    assert fixed.output == "search: rebuilt 4 documents\nmentions: rebuilt 4 entities\n"
     assert runner.invoke(cli.app, ["vault", "check", vault]).exit_code == 0
     assert runner.invoke(cli.app, ["vault", "check", "nope"]).exit_code == 1
 

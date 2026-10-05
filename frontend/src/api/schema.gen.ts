@@ -637,6 +637,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/dimensions/{dimension_id}/timelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Timelines
+         * @description The dimension's timeline tree: the prime timeline and its branches (``404`` for a
+         *     dimension the request may not see).
+         */
+        get: operations["dimensions_timelines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1923,6 +1944,49 @@ export interface components {
              * @default false
              */
             approximate: boolean;
+        };
+        /** TimelineNode */
+        TimelineNode: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Is Prime */
+            is_prime: boolean;
+            /** Parent Timeline Id */
+            parent_timeline_id: string | null;
+            /**
+             * Branch Point
+             * @description The branch point time point.
+             */
+            branch_point: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Branch T
+             * @description The resolved branch moment.
+             */
+            branch_t: string | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Trashed */
+            trashed: boolean;
+            /**
+             * Children
+             * @description Branches, by name.
+             */
+            children: components["schemas"]["TimelineNode"][];
+        };
+        /** TimelineTree */
+        TimelineTree: {
+            /** Dimension Id */
+            dimension_id: string;
+            /**
+             * Items
+             * @description The root timelines: the prime, unless the request may not see it.
+             */
+            items: components["schemas"]["TimelineNode"][];
         };
         /**
          * TrashItem
@@ -3606,6 +3670,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuickResults"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dimensions_timelines: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Dimension id. */
+                dimension_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineTree"];
                 };
             };
             /** @description Problem */

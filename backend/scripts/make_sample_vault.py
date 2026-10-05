@@ -145,6 +145,12 @@ def bullets(*items: Doc) -> Doc:
     return {"type": "bulletList", "content": [{"type": "listItem", "content": [i]} for i in items]}
 
 
+def time_spec(duration: int) -> dict[str, Any]:
+    """A dimension's ``ext``: seconds, lasting ``duration``."""
+    unit = {"singular": "second", "plural": "seconds", "abbr": "s"}
+    return {"base_unit": unit, "duration": str(duration)}
+
+
 def point(t: int) -> dict[str, Any]:
     """A time point at an absolute moment."""
     return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base", "approximate": False}
@@ -173,6 +179,14 @@ class Services:
             EntityCreate.model_validate({"kind": kind, "name": name, **body})
         )
         return created.entity.id
+
+    def prime_timeline(self, dimension_id: str, name: str) -> str:
+        """The id of the dimension's prime timeline, renamed to ``name``."""
+        ext = self.entities.get(dimension_id).ext or {}
+        prime = self.entities.get(str(ext["prime_timeline_id"]))
+        if prime.name != name:
+            self.entities.update(prime.id, EntityUpdate(revision=prime.revision, name=name))
+        return prime.id
 
     def link(self, link_type: str, source: str, target: str, **body: Any) -> str:
         data = {"link_type": link_type, "source_id": source, "target_id": target, **body}
@@ -219,6 +233,7 @@ def _core_dimensions(writer: Writer, core: Core, world: SampleWorld) -> None:
         aetheria = s.entity(
             "dimension",
             WORLD_NAME,
+            ext=time_spec(10**110),  # the worked example of time-model.md §13
             summary="A world of floating isles, broken from a single continent in the Sundering.",
             aliases=[
                 {"alias": "The Shattered Realm", "alias_kind": "title"},
@@ -229,6 +244,7 @@ def _core_dimensions(writer: Writer, core: Core, world: SampleWorld) -> None:
         dreaming = s.entity(
             "dimension",
             "The Dreaming",
+            ext=time_spec(10**100),
             summary="Where the drowned and the unborn walk. Its nature is a late reveal.",
             visibility="spoiler",
             tags=["Realm"],
@@ -236,17 +252,19 @@ def _core_dimensions(writer: Writer, core: Core, world: SampleWorld) -> None:
         hollow = s.entity(
             "dimension",
             "The Hollow",
+            ext=time_spec(10**100),
             summary="The author's scratch realm: never shown to readers.",
             visibility="private",
         )
         core.ids.update({WORLD_NAME: aetheria, "The Dreaming": dreaming, "The Hollow": hollow})
-        for name, dimension, extra in (
-            ("Prime", aetheria, {}),
-            ("The Unbroken Crown", aetheria, {"summary": "What if the continent never broke?"}),
-            ("Dream-time", dreaming, {}),
-            ("Hollow Draft", hollow, {}),
+        # Every dimension comes with its prime timeline; two get their own names. Branches
+        # ("The Unbroken Crown") arrive with the branches module (M9).
+        for name, dimension in (
+            ("Prime", aetheria),
+            ("Dream-time", dreaming),
+            ("Hollow Draft", hollow),
         ):
-            core.ids[name] = s.entity("timeline", name, dimension_id=dimension, **extra)
+            core.ids[name] = s.prime_timeline(dimension, name)
         for name, dimension in (("Spire Reckoning", aetheria), ("Tide Count", aetheria)):
             core.ids[name] = s.entity("calendar", name, dimension_id=dimension)
     world.reader_hidden += ["The Hollow", "Hollow Draft"]
