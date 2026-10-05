@@ -220,13 +220,17 @@ described in §2. `make check` (and so CI) runs
 ### 3.5 Migration tests
 
 1. **Upgrade from empty:** create an empty DB, upgrade to head, compare with ORM metadata.
-2. **Golden fixture vaults:** `backend/tests/fixtures/vaults/v<app version>/` are real vault
+2. **Golden fixture vaults:** `backend/tests/fixtures/vaults/v<app version>/vault/` are real vault
    folders (small but rich: every feature available at that version, e.g. calendars of every
    feature, recurring events with materialized occurrences, branches, worldlines, facts, private
    content, media). They are generated with the sample world generator
    (`backend/scripts/make_sample_vault.py --size tiny`, see `testing.md` §2) **at each milestone
-   release** and committed. Tests upgrade copies to head, then run API smoke tests and invariants
-   (`lore vault check`). Old fixtures are never deleted.
+   release** (`make_sample_vault.py --size tiny --fixture backend/tests/fixtures/vaults/vX.Y.0`,
+   which also writes `vX.Y.0/expected.json`: counts, names readers must not see, search and
+   backlink expectations) and committed. `backend/tests/test_fixture_vaults.py` upgrades a copy
+   of every fixture to head, then runs the `lore vault check` checks and API smoke tests (content,
+   reader filtering, writes and undo) against its `expected.json`. Old fixtures are never
+   regenerated or deleted.
 3. **Per data migration:** unit tests with before/after rows, using the `migrations` fixture
    (`backend/tests/migration_harness.py`, below).
 

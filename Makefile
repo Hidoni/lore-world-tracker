@@ -10,11 +10,6 @@ BACKEND := backend
 DATA_DIR := $(CURDIR)/data
 UV := uv --directory $(BACKEND)
 
-# Prints a "not available yet" message for targets whose tooling arrives with a later issue.
-define placeholder
-	@echo "make $@: not available yet (arrives with $(1): https://github.com/Hidoni/lore-world-tracker/issues/$(patsubst #%,%,$(1)))"
-endef
-
 .PHONY: help setup dev check check-backend check-frontend check-chronology test test-backend \
 	test-frontend test-chronology test-differential bench e2e gen check-contract fmt docker \
 	docker-smoke sample-vault
@@ -94,5 +89,6 @@ docker: ## Build the image (lore-world-tracker:local, the tag docker-compose.yml
 docker-smoke: ## Run the built image via docker compose and smoke-test it (scripts/docker-smoke.sh)
 	scripts/docker-smoke.sh
 
-sample-vault: ## Generate the demo world into ./data (SIZE=small|medium|large)
-	$(call placeholder,#43)
+SIZE ?= small
+sample-vault: ## Generate the demo world "Aetheria" as a new vault in ./data (SIZE=tiny|small|medium|large, SEED=…)
+	$(UV) run scripts/make_sample_vault.py --size $(SIZE) --out $(DATA_DIR) $(if $(SEED),--seed $(SEED))
