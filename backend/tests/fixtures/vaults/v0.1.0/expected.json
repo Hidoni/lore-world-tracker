@@ -1,0 +1,43 @@
+{
+  "vault_id": "01a10d25-c0bc-75c5-96b2-b4f712aacfd4",
+  "folder": "aetheria-01a10d25",
+  "size": "tiny",
+  "seed": 1729,
+  "app_version": "0.1.0",
+  "entities": {
+    "calendar": 2,
+    "dimension": 3,
+    "event": 9,
+    "timeline": 4
+  },
+  "trashed_entities": 1,
+  "links": 6,
+  "custom_link_types": [
+    "custom.allied_with",
+    "custom.foreshadows",
+    "custom.mirrors"
+  ],
+  "reader_hidden": [
+    "The Hollow",
+    "Hollow Draft",
+    "The Whispering Accord",
+    "First Draft of the Fall"
+  ],
+  "search": {
+    "query": "ley lines",
+    "name": "The Sundering"
+  },
+  "backlinks": {
+    "The Sundering": [
+      "Dream of the Drowned King",
+      "Founding of Varn",
+      "The Long Night",
+      "The Whispering Accord"
+    ],
+    "Founding of Varn": [
+      "Coronation of Ilsa",
+      "Rite of Tides",
+      "The Sundering"
+    ]
+  }
+}

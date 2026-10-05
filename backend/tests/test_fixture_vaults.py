@@ -1,0 +1,205 @@
+"""Golden fixture vaults (``persistence-and-migrations.md`` §3.5) and the sample world generator
+(``testing.md`` §2).
+
+Every ``tests/fixtures/vaults/v<version>/`` (a vault folder written by an app release, and the
+``expected.json`` the generator wrote with it) is upgraded to head on a copy, checked with
+``lore vault check``'s checks and smoke-tested through the API. Fixtures are never regenerated or
+deleted: each milestone release adds one.
+"""
+
+import json
+import shutil
+from collections import Counter
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+from scripts import make_sample_vault
+from scripts.make_sample_vault import Scale, generate
+
+from lore.app import create_app
+from lore.config import Settings
+from lore.core.maintenance import check_vault
+from lore.core.vaults import VaultManager
+from tests.conftest import local_client
+from tests.entity_api import HEADERS
+
+FIXTURES = Path(__file__).parent / "fixtures" / "vaults"
+FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
+
+
+def test_there_is_a_fixture_for_every_release() -> None:
+    assert [path.name for path in FIXTURE_DIRS][:1] == ["v0.1.0"]
+
+
+@pytest.fixture(params=FIXTURE_DIRS, ids=[path.name for path in FIXTURE_DIRS])
+def fixture(request: pytest.FixtureRequest) -> Path:
+    path: Path = request.param
+    return path
+
+
+def _client(data_dir: Path) -> TestClient:
+    return local_client(create_app(Settings(data_dir=data_dir)), headers=HEADERS)
+
+
+@pytest.fixture
+def upgraded(fixture: Path, tmp_path: Path) -> Iterator[tuple[TestClient, dict[str, Any]]]:
+    """A copy of the fixture vault in a fresh data dir, migrated to head, and its expectations."""
+    expected: dict[str, Any] = json.loads((fixture / "expected.json").read_text("utf-8"))
+    shutil.copytree(fixture / "vault", tmp_path / "vaults" / expected["folder"])
+    with _client(tmp_path) as client:
+        vault_id = expected["vault_id"]
+        listed = client.get(f"/api/v1/vaults/{vault_id}").json()
+        assert listed["schema_status"]["state"] in {"current", "needs_migration"}
+        migrated = client.post(f"/api/v1/vaults/{vault_id}/migrate")
+        assert migrated.status_code == 200, migrated.json()
+        status = client.get(f"/api/v1/vaults/{vault_id}").json()["schema_status"]
+        assert status["state"] == "current"
+        assert status["revision"] == status["head"]
+        yield client, expected
+
+
+def _manager(client: TestClient) -> VaultManager:
+    manager: VaultManager = client.app.state.vaults  # type: ignore[attr-defined]
+    return manager
+
+
+def _all(client: TestClient, url: str, **params: Any) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    params["limit"] = 500
+    while True:
+        page = client.get(url, params=params)
+        assert page.status_code == 200, page.json()
+        items += page.json()["items"]
+        params["cursor"] = page.json()["next_cursor"]
+        if params["cursor"] is None:
+            return items
+
+
+def test_fixture_upgrades_to_head_and_passes_the_vault_checks(upgraded: Any) -> None:
+    client, expected = upgraded
+    report = check_vault(_manager(client), expected["vault_id"])
+    assert report.problems == ()
+
+
+def test_fixture_content_survives_the_upgrade(upgraded: Any) -> None:
+    client, expected = upgraded
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    entities = _all(client, f"{base}/entities")
+    assert dict(Counter(entity["kind"] for entity in entities)) == expected["entities"]
+    assert len(_all(client, f"{base}/trash")) >= expected["trashed_entities"]
+    by_name = {entity["name"]: entity["id"] for entity in entities}
+
+    link_ids: set[str] = set()
+    for entity in entities:
+        assert client.get(f"{base}/entities/{entity['id']}").status_code == 200
+        links = client.get(f"{base}/entities/{entity['id']}/links").json()["items"]
+        link_ids.update(item["link"]["id"] for item in links)
+    assert len(link_ids) == expected["links"]
+
+    for target, sources in expected["backlinks"].items():
+        backlinks = client.get(f"{base}/entities/{by_name[target]}/backlinks").json()["items"]
+        assert sorted(item["entity"]["name"] for item in backlinks) == sources
+
+    hits = client.get(f"{base}/search", params={"q": expected["search"]["query"]}).json()
+    assert [hit["name"] for hit in hits["items"]][:1] == [expected["search"]["name"]]
+
+    link_types = {item["key"] for item in client.get(f"{base}/link-types").json()["items"]}
+    assert set(expected["custom_link_types"]) <= link_types
+
+
+def test_readers_never_see_the_fixtures_private_content(upgraded: Any) -> None:
+    client, expected = upgraded
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    names = {entity["name"] for entity in _all(client, f"{base}/entities", as_reader=True)}
+    assert names
+    assert names.isdisjoint(expected["reader_hidden"])
+
+
+def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
+    client, expected = upgraded
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    changes = client.get(f"{base}/changes", params={"limit": 1}).json()["items"]
+    assert changes, "the fixture has history"
+    undone = client.post(f"{base}/changes/{changes[0]['id']}/revert")
+    assert undone.status_code == 200, undone.json()
+
+    dimension = next(e for e in _all(client, f"{base}/entities", kind="dimension"))
+    created = client.post(
+        f"{base}/entities",
+        json={"kind": "event", "name": "Upgrade Day", "dimension_id": dimension["id"]},
+    )
+    assert created.status_code == 201, created.json()
+    link = client.post(
+        f"{base}/links",
+        json={
+            "link_type": "core.related",
+            "source_id": created.json()["entity"]["id"],
+            "target_id": dimension["id"],
+        },
+    )
+    assert link.status_code == 201, link.json()
+    assert check_vault(_manager(client), expected["vault_id"]).problems == ()
+
+
+# --- the generator -------------------------------------------------------------------------------
+
+
+def _content(data_dir: Path, vault_id: str) -> list[tuple[Any, ...]]:
+    """Everything the seed decides, without generated ids and timestamps."""
+    with _client(data_dir) as client:
+        base = f"/api/v1/vaults/{vault_id}"
+        entities = _all(client, f"{base}/entities")
+        names = {entity["id"]: entity["name"] for entity in entities}
+        rows: list[tuple[Any, ...]] = []
+        for summary in entities:
+            entity = client.get(f"{base}/entities/{summary['id']}").json()
+            links = client.get(f"{base}/entities/{summary['id']}/links").json()["items"]
+            rows.append((
+                entity["kind"], entity["name"], entity["summary"], entity["visibility"],
+                names.get(entity["parent_id"]), names.get(entity["dimension_id"]),
+                sorted(tag["name"] for tag in entity["tags"]),
+                [alias["alias"] for alias in entity["aliases"]],
+                json.dumps(entity["body"], sort_keys=True).count("entityLink"),
+                sorted((item["link"]["link_type"], item["direction"], item["other"]["name"])
+                       for item in links),
+            ))  # fmt: skip
+        return sorted(rows, key=repr)
+
+
+def test_the_generator_is_deterministic_for_a_seed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(make_sample_vault.SIZES, "small", Scale(events=120, links=150))
+    monkeypatch.setattr(make_sample_vault, "ENTITIES_PER_TRANSACTION", 50)
+    monkeypatch.setattr(make_sample_vault, "LINKS_PER_TRANSACTION", 100)
+    first = generate(tmp_path / "a", "small", seed=7)
+    second = generate(tmp_path / "b", "small", seed=7)
+    other = generate(tmp_path / "c", "small", seed=8)
+
+    assert first.entities == {"calendar": 2, "dimension": 3, "event": 9 + 120, "timeline": 4}
+    assert first.links == 6 + 150
+    assert (first.entities, first.links) == (second.entities, second.links)
+    assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
+    assert _content(tmp_path / "a", first.vault_id) != _content(tmp_path / "c", other.vault_id)
+    with _client(tmp_path / "a") as client:
+        assert check_vault(_manager(client), first.vault_id).problems == ()
+
+
+def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
+    target = tmp_path / "v9.9.9"
+    world = make_sample_vault.write_fixture(target)
+    assert sorted(path.name for path in (target / "vault").iterdir()) == ["lore.db", "vault.json"]
+    expected = json.loads((target / "expected.json").read_text("utf-8"))
+    assert expected["vault_id"] == world.vault_id
+    assert expected["size"] == "tiny"
+    with pytest.raises(FileExistsError):
+        make_sample_vault.write_fixture(target)
+
+
+def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
+    assert "18 entities, 6 links" in capsys.readouterr().out
+    assert len(list((tmp_path / "vaults").iterdir())) == 1
