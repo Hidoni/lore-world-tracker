@@ -85,6 +85,9 @@ from lore.core.vaults.settings import read_settings
 
 logger = logging.getLogger(__name__)
 
+# How often the scheduler runs PRAGMA optimize on an open vault (§2: "on vault close and daily").
+OPTIMIZE_EVERY = timedelta(days=1)
+
 _vault_name: TypeAdapter[str] = TypeAdapter(VaultName)
 
 
@@ -249,6 +252,8 @@ class VaultManager:
         self._guard = threading.RLock()
         self._open: dict[str, OpenVault] = {}
         self._locks: dict[str, VaultLock] = {}
+        # When each open vault was last optimized (or opened): the daily PRAGMA optimize.
+        self._optimized_at: dict[str, datetime] = {}
         # Vaults whose migration failed in this process: unusable until restart (§3.3).
         self._failed: dict[str, _Failure] = {}
 
@@ -573,6 +578,29 @@ class VaultManager:
                 logger.exception("scheduled backup of vault %s failed", vault.id)
         return made
 
+    def run_scheduled_optimize(self, now: datetime | None = None) -> list[str]:
+        """One scheduler pass: ``PRAGMA optimize`` every vault this process has open that wasn't
+        optimized (or opened) in the last ``OPTIMIZE_EVERY``; returns their ids. Author mode only.
+        Failures are logged, never raised."""
+        if self.read_only:
+            return []
+        now = now or datetime.now(UTC)
+        with self._guard:
+            opened = list(self._open.values())
+        done: list[str] = []
+        for vault in opened:
+            last = self._optimized_at.setdefault(vault.id, now)
+            if now - last < OPTIMIZE_EVERY:
+                continue
+            try:
+                optimize(vault.engine)
+            except Exception:
+                logger.exception("PRAGMA optimize failed for vault %s", vault.id)
+                continue
+            self._optimized_at[vault.id] = now
+            done.append(vault.id)
+        return done
+
     # --- opening ------------------------------------------------------------------------------
 
     def _lock(self, info: VaultInfo) -> VaultLock:
@@ -627,6 +655,7 @@ class VaultManager:
                     with opened.write_sessions.begin() as session:
                         _ensure_search_index(opened, session, self.module_registry)
             self._open[vault_id] = opened
+            self._optimized_at[vault_id] = datetime.now(UTC)
             return opened
 
     def migrate(self, vault_id: str, target: str = "head") -> MigrationResult:
@@ -701,6 +730,7 @@ class VaultManager:
 
     def _close_engine(self, vault_id: str) -> None:
         opened = self._open.pop(vault_id, None)
+        self._optimized_at.pop(vault_id, None)
         if opened is None:
             return
         if not opened.read_only:

@@ -90,9 +90,28 @@ PRAGMA temp_store = MEMORY;
   sync (FastAPI threadpool).
 - Run uvicorn with **one worker**. SQLite serializes writes anyway, and per-vault caches (compiled
   calendars, registries) live in-process.
-- `PRAGMA optimize` on vault close and daily. `lore vault check` runs `integrity_check`,
-  `foreign_key_check` and derived-data consistency checks (search, mentions, dependencies,
-  resolved times).
+- `PRAGMA optimize` on vault close, daily (the maintenance scheduler, §5, for each vault this
+  process has had open for a day since its last optimize) and on demand (`lore vault optimize
+  [--vacuum]`). It runs outside any transaction: wrapped in one that is rolled back, `ANALYZE`
+  results would be lost.
+- **Maintenance** (`lore.core.maintenance`, §3.4):
+  - `lore vault check <vault> [--json]` never changes the vault folder. It copies the database
+    with SQLite's online backup API (consistent, WAL included; the source is read with
+    `immutable=1` when it has no `-wal` file, so not even side files appear) into a temporary
+    folder and checks the copy, which it then deletes. It doesn't open the vault through the
+    manager (no migration, no index rebuild, no vault lock), so it works while a server has
+    the vault open. Checks, in order: `schema` (a copy not at this app's head is reported as
+    `vault_needs_migration`/`vault_newer_than_app`, an unreadable one as `database_unreadable`,
+    and nothing else runs), `integrity` (`PRAGMA integrity_check`), `foreign_keys`
+    (`foreign_key_check`), then every **derived-data checker** in
+    `lore.core.maintenance.checks.DERIVED_DATA`: `search` (`search_docs` vs. entities and
+    module contributors: missing, stale and orphaned documents, the index version, and FTS5's
+    `integrity-check` of both FTS tables) and `mentions` (vs. bodies and rich-text fields).
+    Later issues add theirs (dependencies, resolved times). Each problem has `{check, code,
+    message}`. Exit code 1 when there are problems; `--json` prints `{vault, ok, checks,
+    problems}`.
+  - `lore vault reindex <vault>` runs every checker's rebuild in one write transaction (search
+    index, then mentions), fixing whatever `check` reports about derived data.
 - **Read-only mode** opens `file:lore.db?mode=ro&uri=true`. Published snapshots
   (`journal_mode=DELETE`) are additionally opened with `immutable=1`.
 - Requirements: SQLite ≥ 3.45 with FTS5 (incl. the trigram tokenizer with `remove_diacritics`),
@@ -187,13 +206,15 @@ Implementation (`VaultManager.open` / `.migrate`):
 ### 3.4 CLI
 
 ```
-lore vault list | create | status <vault> | migrate <vault> [--to REV] | check <vault>
-lore vault reindex <vault> | backup <vault> [--no-media] | restore <zip> | publish <vault> --out DIR
+lore vault list | create | status <vault> | migrate <vault> [--to REV] | check <vault> [--json]
+lore vault reindex <vault> | optimize <vault> [--vacuum] | backup <vault> [--no-media]
+lore vault restore <zip> | publish <vault> --out DIR
 lore db revision -m "msg" [--autogenerate]     # wraps alembic with the programmatic config (uses a scratch DB)
 lore db check                                    # empty autogenerate diff + single head
 ```
 
-`lore vault status|migrate` take a vault id or folder name. `make check` (and so CI) runs
+`lore vault` commands take a vault id or folder name. `check`, `reindex` and `optimize` are
+described in §2. `make check` (and so CI) runs
 `lore db check`.
 
 ### 3.5 Migration tests
@@ -299,8 +320,9 @@ by data migrations, so at runtime all documents are at the current version. API 
   anything.
 - **Scheduled:** vault setting `backups {every_hours, keep, include_media}` (default 24 h / 7 /
   media included, decided 2026-10-04; `every_hours: 0` turns it off; `GET/PATCH
-  /vaults/{v}/settings`). An in-process daemon thread (`lore.core.vaults.scheduler`, author mode
-  only, never on a read-only server) checks every 10 minutes. It backs up each vault **this
+  /vaults/{v}/settings`). An in-process daemon thread (`lore.core.vaults.scheduler`, the
+  maintenance scheduler that also runs the daily `PRAGMA optimize` of §2; author mode only, never
+  on a read-only server) checks every 10 minutes. It backs up each vault **this
   process has open** whose newest scheduled backup is older than `every_hours` (or that has none),
   then deletes scheduled backups beyond the newest `keep`. Manual and pre-operation backups are
   never pruned. Failures are logged and retried at the next check.

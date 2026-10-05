@@ -101,7 +101,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make docker` | build the image `lore-world-tracker:local` (the tag `docker-compose.yml` uses) |
 | `make docker-smoke` | start the built image via docker compose (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`, CI `docker` job) |
 | `make sample-vault SIZE=small` | generate the demo world into `./data` (placeholder until #43) |
-| `uv run lore …` (in `backend/`) | CLI: `serve`, `vault list\|create\|status\|migrate\|reindex\|backup\|restore`, `db revision -m … [--autogenerate]`, `db check`, `openapi`, `chronology export-schemas [--check]` |
+| `uv run lore …` (in `backend/`) | CLI: `serve`, `vault list\|create\|status\|migrate\|check\|reindex\|optimize\|backup\|restore`, `db revision -m … [--autogenerate]`, `db check`, `openapi`, `chronology export-schemas [--check]` |
 
 Node version: see `.nvmrc`. Python version: see `backend/.python-version` (3.14).
 

@@ -1,6 +1,7 @@
 import sqlite3
 import threading
 import time
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from lore.core.db import (
     ensure_sqlite_capabilities,
     for_writing,
     missing_sqlite_capabilities,
+    snapshot,
 )
 from tests.conftest import AppFactory, local_client
 
@@ -217,3 +219,21 @@ def test_writers_queue_with_begin_immediate(database: Path) -> None:
         assert bodies == ["hello", "first", "second"]
     finally:
         engine.dispose()
+
+
+def test_snapshot_copies_the_wal_and_never_writes_the_source(tmp_path: Path) -> None:
+    source, copy, idle_copy = tmp_path / "a.db", tmp_path / "b.db", tmp_path / "c.db"
+    writer = sqlite3.connect(source, isolation_level=None)
+    writer.execute("PRAGMA journal_mode = WAL")
+    writer.execute("PRAGMA wal_autocheckpoint = 0")
+    writer.execute("CREATE TABLE t (x)")
+    writer.execute("INSERT INTO t VALUES (1)")  # still only in the WAL
+    snapshot(source, copy)
+    with closing(sqlite3.connect(copy)) as connection:
+        assert connection.execute("SELECT x FROM t").fetchall() == [(1,)]
+    writer.close()  # checkpoints and removes the -wal and -shm files
+    files = sorted(path.name for path in tmp_path.iterdir())
+    snapshot(source, idle_copy)
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([*files, "c.db"])
+    with closing(sqlite3.connect(idle_copy)) as connection:
+        assert connection.execute("SELECT x FROM t").fetchall() == [(1,)]
