@@ -35,9 +35,8 @@ from lore.core.time.models import TimeDependency
 from lore.core.time.propagate import TimeConstraintError, TimeCycleError, TimeWriter
 from lore.core.time.specs import parse_end_spec, parse_time_point
 from lore.core.vaults import OpenVault, VaultManager
-from tests.entity_api import Api, make_client, problem
+from tests.entity_api import YEARS, Api, make_client, problem
 from tests.entity_modules import ENTITY_MODULES
-from tests.time.test_calendars import YEARS
 
 DAY = 86_400
 YEAR = 365 * DAY

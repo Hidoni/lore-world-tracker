@@ -19,36 +19,13 @@ from lore.core.time.calendars import AbsoluteLens, compiled_calendar, lens
 from lore.core.time.slots import SlotKey, SlotUpdate
 from lore.core.time.status import TimeStatus
 from lore.core.vaults import VaultManager
-from tests.entity_api import DIMENSION_EXT, Api, make_client, problem
+from tests.entity_api import DIMENSION_EXT, YEARS, Api, make_client, problem
 
 SECOND = DIMENSION_EXT["base_unit"]
 PRESETS = sorted(path.stem for path in (detect_spec_dir() or Path()).glob("chronology/presets/*"))
 
+
 # Days of 86,400 s in years of 365 days, year 1 at t = 0 (the v0.1.0 backfill's calendar).
-YEARS: dict[str, Any] = {
-    "schema_version": 1,
-    "levels": [
-        {"id": "day", "label": "Day", "plural": "Days"},
-        {"id": "year", "label": "Year", "plural": "Years"},
-    ],
-    "regimes": [
-        {
-            "id": "default",
-            "name": "Default",
-            "templates": {
-                "day": {"level": "day", "uniform": {"count": "86400"}},
-                "year": {"level": "year", "uniform": {"count": "365", "template": "day"}},
-            },
-            "top": {"pattern": {"kind": "fixed", "template": "year"}},
-            "alignment": {
-                "fields": {"year": "1"},
-                "at": {"anchor": {"kind": "absolute", "t": "0"}, "precision": "year"},
-            },
-        }
-    ],
-}
-
-
 def years(**changes: Any) -> dict[str, Any]:
     definition = copy.deepcopy(YEARS)
     definition["regimes"][0]["alignment"]["at"]["anchor"].update(changes)
@@ -187,7 +164,7 @@ def test_definition_anchors_resolve_in_the_dimension(api: Api) -> None:
     relative = copy.deepcopy(YEARS)
     relative["regimes"][0]["alignment"]["at"]["anchor"] = {
         "kind": "relative",
-        "ref": {"type": "event", "id": "e1", "slot": "start"},
+        "ref": {"type": "nobody.thing", "id": "e1", "slot": "start"},
         "offset": {"kind": "base", "units": "0"},
     }
     assert errors(calendar(api, dimension, relative)) == [

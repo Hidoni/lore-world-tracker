@@ -166,6 +166,19 @@ def point(t: int) -> dict[str, Any]:
     return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base", "approximate": False}
 
 
+def at(t: int, **ext: Any) -> dict[str, Any]:
+    """An event's ``ext`` starting at an absolute moment (#56 brings calendar dates)."""
+    return {"start": point(t), **ext}
+
+
+def lasting(units: int) -> dict[str, Any]:
+    """An end spec: a base duration."""
+    return {"kind": "duration", "duration": {"kind": "base", "units": str(units)}}
+
+
+DAY = 86_400
+
+
 def time_ref(t: int) -> Doc:
     """An inline reference to an absolute moment (calendars render it from M3 on)."""
     return {"type": "timeRef", "attrs": {"timePoint": point(t)}}
@@ -279,6 +292,8 @@ def _core_dimensions(writer: Writer, core: Core, world: SampleWorld) -> None:
         for name, dimension, preset in (
             ("Spire Reckoning", aetheria, "alternating-years"),
             ("Tide Count", aetheria, "simple-360"),
+            ("Dream Count", dreaming, "simple-360"),  # events need a calendar (R-DIM-5)
+            ("Draft Calendar", hollow, "simple-360"),
         ):
             core.ids[name] = s.entity(
                 "calendar",
@@ -329,6 +344,7 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "Age of Embers",
             summary="The first age, from the lighting of the Spire to the Sundering.",
             tags=["Era", "Canon"],
+            ext=at(0, end={"kind": "time_point", "time_point": point(1_000_000)}, importance=5),
             **home,
         )
         core.ids["Age of Embers"] = age
@@ -338,6 +354,7 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "The Whispering Accord",
             summary="The secret pact that caused the Sundering. The big twist.",
             visibility="private",
+            ext=at(900_000),
             parent_id=age,
             **home,
         )
@@ -346,6 +363,7 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "The Long Night",
             summary="Forty days without a sunrise after the Sundering.",
             visibility="spoiler",
+            ext=at(1_000_000, end=lasting(40 * DAY)),
             parent_id=age,
             **home,
         )
@@ -360,6 +378,7 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             ],
             tags=["Cataclysm", "Canon"],
             parent_id=age,
+            ext=at(1_000_000, importance=5, category="cataclysm"),
             body=doc(
                 heading("What happened"),
                 p(
@@ -387,6 +406,7 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "Founding of Varn",
             summary="The first city on the largest isle.",
             tags=["Canon"],
+            ext=at(500_000),
             parent_id=age,
             body=doc(
                 p("Founded by survivors of ", mention("the Sundering", core["The Sundering"]), ".")
@@ -398,6 +418,17 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "event",
             "Coronation of Ilsa",
             summary="Ilsa is crowned in Varn.",
+            ext={
+                "start": {
+                    "anchor": {
+                        "kind": "relative",
+                        "ref": {"type": "event", "id": core["The Sundering"], "slot": "start"},
+                        "offset": {"kind": "base", "units": str(100 * DAY)},
+                    },
+                    "precision": "base",
+                },
+                "end": lasting(DAY),
+            },
             body=doc(
                 p(
                     "Held in ",
@@ -412,22 +443,25 @@ def _core_events(writer: Writer, core: Core, world: SampleWorld) -> None:
             "Rite of Tides",
             summary="A festival held every spring tide (recurring from M3 on).",
             tags=["Festival"],
+            ext=at(2_000_000, category="festival"),
             **home,
         )
         core.ids["Dream of the Drowned King"] = s.entity(
             "event",
             "Dream of the Drowned King",
             summary="A vision shared by every sleeper in Varn on one night.",
+            ext=at(1_200_000),
             dimension_id=core["The Dreaming"],
         )
         core.ids["First Draft of the Fall"] = s.entity(
             "event",
             "First Draft of the Fall",
             summary="An abandoned idea.",
+            ext=at(0),
             dimension_id=core["The Hollow"],
         )
         core.ids["Burned Archive"] = s.entity(
-            "event", "Burned Archive", summary="Cut from the canon.", **home
+            "event", "Burned Archive", summary="Cut from the canon.", ext=at(3_000_000), **home
         )
     world.reader_hidden += ["The Whispering Accord", "First Draft of the Fall"]
     world.search = {"query": "ley lines", "name": "The Sundering"}
@@ -587,6 +621,8 @@ class _Bulk:
             "summary": rng.choice(_SENTENCES),
             "tags": rng.sample(_TAGS, rng.randint(0, 3)),
             "body": self.body(),
+            # In order, a few days to a month apart (#56 brings calendar dates and spans).
+            "ext": at(3_000_000 + index * 30 * DAY + rng.randrange(25 * DAY)),
         }
         roll = rng.random()
         if roll < PRIVATE_EVENT:

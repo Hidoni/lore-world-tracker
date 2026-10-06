@@ -109,6 +109,10 @@ Entity write semantics (`lore.core.entities.service`):
   wizard; definition errors answer `422 calendar_invalid` with `errors[].path` as JSON pointers
   into the definition. Entity `ext` objects never show readers ids of entities they can't see
   (e.g. a private default calendar).
+- **Events** are created through `POST /entities` (kind `event`) with `ext: {start, end?,
+  timeline_id?, importance?, category?}` (`time-model.md` §9.1): `422 dimension_has_no_calendar`
+  without a calendar (R-DIM-5), time problems on `ext.start`/`ext.end`, `409 time_cycle` and
+  `422 time_constraint` from propagation.
 - **Dimensions** are created through `POST /entities` with `ext: {base_unit, duration, present?}`
   (`422` on `ext.<member>`), which also creates the prime timeline; `ext` patches change only the
   members sent. `kind: timeline` can't be created there, and a timeline's `ext` is read-only
@@ -162,7 +166,7 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | POST | `/vaults/{v}/time/resolve` | `{dimension_id, timeline_id?, calendar_id?, items: [{time_point, end?}]}` (≤ 500) → `{calendar_id, items: [{start, end}]}`, each `{t, status, extent: {lo, hi}, precision, approximate, display, error}` (`time-model.md` §5.6). Validation for pickers: problems are per item (`error.code`/`path`), displays use `calendar_id` (default: the dimension's default calendar; `absolute` for raw units). `404` for a dimension or display calendar the request can't see; readers resolve only through what they see. Stores nothing |
 | POST | `/vaults/{v}/time/convert` | `{dimension_id, moments, calendars, precision?}` → `{items: [{t, results: [{calendar_id, fields, display, error}]}]}`: moments → `to_fields` and displays (at `precision`, default the finest level) in each calendar (for non-TS clients and tests). Moments after `D` and unknown precisions are per-result errors |
 | GET | `/vaults/{v}/timelines/{id}/window` | timeline view data: `from, to, px, min_importance, kinds, tags, participants, include_series` → `{items, series_bands, buckets}` |
-| GET | `/vaults/{v}/timelines/{id}/event-tree` | event outline (`parent`, lazy) |
+| GET | `/vaults/{v}/timelines/{id}/event-tree` | event outline, one level: `parent` (an event; default: the roots), `cursor`, `limit` (default 100) → `{items: [{id, name, visibility, parent_id, start_t, end_t, time_status, importance, category, display, has_children}], next_cursor}`. Events the timeline sees (`TimelineView`), not trashed, visible to the request; roots are events whose parent the tree doesn't show (none, a misc entry, a hidden or trashed event). Order: start, then the later end first, then name and id (decided 2026-10-06). `404` for a timeline or parent the request can't see |
 | GET | `/vaults/{v}/events/{id}/occurrences` | computed + materialized occurrences in `[from, to)` |
 | POST | `/vaults/{v}/events/{id}/occurrences/{key}` | materialize (get-or-create) |
 | POST | `/vaults/{v}/events/{id}/recurrence/proposals` (+ `/{pid}/apply`) | rule-change reconciliation (`recurrence.md` §8) |

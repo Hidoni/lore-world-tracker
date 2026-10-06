@@ -109,6 +109,8 @@ Rules:
 - Vaults from v0.1.0 were backfilled (decided 2026-10-05): every dimension got second/seconds/s
   with `D = 10^100`; per dimension, the earliest timeline entity became the prime and the others
   branches of it at absolute 0 (they inherit nothing).
+  Their events (decided 2026-10-06) got a home row on their dimension's prime starting at absolute
+  0 (precision `base`) with an `instant` end, importance 3 and no category.
 - **Calendars** (`lore.core.time.calendars`, #46): `ext: {definition}`, validated and compiled
   with the Python engine in the dimension's context. Non-local anchors in definitions may be
   absolute, calendar (another calendar of the dimension) or relative anchors (decided with #48):
@@ -571,10 +573,36 @@ with the rule), or **detach** (turn it into a standalone event).
 ### 9.1 Event rows
 
 An event is an entity (kind `event`). Its time-bound row(s) live in `events` (`data-model.md`
-§5.3). The **home row** is in the event's own timeline, and branches may add override rows (§4.4).
+§5.4). The **home row** is in the event's own timeline, and branches may add override rows (§4.4).
 Main columns: `timeline_id`, `start_spec/start_t`, `end_spec/end_t`, `time_status`, `importance`
 (1–5), `category`, `recurrence` (JSON or null), `series_start_t/series_end_t`, `series_entity_id`
 and `occurrence_key` (for materialized occurrences), `occurrence_state`.
+
+Implementation (`lore.core.time.events`, #50; decided 2026-10-06 where marked):
+
+- **`ext`** of kind `event`: `{timeline_id, start, end, importance, category}` on writes; reads
+  add `start_t`, `end_t`, `time_status` and `display: {calendar_id, start, end}` (the dimension's
+  default calendar, or `absolute` when the request can't see it or it doesn't compile; `"?"` for
+  an `unknown` end). Readers get specs through `ReaderTimes`: a duration end in a calendar they
+  can't see becomes a `time_point` end at the stored moment.
+- **Defaults:** `timeline_id` = the dimension's prime; `end` = `instant` (decided); importance 3.
+  `start` is required on creation. `start`, `end` and `importance` can't be removed, and the
+  timeline can't change (moving between timelines is left to the branches module).
+- **R-DIM-5:** creating an event needs a calendar of the dimension **not in the trash** (decided):
+  `422 dimension_has_no_calendar`. Existing events don't care about later calendar trashing.
+- **Writes** resolve the new specs first (`422` on `ext.start`/`ext.end`: `out_of_bounds`,
+  `invalid_date`, …), store them and propagate (§7.2): moving an event moves its dependents in
+  the same transaction (they appear in the changeset), cycles answer `409 time_cycle`, broken
+  dependents and ends before starts `422 time_constraint`.
+- **Slot refs** name the event's **entity id** (decided): `{type: "event", id: <entity id>, slot:
+  "start"|"end"}` means that event as seen from the dependent's timeline. Only home rows exist
+  until M9; #115 makes the `event` slot provider pick the row of the right timeline.
+- **Sub-events:** a parent event must be visible in the child's timeline (`TimelineView`), on
+  create and when `parent_id` changes (`422 parent_not_allowed`).
+- **Purge** freezes what is anchored to the event (§7.3), then deletes its rows. A timeline with
+  events can't be purged (`409`, `context.references`).
+- `TimelineView` registers `events` with start `start_t` and end `end_t` (series bounds arrive
+  with #52).
 
 ### 9.2 Sub-events
 

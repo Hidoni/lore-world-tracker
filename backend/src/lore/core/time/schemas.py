@@ -188,3 +188,30 @@ class ConvertItem(BaseModel):
 
 class ConvertOut(BaseModel):
     items: list[ConvertItem]
+
+
+class EventDisplay(BaseModel):
+    calendar_id: str = Field(
+        description="The calendar of the displays: the dimension's default, or `absolute`."
+    )
+    start: str | None
+    end: str | None = Field(description='`"?"` for an unknown end.')
+
+
+class EventTreeNode(BaseModel):
+    id: str
+    name: str
+    visibility: Visibility
+    parent_id: str | None
+    start_t: MomentStr | None
+    end_t: MomentStr | None
+    time_status: str | None
+    importance: int
+    category: str | None
+    display: EventDisplay
+    has_children: bool = Field(description="Whether the tree shows sub-events under it.")
+
+
+class EventTreePage(BaseModel):
+    items: list[EventTreeNode]
+    next_cursor: str | None

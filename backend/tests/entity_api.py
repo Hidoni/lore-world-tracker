@@ -19,6 +19,31 @@ DIMENSION_EXT = {
     "base_unit": {"singular": "second", "plural": "seconds", "abbr": "s"},
     "duration": str(10**12),
 }
+# A minimal calendar (days of 86,400 s, years of 365 days, year 1 at t = 0): ``Api.calendar``.
+YEARS: dict[str, Any] = {
+    "schema_version": 1,
+    "levels": [
+        {"id": "day", "label": "Day", "plural": "Days"},
+        {"id": "year", "label": "Year", "plural": "Years"},
+    ],
+    "regimes": [
+        {
+            "id": "default",
+            "name": "Default",
+            "templates": {
+                "day": {"level": "day", "uniform": {"count": "86400"}},
+                "year": {"level": "year", "uniform": {"count": "365", "template": "day"}},
+            },
+            "top": {"pattern": {"kind": "fixed", "template": "year"}},
+            "alignment": {
+                "fields": {"year": "1"},
+                "at": {"anchor": {"kind": "absolute", "t": "0"}, "precision": "year"},
+            },
+        }
+    ],
+}
+# The ``ext`` ``Api.create`` gives events that don't send one (a calendar must exist: R-DIM-5).
+EVENT_EXT = {"start": {"anchor": {"kind": "absolute", "t": "0"}, "precision": "base"}}
 
 
 def make_client(
@@ -39,6 +64,8 @@ class Api:
     def create(self, kind: str, name: str = "Thing", **body: Any) -> Any:
         if kind == "dimension":
             body.setdefault("ext", DIMENSION_EXT)
+        if kind == "event":
+            body.setdefault("ext", EVENT_EXT)
         return self.client.post(f"{self.base}/entities", json={"kind": kind, "name": name, **body})
 
     def make(self, kind: str, name: str = "Thing", **body: Any) -> dict[str, Any]:
@@ -46,6 +73,10 @@ class Api:
         assert response.status_code == 201, response.json()
         entity: dict[str, Any] = response.json()["entity"]
         return entity
+
+    def calendar(self, dimension_id: str, name: str = "Years") -> dict[str, Any]:
+        """A calendar (``YEARS``) in a dimension, so it can hold events (R-DIM-5)."""
+        return self.make("calendar", name, dimension_id=dimension_id, ext={"definition": YEARS})
 
     def get(self, entity_id: str) -> Any:
         return self.client.get(f"{self.base}/entities/{entity_id}")

@@ -35,9 +35,9 @@ from lore.core.time.specs import parse_end_spec, parse_time_point
 from lore.core.time.status import TimeStatus
 from lore.core.vaults import VaultManager
 from lore.core.visibility import AUTHOR, READER, VisibilityPolicy
-from tests.entity_api import Api, make_client, problem
+from tests.entity_api import YEARS, Api, make_client, problem
 from tests.entity_modules import ENTITY_MODULES
-from tests.time.test_calendars import SECOND, YEARS
+from tests.time.test_calendars import SECOND
 
 DAY = 86_400
 ORIGIN = 10**12  # 1 January AD 1, 00:00
@@ -496,7 +496,16 @@ def test_relative_anchor_problems(resolver: Resolver, world: dict[str, Any]) -> 
         "anchor.ref",
     )
     assert problem_of(resolver.resolve(ref(slot="nope"))) == (None, "unknown_slot", "anchor.ref")
-    assert problem_of(resolver.resolve(ref(type="event"))) == (None, "unknown_slot", "anchor.ref")
+    assert problem_of(resolver.resolve(ref(type="nobody.thing"))) == (
+        None,
+        "unknown_slot",
+        "anchor.ref",
+    )
+    assert problem_of(resolver.resolve(ref(type="event"))) == (
+        TimeStatus.UNRESOLVED_REF,
+        "unresolved_ref",
+        "anchor.ref",
+    )
     assert problem_of(resolver.resolve(ref(occurrence="3"))) == (
         None,
         "not_supported",

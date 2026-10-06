@@ -198,6 +198,13 @@ def test_a_filtered_override_falls_back_to_the_next_ancestor(session: Session) -
     )
 
 
+def test_selects_of_one_view_combine(session: Session) -> None:
+    v = view(session, "A")
+    inner = v.select(Happening).with_only_columns(Happening.id).where(Happening.start_t < 20)
+    statement = v.select(Happening).where(Happening.id.not_in(inner.scalar_subquery()))
+    assert ids(session, statement) == {"p3a", "p4", "a1"}
+
+
 def test_the_statement_selects_full_rows(session: Session) -> None:
     rows = session.scalars(view(session, "A").select(Happening).order_by(Happening.start_t)).all()
     assert [(r.id, r.start_t, r.end_t) for r in rows][:3] == [

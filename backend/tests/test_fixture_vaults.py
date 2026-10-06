@@ -126,10 +126,16 @@ def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
     undone = client.post(f"{base}/changes/{changes[0]['id']}/revert")
     assert undone.status_code == 200, undone.json()
 
-    dimension = next(e for e in _all(client, f"{base}/entities", kind="dimension"))
+    calendar = next(e for e in _all(client, f"{base}/entities", kind="calendar"))
+    dimension = client.get(f"{base}/entities/{calendar['dimension_id']}").json()
     created = client.post(
         f"{base}/entities",
-        json={"kind": "event", "name": "Upgrade Day", "dimension_id": dimension["id"]},
+        json={
+            "kind": "event",
+            "name": "Upgrade Day",
+            "dimension_id": dimension["id"],
+            "ext": {"start": {"anchor": {"kind": "absolute", "t": "86400"}, "precision": "day"}},
+        },
     )
     assert created.status_code == 201, created.json()
     link = client.post(
@@ -163,6 +169,7 @@ def _content(data_dir: Path, vault_id: str) -> list[tuple[Any, ...]]:
                 sorted(tag["name"] for tag in entity["tags"]),
                 [alias["alias"] for alias in entity["aliases"]],
                 json.dumps(entity["body"], sort_keys=True).count("entityLink"),
+                (entity["ext"] or {}).get("start_t"),
                 sorted((item["link"]["link_type"], item["direction"], item["other"]["name"])
                        for item in links),
             ))  # fmt: skip
@@ -179,7 +186,7 @@ def test_the_generator_is_deterministic_for_a_seed(
     second = generate(tmp_path / "b", "small", seed=7)
     other = generate(tmp_path / "c", "small", seed=8)
 
-    assert first.entities == {"calendar": 2, "dimension": 3, "event": 9 + 120, "timeline": 3}
+    assert first.entities == {"calendar": 4, "dimension": 3, "event": 9 + 120, "timeline": 3}
     assert first.links == 6 + 150
     assert (first.entities, first.links) == (second.entities, second.links)
     assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
@@ -201,7 +208,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "17 entities, 6 links" in capsys.readouterr().out
+    assert "19 entities, 6 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 
@@ -226,3 +233,33 @@ def test_v0_1_0_timelines_become_a_prime_and_branches(tmp_path: Path) -> None:
         ]
         prime = client.get(f"{base}/entities/{tree[0]['id']}").json()
         assert prime["ext"]["is_prime"] is True
+
+
+def test_v0_1_0_events_get_a_home_row_at_inception(tmp_path: Path) -> None:
+    """Migration ``0f7812a431dd`` (decided 2026-10-06): every event starts at absolute 0 with an
+    instant end on its dimension's prime timeline, and shows up in the event tree."""
+    expected = json.loads((FIXTURES / "v0.1.0" / "expected.json").read_text("utf-8"))
+    shutil.copytree(FIXTURES / "v0.1.0" / "vault", tmp_path / "vaults" / expected["folder"])
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{expected['vault_id']}"
+        assert client.post(f"{base}/migrate").status_code == 200
+        events = _all(client, f"{base}/entities", kind="event", include_trashed="true")
+        assert len(events) == 10
+        primes: dict[str, str] = {}
+        for summary in events:
+            event = client.get(f"{base}/entities/{summary['id']}").json()
+            ext = event["ext"]
+            assert (ext["start"]["anchor"], ext["end"], ext["start_t"], ext["end_t"]) == (
+                {"kind": "absolute", "t": "0"}, {"kind": "instant"}, "0", "0"
+            )  # fmt: skip
+            assert (ext["time_status"], ext["importance"], ext["category"]) == ("ok", 3, None)
+            if event["dimension_id"] not in primes:
+                world = client.get(f"{base}/entities/{event['dimension_id']}").json()
+                primes[event["dimension_id"]] = world["ext"]["prime_timeline_id"]
+            assert ext["timeline_id"] == primes[event["dimension_id"]]
+        world = next(e for e in _all(client, f"{base}/entities", kind="dimension")
+                     if e["name"] == "Aetheria")  # fmt: skip
+        prime = client.get(f"{base}/entities/{world['id']}").json()["ext"]["prime_timeline_id"]
+        roots = client.get(f"{base}/timelines/{prime}/event-tree").json()["items"]
+        assert roots
+        assert all(item["start_t"] == "0" for item in roots)

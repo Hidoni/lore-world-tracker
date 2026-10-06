@@ -450,10 +450,10 @@ def _dimensions(provider: SlotProvider, session: Session, rows: Iterable[Any]) -
         str(getattr(r, provider.id_column)): getattr(r, provider.timeline_column) for r in rows
     }
     wanted = sorted({t for t in timelines.values() if t is not None})
-    found = dict(
+    found: dict[str, str] = dict(
         session.execute(
             select(Timeline.entity_id, Timeline.dimension_id).where(Timeline.entity_id.in_(wanted))
-        ).tuples()
+        ).all()
     )
     return {i: found[t] for i, t in timelines.items() if t in found}
 

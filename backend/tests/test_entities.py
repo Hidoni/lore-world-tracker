@@ -12,7 +12,7 @@ from lore.core.entities.service import slugify
 from lore.core.fields import CORE_VALIDATORS
 from lore.core.links.models import Link
 from lore.core.modules import ModuleRegistry, ModuleSpec, RegistryError
-from lore.core.registry import CORE_FIELD_TYPES, FieldContribution, FieldDef
+from lore.core.registry import CORE_FIELD_TYPES, FieldContribution, FieldDef, KindDef
 from lore.core.vaults import VaultManager
 from tests import entity_modules
 from tests.conftest import local_client
@@ -335,6 +335,7 @@ def test_dimension_rules(api: Api) -> None:
     for kind in ("event", "timeline", "calendar", "relic"):  # can't be multiversal
         response = api.create(kind, fields={"origin": "x"} if kind == "relic" else {})
         assert invalid(response) == ["dimension_id"]
+    api.calendar(dimension["id"])
     assert api.make("event", dimension_id=dimension["id"])["dimension_id"] == dimension["id"]
     assert api.make("gadget")["dimension_id"] is None  # multiversal
     not_a_dimension = api.create("misc", dimension_id=misc["id"])
@@ -361,6 +362,7 @@ def test_moving_between_dimensions(api: Api) -> None:
     moved = api.patch(parent, dimension_id=second["id"])
     assert moved.status_code == 200
     assert moved.json()["affected"]["dimensions"] == [first["id"], second["id"]]
+    api.calendar(first["id"])
     event = api.make("event", dimension_id=first["id"])
     problem(api.patch(event, dimension_id=second["id"]), 422, "validation_error")
 
@@ -618,14 +620,18 @@ def test_kind_extension_registration() -> None:
         ModuleRegistry(
             [
                 ModuleSpec(
-                    id="a", name="A", description="", kind_extensions=(ext("ghost"), ext("event"))
+                    id="a",
+                    name="A",
+                    description="",
+                    kinds=(KindDef("thing", "Thing", "Things", icon="box", color="#000000"),),
+                    kind_extensions=(ext("ghost"), ext("thing")),
                 ),
-                ModuleSpec(id="b", name="B", description="", kind_extensions=(ext("event"),)),
+                ModuleSpec(id="b", name="B", description="", kind_extensions=(ext("thing"),)),
             ]
         )
     assert caught.value.problems == [
         "a: kind extension for 'ghost': unknown kind",
-        "b: kind extension for 'event': the kind already has one (a)",
+        "b: kind extension for 'thing': the kind already has one (a)",
     ]
 
 
