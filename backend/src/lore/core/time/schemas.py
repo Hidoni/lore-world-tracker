@@ -215,3 +215,46 @@ class EventTreeNode(BaseModel):
 class EventTreePage(BaseModel):
     items: list[EventTreeNode]
     next_cursor: str | None
+
+
+class WindowItemOut(BaseModel):
+    entity_id: str
+    row_id: str
+    name: str
+    visibility: Visibility
+    parent_id: str | None = Field(description="Null when the request can't see the parent.")
+    has_children: bool = Field(description="Whether the timeline shows sub-events under it.")
+    start_t: MomentStr | None
+    end_t: MomentStr | None
+    start_precision: str = Field(description="The start's precision (a calendar level or `base`).")
+    start_approximate: bool
+    end_kind: str = Field(
+        description="`time_point`, `duration`, `instant`, `end_of_time` or `unknown` (open end)."
+    )
+    end_precision: str | None = Field(
+        description="A `time_point` end's precision; other ends derive theirs from the start."
+    )
+    end_approximate: bool
+    importance: int
+    category: str | None
+    time_status: str | None
+
+
+class WindowBucket(BaseModel):
+    from_t: MomentStr = Field(serialization_alias="from")
+    to_t: MomentStr = Field(serialization_alias="to")
+    starts: int = Field(
+        description="Culled events starting in the bucket (the first: or before the window); "
+        "they add up to `culled`."
+    )
+    active: int = Field(description="Culled events covering any part of the bucket.")
+
+
+class TimelineWindow(BaseModel):
+    items: list[WindowItemOut] = Field(description="The kept events, by start (then longer first).")
+    buckets: list[WindowBucket] = Field(
+        description="Culled events per bucket of the window (buckets with any)."
+    )
+    series_bands: list[dict[str, Any]] = Field(description="Recurring series (#52).")
+    total: int = Field(description="Events overlapping the window after the filters.")
+    culled: int = Field(description="Events left out of `items` (the sum of `buckets[].starts`).")

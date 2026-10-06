@@ -199,6 +199,8 @@ class TimelineView:
         so the lineage index ``(timeline_id, start)`` narrows the scan.
         """
         bound = time_bound(model)
+        if len(self.lineage) == 1:
+            return self._select_own(model, bound, where, window)
         row: Any = aliased(model)
         lineage = self._lineage_cte
         start = getattr(row, bound.start)
@@ -230,6 +232,28 @@ class TimelineView:
             .join(ranked, ranked.c.id == getattr(model, bound.id))
             .where(ranked.c.rank == 1)
         )
+        if window is not None:
+            statement = statement.where(self.overlaps(model, *window))
+        return statement
+
+    def _select_own(
+        self,
+        model: type,
+        bound: TimeBound,
+        where: RowFilter | None,
+        window: tuple[int, int] | None,
+    ) -> Select[Any]:
+        """A timeline without ancestors (every prime): its own rows, cut-off +inf. None of them
+        can be an override (overrides are rows of a branch over an ancestor's row), so there is
+        nothing to resolve, and the window is a plain range on ``(timeline_id, start)``."""
+        start = getattr(model, bound.start)
+        statement: Select[Any] = select(model).where(
+            getattr(model, bound.timeline) == self.timeline_id
+        )
+        if not bound.open_start:
+            statement = statement.where(start.is_not(None))
+        if where is not None:
+            statement = statement.where(*where(model))
         if window is not None:
             statement = statement.where(self.overlaps(model, *window))
         return statement
