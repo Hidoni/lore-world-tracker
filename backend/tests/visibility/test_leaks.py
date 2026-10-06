@@ -122,6 +122,25 @@ def test_readers_get_filtered_entities(reader: TestClient, canary: Canary) -> No
     assert member["parent_id"] is None  # its parent is private: shown as a root
 
 
+def test_readers_get_time_points_without_hidden_references(
+    reader: TestClient, canary: Canary
+) -> None:
+    """Anchors into the private calendar resolve: readers get the moment (year 3 starts after
+    two years of 365 days), the precision and the circa flag (``visibility-and-sharing.md`` §2)."""
+    base = f"/api/v1/vaults/{canary.vault}"
+    expected = {
+        "anchor": {"kind": "absolute", "t": str(2 * 365 * 86_400)},
+        "precision": "year",
+        "approximate": True,
+    }
+    compass = canary.public["Compass"]
+    assert _get(reader, f"{base}/entities/{compass}")["fields"]["time_point"] == expected
+    listed = _get(reader, f"{base}/entities", kind="gadget")["items"]
+    assert next(e for e in listed if e["id"] == compass)["fields"]["time_point"] == expected
+    links = _get(reader, f"{base}/entities/{compass}/links")["items"]
+    assert [link["link"]["valid_from"] for link in links] == [expected]
+
+
 def test_reader_counts_exclude_hidden_items(reader: TestClient, canary: Canary) -> None:
     base = f"/api/v1/vaults/{canary.vault}"
     roots = {node["name"]: node for node in _get(reader, f"{base}/tree", limit=500)["items"]}
@@ -149,3 +168,5 @@ def test_the_author_sees_the_hidden_items(canary: Canary) -> None:
         assert len(backlinks["items"]) == 4
         values = _get(author, f"{base}/entities/field-values", kind="gadget", field="text")
         assert len(values["items"]) == 3
+        compass = _get(author, f"{base}/entities/{canary.public['Compass']}")
+        assert compass["fields"]["time_point"]["anchor"]["kind"] == "calendar"

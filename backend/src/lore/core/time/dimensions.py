@@ -8,8 +8,8 @@ timeline** (named "Prime") in the same transaction. Rules (decided 2026-10-05 wh
   dimension's records stays within ``[0, new D]`` (R-DIM-3): otherwise ``422 time_constraint``
   lists the offending slots. Slots that *are* the end of time (``end_of_time`` ends, which depend
   on the dimension) aren't offenders: they move to the new ``D``.
-- ``present`` accepts absolute anchors only until anchor resolution (#47); it must lie in
-  ``[0, D]``.
+- ``present`` is resolved when written (``lore.core.time.resolve``) and must lie in ``[0, D]``;
+  relative anchors are refused (``not_supported``) until propagation (#48) keeps it current.
 - Timelines can't be created through the entity API: the prime comes with its dimension and
   branches with the branches module (M9). Their ``ext`` is read-only for now.
 - The prime timeline follows its dimension (decided): trashing, restoring and purging the
@@ -40,6 +40,7 @@ from lore.core.time.dependencies import (
     time_point_targets,
 )
 from lore.core.time.models import Dimension, Timeline
+from lore.core.time.resolve import Resolver, require
 from lore.core.time.schemas import TimelineNode, TimelineTree
 from lore.core.time.slots import SlotKey, SlotMoment, SlotRegistry, SlotUpdate
 from lore.core.time.specs import dump_spec
@@ -151,12 +152,13 @@ def write_dimension(
     old_duration = row.duration
     if duration is not None:
         row.duration = duration
-    if "present" in sent:
-        _set_present(session, row, data.present)
     if "default_calendar_id" in sent:
         check_default_calendar(session, entity.id, data.default_calendar_id)
         row.default_calendar_id = data.default_calendar_id
     session.flush()
+    if "present" in sent:
+        _set_present(context, row, data.present)
+        session.flush()
 
     if creating:
         _create_prime(context, entity)
@@ -186,25 +188,24 @@ def _check_spec(data: DimensionExt, creating: bool) -> int | None:
     return duration
 
 
-def _set_present(session: Session, row: Dimension, point: TimePoint | None) -> None:
-    """Store and resolve the present moment (absolute anchors only until #47)."""
+def _set_present(context: VaultContext, row: Dimension, point: TimePoint | None) -> None:
+    """Store and resolve the present moment (not relative anchors until #48)."""
+    session = context.session
     if point is None:
         row.present_spec, row.present_t, row.time_status = None, None, None
     else:
-        if point.anchor.kind != "absolute":
+        if point.anchor.kind == "relative":
             raise _invalid(
                 "ext.present.anchor",
-                "The present moment can only be given as an absolute moment for now.",
+                "The present moment can't be relative to another record yet.",
                 code="not_supported",
             )
-        t = int(point.anchor.t)
-        if t > row.duration:
-            raise _invalid(
-                "ext.present",
-                "The present moment lies after the end of the dimension.",
-                code="out_of_bounds",
-            )
-        row.present_spec, row.present_t, row.time_status = point, t, TimeStatus.OK.value
+        resolution = Resolver(context, row.entity_id).resolve(point)
+        if resolution.problem is not None and resolution.problem.code == "out_of_bounds":
+            raise _invalid("ext.present", resolution.problem.message, code="out_of_bounds")
+        t = require(resolution, "ext.present")
+        status = TimeStatus.OK if resolution.status is None else resolution.status
+        row.present_spec, row.present_t, row.time_status = point, t, status.value
     targets = time_point_targets(point) if point is not None else set()
     DependencyIndex(session).replace_edges(SlotNode(DIMENSION, row.entity_id, "present"), targets)
 

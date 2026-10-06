@@ -722,6 +722,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/time/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Resolve time points (and end specs) of a dimension: moment, uncertainty extent,
+         *     precision, status and display in the default (or given) calendar. Problems are reported per
+         *     item. Stores nothing.
+         */
+        post: operations["time_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/time/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert
+         * @description Moments of a dimension as fields and displays in the given calendars (`absolute` for raw
+         *     base units). Stores nothing.
+         */
+        post: operations["time_convert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1065,6 +1108,54 @@ export interface components {
             entities: components["schemas"]["ChangedEntity"][];
         };
         Color: string;
+        /** ConvertIn */
+        ConvertIn: {
+            dimension_id: components["schemas"]["EntityId"];
+            /** Moments */
+            moments: string[];
+            /** Calendars */
+            calendars: string[];
+            /**
+             * Precision
+             * @description Display precision (a level id or `base`; default: the finest level).
+             */
+            precision?: string | null;
+        };
+        /** ConvertItem */
+        ConvertItem: {
+            /**
+             * T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            t: string;
+            /**
+             * Results
+             * @description One per requested calendar, in order.
+             */
+            results: components["schemas"]["ConvertResult"][];
+        };
+        /** ConvertOut */
+        ConvertOut: {
+            /** Items */
+            items: components["schemas"]["ConvertItem"][];
+        };
+        /** ConvertResult */
+        ConvertResult: {
+            /** Calendar Id */
+            calendar_id: string;
+            /**
+             * Fields
+             * @description `to_fields` (`chronology-engine.md` §5.6); null for absolute.
+             */
+            fields?: {
+                [key: string]: unknown;
+            } | null;
+            /** Display */
+            display?: string | null;
+            error?: components["schemas"]["TimeProblem"] | null;
+        };
         /** DimensionCreated */
         DimensionCreated: {
             dimension: components["schemas"]["EntityOut"];
@@ -1093,6 +1184,24 @@ export interface components {
             calendar: components["schemas"]["WizardCalendar"];
         };
         Duration: components["schemas"]["BaseDuration"] | components["schemas"]["CalendarDuration"];
+        /** DurationEnd */
+        DurationEnd: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "duration";
+            duration: components["schemas"]["Duration"];
+        };
+        /** EndOfTimeEnd */
+        EndOfTimeEnd: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "end_of_time";
+        };
+        EndSpec: components["schemas"]["TimePointEnd"] | components["schemas"]["DurationEnd"] | components["schemas"]["InstantEnd"] | components["schemas"]["EndOfTimeEnd"] | components["schemas"]["UnknownEnd"];
         /** EntityCreate */
         EntityCreate: {
             /**
@@ -1373,6 +1482,26 @@ export interface components {
             entity: components["schemas"]["EntityOut"];
             affected: components["schemas"]["Affected"];
         };
+        /** Extent */
+        Extent: {
+            /**
+             * Lo
+             * Format: bigint
+             * @example 0
+             * @example -42
+             * @example 31557600000
+             */
+            lo: string;
+            /**
+             * Hi
+             * Format: bigint
+             * @description Exclusive.
+             * @example 0
+             * @example -42
+             * @example 31557600000
+             */
+            hi: string;
+        };
         /** FieldOptionOut */
         FieldOptionOut: {
             /** Key */
@@ -1473,6 +1602,14 @@ export interface components {
         };
         Icon: string;
         Id: string;
+        /** InstantEnd */
+        InstantEnd: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "instant";
+        };
         JsonObject: {
             [key: string]: unknown;
         };
@@ -2020,6 +2157,62 @@ export interface components {
             ref: components["schemas"]["SlotRef"];
             offset: components["schemas"]["Duration"];
         };
+        /** ResolveIn */
+        ResolveIn: {
+            dimension_id: components["schemas"]["EntityId"];
+            /** @description The timeline relative anchors resolve in (the prime). */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            /**
+             * Calendar Id
+             * @description Display calendar (default: the dimension's default).
+             */
+            calendar_id?: string | null;
+            /** Items */
+            items: components["schemas"]["ResolveRequestItem"][];
+        };
+        /** ResolveItem */
+        ResolveItem: {
+            start: components["schemas"]["ResolvedPoint"];
+            end: components["schemas"]["ResolvedPoint"] | null;
+        };
+        /** ResolveOut */
+        ResolveOut: {
+            /**
+             * Calendar Id
+             * @description The calendar the displays use.
+             */
+            calendar_id: string;
+            /** Items */
+            items: components["schemas"]["ResolveItem"][];
+        };
+        /** ResolveRequestItem */
+        ResolveRequestItem: {
+            time_point: components["schemas"]["TimePoint"];
+            /** @description An end spec resolved from the point. */
+            end?: components["schemas"]["EndSpec"] | null;
+        };
+        /** ResolvedPoint */
+        ResolvedPoint: {
+            /**
+             * T
+             * @description The moment (outside `[0, D]` when `out_of_bounds`); null if unresolvable.
+             */
+            t: string | null;
+            /** @description The resolution status; null for specs that can never resolve. */
+            status: components["schemas"]["TimeStatus"] | null;
+            /** @description The uncertainty extent `[lo, hi)`. */
+            extent: components["schemas"]["Extent"] | null;
+            /** Precision */
+            precision: string | null;
+            /** Approximate */
+            approximate: boolean;
+            /**
+             * Display
+             * @description Formatted in the response's calendar.
+             */
+            display: string | null;
+            error: components["schemas"]["TimeProblem"] | null;
+        };
         /**
          * RevertResult
          * @description The ``undo`` changeset the revert created.
@@ -2163,12 +2356,43 @@ export interface components {
              */
             approximate: boolean;
         };
+        /** TimePointEnd */
+        TimePointEnd: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "time_point";
+            time_point: components["schemas"]["TimePoint"];
+        };
+        /** TimeProblem */
+        TimeProblem: {
+            /**
+             * Code
+             * @description `invalid_date`, `reform_gap`, `reform_ambiguous`, `out_of_bounds`, `unresolved_ref`, `calendar_error`, `time_cycle`, `unknown_slot`, `slot_not_referenceable` or `not_supported`.
+             */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Path
+             * @description Where in the item (dotted, e.g. `anchor.fields.month`).
+             */
+            path: string;
+        };
         /** TimeSpecIn */
         TimeSpecIn: {
             base_unit: components["schemas"]["BaseUnit"];
             /** Duration */
             duration: string;
         };
+        /**
+         * TimeStatus
+         * @description How a slot's last resolution went. A slot that isn't ``ok`` keeps its last good ``*_t``
+         *     (reads never break) and raises a structural finding.
+         * @enum {string}
+         */
+        TimeStatus: "ok" | "trashed_ref" | "unresolved_ref" | "cycle" | "invalid_date" | "out_of_bounds" | "calendar_error";
         /** TimelineNode */
         TimelineNode: {
             /** Id */
@@ -2318,6 +2542,14 @@ export interface components {
         };
         /** @enum {string} */
         UniquePolicy: "none" | "per_pair" | "per_pair_per_period";
+        /** UnknownEnd */
+        UnknownEnd: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "unknown";
+        };
         /**
          * Vault
          * @description A vault. ``modified_at`` is derived from its files' modification times.
@@ -4048,6 +4280,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Preview"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    time_resolve: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    time_convert: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertOut"];
                 };
             };
             /** @description Problem */

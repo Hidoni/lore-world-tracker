@@ -159,8 +159,8 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | POST | `/vaults/{v}/calendars/preview` | `{dimension_id | time_spec, calendar_id?, source}` → `{ok, errors, definition, samples}`: compile an unsaved definition (or preset instantiation) in a dimension context; `samples` are the starts of 5 top-level units from the first alignment on (`t`, fields, display at the finest level). Stores nothing |
 | POST | `/vaults/{v}/calendars/{id}/proposals` | calendar edit impact preview (`time-model.md` §7.4) |
 | POST | `/vaults/{v}/calendars/{id}/proposals/{pid}/apply` | apply with per-record strategies |
-| POST | `/vaults/{v}/time/resolve` | batch-resolve time points (validation for pickers; returns moment, status, display) |
-| POST | `/vaults/{v}/time/convert` | batch moment → fields/format in given calendars (for non-TS clients and tests) |
+| POST | `/vaults/{v}/time/resolve` | `{dimension_id, timeline_id?, calendar_id?, items: [{time_point, end?}]}` (≤ 500) → `{calendar_id, items: [{start, end}]}`, each `{t, status, extent: {lo, hi}, precision, approximate, display, error}` (`time-model.md` §5.6). Validation for pickers: problems are per item (`error.code`/`path`), displays use `calendar_id` (default: the dimension's default calendar; `absolute` for raw units). `404` for a dimension or display calendar the request can't see; readers resolve only through what they see. Stores nothing |
+| POST | `/vaults/{v}/time/convert` | `{dimension_id, moments, calendars, precision?}` → `{items: [{t, results: [{calendar_id, fields, display, error}]}]}`: moments → `to_fields` and displays (at `precision`, default the finest level) in each calendar (for non-TS clients and tests). Moments after `D` and unknown precisions are per-result errors |
 | GET | `/vaults/{v}/timelines/{id}/window` | timeline view data: `from, to, px, min_importance, kinds, tags, participants, include_series` → `{items, series_bands, buckets}` |
 | GET | `/vaults/{v}/timelines/{id}/event-tree` | event outline (`parent`, lazy) |
 | GET | `/vaults/{v}/events/{id}/occurrences` | computed + materialized occurrences in `[from, to)` |
@@ -220,7 +220,7 @@ understood, or that only leaves out, answers `422` with the reason on `q`.
 `not_found`, `validation_error`, `method_not_allowed`, `internal_error` (details are logged, and returned only with `LORE_DEBUG=true`), `conflict`, `forbidden`, `revision_conflict`, `module_disabled`, `read_only`,
 `missing_client_header`, `bad_origin`, `invalid_host`, `payload_too_large`, `vault_not_found`, `vault_locked`, `vault_needs_migration`,
 `vault_newer_than_app`, `vault_migration_failed` (500; `context.backup`), `invalid_backup`, `backup_not_found`, `time_cycle`, `time_constraint` (hard structural violation; `errors`
-lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `calendar_invalid` (`errors`
+lists records), `invalid_date`, `reform_gap`, `reform_ambiguous`, `not_supported` (a valid request the server can't handle yet), `calendar_invalid` (`errors`
 from the engine), `rule_invalid`, `proposal_stale`, `proposal_unresolved`,
 `preset_incompatible`, `dimension_has_no_calendar`, `parent_not_allowed`, `link_type_not_allowed`,
 `override_not_allowed`, `module_not_found`, `module_has_dependents`, `upload_rejected`, `revert_conflict`, `consistency_error` (an

@@ -206,7 +206,20 @@ def test_present_moment(api: Api) -> None:
         "anchor": {"kind": "calendar", "calendar_id": "c", "fields": {"year": "1"}},
         "precision": "year",
     }
-    anchored = problem(api.patch(dimension, ext={"present": calendar}), 422, "validation_error")
+    unknown = problem(api.patch(dimension, ext={"present": calendar}), 422, "invalid_date")
+    assert [(e["path"], e["code"]) for e in unknown["errors"]] == [
+        ("ext.present.anchor.calendar_id", "unresolved_ref")
+    ]
+    relative = {
+        "anchor": {
+            "kind": "relative",
+            "ref": {"type": "timeline", "id": dimension["ext"]["prime_timeline_id"],
+                    "slot": "branch_point"},
+            "offset": {"kind": "base", "units": "0"},
+        },
+        "precision": "base",
+    }  # fmt: skip
+    anchored = problem(api.patch(dimension, ext={"present": relative}), 422, "validation_error")
     assert [(e["path"], e["code"]) for e in anchored["errors"]] == [
         ("ext.present.anchor", "not_supported")
     ]
