@@ -227,6 +227,10 @@ class TimePoint(_Model):
     anchor: Anchor
     precision: Precision
     approximate: StrictBool = False
+    frozen_from: dict[str, Any] | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The spec this point was frozen from when a record it depended on was purged (an
+    ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+    history; never resolved."""
 
     @model_validator(mode="before")
     @classmethod
@@ -240,6 +244,10 @@ class DefinitionTimePoint(_Model):
     anchor: DefinitionAnchor
     precision: Precision
     approximate: StrictBool = False
+    frozen_from: dict[str, Any] | None = Field(default=None, exclude_if=lambda v: v is None)
+    """The spec this point was frozen from when a record it depended on was purged (an
+    ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+    history; never resolved."""
 
     @model_validator(mode="before")
     @classmethod

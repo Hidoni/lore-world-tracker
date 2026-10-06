@@ -561,6 +561,17 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
       },
       "approximate": {
         "type": "boolean"
+      },
+      "frozen_from": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [
@@ -1247,6 +1258,17 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
       },
       "approximate": {
         "type": "boolean"
+      },
+      "frozen_from": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [

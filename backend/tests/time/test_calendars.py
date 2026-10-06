@@ -182,7 +182,7 @@ def test_invalid_definitions_report_engine_errors_with_pointers(api: Api) -> Non
     )
 
 
-def test_anchors_must_be_absolute_and_within_the_dimension(api: Api) -> None:
+def test_definition_anchors_resolve_in_the_dimension(api: Api) -> None:
     dimension = api.make("dimension")  # D = 10^12
     relative = copy.deepcopy(YEARS)
     relative["regimes"][0]["alignment"]["at"]["anchor"] = {
@@ -191,12 +191,40 @@ def test_anchors_must_be_absolute_and_within_the_dimension(api: Api) -> None:
         "offset": {"kind": "base", "units": "0"},
     }
     assert errors(calendar(api, dimension, relative)) == [
-        ("anchor.not_supported", "/regimes/0/alignment/at/anchor/kind")
+        ("anchor.unknown_slot", "/regimes/0/alignment/at/anchor/ref")
     ]
     assert errors(calendar(api, dimension, years(t=str(10**12 + 1)))) == [
         ("anchor.out_of_bounds", "/regimes/0/alignment/at/anchor/t")
     ]
-    assert calendar(api, dimension, years(t=str(10**12))).status_code == 201
+    base = calendar(api, dimension, years(t=str(10**12))).json()["entity"]
+    # Another calendar's date: its year 2 starts after the end of the dimension.
+    other = copy.deepcopy(YEARS)
+    other["regimes"][0]["alignment"]["at"] = {
+        "anchor": {"kind": "calendar", "calendar_id": base["id"], "fields": {"year": "2"}},
+        "precision": "year",
+    }
+    shifted = calendar(api, dimension, other, name="Shifted")
+    assert errors(shifted) == [("anchor.out_of_bounds", "/regimes/0/alignment/at")]
+    fine = api.make("dimension", ext={**DIMENSION_EXT, "duration": str(10**15)})
+    first = calendar(api, fine, YEARS).json()["entity"]
+    other["regimes"][0]["alignment"]["at"]["anchor"]["calendar_id"] = first["id"]
+    other["regimes"][0]["alignment"]["at"]["anchor"]["fields"] = {"year": "2"}
+    second = calendar(api, fine, other, name="Second")
+    assert second.status_code == 201, second.json()
+    assert second.json()["entity"]["ext"]["resolved_anchors"] == {
+        "/regimes/0/alignment/at": str(365 * 86_400)
+    }
+    # An anchor can't use the calendar it defines.
+    other["regimes"][0]["alignment"]["at"]["anchor"]["calendar_id"] = second.json()["entity"]["id"]
+    same = api.patch(second.json()["entity"], ext={"definition": other})
+    assert errors(same) == [("anchor.self_reference", "/regimes/0/alignment/at/anchor/kind")]
+    # The wizard's preview has no dimension yet: only absolute anchors resolve.
+    preview = _preview(
+        api,
+        time_spec={"base_unit": SECOND, "duration": str(10**15)},
+        source={"definition": other},
+    ).json()
+    assert [e["code"] for e in preview["errors"]] == ["anchor.not_supported"]
 
 
 # --- edits ----------------------------------------------------------------------------------------
@@ -226,8 +254,9 @@ def test_definition_edits_and_dependents(api: Api) -> None:
     refused = problem(api.patch(fresh(api, cal["id"]), ext={"definition": YEARS}), 409, "conflict")
     assert refused["context"] == {"dependents": 1, "proposals": f"/calendars/{cal['id']}/proposals"}
     api.delete(cal["id"])
-    blocked = problem(api.delete(cal["id"], purge=True), 409, "conflict")
-    assert "depend on this calendar" in blocked["detail"]
+    # Dependents are frozen on purge (tests/time/test_propagate.py); this one's record type
+    # isn't registered, so there is nothing to freeze.
+    assert api.delete(cal["id"], purge=True).status_code == 200
 
 
 def test_compiled_calendars_are_cached(api: Api) -> None:

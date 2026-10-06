@@ -40,6 +40,7 @@ from lore.core.time.models import TimeDependency
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
 
 DIMENSION = "dimension"
+_BATCH = 5000  # ids per IN (...)
 
 
 @dataclass(frozen=True, order=True)
@@ -237,6 +238,42 @@ class DependencyIndex:
         rows = self.session.execute(
             select(T.dependent_type, T.dependent_id, T.dependent_slot)
             .where(T.target_kind == "slot", T.target_type == record_type, T.target_id == record_id)
+            .distinct()
+        )
+        return sorted(SlotNode(*row) for row in rows)
+
+    def dependents_of_many(self, targets: Iterable[Target]) -> dict[Target, list[SlotNode]]:
+        """``dependents_of`` for many targets at once (a few queries per batch)."""
+        wanted = set(targets)
+        slot_ids = sorted({t.id for t in wanted if isinstance(t, SlotNode)})
+        calendar_ids = sorted({t.calendar_id for t in wanted if isinstance(t, CalendarNode)})
+        dimension_ids = sorted({t.dimension_id for t in wanted if isinstance(t, DimensionNode)})
+        T = TimeDependency  # noqa: N806
+        conditions: list[ColumnElement[bool]] = []
+        for start in range(0, len(slot_ids), _BATCH):
+            chunk = slot_ids[start : start + _BATCH]
+            conditions.append(and_(T.target_kind == "slot", T.target_id.in_(chunk)))
+        for start in range(0, len(calendar_ids), _BATCH):
+            conditions.append(T.target_calendar_id.in_(calendar_ids[start : start + _BATCH]))
+        for start in range(0, len(dimension_ids), _BATCH):
+            chunk = dimension_ids[start : start + _BATCH]
+            conditions.append(and_(T.target_kind == DIMENSION, T.target_id.in_(chunk)))
+        found: dict[Target, set[SlotNode]] = {}
+        for condition in conditions:
+            for row in self.session.scalars(select(T).where(condition)):
+                target = _target_of(row)
+                if target in wanted:
+                    found.setdefault(target, set()).add(
+                        SlotNode(row.dependent_type, row.dependent_id, row.dependent_slot)
+                    )
+        return {target: sorted(nodes) for target, nodes in found.items()}
+
+    def slots_with_edges(self, record_type: str, record_id: str) -> list[SlotNode]:
+        """The slots of a record that have outgoing edges, sorted."""
+        T = TimeDependency  # noqa: N806
+        rows = self.session.execute(
+            select(T.dependent_type, T.dependent_id, T.dependent_slot)
+            .where(T.dependent_type == record_type, T.dependent_id == record_id)
             .distinct()
         )
         return sorted(SlotNode(*row) for row in rows)

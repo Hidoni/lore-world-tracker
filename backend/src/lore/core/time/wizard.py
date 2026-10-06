@@ -15,6 +15,7 @@ from lore.core.time.calendars import (
     source_definition,
 )
 from lore.core.time.dimensions import DIMENSION, dimension_row
+from lore.core.time.resolve import Resolver
 from lore.core.time.schemas import CalendarPreviewIn, DimensionCreated, DimensionWizardIn
 from lore.core.visibility import VisibilityPolicy
 
@@ -78,12 +79,14 @@ def preview_calendar(
         raise InvalidInputError(
             message, errors=[ErrorItem(path="dimension_id", code="invalid_value", message=message)]
         )
+    resolver: Resolver | None = None
     if data.dimension_id is not None:
         dimension = EntityService(context, policy).load_visible(data.dimension_id)
         if dimension.kind != DIMENSION:
             raise NotFoundError(f"No dimension {data.dimension_id}.")
         row = dimension_row(context.session, dimension.id)
         base_unit, duration = BaseUnit.model_validate(row.base_unit), row.duration
+        resolver = Resolver(context, dimension.id, policy=policy)
     else:
         assert data.time_spec is not None
         base_unit, duration = data.time_spec.base_unit, int(data.time_spec.duration)
@@ -99,4 +102,4 @@ def preview_calendar(
         document = source_definition(data.source, spec_dir)
     except InvalidInputError as exc:
         raise _prefixed(exc, "source") from None
-    return preview(document, base_unit, duration, data.calendar_id)
+    return preview(document, base_unit, duration, data.calendar_id, resolver)

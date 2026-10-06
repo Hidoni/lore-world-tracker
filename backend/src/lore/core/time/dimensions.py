@@ -8,8 +8,8 @@ timeline** (named "Prime") in the same transaction. Rules (decided 2026-10-05 wh
   dimension's records stays within ``[0, new D]`` (R-DIM-3): otherwise ``422 time_constraint``
   lists the offending slots. Slots that *are* the end of time (``end_of_time`` ends, which depend
   on the dimension) aren't offenders: they move to the new ``D``.
-- ``present`` is resolved when written (``lore.core.time.resolve``) and must lie in ``[0, D]``;
-  relative anchors are refused (``not_supported``) until propagation (#48) keeps it current.
+- ``present`` is resolved when written (``lore.core.time.resolve``), must lie in ``[0, D]`` and
+  stays linked to its anchor (``lore.core.time.propagate``).
 - Timelines can't be created through the entity API: the prime comes with its dimension and
   branches with the branches module (M9). Their ``ext`` is read-only for now.
 - The prime timeline follows its dimension (decided): trashing, restoring and purging the
@@ -37,12 +37,12 @@ from lore.core.time.dependencies import (
     DependencyIndex,
     DimensionNode,
     SlotNode,
-    time_point_targets,
 )
 from lore.core.time.models import Dimension, Timeline
+from lore.core.time.propagate import TimeConstraintError, TimeWriter
 from lore.core.time.resolve import Resolver, require
 from lore.core.time.schemas import TimelineNode, TimelineTree
-from lore.core.time.slots import SlotKey, SlotMoment, SlotRegistry, SlotUpdate
+from lore.core.time.slots import SlotMoment
 from lore.core.time.specs import dump_spec
 from lore.core.time.status import TimeStatus
 from lore.core.visibility import VisibilityPolicy
@@ -66,13 +66,6 @@ def _cascade() -> Iterator[None]:
         yield
     finally:
         _CASCADE.reset(token)
-
-
-class TimeConstraintError(InvalidInputError):
-    """A hard structural time rule would break (``time-model.md`` §7.2 step 6)."""
-
-    code = "time_constraint"
-    title = "Time constraint violated"
 
 
 class DimensionExt(BaseModel):
@@ -189,25 +182,20 @@ def _check_spec(data: DimensionExt, creating: bool) -> int | None:
 
 
 def _set_present(context: VaultContext, row: Dimension, point: TimePoint | None) -> None:
-    """Store and resolve the present moment (not relative anchors until #48)."""
-    session = context.session
+    """Store and resolve the present moment; it stays linked to its anchor."""
     if point is None:
         row.present_spec, row.present_t, row.time_status = None, None, None
     else:
-        if point.anchor.kind == "relative":
-            raise _invalid(
-                "ext.present.anchor",
-                "The present moment can't be relative to another record yet.",
-                code="not_supported",
-            )
         resolution = Resolver(context, row.entity_id).resolve(point)
         if resolution.problem is not None and resolution.problem.code == "out_of_bounds":
             raise _invalid("ext.present", resolution.problem.message, code="out_of_bounds")
         t = require(resolution, "ext.present")
         status = TimeStatus.OK if resolution.status is None else resolution.status
         row.present_spec, row.present_t, row.time_status = point, t, status.value
-    targets = time_point_targets(point) if point is not None else set()
-    DependencyIndex(session).replace_edges(SlotNode(DIMENSION, row.entity_id, "present"), targets)
+    context.session.flush()
+    writer = TimeWriter(context)
+    writer.set_spec(DIMENSION, row.entity_id, "present", point)
+    writer.propagate(path="ext.present")
 
 
 def _create_prime(context: VaultContext, dimension: Entity) -> None:
@@ -263,13 +251,10 @@ def _change_duration(context: VaultContext, row: Dimension) -> None:
                 ]
             },
         )
-    registry: SlotRegistry = context.registry.slot_registry()
-    by_type: dict[str, list[SlotUpdate]] = {}
-    for node in DependencyIndex(context.session).dependents_of(DimensionNode(row.entity_id)):
-        update = SlotUpdate(SlotKey(node.id, node.slot), row.duration, TimeStatus.OK)
-        by_type.setdefault(node.type, []).append(update)
-    for record_type, updates in by_type.items():
-        registry.write(context.session, record_type, updates)
+    context.session.flush()
+    writer = TimeWriter(context)
+    writer.touch(DimensionNode(row.entity_id))
+    writer.propagate(path="ext.duration")
 
 
 def read_dimension(

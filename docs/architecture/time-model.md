@@ -105,17 +105,21 @@ Rules:
   (`end_of_time` ends, which depend on the dimension, §7.1) aren't offenders: they move to the new
   `D`. The present moment is resolved when written (§5.6) and must lie in `[0, D]` (`422`, error
   code `out_of_bounds`); dates that don't resolve answer `422 invalid_date`, `reform_gap` or
-  `reform_ambiguous`. Relative anchors are refused for it (`422`, code `not_supported`) until
-  propagation (#48) keeps it current.
+  `reform_ambiguous`. It may be relative to another record and follows it (§7).
 - Vaults from v0.1.0 were backfilled (decided 2026-10-05): every dimension got second/seconds/s
   with `D = 10^100`; per dimension, the earliest timeline entity became the prime and the others
   branches of it at absolute 0 (they inherit nothing).
 - **Calendars** (`lore.core.time.calendars`, #46): `ext: {definition}`, validated and compiled
-  with the Python engine in the dimension's context. Until propagation (#48) non-local anchors in
-  definitions must be `absolute` (`anchor.not_supported`), and every anchor must lie in `[0, D]`
+  with the Python engine in the dimension's context. Non-local anchors in definitions may be
+  absolute, calendar (another calendar of the dimension) or relative anchors (decided with #48):
+  they resolve in the dimension (prime timeline), absolute and relative ones at precision `base`
+  (their precision may name a level of the calendar being defined). Problems are `anchor.<code>`
+  (`anchor.invalid_date`, `anchor.unresolved_ref`, …), `anchor.self_reference` for an anchor
+  using the calendar it defines (use a `local` anchor), and every anchor must lie in `[0, D]`
   (`anchor.out_of_bounds`); errors answer `422 calendar_invalid` with JSON pointers into the
-  definition. A definition can be edited directly only while nothing depends on the calendar
-  (`409`, `context.proposals`); otherwise through proposals (§7.4).
+  definition. The wizard's preview (no dimension yet) resolves only absolute anchors
+  (`anchor.not_supported`). A definition can be edited directly only while nothing depends on the
+  calendar (`409`, `context.proposals`); otherwise through proposals (§7.4).
 - **Default calendar** (decided 2026-10-05): a dimension's first calendar becomes its default;
   `ext.default_calendar_id` switches it to another calendar of the dimension that isn't in the
   trash. The default can't be trashed or purged while another calendar exists (`409`); as the
@@ -315,6 +319,10 @@ the resolved moment**:
 prefix (calendar-configurable), timelines draw soft edges, and consistency rules downgrade
 violations involving the point to **possible** (see `consistency.md` §4).
 
+A time point frozen on purge (§7.3) carries `frozen_from`: the spec it replaced (a time point or
+an end spec document), kept for history and never resolved. It is left out of documents when
+absent.
+
 Explicit uncertainty ranges ("between 1020 and 1025") are **post-MVP**. The schema reserves
 an optional `"range": {"earliest": TimePoint, "latest": TimePoint}` member that v1 must reject.
 
@@ -451,14 +459,52 @@ so a change of `D` re-resolves exactly those slots; decided 2026-10-05). Impleme
 Compiled calendars are cached per (calendar id, definition revision) for the life of the request,
 and in an LRU cache across requests.
 
+### 7.2.1 Implementation (`lore.core.time.propagate`)
+
+Decided with #48 where §7.2 is silent:
+
+- **`TimeWriter(context)`** is the service API: the service stores a spec and calls
+  `set_spec(record_type, id, slot, spec)` (rewrites the slot's edges and marks it changed; `store=True`
+  stores it through the slot provider), `touch(node)` for calendars and dimensions whose value
+  changed, then `propagate()`. Strict runs raise `409 time_cycle` (`context.path`, e.g.
+  `["event a start", "calendar c", "calendar c alignment:default", "event a start"]`) or
+  `422 time_constraint` (`errors[]` per slot, `context.records`:
+  `{record_type, id, slot, code, t}`) and the request transaction rolls back. `strict=False`
+  stores the problems as statuses and returns the violations (calendar proposals, #54).
+- **Graph:** a calendar node depends on its own anchor slots (record type `calendar`), so moving a
+  record a calendar is anchored to re-resolves the calendar's anchors, compiles it again
+  (`compile_status`) and moves every date typed in it. A dimension node changes with `D`.
+- **Order and values:** the affected set is the changed nodes plus their reverse closure. Nodes
+  resolve in Kahn order; a slot's dependents see its new moment (and extent) from this run, not
+  the stored one. Nodes left over by Kahn are on a pre-existing cycle and get status `cycle`.
+- **Hard checks:** every affected slot must end `ok` or `trashed_ref`; an end slot (`SlotDef`
+  with `spec: end`, resolving from its `start` slot) may not precede its start
+  (`end_before_start`). This is checked for affected ends and for the ends of affected starts. A
+  failed slot keeps its last good moment.
+- **Storage:** column slots are updated with one `UPDATE … executemany` per column set and
+  recorded with `history.record_bulk`; slots sharing a status column get the worst status of the
+  record's updated slots (`ok` < `trashed_ref` < the rest).
+- **Trash:** trashing or restoring an entity re-resolves what depends on its records (or on it as
+  a calendar): `trashed_ref` and back to `ok`.
+- **Undo:** after a revert, the edges of every reverted time-bearing row are rebuilt from its
+  specs and propagated; a violation turns the undo into `409 revert_conflict`.
+- **`lore vault check`** has a `time` checker: edges vs. specs (`time_edges_stale`,
+  `time_edges_orphaned`) and stored moments vs. a fresh resolution (`time_moment_stale`,
+  `time_status_stale`). `lore vault reindex` rewrites every edge and re-resolves everything
+  (problems are stored as statuses).
+
 ### 7.3 Deleting referenced records
 
 - **Trash (soft delete):** dependents keep resolving against the trashed record. Their status
   becomes `trashed_ref` and a warning finding (`core.time.anchor_to_trashed`) is raised.
 - **Purge (permanent delete):** before purging, every dependent anchor is **frozen**. It is
   converted to an `absolute` anchor at its last resolved moment, with the original spec kept in
-  `frozen_from` for history, and an info finding is raised. Undoing the purge changeset restores
-  everything.
+  `frozen_from` for history, and an info finding is raised (with the findings engine, #55).
+  Undoing the purge changeset restores everything. Freezing keeps the precision when the
+  dimension's default calendar has that level (else `base`) and the circa flag; an end spec
+  becomes a `time_point` end. It runs as a core purge hook for every entity: dependents of the
+  entity's records (through slot providers' `entity_column`) and, for a calendar, of the calendar
+  itself. A calendar something depends on can therefore be purged.
 
 ### 7.4 Calendar edit proposals (D1)
 

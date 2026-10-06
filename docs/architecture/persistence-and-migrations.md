@@ -106,12 +106,13 @@ PRAGMA temp_store = MEMORY;
     (`foreign_key_check`), then every **derived-data checker** in
     `lore.core.maintenance.checks.DERIVED_DATA`: `search` (`search_docs` vs. entities and
     module contributors: missing, stale and orphaned documents, the index version, and FTS5's
-    `integrity-check` of both FTS tables) and `mentions` (vs. bodies and rich-text fields).
-    Later issues add theirs (dependencies, resolved times). Each problem has `{check, code,
+    `integrity-check` of both FTS tables), `mentions` (vs. bodies and rich-text fields) and
+    `time` (dependency edges and resolved moments vs. time specs, `time-model.md` §7.2.1). Later
+    issues add theirs. Each problem has `{check, code,
     message}`. Exit code 1 when there are problems; `--json` prints `{vault, ok, checks,
     problems}`.
   - `lore vault reindex <vault>` runs every checker's rebuild in one write transaction (search
-    index, then mentions), fixing whatever `check` reports about derived data.
+    index, then mentions, then time), fixing whatever `check` reports about derived data.
 - **Read-only mode** opens `file:lore.db?mode=ro&uri=true`. Published snapshots
   (`journal_mode=DELETE`) are additionally opened with `immutable=1`.
 - Requirements: SQLite ≥ 3.45 with FTS5 (incl. the trigram tokenizer with `remove_diacritics`),

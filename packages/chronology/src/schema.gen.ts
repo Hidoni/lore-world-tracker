@@ -101,6 +101,14 @@ export interface TimePoint {
   anchor: Anchor
   precision: string
   approximate?: boolean
+  /**
+   * The spec this point was frozen from when a record it depended on was purged (an
+   * ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+   * history; never resolved.
+   */
+  frozen_from?: {
+    [k: string]: unknown | undefined
+  } | null
 }
 export interface TimePointEnd {
   kind: 'time_point'
@@ -329,6 +337,14 @@ export interface DefinitionTimePoint {
   anchor: DefinitionAnchor
   precision: string
   approximate?: boolean
+  /**
+   * The spec this point was frozen from when a record it depended on was purged (an
+   * ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+   * history; never resolved.
+   */
+  frozen_from?: {
+    [k: string]: unknown | undefined
+  } | null
 }
 /**
  * A date in the calendar being defined (astronomical year). Valid only inside definitions.

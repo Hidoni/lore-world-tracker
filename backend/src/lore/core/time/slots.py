@@ -17,11 +17,14 @@ from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import bindparam, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from lore.chronology.schema import EndSpec, SlotRef, TimePoint
 from lore.core.entities.models import Entity
+from lore.core.history.recorder import record_bulk, recorded_tables
+from lore.core.history.tables import Row
 from lore.core.time.models import Timeline
 from lore.core.time.status import TimeStatus
 
@@ -29,6 +32,7 @@ type SpecKind = Literal["time_point", "end"]
 
 _RECORD_TYPE = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?")
 _SLOT_NAME = re.compile(r"[a-z][a-z0-9_]*")
+_BATCH = 5000  # ids per IN (...)
 CORE = "core"
 
 
@@ -48,6 +52,8 @@ class SlotDef:
     spec_column: str | None = None
     resolved_column: str | None = None
     status_column: str | None = "time_status"
+    start: str = "start"
+    """For end specs: the slot of the same record the end resolves from (and may not precede)."""
 
     @property
     def is_family(self) -> bool:
@@ -89,6 +95,8 @@ class SlotValue:
     t: int | None
     status: TimeStatus | None
     trashed: bool = False
+    dimension_id: str | None = None
+    """The record's dimension (what its time points resolve in)."""
 
 
 @dataclass(frozen=True)
@@ -99,6 +107,14 @@ class SlotUpdate:
     key: SlotKey
     t: int | None
     status: TimeStatus
+
+
+@dataclass(frozen=True)
+class SpecUpdate:
+    """A new spec for a slot (anchor freezing, ``time-model.md`` §7.3)."""
+
+    key: SlotKey
+    spec: TimePoint | EndSpec
 
 
 type SlotLoader = Callable[[Session, Sequence[SlotKey]], dict[SlotKey, SlotValue]]
@@ -118,6 +134,12 @@ class SlotMoment:
     slot: str
     t: int
 
+
+type SpecWriter = Callable[[Session, Sequence[SpecUpdate]], None]
+"""Store new specs (through the session, so history records them)."""
+
+type SlotLister = Callable[[Session], list[SlotKey]]
+"""Every slot of the record type that has a spec (``lore vault check``)."""
 
 type BeyondQuery = Callable[[Session, str, int], list[SlotMoment]]
 """``(session, dimension id, bound)``: slots of the dimension's records resolved after ``bound``
@@ -147,6 +169,8 @@ class SlotProvider:
     dimension_column: str | None = None
     timeline_column: str | None = None
     beyond: BeyondQuery | None = None
+    write_spec: SpecWriter | None = None
+    keys: SlotLister | None = None
 
     def slot(self, name: str) -> SlotDef | None:
         """The definition covering a slot name: an exact name wins over families, ``*`` last."""
@@ -168,6 +192,54 @@ class SlotProvider:
         if self.beyond is not None:
             return self.beyond(session, dimension_id, bound)
         return _beyond_columns(self, session, dimension_id, bound)
+
+    def write_specs(self, session: Session, updates: Sequence[SpecUpdate]) -> None:
+        """Store new specs: the provider's ``write_spec``, or the spec columns of fixed slots
+        (``SlotError`` ``not_supported`` for a custom provider without one)."""
+        if self.write_spec is not None:
+            self.write_spec(session, updates)
+        elif self.load is None:
+            _write_spec_columns(self, session, updates)
+        elif updates:
+            raise SlotError("not_supported", f"{self.record_type} slots can't be given a new spec")
+
+    def all_keys(self, session: Session) -> list[SlotKey]:
+        """Every slot with a spec: the provider's ``keys``, or the spec columns of fixed slots
+        (none for a custom provider without ``keys``)."""
+        if self.keys is not None:
+            return self.keys(session)
+        if self.load is not None:
+            return []
+        return _keys_columns(self, session)
+
+    def record_keys(self, session: Session, record_id: str) -> list[SlotKey]:
+        """The slots of one record that have a spec."""
+        if self.keys is not None:
+            return [key for key in self.keys(session) if key.id == record_id]
+        if self.load is not None:
+            return []
+        row = _rows(self, session, [record_id]).get(record_id)
+        if row is None:
+            return []
+        return [
+            SlotKey(record_id, slot.name)
+            for slot in self.slots
+            if slot.columns is not None and getattr(row, slot.columns[0]) is not None
+        ]
+
+    def records_of_entity(self, session: Session, entity_id: str) -> list[str]:
+        """Ids of the records that belong to an entity (through ``entity_column``)."""
+        if self.entity_column is None:
+            return []
+        if self.entity_column == self.id_column:
+            return [entity_id]
+        model: Any = self.model
+        ids: Iterable[Any] = session.scalars(
+            select(getattr(model, self.id_column)).where(
+                getattr(model, self.entity_column) == entity_id
+            )
+        )
+        return [str(record_id) for record_id in ids]
 
 
 class SlotError(ValueError):
@@ -226,6 +298,13 @@ class SlotRegistry:
         for update in updates:
             self.slot(record_type, update.key.slot)
         self._provider(record_type).write_slots(session, updates)
+
+    def write_specs(
+        self, session: Session, record_type: str, updates: Sequence[SpecUpdate]
+    ) -> None:
+        for update in updates:
+            self.slot(record_type, update.key.slot)
+        self._provider(record_type).write_specs(session, updates)
 
     def moments_beyond(self, session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
         """Every slot of the dimension's records resolved after ``bound``, sorted (R-DIM-3: these
@@ -356,11 +435,35 @@ def _rows(provider: SlotProvider, session: Session, ids: Iterable[str]) -> dict[
     return {str(getattr(row, provider.id_column)): row for row in rows}
 
 
+def _dimensions(provider: SlotProvider, session: Session, rows: Iterable[Any]) -> dict[str, str]:
+    """Record id → dimension id of loaded rows (``dimension_column`` or ``timeline_column``)."""
+    rows = list(rows)
+    if provider.dimension_column is not None:
+        return {
+            str(getattr(r, provider.id_column)): getattr(r, provider.dimension_column)
+            for r in rows
+            if getattr(r, provider.dimension_column) is not None
+        }
+    if provider.timeline_column is None:
+        return {}
+    timelines = {
+        str(getattr(r, provider.id_column)): getattr(r, provider.timeline_column) for r in rows
+    }
+    wanted = sorted({t for t in timelines.values() if t is not None})
+    found = dict(
+        session.execute(
+            select(Timeline.entity_id, Timeline.dimension_id).where(Timeline.entity_id.in_(wanted))
+        ).tuples()
+    )
+    return {i: found[t] for i, t in timelines.items() if t in found}
+
+
 def _load_columns(
     provider: SlotProvider, session: Session, keys: Sequence[SlotKey]
 ) -> dict[SlotKey, SlotValue]:
     rows = _rows(provider, session, (key.id for key in keys))
     trashed_ids = _trashed(provider, session, rows.values())
+    dimensions = _dimensions(provider, session, rows.values())
     result: dict[SlotKey, SlotValue] = {}
     for key in keys:
         row = rows.get(key.id)
@@ -375,6 +478,7 @@ def _load_columns(
             t=getattr(row, resolved_column),
             status=None if status is None else TimeStatus(status),
             trashed=trashed,
+            dimension_id=dimensions.get(key.id),
         )
     return result
 
@@ -418,17 +522,77 @@ def _beyond_columns(
     return found
 
 
+def _raw_rows(session: Session, table: Any, id_column: str, ids: Sequence[str]) -> dict[str, Row]:
+    """Rows as SQLite stores them (raw values, what history records), by id."""
+    found: dict[str, Row] = {}
+    for start in range(0, len(ids), _BATCH):
+        chunk = ids[start : start + _BATCH]
+        marks = ", ".join("?" for _ in chunk)
+        result = session.connection().exec_driver_sql(
+            f'SELECT * FROM "{table.name}" WHERE "{id_column}" IN ({marks})', tuple(chunk)
+        )
+        found.update({str(row[id_column]): dict(row) for row in result.mappings()})
+    return found
+
+
 def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[SlotUpdate]) -> None:
+    """One ``UPDATE`` per column set (``executemany``), recorded with ``record_bulk``; loaded
+    ORM objects of the rows are expired."""
+    model: Any = provider.model
+    table = model.__table__
+    session.flush()
+    ids = sorted({update.key.id for update in updates})
+    before = _raw_rows(session, table, provider.id_column, ids)
+    missing = [record_id for record_id in ids if record_id not in before]
+    if missing:
+        raise SlotError("unresolved_ref", f"{provider.record_type} {missing[0]} not found")
+    groups: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+    for update in updates:
+        definition = _fixed(provider, update.key.slot)
+        _spec_column, resolved_column = definition.columns or ("", "")
+        params = {"_id": update.key.id, "_t": update.t, "_status": update.status.value}
+        groups.setdefault((resolved_column, definition.status_column), []).append(params)
+    id_column = table.c[provider.id_column]
+    for (resolved_column, status_column), batch in groups.items():
+        moment = bindparam("_t", type_=table.c[resolved_column].type)
+        values: dict[str, Any] = {resolved_column: moment}
+        if status_column is not None:
+            values[status_column] = bindparam("_status")
+        statement = sa_update(table).where(id_column == bindparam("_id")).values(values)
+        session.execute(statement, batch)
+    after = _raw_rows(session, table, provider.id_column, ids)
+    if table.name in recorded_tables(session):
+        record_bulk(session, table, list(before.values()), list(after.values()))
+    wanted = set(ids)
+    for obj in list(session.identity_map.values()):
+        if isinstance(obj, model) and str(getattr(obj, provider.id_column)) in wanted:
+            session.expire(obj)
+
+
+def _write_spec_columns(
+    provider: SlotProvider, session: Session, updates: Sequence[SpecUpdate]
+) -> None:
     rows = _rows(provider, session, (update.key.id for update in updates))
     for update in updates:
         row = rows.get(update.key.id)
         if row is None:
             raise SlotError("unresolved_ref", f"{provider.record_type} {update.key.id} not found")
-        definition = _fixed(provider, update.key.slot)
-        _spec_column, resolved_column = definition.columns or ("", "")
-        setattr(row, resolved_column, update.t)
-        if definition.status_column:
-            setattr(row, definition.status_column, update.status.value)
+        spec_column, _resolved_column = _fixed(provider, update.key.slot).columns or ("", "")
+        setattr(row, spec_column, update.spec)
+
+
+def _keys_columns(provider: SlotProvider, session: Session) -> list[SlotKey]:
+    model: Any = provider.model
+    found: list[SlotKey] = []
+    for slot in provider.slots:
+        if slot.columns is None:
+            continue
+        spec = getattr(model, slot.columns[0])
+        ids: Iterable[Any] = session.scalars(
+            select(getattr(model, provider.id_column)).where(spec.is_not(None))
+        )
+        found += [SlotKey(str(record_id), slot.name) for record_id in ids]
+    return sorted(found, key=lambda key: (key.id, key.slot))
 
 
 __all__ = [
@@ -436,6 +600,7 @@ __all__ = [
     "SlotDef",
     "SlotError",
     "SlotKey",
+    "SlotLister",
     "SlotLoader",
     "SlotMoment",
     "SlotProvider",
@@ -444,6 +609,8 @@ __all__ = [
     "SlotValue",
     "SlotWriter",
     "SpecKind",
+    "SpecUpdate",
+    "SpecWriter",
     "validate_providers",
     "validate_registry",
 ]

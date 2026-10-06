@@ -5,22 +5,28 @@ A calendar's ``ext`` is ``{definition}``. Writes validate the definition with th
 the dimension's context (base unit, ``D``) and store it with ``resolved_anchors`` (JSON pointer →
 moment) and the compile status. Rules (decided 2026-10-05 where noted):
 
-- Non-local anchors inside definitions must be ``absolute`` until propagation (#48) registers
-  calendars as dependents (``anchor.not_supported``), and lie within ``[0, D]``
-  (``anchor.out_of_bounds``). Invalid definitions answer ``422 calendar_invalid``; ``errors[].path``
-  are JSON pointers into the definition.
+- Non-local anchors inside definitions may be absolute, calendar (another calendar of the
+  dimension) or relative anchors; they resolve in the dimension (``anchor.<problem code>``, e.g.
+  ``anchor.invalid_date``, ``anchor.unresolved_ref``) and must lie within ``[0, D]``
+  (``anchor.out_of_bounds``). Anchoring to the calendar itself is ``anchor.self_reference`` (use a
+  ``local`` anchor). Without a dimension (the wizard's preview) only absolute anchors resolve
+  (``anchor.not_supported``). Invalid definitions answer ``422 calendar_invalid``;
+  ``errors[].path`` are JSON pointers into the definition. A calendar is a node of the dependency
+  graph (``lore.core.time.propagate``): it depends on its anchor slots, and propagation compiles it
+  again when they move.
 - The definition can be edited directly only while nothing depends on the calendar; otherwise
   ``409 conflict`` points to the proposals flow (#54).
 - The first calendar of a dimension becomes its default (decided). The default calendar can't be
   trashed or purged while it's the default (``409``), unless it's the dimension's only calendar:
   then trashing keeps the default (trashed calendars still resolve) and purging clears it.
-- Purging a calendar something depends on is refused until anchor freezing (#48).
+- Purging a calendar freezes what depends on it (``time-model.md`` §7.3).
 - The virtual ``absolute`` calendar (``time-model.md`` §3) is accepted wherever a calendar is
   referenced for display or input (:func:`lens`), and is never stored.
 
 Compiled calendars come from a process-wide LRU cache (``lore.core.time.cache``).
 """
 
+import copy
 import hashlib
 import json
 from collections.abc import Iterator, Mapping, Sequence
@@ -48,11 +54,15 @@ from lore.chronology.calendar import (
 from lore.chronology.presets import PresetError, instantiate_preset, load_presets
 from lore.chronology.schema import (
     BaseUnit,
+    CalendarAnchor,
     CalendarDefinition,
+    CalendarDuration,
     CompileContext,
     MomentStr,
     Preset,
     Rational,
+    RelativeAnchor,
+    TimePoint,
 )
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
@@ -60,12 +70,11 @@ from lore.core.time.cache import CALENDARS
 from lore.core.time.dependencies import (
     CalendarNode,
     DependencyIndex,
-    SlotNode,
-    time_point_targets,
 )
 from lore.core.time.models import Calendar, Dimension
-from lore.core.time.slots import SlotKey, SlotMoment, SlotUpdate, SlotValue
-from lore.core.time.specs import ABSOLUTE_CALENDAR_ID, parse_time_point
+from lore.core.time.resolve import Resolver
+from lore.core.time.slots import SlotKey, SlotMoment, SlotUpdate, SlotValue, SpecUpdate
+from lore.core.time.specs import ABSOLUTE_CALENDAR_ID, dump_spec, parse_time_point
 from lore.core.time.status import TimeStatus
 from lore.core.visibility import VisibilityPolicy
 
@@ -200,10 +209,15 @@ def _invalid(errors: list[ErrorItem]) -> CalendarInvalidError:
 
 
 def compile_document(
-    document: Any, base_unit: BaseUnit, duration: int, calendar_id: str | None
+    document: Any,
+    base_unit: BaseUnit,
+    duration: int,
+    calendar_id: str | None,
+    resolver: Resolver | None = None,
 ) -> Compiled:
     """Validate and compile a definition document for a dimension; ``CalendarInvalidError``
-    lists every problem (JSON pointers into the definition)."""
+    lists every problem (JSON pointers into the definition). ``resolver`` resolves non-absolute
+    anchors (without one, they are ``anchor.not_supported``)."""
     context: dict[str, Any] = {
         "calendar_id": calendar_id,
         "base_unit": base_unit.model_dump(),
@@ -222,16 +236,18 @@ def compile_document(
         kind = anchor.point["anchor"]["kind"]
         if kind == "local":
             continue
-        if kind != "absolute":
-            errors.append(_error("anchor.not_supported", f"{anchor.pointer}/anchor/kind",
-                                 "Anchors in calendar definitions must be absolute (or local) "
-                                 "for now."))  # fmt: skip
+        if kind == "absolute":
+            t = int(anchor.point["anchor"]["t"])
+            if t > duration:
+                message = "The moment lies after the end of the dimension."
+                errors.append(_error("anchor.out_of_bounds", f"{anchor.pointer}/anchor/t", message))
+            resolved[anchor.pointer] = str(t)
             continue
-        t = int(anchor.point["anchor"]["t"])
-        if t > duration:
-            errors.append(_error("anchor.out_of_bounds", f"{anchor.pointer}/anchor/t",
-                                 "The moment lies after the end of the dimension."))  # fmt: skip
-        resolved[anchor.pointer] = str(t)
+        found = _resolve_anchor(anchor, calendar_id, resolver)
+        if isinstance(found, dict):
+            errors.append(found)
+        else:
+            resolved[anchor.pointer] = str(found)
     if errors:
         raise _invalid(errors)
     result = compile_calendar(
@@ -240,6 +256,52 @@ def compile_document(
     if isinstance(result, list):
         raise _invalid([_error(e.code, e.path, e.message) for e in result if e.severity == "error"])
     return Compiled(canonical, resolved, result)
+
+
+def _references(point: TimePoint, calendar_id: str) -> bool:
+    """Whether a time point names a calendar (its anchor's or its offset's)."""
+    anchor = point.anchor
+    if isinstance(anchor, CalendarAnchor):
+        return anchor.calendar_id == calendar_id
+    if isinstance(anchor, RelativeAnchor) and isinstance(anchor.offset, CalendarDuration):
+        return anchor.offset.calendar_id == calendar_id
+    return False
+
+
+def resolvable(point: TimePoint) -> TimePoint:
+    """A definition anchor as it resolves: a precision only shapes the moment of a calendar
+    anchor; on absolute and relative anchors it may name a level of the calendar being defined,
+    so they resolve at ``base``."""
+    if isinstance(point.anchor, CalendarAnchor) or point.precision == "base":
+        return point
+    return point.model_copy(update={"precision": "base"})
+
+
+def _pointer(base: str, dotted: str) -> str:
+    """A resolution problem's dotted path, as a JSON pointer under ``base``."""
+    return base + "".join(f"/{part}" for part in dotted.split(".") if part)
+
+
+def _resolve_anchor(
+    anchor: AnchorSlot, calendar_id: str | None, resolver: Resolver | None
+) -> int | ErrorItem:
+    """The moment of a non-local, non-absolute definition anchor (or the problem)."""
+    kind_path = f"{anchor.pointer}/anchor/kind"
+    if resolver is None:
+        message = "Only absolute (or local) anchors resolve before the dimension exists."
+        return _error("anchor.not_supported", kind_path, message)
+    point = parse_time_point(dict(anchor.point))
+    if calendar_id is not None and _references(point, calendar_id):
+        message = "An anchor can't use the calendar it defines: use a local anchor."
+        return _error("anchor.self_reference", kind_path, message)
+    result = resolver.resolve(resolvable(point))
+    if result.ok and result.t is not None:
+        return result.t
+    problem = result.problem
+    code = problem.code if problem is not None else "invalid_date"
+    message = problem.message if problem is not None else "The anchor doesn't resolve."
+    path = _pointer(anchor.pointer, problem.path if problem is not None else "")
+    return _error(f"anchor.{code}", path, message)
 
 
 def _dimension_spec(session: Session, dimension_id: str) -> tuple[BaseUnit, int]:
@@ -336,16 +398,23 @@ def _dependents(session: Session, calendar_id: str) -> int:
     return len(DependencyIndex(session).dependents_of(CalendarNode(calendar_id)))
 
 
-def _store(session: Session, row: Calendar, compiled: Compiled) -> None:
+def _store(context: VaultContext, row: Calendar, compiled: Compiled) -> None:
+    """Store a compiled definition, rewrite the edges of its anchors and propagate (a cycle
+    through other records answers ``409 time_cycle``)."""
+    from lore.core.time.propagate import TimeWriter  # noqa: PLC0415 (import cycle)
+
     row.definition = compiled.definition
     row.resolved_anchors = compiled.resolved
     row.compile_status, row.compile_errors = "ok", []
-    index = DependencyIndex(session)
-    index.drop_record(CALENDAR, row.entity_id)
+    context.session.flush()
+    writer = TimeWriter(context)
+    writer.index.drop_record(CALENDAR, row.entity_id)
     for anchor in anchor_slots(compiled.definition):
         if anchor.point["anchor"]["kind"] != "local":
-            targets = time_point_targets(parse_time_point(dict(anchor.point)))
-            index.replace_edges(SlotNode(CALENDAR, row.entity_id, anchor.slot), targets)
+            point = parse_time_point(dict(anchor.point))
+            writer.set_spec(CALENDAR, row.entity_id, anchor.slot, point)
+    writer.touch(CalendarNode(row.entity_id))
+    writer.propagate(path="ext.definition")
 
 
 def write_calendar(
@@ -361,12 +430,13 @@ def write_calendar(
             )
         assert entity.dimension_id is not None
         base_unit, duration = _dimension_spec(session, entity.dimension_id)
-        compiled = compile_document(data.definition, base_unit, duration, entity.id)
+        resolver = Resolver(context, entity.dimension_id)
+        compiled = compile_document(data.definition, base_unit, duration, entity.id, resolver)
         created = Calendar(
             entity_id=entity.id, dimension_id=entity.dimension_id, compile_status="ok"
         )
         session.add(created)
-        _store(session, created, compiled)
+        _store(context, created, compiled)
         session.flush()
         dimension = session.get(Dimension, entity.dimension_id)
         if dimension is not None and dimension.default_calendar_id is None:
@@ -392,10 +462,11 @@ def write_calendar(
             context={"dependents": dependents, "proposals": f"/calendars/{entity.id}/proposals"},
         )
     base_unit, duration = _dimension_spec(session, row.dimension_id)
-    compiled = compile_document(data.definition, base_unit, duration, entity.id)
+    resolver = Resolver(context, row.dimension_id)
+    compiled = compile_document(data.definition, base_unit, duration, entity.id, resolver)
     if compiled.definition != row.definition or compiled.resolved != row.resolved_anchors:
-        _store(session, row, compiled)
         row.definition_revision += 1
+        _store(context, row, compiled)
         session.flush()
 
 
@@ -460,13 +531,7 @@ def purge_calendar(context: VaultContext, entity: Entity) -> None:
         if _others(session, entity):
             raise _default_conflict("purge")
         dimension.default_calendar_id = None
-    dependents = _dependents(session, entity.id)
-    if dependents:
-        raise ConflictError(
-            f"{dependents} time slots depend on this calendar: purge them or change their "
-            "anchors first.",
-            context={"references": {"dependent time slots": dependents}},
-        )
+    # What depends on the calendar is frozen by the core purge hook (time-model §7.3).
     row = session.get(Calendar, entity.id)
     if row is not None:
         session.delete(row)
@@ -529,8 +594,37 @@ def load_calendar_slots(session: Session, keys: Sequence[SlotKey]) -> dict[SlotK
             t=None if t is None else int(t),
             status=TimeStatus.OK if row.compile_status == "ok" else TimeStatus.CALENDAR_ERROR,
             trashed=entity.deleted_at is not None,
+            dimension_id=row.dimension_id,
         )
     return result
+
+
+def write_calendar_specs(session: Session, updates: Sequence[SpecUpdate]) -> None:
+    """New specs for a calendar's anchors (anchor freezing): the definition changes (a new
+    revision), its resolved anchors stay."""
+    for update in updates:
+        row = session.get(Calendar, update.key.id)
+        anchor = _slot_pointers(row).get(update.key.slot) if row is not None else None
+        if row is None or anchor is None:
+            continue
+        definition = copy.deepcopy(row.definition)
+        parts = [p for p in anchor.pointer.split("/") if p]
+        node: Any = definition
+        for part in parts[:-1]:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+        node[parts[-1]] = dump_spec(update.spec)
+        row.definition = definition
+        row.definition_revision += 1
+
+
+def calendar_slot_keys(session: Session) -> list[SlotKey]:
+    """Every non-local anchor slot of every calendar."""
+    return [
+        SlotKey(row.entity_id, anchor.slot)
+        for row in session.scalars(select(Calendar).order_by(Calendar.entity_id))
+        for anchor in anchor_slots(row.definition)
+        if anchor.point["anchor"]["kind"] != "local"
+    ]
 
 
 def write_calendar_slots(session: Session, updates: Sequence[SlotUpdate]) -> None:
@@ -604,10 +698,14 @@ def samples(calendar: CompiledCalendar, duration: int, start: int) -> list[Sampl
 
 
 def preview(
-    document: dict[str, Any], base_unit: BaseUnit, duration: int, calendar_id: str | None
+    document: dict[str, Any],
+    base_unit: BaseUnit,
+    duration: int,
+    calendar_id: str | None,
+    resolver: Resolver | None = None,
 ) -> Preview:
     try:
-        compiled = compile_document(document, base_unit, duration, calendar_id)
+        compiled = compile_document(document, base_unit, duration, calendar_id, resolver)
     except CalendarInvalidError as exc:
         errors = [{"code": e["code"], "path": e["path"], "message": e["message"]}
                   for e in exc.errors or []]  # fmt: skip
