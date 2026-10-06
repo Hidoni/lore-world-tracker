@@ -28,6 +28,7 @@ from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.richtext.schema import CORE_NODE_TYPES
 from lore.core.search.documents import SearchContributor
 from lore.core.time.kinds import CORE_KIND_EXTENSIONS, CORE_SLOT_PROVIDERS
+from lore.core.time.propagate import freeze_on_purge
 from lore.core.time.slots import (
     SlotProvider,
     SlotRegistry,
@@ -180,7 +181,11 @@ class ModuleRegistry:
 
     def purge_hooks(self) -> list[PurgeHook]:
         """Purge hooks of core and **every** module (disabled modules keep their data)."""
-        return [*CORE_PURGE_HOOKS, *(hook for m in self.modules for hook in m.purge_hooks)]
+        return [
+            *CORE_PURGE_HOOKS,
+            freeze_on_purge,  # anchor freezing (time-model §7.3)
+            *(hook for m in self.modules for hook in m.purge_hooks),
+        ]
 
     def richtext_handlers(self) -> dict[str, RichTextNodeHandler]:
         """Rich-text node handlers of **every** module (documents keep module nodes while the

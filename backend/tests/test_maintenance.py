@@ -55,7 +55,7 @@ def manager_of(client: TestClient) -> VaultManager:
 def codes(client: TestClient, vault_id: str) -> list[str]:
     manager = manager_of(client)
     report = check_vault(manager, vault_id)
-    assert report.checks == ("schema", "integrity", "foreign_keys", "search", "mentions")
+    assert report.checks == ("schema", "integrity", "foreign_keys", "search", "mentions", "time")
     return sorted(problem.code for problem in report.problems)
 
 
@@ -110,7 +110,7 @@ def test_corrupted_derived_data_is_detected_and_fixed_by_reindex(
     manager = manager_of(client)
     assert manager.module_registry is not None
     counts = reindex_vault(manager.open(api.vault), manager.module_registry)
-    assert counts == {"search": 3, "mentions": 3}
+    assert counts == {"search": 3, "mentions": 3, "time": 0}
     assert codes(client, api.vault) == []
     hits = api.client.get(f"{api.base}/search", params={"q": "heavy"}).json()["items"]
     assert [hit["name"] for hit in hits] == ["Anvil"]
@@ -189,7 +189,7 @@ def test_unreadable_and_foreign_schemas_are_reported_without_checking(
 
 
 def test_derived_data_checks_are_registered_in_order() -> None:
-    assert [check.id for check in DERIVED_DATA] == ["search", "mentions"]
+    assert [check.id for check in DERIVED_DATA] == ["search", "mentions", "time"]
 
 
 # --- the daily PRAGMA optimize ----------------------------------------------------------------
@@ -255,13 +255,13 @@ def test_cli_check(cli_vault: tuple[str, Path]) -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["vault", "check", vault])
     assert result.exit_code == 0, result.output
-    assert result.output == "ok (schema, integrity, foreign_keys, search, mentions)\n"
+    assert result.output == "ok (schema, integrity, foreign_keys, search, mentions, time)\n"
     report = runner.invoke(cli.app, ["vault", "check", vault, "--json"])
     assert report.exit_code == 0, report.output
     assert json.loads(report.output) == {
         "vault": vault,
         "ok": True,
-        "checks": ["schema", "integrity", "foreign_keys", "search", "mentions"],
+        "checks": ["schema", "integrity", "foreign_keys", "search", "mentions", "time"],
         "problems": [],
     }
 
@@ -282,7 +282,9 @@ def test_cli_check(cli_vault: tuple[str, Path]) -> None:
     fixed = runner.invoke(cli.app, ["vault", "reindex", vault])
     assert fixed.exit_code == 0, fixed.output
     # two dimensions and their prime timelines
-    assert fixed.output == "search: rebuilt 4 documents\nmentions: rebuilt 4 entities\n"
+    assert fixed.output == (
+        "search: rebuilt 4 documents\nmentions: rebuilt 4 entities\ntime: rebuilt 0 time slots\n"
+    )
     assert runner.invoke(cli.app, ["vault", "check", vault]).exit_code == 0
     assert runner.invoke(cli.app, ["vault", "check", "nope"]).exit_code == 1
 

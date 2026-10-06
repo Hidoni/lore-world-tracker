@@ -2,8 +2,7 @@
 derived data against its sources and can rebuild it from them.
 
 ``lore vault check`` runs every checker in ``DERIVED_DATA`` and ``lore vault reindex`` runs
-every rebuild. Later issues add theirs to the tuple (time propagation, dependencies, resolved
-times).
+every rebuild. Later issues add theirs to the tuple.
 """
 
 from collections.abc import Callable, Iterator
@@ -21,6 +20,7 @@ from lore.core.richtext.models import Mention
 from lore.core.search.documents import SearchDocument
 from lore.core.search.indexer import BATCH, SearchIndexer, contributors, index_is_current
 from lore.core.search.models import ENTITY_DOC, SearchDoc
+from lore.core.time.check import rebuild_time, verify_time
 
 FTS_TABLES = ("search_fts", "search_trigram")
 
@@ -217,5 +217,10 @@ MENTIONS = DerivedDataCheck(
     "entities",
 )  # fmt: skip
 
+TIME = DerivedDataCheck(
+    "time", "time dependencies and resolved moments vs. time specs", verify_time, rebuild_time,
+    "time slots",
+)  # fmt: skip
+
 # Every derived-data checker, in the order they run (rebuilds too).
-DERIVED_DATA: tuple[DerivedDataCheck, ...] = (SEARCH, MENTIONS)
+DERIVED_DATA: tuple[DerivedDataCheck, ...] = (SEARCH, MENTIONS, TIME)

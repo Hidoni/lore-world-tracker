@@ -31,6 +31,8 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         load=calendars.load_calendar_slots,
         write=calendars.write_calendar_slots,
         beyond=calendars.calendar_moments_beyond,
+        write_spec=calendars.write_calendar_specs,
+        keys=calendars.calendar_slot_keys,
     ),
 )
 

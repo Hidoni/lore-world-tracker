@@ -45,4 +45,4 @@ class KindExtension:
 
 type PurgeHook = Callable[[VaultContext, Entity], None]
 
-CORE_PURGE_HOOKS: tuple[PurgeHook, ...] = ()  # anchor freezing: M3
+CORE_PURGE_HOOKS: tuple[PurgeHook, ...] = ()  # anchor freezing: ModuleRegistry.purge_hooks

@@ -46,6 +46,7 @@ from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.propagate import after_trash
 from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
@@ -350,6 +351,7 @@ class EntityService:
             self._trash_hook(entity, True)
             entity.deleted_at = utc_now()
             self.session.flush()
+            after_trash(self.context, entity.id)
             self.reindex(entity)
         return EntityDeleteResult(
             id=entity.id,
@@ -365,6 +367,7 @@ class EntityService:
             self._trash_hook(entity, False)
             entity.deleted_at = None
             self.session.flush()
+            after_trash(self.context, entity.id)
             self.reindex(entity)
         return EntityWriteResult(
             entity=self.to_out(entity),

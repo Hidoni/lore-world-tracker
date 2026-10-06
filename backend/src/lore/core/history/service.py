@@ -47,6 +47,7 @@ from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import LinkTypeDef
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.propagate import TimeConstraintError, TimeCycleError, after_revert
 from lore.core.types import Affected
 from lore.core.vaults import OpenVault
 
@@ -54,8 +55,8 @@ type RevertHook = Callable[[VaultContext, Sequence[Change]], None]
 
 REVERT_HOOKS: list[RevertHook] = []
 """Called after a revert with the reverted changes, to recompute derived data (extension
-point: modules re-index their search documents and time propagation (M3) appends here; core
-refreshes mentions and entity search documents itself)."""
+point: modules re-index their search documents; core refreshes mentions, entity search documents
+and time (edges and propagation, ``lore.core.time.propagate.after_revert``) itself)."""
 
 
 SHOWN_PROBLEMS = 3  # in the detail message; context.problems lists all
@@ -388,6 +389,13 @@ class HistoryService:
         self.session.flush()
         context = VaultContext(self.vault, self.session, self.registry)
         self._refresh_derived(context, changes)
+        try:
+            after_revert(context, changes)
+        except (TimeConstraintError, TimeCycleError) as exc:
+            raise RevertConflictError(
+                f"Undoing this would break time rules: {exc.detail}",
+                context={"rows": [], "problems": [], "time": exc.context or {}},
+            ) from exc
         for hook in REVERT_HOOKS:
             hook(context, changes)
         detail = self.detail(undo_id)

@@ -57,6 +57,7 @@ from lore.chronology.schema import (
 )
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
+from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Dimension
 from lore.core.time.slots import SlotError, SlotKey, SlotProvider, SlotRegistry
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
@@ -243,6 +244,8 @@ class Resolver:
         self.default_calendar_id: str | None = row.default_calendar_id
         self.slots: SlotRegistry = context.registry.slot_registry()
         self.calendars = _Calendars(context, dimension_id, policy)
+        self.known: dict[SlotNode, Resolution] = {}
+        """Slots resolved in the current propagation run: used instead of their stored values."""
 
     # --- time points --------------------------------------------------------------------------
 
@@ -366,6 +369,9 @@ class Resolver:
         node = (record_type, record_id, slot)
         if node in seen or depth > MAX_DEPTH:
             return _failed(TimeStatus.CYCLE, "time_cycle", "The anchors form a cycle.")
+        known = self.known.get(SlotNode(*node))
+        if known is not None:
+            return known
         provider, definition = self.slots.slot(record_type, slot)
         key = SlotKey(record_id, slot)
         value = self.slots.load(self.session, record_type, [key]).get(key)
@@ -378,7 +384,7 @@ class Resolver:
         if isinstance(value.spec, TimePoint):
             fresh = self._resolve(value.spec, inner, depth + 1)
         elif value.spec is not None and definition.spec == "end":
-            start = self.slot(record_type, record_id, "start", inner, depth + 1)
+            start = self.slot(record_type, record_id, definition.start, inner, depth + 1)
             if start.ok:
                 fresh = self._end(value.spec, start, inner, depth + 1)
         if fresh is not None and fresh.status == TimeStatus.CYCLE:
@@ -396,6 +402,11 @@ class Resolver:
             )
         trashed = value.trashed or (fresh is not None and fresh.status == TimeStatus.TRASHED_REF)
         return self._trash(result, trashed)
+
+    def forget_calendar(self, calendar_id: str) -> None:
+        """Compile the calendar again on its next use (its anchors or definition changed)."""
+        self.calendars.found.pop(calendar_id, None)
+        self.calendars.trashed.discard(calendar_id)
 
     def has_default_level(self, level: str) -> bool:
         """Whether the dimension's default calendar has a level (and compiles)."""

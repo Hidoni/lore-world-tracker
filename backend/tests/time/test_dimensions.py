@@ -14,6 +14,7 @@ from lore.core.history.tables import HistoryTable
 from lore.core.modules import ModuleSpec
 from lore.core.time import DependencyIndex, DimensionNode, SlotDef, SlotNode, SlotProvider
 from lore.core.time.slots import SlotKey, SlotMoment, SlotUpdate, SlotValue
+from lore.core.time.specs import parse_end_spec
 from lore.core.vaults import VaultManager
 from tests.entity_api import DIMENSION_EXT, Api, invalid, make_client, problem
 from tests.entity_modules import ENTITY_MODULES
@@ -35,11 +36,14 @@ TICKS: dict[tuple[str, str], tuple[str, int]] = {}  # (id, slot) -> (dimension i
 
 
 def _load(_session: Session, keys: Sequence[SlotKey]) -> dict[SlotKey, SlotValue]:
-    return {
-        key: SlotValue(None, TICKS[key.id, key.slot][1], None)
-        for key in keys
-        if (key.id, key.slot) in TICKS
-    }
+    """Ticks' ``end`` slots are the end of time; their ``at`` slots have no spec."""
+    found: dict[SlotKey, SlotValue] = {}
+    for key in keys:
+        if (key.id, key.slot) in TICKS:
+            dimension, t = TICKS[key.id, key.slot]
+            spec = parse_end_spec({"kind": "end_of_time"}) if key.slot == "end" else None
+            found[key] = SlotValue(spec, t, None, dimension_id=dimension)
+    return found
 
 
 def _write(_session: Session, updates: Sequence[SlotUpdate]) -> None:
@@ -219,9 +223,10 @@ def test_present_moment(api: Api) -> None:
         },
         "precision": "base",
     }  # fmt: skip
-    anchored = problem(api.patch(dimension, ext={"present": relative}), 422, "validation_error")
+    # The prime timeline has no branch point to be relative to.
+    anchored = problem(api.patch(dimension, ext={"present": relative}), 422, "invalid_date")
     assert [(e["path"], e["code"]) for e in anchored["errors"]] == [
-        ("ext.present.anchor", "not_supported")
+        ("ext.present.anchor.ref", "unresolved_ref")
     ]
 
     cleared = api.patch(dimension, ext={"present": None}).json()["entity"]
