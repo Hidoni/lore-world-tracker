@@ -103,8 +103,10 @@ Rules:
 - A violation of R-DIM-3 answers `422 time_constraint` with `context.records`
   (`{record_type, id, slot, t}`) listing the offending slots. Slots that **are** the end of time
   (`end_of_time` ends, which depend on the dimension, §7.1) aren't offenders: they move to the new
-  `D`. The present moment must lie in `[0, D]`; until anchor resolution (#47) only absolute
-  anchors are accepted for it (`422`, code `not_supported`).
+  `D`. The present moment is resolved when written (§5.6) and must lie in `[0, D]` (`422`, error
+  code `out_of_bounds`); dates that don't resolve answer `422 invalid_date`, `reform_gap` or
+  `reform_ambiguous`. Relative anchors are refused for it (`422`, code `not_supported`) until
+  propagation (#48) keeps it current.
 - Vaults from v0.1.0 were backfilled (decided 2026-10-05): every dimension got second/seconds/s
   with `D = 10^100`; per dimension, the earliest timeline entity became the prime and the others
   branches of it at absolute 0 (they inherit nothing).
@@ -328,6 +330,43 @@ an optional `"range": {"earliest": TimePoint, "latest": TimePoint}` member that 
 
 The end of a duration is computed from the start's resolved moment. The precision of an end given by
 a duration is the coarser of the start's precision and the duration's finest unit.
+
+### 5.6 Resolution (implementation)
+
+`lore.core.time.resolve.Resolver(context, dimension_id, timeline_id?, policy?)` resolves time
+points (`resolve`) and end specs (`resolve_end(end, start)`) with the Python engine into a
+`Resolution`: `t`, `status` (§6), `extent` `[lo, hi)`, `precision`, `approximate`, `problem`
+(`code`, `message`, `path` inside the time point). Rules (decided with #47 where not stated above):
+
+- **Statuses, not exceptions.** Bad data never raises: a point that can't be resolved has `t =
+  null` and status `invalid_date` (problem `invalid_date`, `reform_gap` or `reform_ambiguous`),
+  `unresolved_ref`, `calendar_error` or `cycle`; one outside `[0, D]` keeps its `t` with status
+  `out_of_bounds`; a reference to a record or calendar in the trash gives `trashed_ref` (it still
+  resolves). Specs that can never resolve have no status: an unknown slot (`unknown_slot`), an
+  unreferenceable one (`slot_not_referenceable`), an occurrence ref (`not_supported` until #53).
+  `require(resolution, path)` turns problems into `422` problem+json for writes: `invalid_date`,
+  `reform_gap`, `reform_ambiguous`, `not_supported`, else `invalid_date` with the problem's code in
+  `errors[].code`.
+- **Precision calendar.** A precision names a level of the anchor's calendar (calendar anchors),
+  the offset's calendar (relative anchors with a calendar offset) or the dimension's default
+  calendar (absolute anchors and relative anchors with a base offset). A precision that isn't a
+  level there is `invalid_date` at `precision`. The Absolute calendar has no levels: calendar
+  anchors and durations in it are `invalid_date`.
+- **Extents.** Precision `base`: `[t, t + 1)`. A level: `[t, end of the unit containing t)`.
+  Relative anchors at their **default** precision (§5.3) get the target's extent with both ends
+  moved by the offset; at another precision the level rule applies. "Coarser" compares unit
+  lengths: the target's extent against the offset's finest non-zero unit at the resolved moment
+  (a tie keeps the target's precision). Duration ends follow the relative rule from the start.
+- **Relative anchors** use the target slot's stored (last good) moment. Its extent and precision
+  come from resolving the target's own spec (an end slot through its record's `start`), keeping
+  the width of that extent; a slot without a spec is exact. Chains deeper than 64 or through a
+  slot already on the path are `cycle`.
+- **Visibility.** With a reader policy, calendars and slot owners the reader can't see are
+  `unresolved_ref` (records without an entity, such as link rows, count as hidden). Stored
+  points are shown to readers by `lore.core.time.redact.ReaderTimes`: a point referencing anything
+  hidden becomes an `absolute` anchor at its resolved moment (precision kept when the default
+  calendar has the level, else `base`), and is left out if it doesn't resolve
+  (`visibility-and-sharing.md` §2).
 
 ## 6. Time slots
 

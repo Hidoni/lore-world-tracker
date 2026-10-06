@@ -55,8 +55,12 @@ from lore.core.links.schemas import (
 )
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
+from lore.core.modules.spec import VaultContext
 from lore.core.richtext.models import Mention
+from lore.core.time.models import Timeline
+from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
+from lore.core.vaults import OpenVault
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 TIMELINE_KIND = "timeline"
@@ -126,14 +130,40 @@ def timeless(link: type[Link] | Any) -> ColumnElement[bool]:
 
 class LinkService:
     def __init__(
-        self, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy = AUTHOR
+        self,
+        session: Session,
+        registry: ModuleRegistry,
+        policy: VisibilityPolicy = AUTHOR,
+        vault: OpenVault | None = None,
     ) -> None:
         self.session = session
         self.registry = registry
         self.policy = policy  # applied by reads; writes are author-only
+        self.vault = vault  # reads for readers need it (resolving hidden anchors)
+        self._reader_times: ReaderTimes | None = None
         enabled = enabled_modules(session, registry)
         self.kinds = {kind.key for kind in registry.kinds_for(enabled)}
         self.catalog = LinkTypeCatalog(session, registry, enabled)
+
+    def _shown(self, link: Link) -> LinkOut:
+        """A link as the policy may see it: for readers, validity bounds anchored to hidden
+        records become their resolved moments (``visibility-and-sharing.md`` §2)."""
+        out = link_out(link)
+        if not self.policy.reader or (out.valid_from is None and out.valid_to is None):
+            return out
+        if self.vault is None:
+            raise RuntimeError("reader link reads need the vault")
+        dimension_id = self.session.scalar(
+            select(Timeline.dimension_id).where(Timeline.entity_id == link.timeline_id)
+        )
+        times = self._reader_times
+        if times is None:
+            times = self._reader_times = ReaderTimes(
+                VaultContext(self.vault, self.session, self.registry), self.policy
+            )
+        out.valid_from = times.point(out.valid_from, dimension_id)
+        out.valid_to = times.point(out.valid_to, dimension_id)
+        return out
 
     # --- writes ---------------------------------------------------------------------------------
 
@@ -291,7 +321,7 @@ class LinkService:
                 side, label = "in", definition.inverse_label or definition.label
             items.append(
                 EntityLink(
-                    link=link_out(link),
+                    link=self._shown(link),
                     direction=side,
                     label=label,
                     other=_linked(end),

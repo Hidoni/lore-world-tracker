@@ -263,13 +263,7 @@ class EntityQueries:
 
     def _summary(self, entity: Entity, parents: frozenset[str]) -> EntitySummary:
         kind_fields = self.service.kind_fields(self.service.kinds[entity.kind])
-        fields, _ = self.policy.fields(
-            self.session,
-            kind_fields.active,
-            entity.fields,
-            entity.field_visibility,
-            self.service.richtext,
-        )
+        fields, _ = self.service.shown_fields(entity, kind_fields)
         return EntitySummary(
             id=entity.id,
             kind=entity.kind,

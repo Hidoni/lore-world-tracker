@@ -109,7 +109,7 @@ def delete_link_type(
 def list_entity_links(
     *,
     entity_id: Annotated[str, Path(pattern=ID_PATTERN, description="Entity id.")],
-    _vault: VaultDep,
+    vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
@@ -122,7 +122,7 @@ def list_entity_links(
     ] = False,
 ) -> EntityLinks:
     """The entity's links in both directions (symmetric ones as ``both``)."""
-    return LinkService(session, registry, policy).entity_links(
+    return LinkService(session, registry, policy, vault).entity_links(
         entity_id, direction=direction, types=types, include_trashed=include_trashed
     )
 
@@ -131,7 +131,7 @@ def list_entity_links(
 def list_backlinks(
     *,
     entity_id: Annotated[str, Path(pattern=ID_PATTERN, description="Entity id.")],
-    _vault: VaultDep,
+    vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
@@ -139,6 +139,6 @@ def list_backlinks(
 ) -> Backlinks:
     """Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
     block visibility, by name."""
-    return LinkService(session, registry, policy).backlinks(
+    return LinkService(session, registry, policy, vault).backlinks(
         entity_id, include_trashed=include_trashed
     )

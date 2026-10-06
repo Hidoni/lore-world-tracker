@@ -7,6 +7,7 @@ Entities of kinds whose module is disabled are unavailable (``404 module_disable
 
 import re
 from collections.abc import Iterable, Sequence
+from functools import cached_property
 from typing import Any
 
 from sqlalchemy import func, or_, select
@@ -45,6 +46,7 @@ from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
 from lore.core.vaults.meta import get_meta
 from lore.core.visibility import AUTHOR, VisibilityPolicy
@@ -105,13 +107,12 @@ class EntityService:
 
     # --- reads ----------------------------------------------------------------------------------
 
-    def get(self, entity_id: str) -> EntityOut:
-        """An entity, also when it is in the trash (for the author)."""
-        return self.to_out(self.load_visible(entity_id))
-
-    def to_out(self, entity: Entity) -> EntityOut:
-        """The entity as the policy may see it."""
-        kind_fields = self.kind_fields(self._kind_of(entity))
+    def shown_fields(
+        self, entity: Entity, kind_fields: KindFields
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """The entity's field values and visibility overrides as the policy may see them; for
+        readers, time points referencing hidden records become their resolved moments
+        (``visibility-and-sharing.md`` §2)."""
         fields, field_visibility = self.policy.fields(
             self.session,
             kind_fields.active,
@@ -119,6 +120,34 @@ class EntityService:
             entity.field_visibility,
             self.richtext,
         )
+        if not self.policy.reader:
+            return fields, field_visibility
+        for key, value in list(fields.items()):
+            if kind_fields.active[key].type != "time_point" or value is None:
+                continue
+            values = value if isinstance(value, list) else [value]
+            shown = [self.reader_times.point(v, entity.dimension_id) for v in values]
+            shown = [v for v in shown if v is not None]
+            if isinstance(value, list):
+                fields[key] = shown
+            elif shown:
+                fields[key] = shown[0]
+            else:
+                del fields[key]
+        return fields, field_visibility
+
+    @cached_property
+    def reader_times(self) -> ReaderTimes:
+        return ReaderTimes(self.context, self.policy)
+
+    def get(self, entity_id: str) -> EntityOut:
+        """An entity, also when it is in the trash (for the author)."""
+        return self.to_out(self.load_visible(entity_id))
+
+    def to_out(self, entity: Entity) -> EntityOut:
+        """The entity as the policy may see it."""
+        kind_fields = self.kind_fields(self._kind_of(entity))
+        fields, field_visibility = self.shown_fields(entity, kind_fields)
         aliases = self.session.scalars(
             select(EntityAlias)
             .where(EntityAlias.entity_id == entity.id, *self.policy.rows(EntityAlias))

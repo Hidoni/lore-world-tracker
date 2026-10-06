@@ -163,7 +163,15 @@ def build_canary_vault(data_dir: Path) -> Canary:
         alias_ids = [a["id"] for a in api.get(lantern["id"]).json()["aliases"]]
         canary.hidden_ids.add(alias_ids[1])
         spoiled = b.public("gadget", "Spoiled", visibility="spoiler", **home)
-        b.public("gadget", "Compass", fields={"text": "brass"}, **home)
+        # Time points anchored in the private calendar: readers get the moment, not the calendar.
+        secret_year = {
+            "anchor": {"kind": "calendar", "calendar_id": secret["id"], "fields": {"year": "3"}},
+            "precision": "year",
+            "approximate": True,
+        }
+        compass = b.public(
+            "gadget", "Compass", fields={"text": "brass", "time_point": secret_year}, **home
+        )
 
         # Links: private ones, links to hidden entities, links in a private timeline.
         b.hidden_link("core.related", lantern, spoiled, visibility="private",
@@ -177,7 +185,15 @@ def build_canary_vault(data_dir: Path) -> Canary:
             timeline_id=branch["id"],
             valid_from=POINT,
         )
-        api.made_link("core.related", spoiled, b.public("gadget", "Mirror", **home))
+        mirror = b.public("gadget", "Mirror", **home)
+        api.made_link("core.related", spoiled, mirror)
+        api.made_link(
+            "core.related",
+            compass,
+            mirror,
+            timeline_id=canary.public["Prime"],
+            valid_from=secret_year,
+        )
 
         # Mentions: from a private entity, and only inside a private block.
         api.patch(ghost, body=doc(p(text("near the "), text("lantern", mention(lantern["id"])))))
