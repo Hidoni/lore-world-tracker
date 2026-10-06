@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path
+from fastapi import APIRouter, Path, Query
 
 from lore.core.api.deps import (
     ModuleRegistryDep,
@@ -13,16 +13,21 @@ from lore.core.api.deps import (
     WritableVaultDep,
 )
 from lore.core.entities.schemas import ID_PATTERN
+from lore.core.errors import NotFoundError
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
 from lore.core.time.calendars import Preview, presets
-from lore.core.time.dimensions import timeline_tree
+from lore.core.time.dimensions import TIMELINE, timeline_tree
+from lore.core.time.events import EVENT, EventTimes, event_tree
 from lore.core.time.schemas import (
     CalendarPreviewIn,
     ConvertIn,
     ConvertOut,
     DimensionCreated,
     DimensionWizardIn,
+    EventDisplay,
+    EventTreeNode,
+    EventTreePage,
     PresetList,
     PresetOut,
     ResolveIn,
@@ -34,8 +39,10 @@ from lore.core.time.wizard import create_dimension, preview_calendar
 router = APIRouter(prefix="/vaults/{vault_id}/dimensions", tags=["dimensions"])
 calendars_router = APIRouter(prefix="/vaults/{vault_id}/calendars", tags=["calendars"])
 time_router = APIRouter(prefix="/vaults/{vault_id}/time", tags=["time"])
+timelines_router = APIRouter(prefix="/vaults/{vault_id}/timelines", tags=["timelines"])
 
 DimensionIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Dimension id.")]
+TimelineIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Timeline id.")]
 
 
 @router.get("/{dimension_id}/timelines", name="timelines")
@@ -127,3 +134,57 @@ def post_convert(
     """Moments of a dimension as fields and displays in the given calendars (`absolute` for raw
     base units). Stores nothing."""
     return convert_batch(VaultContext(vault, session, registry), policy, body)
+
+
+@timelines_router.get("/{timeline_id}/event-tree", name="event_tree")
+def get_event_tree(
+    *,
+    timeline_id: TimelineIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    parent: Annotated[
+        str | None,
+        Query(pattern=ID_PATTERN, description="An event: list its sub-events (default: roots)."),
+    ] = None,
+    cursor: Annotated[str | None, Query(max_length=4096)] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> EventTreePage:
+    """One level of the timeline's event outline: the sub-events of ``parent``, or the root
+    events (those whose parent the tree doesn't show). Ordered by start, longer first on equal
+    starts, then by name. ``404`` for a timeline or parent the request may not see."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    entities = EntityService(context, policy)
+    timeline = entities.load_visible(timeline_id)
+    if timeline.kind != TIMELINE or timeline.deleted_at is not None:
+        raise NotFoundError(f"No timeline {timeline_id}.")
+    if parent is not None and entities.load_visible(parent).kind != EVENT:
+        raise NotFoundError(f"No event {parent}.")
+    rows, next_cursor = event_tree(
+        context, policy, timeline_id, parent_id=parent, cursor=cursor, limit=limit
+    )
+    times = EventTimes(context, policy)
+    return EventTreePage(
+        items=[
+            EventTreeNode(
+                id=item.entity.id,
+                name=item.entity.name,
+                visibility=item.entity.visibility,
+                parent_id=entities.visible_parent(item.entity),
+                start_t=item.row.start_t,
+                end_t=item.row.end_t,
+                time_status=item.row.time_status,
+                importance=item.row.importance,
+                category=item.row.category,
+                display=EventDisplay.model_validate(
+                    times.displays(str(item.entity.dimension_id), item.row)
+                ),
+                has_children=item.has_children,
+            )
+            for item in rows
+        ],
+        next_cursor=next_cursor,
+    )

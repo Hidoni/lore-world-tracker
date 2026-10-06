@@ -174,6 +174,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #56 | M3-13 | Sample world generator: time data (dimensions, calendars, events, recurrences, anchors) and backend perf harness | M | P1 | #54, #55 |
 | #57 | M3-14 | Release v0.2.0: time core complete (fixture vault, changelog) | S | P1 | #56 |
 | #222 | M3-15 | SortableBigInt renders literal binds triple-quoted (bug) | S | P2 | – |
+| #224 | M3-16 | Report propagated time changes in write responses (affected.time_changed and moved entities) | S | P1 | #50 |
 
 ### M4: Frontend foundation
 

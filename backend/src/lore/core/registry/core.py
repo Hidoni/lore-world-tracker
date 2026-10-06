@@ -1,5 +1,5 @@
 """What core registers: the built-in field types, the system kinds and event, and the core link
-types (``data-model.md`` §3.4, §4.2, §6.2). Behavior arrives with M3; these are definitions."""
+types (``data-model.md`` §3.4, §4.2, §6.2). Kind behavior lives with the kind extensions."""
 
 from lore.core.registry.types import FieldTypeDef, KindCapabilities, KindDef, LinkTypeDef
 
@@ -79,6 +79,12 @@ CORE_LINK_TYPES: tuple[LinkTypeDef, ...] = (
         description="An entity taking part in an event, with a free-text role.",
         source_kinds=("event",),
         temporal="never",
+        # segment_id: the participant's worldline segment (worldlines module, time-model §11.4).
+        data_schema={
+            "type": "object",
+            "properties": {"segment_id": {"type": "string", "minLength": 1}},
+            "additionalProperties": False,
+        },
     ),
     LinkTypeDef(
         "core.causes",
@@ -88,6 +94,12 @@ CORE_LINK_TYPES: tuple[LinkTypeDef, ...] = (
         source_kinds=("event",),
         target_kinds=("event",),
         temporal="never",
+        unique="per_pair",  # decided 2026-10-06: edit the existing link instead
+        data_schema={
+            "type": "object",
+            "properties": {"description": {"type": "string", "maxLength": 2000}},
+            "additionalProperties": False,
+        },
     ),
     LinkTypeDef(
         "core.related",

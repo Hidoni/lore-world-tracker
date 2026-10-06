@@ -19,10 +19,9 @@ from lore.config import Settings
 from lore.core.modules import ModuleSpec
 from lore.modules import ALL_MODULES
 from tests.conftest import local_client
-from tests.entity_api import HEADERS, LinkApi
+from tests.entity_api import HEADERS, YEARS, LinkApi
 from tests.entity_modules import ENTITY_MODULES
 from tests.sample_modules import ADDON, BASE, SAMPLE
-from tests.time.test_calendars import YEARS
 
 # The real modules plus test modules with kinds, fields and module routes to cover.
 LEAK_MODULES: tuple[ModuleSpec, ...] = (*ALL_MODULES, *ENTITY_MODULES, BASE, SAMPLE, ADDON)
@@ -225,6 +224,8 @@ def build_canary_vault(data_dir: Path) -> Canary:
             **home,
         )
 
+        _events(b, home, secret, secret_year, realm)
+
         canary.tags = {t["name"]: t["id"] for t in api.get(ghost["id"]).json()["tags"]}
         canary.hidden_ids.update(canary.tags.values())
         changes = client.get(f"{api.base}/changes", params={"limit": 1}).json()
@@ -233,3 +234,45 @@ def build_canary_vault(data_dir: Path) -> Canary:
         assert backup.status_code == 201, backup.json()
         canary.backup = backup.json()["id"]
         return canary
+
+
+def _events(
+    b: _Builder,
+    home: dict[str, Any],
+    secret: dict[str, Any],
+    secret_year: dict[str, Any],
+    realm: dict[str, Any],
+) -> None:
+    """Events: dated in the private default calendar (readers get moments and absolute
+    displays), a private parent with a public sub-event (a root for readers), a private
+    sub-event, an anchor on a private event, a private cause, and an event in the private
+    dimension."""
+    secret_span = {
+        "kind": "duration",
+        "duration": {
+            "kind": "calendar",
+            "calendar_id": secret["id"],
+            "amounts": {"year": "1"},
+            "sign": 1,
+        },
+    }
+    coronation = b.public(
+        "event", "Coronation", ext={"start": secret_year, "end": secret_span}, **home
+    )
+    b.public("event", "Feast", parent_id=coronation["id"], **home)
+    b.hidden("event", visibility="private", parent_id=coronation["id"], **home)
+    plot = b.hidden("event", visibility="private", **home)
+    after_plot = {
+        "anchor": {
+            "kind": "relative",
+            "ref": {"type": "event", "id": plot["id"], "slot": "start"},
+            "offset": {"kind": "base", "units": "86400"},
+        },
+        "precision": "base",
+    }
+    aftermath = b.public(
+        "event", "Aftermath", parent_id=plot["id"], ext={"start": after_plot}, **home
+    )
+    b.hidden_link("core.causes", plot, aftermath, data={"description": b.canary_string()})
+    b.hidden("calendar", ext={"definition": YEARS}, dimension_id=realm["id"])
+    b.hidden("event", dimension_id=realm["id"])

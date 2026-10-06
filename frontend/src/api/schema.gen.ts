@@ -765,6 +765,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/timelines/{timeline_id}/event-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Event Tree
+         * @description One level of the timeline's event outline: the sub-events of ``parent``, or the root
+         *     events (those whose parent the tree doesn't show). Ordered by start, longer first on equal
+         *     starts, then by name. ``404`` for a timeline or parent the request may not see.
+         */
+        get: operations["timelines_event_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1481,6 +1503,54 @@ export interface components {
         EntityWriteResult: {
             entity: components["schemas"]["EntityOut"];
             affected: components["schemas"]["Affected"];
+        };
+        /** EventDisplay */
+        EventDisplay: {
+            /**
+             * Calendar Id
+             * @description The calendar of the displays: the dimension's default, or `absolute`.
+             */
+            calendar_id: string;
+            /** Start */
+            start: string | null;
+            /**
+             * End
+             * @description `"?"` for an unknown end.
+             */
+            end: string | null;
+        };
+        /** EventTreeNode */
+        EventTreeNode: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Parent Id */
+            parent_id: string | null;
+            /** Start T */
+            start_t: string | null;
+            /** End T */
+            end_t: string | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Importance */
+            importance: number;
+            /** Category */
+            category: string | null;
+            display: components["schemas"]["EventDisplay"];
+            /**
+             * Has Children
+             * @description Whether the tree shows sub-events under it.
+             */
+            has_children: boolean;
+        };
+        /** EventTreePage */
+        EventTreePage: {
+            /** Items */
+            items: components["schemas"]["EventTreeNode"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** Extent */
         Extent: {
@@ -4367,6 +4437,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConvertOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    timelines_event_tree: {
+        parameters: {
+            query?: {
+                /** @description An event: list its sub-events (default: roots). */
+                parent?: string | null;
+                cursor?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Timeline id. */
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTreePage"];
                 };
             };
             /** @description Problem */

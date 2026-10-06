@@ -218,6 +218,18 @@ def timelines(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/dimensions/{hidden_id}/timelines", status=404)
 
 
+@recipe(f"{V}/timelines/{{timeline_id}}/event-tree")
+def event_tree(c: Canary) -> Iterator[Call]:
+    prime = f"{_v(c)}/timelines/{c.public['Prime']}/event-tree"
+    yield Call(prime)
+    yield Call(prime, {"limit": 1})
+    for name in ("Coronation", "Feast", "Aftermath"):
+        yield Call(prime, {"parent": c.public[name]})
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/timelines/{hidden_id}/event-tree", status=404)
+        yield Call(prime, {"parent": hidden_id}, status=404)
+
+
 @recipe(f"{V}/calendars/presets")
 def calendar_presets(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/calendars/presets")

@@ -46,6 +46,7 @@ from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.models import Event
 from lore.core.time.propagate import after_trash
 from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
@@ -668,6 +669,9 @@ class EntityService:
             "links in this timeline": select(func.count())
             .select_from(Link)
             .where(Link.timeline_id == entity.id),
+            "events in this timeline": select(func.count())
+            .select_from(Event)
+            .where(Event.timeline_id == entity.id),
         }
         counts = {label: self.session.scalar(query) or 0 for label, query in references.items()}
         blocking = {label: count for label, count in counts.items() if count}

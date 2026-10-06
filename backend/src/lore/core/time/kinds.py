@@ -2,8 +2,8 @@
 (``time-model.md`` §6, ``modules.md`` §2.1)."""
 
 from lore.core.entities.extensions import KindExtension
-from lore.core.time import calendars, dimensions
-from lore.core.time.models import Calendar, Dimension, Timeline
+from lore.core.time import calendars, dimensions, events
+from lore.core.time.models import Calendar, Dimension, Event, Timeline
 from lore.core.time.slots import SlotDef, SlotProvider
 
 CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
@@ -22,6 +22,18 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         id_column="entity_id",
         entity_column="entity_id",
         dimension_column="dimension_id",
+    ),
+    SlotProvider(
+        events.EVENT,
+        Event,
+        (
+            SlotDef("start", referenceable=True),
+            SlotDef("end", spec="end", referenceable=True),
+        ),
+        # Refs name the event entity; only home rows exist until branches (#115).
+        id_column="entity_id",
+        entity_column="entity_id",
+        timeline_column="timeline_id",
     ),
     SlotProvider(
         calendars.CALENDAR,
@@ -54,6 +66,14 @@ CORE_KIND_EXTENSIONS: tuple[KindExtension, ...] = (
         trash=dimensions.trash_timeline,
         purge=dimensions.purge_timeline,
         stored_problems=dimensions.timeline_problems,
+    ),
+    KindExtension(
+        events.EVENT,
+        write=events.write_event,
+        read=events.read_event,
+        update=events.update_event,
+        purge=events.purge_event,
+        stored_problems=events.event_problems,
     ),
     KindExtension(
         calendars.CALENDAR,

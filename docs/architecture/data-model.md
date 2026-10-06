@@ -227,12 +227,13 @@ One **home row** per event entity, plus **override rows** in branches (`time-mod
 | `occurrence_key` TEXT NULL | |
 | `occurrence_state` TEXT NULL | `referenced` / `modified` / `cancelled` |
 | `original_start_t` NULL | |
-| `revision`, `created_at`, `updated_at` | (trash state follows the entity) |
+| `revision`, `created_at`, `updated_at` | `revision` counts the row's own changes; trash state follows the entity |
 
 Indexes: `(timeline_id, start_t)`, `(timeline_id, end_t)`,
 `(timeline_id, series_start_t) WHERE recurrence IS NOT NULL`, unique
 `(series_entity_id, occurrence_key, timeline_id) WHERE series_entity_id IS NOT NULL`,
-`(entity_id)`, `(overrides_id)`.
+`(entity_id)`, `(overrides_id)`. CHECK `importance BETWEEN 1 AND 5`. Model `lore.core.time.models.Event`
+(recorded in history; owner: the entity); behavior `lore.core.time.events` (`time-model.md` §9.1).
 
 ### 5.5 `time_dependencies`
 
@@ -314,9 +315,10 @@ data_schema, graph, archived, revision, created_at, updated_at)` (`unique` is st
 can define link types (managed in settings). The custom-fields module only adds "relation field"
 sugar on top.
 
-Core link types: `core.participant` (event → any, role, temporal `never`), `core.causes`
-(event → event, optional description) and `core.related` (any ↔ any, symmetric, temporal
-`optional`). Spatial, social and linguistic link types belong to their modules (e.g.
+Core link types: `core.participant` (event → any, role, temporal `never`, `data:
+{segment_id?}` for worldlines), `core.causes` (event → event, temporal `never`, `data:
+{description?}`, one link per cause → effect pair: decided 2026-10-06) and `core.related` (any ↔
+any, symmetric, temporal `optional`). Spatial, social and linguistic link types belong to their modules (e.g.
 `locations.event_site`, `groups.member_of`), so they disappear cleanly when a module is disabled.
 
 ### 6.3 `entity_facts`

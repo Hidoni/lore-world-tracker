@@ -23,6 +23,7 @@ module registers its tables when its models are imported).
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 from sqlalchemy import (
@@ -159,7 +160,9 @@ class TimelineView:
 
     # --- time-bound rows ------------------------------------------------------------------------
 
+    @cached_property
     def _lineage_cte(self) -> Any:
+        """Built once: statements combining several selects of a view share one ``lineage``."""
         table = values(
             column("timeline_id", String),
             column("cutoff_key", String),
@@ -197,7 +200,7 @@ class TimelineView:
         """
         bound = time_bound(model)
         row: Any = aliased(model)
-        lineage = self._lineage_cte()
+        lineage = self._lineage_cte
         start = getattr(row, bound.start)
         visible = start < lineage.c.cutoff_key
         if bound.open_start:
