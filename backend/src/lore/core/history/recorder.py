@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Table, delete, event, select
+from sqlalchemy import Table, delete, event, insert, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.orm.attributes import instance_state
 
@@ -167,8 +167,9 @@ def _before_flush(session: Session, _context: object, _instances: object) -> Non
     if session.info.get(_DISABLED):
         return
     pending = _pending(session)
-    for obj in [*session.dirty, *session.deleted]:
-        if obj in session.dirty and not session.is_modified(obj):
+    dirty = set(session.dirty)  # each access walks the identity map: once per flush
+    for obj in [*dirty, *session.deleted]:
+        if obj in dirty and not session.is_modified(obj):
             continue
         found = _object_key(session, obj)
         if found is None:
@@ -185,19 +186,18 @@ def _after_flush(session: Session, _context: object) -> None:
     if session.info.get(_DISABLED):
         return
     pending = _pending(session)
-    for obj in [*session.new, *session.dirty, *session.deleted]:
+    new, deleted = set(session.new), set(session.deleted)
+    for obj in [*new, *session.dirty, *deleted]:
         found = _object_key(session, obj)
         if found is None:
             continue
         table, row_id = found
         key = (table.name, row_id)
         if key not in pending:
-            if obj not in session.new:
+            if obj not in new:
                 continue  # an unmodified dirty object
             pending[key] = _Pending(None, None, table.name, row_id)
-        pending[key].after = (
-            None if obj in session.deleted else stored_row(session, table.table, row_id)
-        )
+        pending[key].after = None if obj in deleted else stored_row(session, table.table, row_id)
 
 
 def _after_rollback(session: Session) -> None:
@@ -281,19 +281,27 @@ def _write(session: Session, changes: list[_Pending]) -> None:
         session.add(changeset)
         session.flush()
     ctx.changeset_id = changeset.id
-    for change in changes:
-        row = Change(
-            changeset_id=changeset.id,
-            table_name=change.table,
-            row_id=change.row_id,
-            op=_op(change),
-            before=change.before,
-            after=change.after,
-        )
-        session.add(row)
-        session.flush()
-        for entity_id in _owners(session, change):
-            session.add(ChangeEntity(change_id=row.id, entity_id=entity_id))
+    values = [
+        {
+            "changeset_id": changeset.id,
+            "table_name": change.table,
+            "row_id": change.row_id,
+            "op": _op(change),
+            "before": change.before,
+            "after": change.after,
+        }
+        for change in changes
+    ]
+    ids = session.scalars(
+        insert(Change).returning(Change.id, sort_by_parameter_order=True), values
+    ).all()
+    owners_of = [
+        {"change_id": change_id, "entity_id": entity_id}
+        for change_id, change in zip(ids, changes, strict=True)
+        for entity_id in _owners(session, change)
+    ]
+    if owners_of:
+        session.execute(insert(ChangeEntity), owners_of)
 
 
 def _merge_target(
