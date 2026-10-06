@@ -2355,6 +2355,15 @@ export interface components {
              * @default false
              */
             approximate: boolean;
+            /**
+             * Frozen From
+             * @description The spec this point was frozen from when a record it depended on was purged (an
+             *     ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+             *     history; never resolved.
+             */
+            frozen_from?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** TimePointEnd */
         TimePointEnd: {

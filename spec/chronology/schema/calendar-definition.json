@@ -525,6 +525,19 @@
         "approximate": {
           "default": false,
           "type": "boolean"
+        },
+        "frozen_from": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The spec this point was frozen from when a record it depended on was purged (an\n``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for\nhistory; never resolved."
         }
       },
       "required": [
@@ -1268,6 +1281,19 @@
         "approximate": {
           "default": false,
           "type": "boolean"
+        },
+        "frozen_from": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The spec this point was frozen from when a record it depended on was purged (an\n``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for\nhistory; never resolved."
         }
       },
       "required": [

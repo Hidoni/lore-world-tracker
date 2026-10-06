@@ -101,6 +101,117 @@
       "note": "the baseline every invalid case below starts from"
     },
     {
+      "id": "frozen-anchor",
+      "op": "validate",
+      "input": {
+        "definition": {
+          "schema_version": 1,
+          "levels": [
+            {
+              "id": "day",
+              "label": "day",
+              "plural": "days"
+            },
+            {
+              "id": "month",
+              "label": "month",
+              "plural": "months"
+            },
+            {
+              "id": "year",
+              "label": "year",
+              "plural": "years"
+            }
+          ],
+          "regimes": [
+            {
+              "id": "standard",
+              "name": "Standard",
+              "templates": {
+                "day": {
+                  "level": "day",
+                  "uniform": {
+                    "count": "1"
+                  }
+                },
+                "m10": {
+                  "level": "month",
+                  "uniform": {
+                    "count": "10",
+                    "template": "day"
+                  }
+                },
+                "year": {
+                  "level": "year",
+                  "sequence": [
+                    {
+                      "id": "first",
+                      "template": "m10",
+                      "name": "First"
+                    },
+                    {
+                      "run": {
+                        "count": "2",
+                        "template": "m10"
+                      }
+                    }
+                  ]
+                }
+              },
+              "top": {
+                "pattern": {
+                  "kind": "fixed",
+                  "template": "year"
+                }
+              },
+              "alignment": {
+                "fields": {
+                  "year": "1"
+                },
+                "at": {
+                  "anchor": {
+                    "kind": "absolute",
+                    "t": "1000"
+                  },
+                  "precision": "base",
+                  "frozen_from": {
+                    "anchor": {
+                      "kind": "relative",
+                      "ref": {
+                        "type": "event",
+                        "id": "e1",
+                        "slot": "start"
+                      },
+                      "offset": {
+                        "kind": "base",
+                        "units": "0"
+                      }
+                    },
+                    "precision": "base"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "context": {
+          "base_unit": {
+            "singular": "day",
+            "plural": "days",
+            "abbr": "d"
+          },
+          "dimension_duration": "1000000",
+          "resolved": {
+            "/regimes/0/alignment/at": "1000"
+          }
+        }
+      },
+      "expected": {
+        "errors": []
+      },
+      "note": "an anchor frozen when the record it was relative to was purged (time-model §7.3): frozen_from is kept and ignored"
+    },
+    {
       "id": "level-reserved-id",
       "op": "validate",
       "input": {
