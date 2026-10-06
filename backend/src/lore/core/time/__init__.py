@@ -27,12 +27,20 @@ from lore.core.time.specs import (
     status_column,
 )
 from lore.core.time.status import TimeStatus
+from lore.core.time.timeline_view import (
+    LineageEntry,
+    TimeBound,
+    TimelineView,
+    register_time_bound,
+    time_bound,
+)
 
 __all__ = [
     "CalendarNode",
     "DependencyIndex",
     "DimensionNode",
     "EndSpecColumn",
+    "LineageEntry",
     "SlotDef",
     "SlotError",
     "SlotKey",
@@ -43,11 +51,15 @@ __all__ = [
     "SlotValue",
     "SpecError",
     "Target",
+    "TimeBound",
     "TimePointSpec",
     "TimeStatus",
+    "TimelineView",
     "end_targets",
     "moment_column",
+    "register_time_bound",
     "spec_column",
     "status_column",
+    "time_bound",
     "time_point_targets",
 ]

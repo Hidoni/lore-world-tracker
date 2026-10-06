@@ -224,6 +224,30 @@ with the helper by declaring their start/end columns. **Do not hand-roll lineage
 Until the branching UI ships (M9), every dimension has only its prime timeline, but the helper is
 still used everywhere so that M9 doesn't have to rewrite queries.
 
+Implementation (`lore.core.time.timeline_view`, #49; decided there where the above is silent):
+
+- **Registration:** `register_time_bound(TimeBound(Model, start=…, end=…, open_start=…,
+  open_end=…))`. `open_start` makes a NULL start −∞ (validity tables), `open_end` a NULL end +∞;
+  without an `end` column a record is an instant. Core registers `links`; modules register their
+  tables next to their models.
+- **Lineage** (`lineage()`, `view.lineage`): `(timeline_id, cutoff, depth)` entries, read once.
+  The viewed timeline's cut-off +∞ is encoded as the key `"9"` (it sorts after every sortable key),
+  so every entry filters `start_key < cutoff_key`. A branch whose `branch_t` is NULL (never
+  resolved) has cut-off 0 and inherits nothing, like the branches migrated from v0.1.0. A missing
+  parent or a cycle raises.
+- **`view.select(Model, where=…, window=(w0, w1))`** returns `SELECT Model` joined to the resolved
+  row ids (ties at one depth break by row id). `where` filters candidate rows **before**
+  resolution (e.g. the trash: a trashed override falls back to the row it overrides); conditions
+  added to the statement apply after it. `window` pushes the start bound into the lineage scan
+  (safe because an override's start equals its root's) and applies `overlaps` to the winners.
+- **`view.overlaps(M, w0, w1)` / `view.covering(M, t)`:** §2.1 on the winning row:
+  `start < w1 and w0 < end`, where instant records and instant windows (`w0 = w1`) count at their
+  moment; `covering(t)` is `overlaps(t, t)`.
+- **Entities:** `view.entities(Entity)` gives the conditions of §4.6 (`origin_timeline_id` NULL or
+  in the lineage); `view.shows_entity(origin)` checks one loaded entity.
+- The view doesn't check visibility: callers load the timeline through their policy and add the
+  policy's conditions.
+
 ### 4.6 Entities and timelines
 
 Entity rows are not time-bound. An entity has `origin_timeline_id`:
