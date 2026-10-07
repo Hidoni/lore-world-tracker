@@ -81,6 +81,7 @@ from lore.core.visibility import VisibilityPolicy
 
 if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
+    from lore.core.time.propagate import TimeWriter
 
 CALENDAR = "calendar"
 SAMPLE_YEARS = 5
@@ -305,7 +306,7 @@ def _resolve_anchor(
     return _error(f"anchor.{code}", path, message)
 
 
-def _dimension_spec(session: Session, dimension_id: str) -> tuple[BaseUnit, int]:
+def dimension_spec(session: Session, dimension_id: str) -> tuple[BaseUnit, int]:
     row = session.get(Dimension, dimension_id)
     if row is None:
         raise ConflictError("The dimension has no time spec.")
@@ -324,18 +325,20 @@ def compiled_calendar(context: VaultContext, calendar_id: str) -> CompiledCalend
     row = session.get(Calendar, calendar_id)
     if row is None:
         raise NotFoundError(f"No calendar {calendar_id}.")
-    base_unit, duration = _dimension_spec(session, row.dimension_id)
+    base_unit, duration = dimension_spec(session, row.dimension_id)
     compile_context = CompileContext(
         calendar_id=calendar_id,
         base_unit=base_unit,
         dimension_duration=str(duration),
         resolved=row.resolved_anchors,
     )
+    # The definition is part of the digest: a proposal's dry run (rolled back) compiles a
+    # definition under the next revision number, which the applied one may reuse.
     key = (
         context.vault.info.manifest.vault_id,
         calendar_id,
         row.definition_revision,
-        _digest(compile_context.model_dump(mode="json")),
+        _digest([row.definition, compile_context.model_dump(mode="json")]),
     )
 
     def build() -> CompiledCalendar:
@@ -362,7 +365,7 @@ def lens(
     """A calendar to display or read dates of the dimension with: one of its calendars, or the
     virtual ``absolute`` calendar."""
     if calendar_id == ABSOLUTE_CALENDAR_ID:
-        return AbsoluteLens(_dimension_spec(context.session, dimension_id)[0])
+        return AbsoluteLens(dimension_spec(context.session, dimension_id)[0])
     row = context.session.get(Calendar, calendar_id)
     if row is None or row.dimension_id != dimension_id:
         raise NotFoundError(f"No calendar {calendar_id} in this dimension.")
@@ -395,7 +398,7 @@ def _parse_ext(ext: dict[str, Any] | None) -> CalendarExt:
         ) from exc
 
 
-def _dependents(session: Session, calendar_id: str) -> int:
+def dependents(session: Session, calendar_id: str) -> int:
     """Time slots and recurring series that depend on the calendar."""
     from lore.core.time.series import series_using  # noqa: PLC0415 (import cycle)
 
@@ -403,9 +406,9 @@ def _dependents(session: Session, calendar_id: str) -> int:
     return slots + len(series_using(session, calendar_id))
 
 
-def _store(context: VaultContext, row: Calendar, compiled: Compiled) -> None:
-    """Store a compiled definition, rewrite the edges of its anchors and propagate (a cycle
-    through other records answers ``409 time_cycle``)."""
+def store_definition(context: VaultContext, row: Calendar, compiled: Compiled) -> TimeWriter:
+    """Store a compiled definition and rewrite the edges of its anchors; returns the writer to
+    propagate with (a cycle through other records answers ``409 time_cycle``)."""
     from lore.core.time.propagate import TimeWriter  # noqa: PLC0415 (import cycle)
 
     row.definition = compiled.definition
@@ -419,7 +422,11 @@ def _store(context: VaultContext, row: Calendar, compiled: Compiled) -> None:
             point = parse_time_point(dict(anchor.point))
             writer.set_spec(CALENDAR, row.entity_id, anchor.slot, point)
     writer.touch(CalendarNode(row.entity_id))
-    writer.propagate(path="ext.definition")
+    return writer
+
+
+def _store(context: VaultContext, row: Calendar, compiled: Compiled) -> None:
+    store_definition(context, row, compiled).propagate(path="ext.definition")
 
 
 def write_calendar(
@@ -434,7 +441,7 @@ def write_calendar(
                 message, errors=[ErrorItem(path="ext.definition", code="required", message=message)]
             )
         assert entity.dimension_id is not None
-        base_unit, duration = _dimension_spec(session, entity.dimension_id)
+        base_unit, duration = dimension_spec(session, entity.dimension_id)
         resolver = Resolver(context, entity.dimension_id)
         compiled = compile_document(data.definition, base_unit, duration, entity.id, resolver)
         created = Calendar(
@@ -459,15 +466,15 @@ def write_calendar(
     row = session.get(Calendar, entity.id)
     if row is None:
         raise ConflictError("The calendar has no definition.")
-    dependents = _dependents(session, entity.id)
-    if dependents:
+    count = dependents(session, entity.id)
+    if count:
         raise ConflictError(
-            f"{dependents} time slots or recurring series depend on this calendar: change its "
+            f"{count} time slots or recurring series depend on this calendar: change its "
             "definition through a "
             "calendar proposal (impact preview), not directly.",
-            context={"dependents": dependents, "proposals": f"/calendars/{entity.id}/proposals"},
+            context={"dependents": count, "proposals": f"/calendars/{entity.id}/proposals"},
         )
-    base_unit, duration = _dimension_spec(session, row.dimension_id)
+    base_unit, duration = dimension_spec(session, row.dimension_id)
     resolver = Resolver(context, row.dimension_id)
     compiled = compile_document(data.definition, base_unit, duration, entity.id, resolver)
     if compiled.definition != row.definition or compiled.resolved != row.resolved_anchors:

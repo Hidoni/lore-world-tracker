@@ -17,7 +17,8 @@ provider's own, which only ever see those slots. One record type may mix both (a
 import re
 from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from functools import cached_property
+from typing import Any, Literal, cast
 
 from sqlalchemy import bindparam, select
 from sqlalchemy import update as sa_update
@@ -35,6 +36,7 @@ type SpecKind = Literal["time_point", "end"]
 _RECORD_TYPE = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?")
 _SLOT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 _BATCH = 5000  # ids per IN (...)
+_MISSING = object()
 CORE = "core"
 
 
@@ -181,13 +183,33 @@ class SlotProvider:
 
     def slot(self, name: str) -> SlotDef | None:
         """The definition covering a slot name: an exact name wins over families, ``*`` last."""
-        ordered = sorted(self.slots, key=lambda s: (s.name == "*", s.is_family))
-        return next((definition for definition in ordered if definition.matches(name)), None)
+        found = self._found.get(name, _MISSING)
+        if found is _MISSING:
+            found = next((d for d in self._ordered if d.matches(name)), None)
+            self._found[name] = found
+        return cast(SlotDef | None, found)
+
+    @cached_property
+    def _ordered(self) -> tuple[SlotDef, ...]:
+        return tuple(sorted(self.slots, key=lambda s: (s.name == "*", s.is_family)))
+
+    @cached_property
+    def _found(self) -> dict[str, object]:
+        """Slot name → definition (memo: propagation asks for every slot it touches)."""
+        return {}
 
     def in_columns(self, slot: str) -> bool:
         """Whether a slot is stored in columns (else by the provider's own functions)."""
-        definition = self.slot(slot)
-        return definition is not None and self._stored_in_columns(definition)
+        found = self._in_columns.get(slot)
+        if found is None:
+            definition = self.slot(slot)
+            found = definition is not None and self._stored_in_columns(definition)
+            self._in_columns[slot] = found
+        return found
+
+    @cached_property
+    def _in_columns(self) -> dict[str, bool]:
+        return {}
 
     def _stored_in_columns(self, definition: SlotDef) -> bool:
         """A fixed slot whose columns exist (with a loader, missing columns make it custom)."""
@@ -499,7 +521,30 @@ def _dimensions(provider: SlotProvider, session: Session, rows: Iterable[Any]) -
 def _load_columns(
     provider: SlotProvider, session: Session, keys: Sequence[SlotKey]
 ) -> dict[SlotKey, SlotValue]:
-    rows = _rows(provider, session, (key.id for key in keys))
+    """Only the columns the slots need, without ORM objects (propagation loads tens of thousands
+    of slots at a time)."""
+    model: Any = provider.model
+    definitions = {slot: _fixed(provider, slot) for slot in {key.slot for key in keys}}
+    names = {provider.id_column}
+    for definition in definitions.values():
+        names.update(definition.columns or ())
+        if definition.status_column is not None:
+            names.add(definition.status_column)
+    for extra in (provider.entity_column, provider.dimension_column, provider.timeline_column):
+        if extra is not None:
+            names.add(extra)
+    if hasattr(model, "deleted_at"):
+        names.add("deleted_at")
+    table = model.__table__
+    columns = [table.c[name] for name in sorted(names)]
+    id_attr = table.c[provider.id_column]
+    wanted = sorted({key.id for key in keys})
+    rows: dict[str, Any] = {}
+    session.flush()  # a Core select doesn't autoflush
+    for start in range(0, len(wanted), _BATCH):
+        chunk = wanted[start : start + _BATCH]
+        for found in session.execute(select(*columns).where(id_attr.in_(chunk))):
+            rows[str(getattr(found, provider.id_column))] = found
     trashed_ids = _trashed(provider, session, rows.values())
     dimensions = _dimensions(provider, session, rows.values())
     result: dict[SlotKey, SlotValue] = {}
@@ -507,15 +552,14 @@ def _load_columns(
         row = rows.get(key.id)
         if row is None:
             continue
-        definition = _fixed(provider, key.slot)
+        definition = definitions[key.slot]
         spec_column, resolved_column = definition.columns or ("", "")
         status = getattr(row, definition.status_column) if definition.status_column else None
-        trashed = key.id in trashed_ids
         result[key] = SlotValue(
             spec=getattr(row, spec_column),
             t=getattr(row, resolved_column),
             status=None if status is None else TimeStatus(status),
-            trashed=trashed,
+            trashed=key.id in trashed_ids,
             dimension_id=dimensions.get(key.id),
         )
     return result
@@ -587,19 +631,26 @@ def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[S
     missing = [record_id for record_id in ids if record_id not in before]
     if missing:
         raise SlotError("unresolved_ref", f"{provider.record_type} {missing[0]} not found")
-    groups: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+    # One row update per record (its slots' columns together), one statement per column set.
+    columns: dict[str, dict[str, Any]] = {}
     for update in updates:
         definition = _fixed(provider, update.key.slot)
         _spec_column, resolved_column = definition.columns or ("", "")
-        params = {"_id": update.key.id, "_t": update.t, "_status": update.status.value}
-        groups.setdefault((resolved_column, definition.status_column), []).append(params)
+        record = columns.setdefault(update.key.id, {})
+        record[resolved_column] = update.t
+        if definition.status_column is not None:
+            record[definition.status_column] = update.status.value
+    groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    for record_id, values in columns.items():
+        names = tuple(sorted(values))
+        params = {f"_{i}": values[name] for i, name in enumerate(names)}
+        groups.setdefault(names, []).append({"_id": record_id, **params})
     id_column = table.c[provider.id_column]
-    for (resolved_column, status_column), batch in groups.items():
-        moment = bindparam("_t", type_=table.c[resolved_column].type)
-        values: dict[str, Any] = {resolved_column: moment}
-        if status_column is not None:
-            values[status_column] = bindparam("_status")
-        statement = sa_update(table).where(id_column == bindparam("_id")).values(values)
+    for names, batch in groups.items():
+        assigned = {
+            name: bindparam(f"_{i}", type_=table.c[name].type) for i, name in enumerate(names)
+        }
+        statement = sa_update(table).where(id_column == bindparam("_id")).values(assigned)
         session.execute(statement, batch)
     after = _raw_rows(session, table, provider.id_column, ids)
     if table.name in recorded_tables(session):

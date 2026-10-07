@@ -319,16 +319,16 @@ by data migrations, so at runtime all documents are at the current version. API 
   `lore vault backup [--no-media]`. Listed and downloadable in settings, by the author only
   (readers get `404`). Backups contain private data, and the UI says so.
 - **Automatic:** pre-migration (DB only), before destructive bulk operations (calendar proposal
-  apply affecting > 100 records, module removal), and **scheduled**. Later issues call
+  apply affecting > 100 records, reason `calendar-proposal`; module removal), and **scheduled**. Later issues call
   `VaultManager.backup_before(vault_id, "<reason>")` for the former: a DB-only zip (such
   operations don't touch media), never pruned. A restore needs none: it never overwrites
   anything.
 - **Scheduled:** vault setting `backups {every_hours, keep, include_media}` (default 24 h / 7 /
   media included, decided 2026-10-04; `every_hours: 0` turns it off; `GET/PATCH
   /vaults/{v}/settings`). An in-process daemon thread (`lore.core.vaults.scheduler`, the
-  maintenance scheduler that also runs the daily `PRAGMA optimize` of §2; author mode only, never
-  on a read-only server) checks every 10 minutes. It backs up each vault **this
-  process has open** whose newest scheduled backup is older than `every_hours` (or that has none),
+  maintenance scheduler that also runs the daily `PRAGMA optimize` of §2 and hourly deletes
+  expired proposals, `data-model.md` §5.9; author mode only, never on a read-only server) checks
+  every 10 minutes. It backs up each vault **this process has open** whose newest scheduled backup is older than `every_hours` (or that has none),
   then deletes scheduled backups beyond the newest `keep`. Manual and pre-operation backups are
   never pruned. Failures are logged and retried at the next check.
 - **Restore:** `POST /vaults/restore` (multipart) or `lore vault restore`. Validates the manifest

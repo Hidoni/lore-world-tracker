@@ -458,6 +458,33 @@ calendar edits (`time-model.md` §7.4–7.5), each materialized occurrence gets 
 Rekeying onto a key that is already materialized is a conflict, and the user must pick another
 strategy for one of them.
 
+Implementation (`lore.core.time.reconcile`, `series.reconcile`; #54, decided there where the
+above is silent):
+
+- `POST /events/{id}/recurrence/proposals {rule, start?, end?}`: `rule` is the new rule (null
+  stops the recurrence: every occurrence is orphaned). The change is checked like a PATCH
+  (`422` at `rule…`, `start`, `end`). Every materialized occurrence not in the trash is an item:
+  its key, state, `original_start_t`, current `start_t`, status, `new_start_t` (the key's start
+  under the new rule), the `rekey_key`/`rekey_start_t` target (`occurrence_at(original_start_t)`
+  when moved, the first occurrence at or after it when orphaned; none: `rekey` isn't offered),
+  `rekey_held_by` (another materialized occurrence holding that key), its strategies and default.
+  Stored for an hour like calendar proposals.
+- Apply takes `strategies` by occurrence entity id (others their default). `rekey` moves the
+  occurrence's anchors to the new key and sets `original_start_t` to that occurrence's start;
+  `keep_key` leaves `original_start_t` alone (it stays the computed start when materialized, so
+  the occurrence shows as `moved` in later proposals). `detach` and `trash` first pin anchors to
+  occurrences of the series at their current moments (`time-model.md` §7.4 pinning), since an
+  orphaned key can't resolve; `detach` then clears the series, key, state and original start;
+  `trash` moves it to the trash (`409 occurrence_has_sub_events` for one with sub-events: detach
+  it instead). Keys held by occurrences in the trash count for conflicts (`409 rekey_conflict`,
+  `context.conflicts: [{key, entity_ids}]`).
+- Stale (`409 proposal_stale`) when the series row's revision moved or the statuses computed
+  again differ from the preview. The series' rule, start and end, and the reconciliation are one
+  changeset (one undo).
+- **Direct edits** (PATCH of `recurrence`, `start` or `end`) may move materialized occurrences
+  (`keep_key`, the default) but not orphan them: that answers `409 conflict` with
+  `context.orphaned` (entity ids) and `context.proposals`.
+
 ## 9. Validation
 
 `validate_rule` errors: `rule.unknown_calendar`, `rule.bad_freq_level`,

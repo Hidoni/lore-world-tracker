@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from pydantic import TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from lore.chronology.calendar.compile import ValidationError as RuleError
@@ -32,7 +32,9 @@ from lore.chronology.recurrence import (
     RecurrenceContext,
     RecurrenceError,
     expand,
+    next_occurrences,
     occurrence,
+    occurrence_at,
     occurrence_number,
     series_bounds,
 )
@@ -105,14 +107,24 @@ def _points_of(row: Event) -> dict[str, tuple[str, TimePoint]]:
     return {} if rule is None else rule_points(rule)
 
 
-def _series_rows(session: Session, ids: Iterable[str]) -> dict[str, Event]:
+def _series_rows(
+    session: Session, ids: Iterable[str], *, bounded: bool = False
+) -> dict[str, Event]:
+    """Home rows of events; ``bounded``: only series and events that still have series bounds
+    (propagation passes every event it touched)."""
     wanted = sorted(set(ids))
     if not wanted:
         return {}
-    rows = session.scalars(
-        select(Event).where(Event.entity_id.in_(wanted), Event.overrides_id.is_(None))
-    )
-    return {row.entity_id: row for row in rows}
+    statement = select(Event).where(Event.entity_id.in_(wanted), Event.overrides_id.is_(None))
+    if bounded:
+        statement = statement.where(
+            or_(
+                Event.recurrence.is_not(None),
+                Event.series_start_t.is_not(None),
+                Event.series_end_t.is_not(None),
+            )
+        )
+    return {row.entity_id: row for row in session.scalars(statement)}
 
 
 def load_rule_slots(session: Session, keys: Sequence[SlotKey]) -> dict[SlotKey, SlotValue]:
@@ -328,7 +340,7 @@ def refresh_series(
     the series looked at."""
     session = context.session
     session.flush()
-    rows = list(_series_rows(session, event_ids).values())
+    rows = list(_series_rows(session, event_ids, bounded=True).values())
     seen = {row.id for row in rows}
     for row in [*_using(session, set(calendar_ids)), *_in_dimensions(session, set(dimension_ids))]:
         if row.id not in seen:
@@ -490,6 +502,68 @@ def series_slots(series_ids: Iterable[str]) -> list[SlotNode]:
     return [SlotNode(EVENT, i, slot) for i in sorted(set(series_ids)) for slot in ("start", "end")]
 
 
+# --- rule-change reconciliation (recurrence.md §8) ----------------------------------------------
+
+UNCHANGED = "unchanged"
+MOVED = "moved"
+ORPHANED = "orphaned"
+
+
+@dataclass(frozen=True)
+class Reconciliation:
+    """What a rule change does to a materialized occurrence: ``unchanged`` (its key starts at
+    ``original_start_t``), ``moved`` (its key starts elsewhere: ``new_start``) or ``orphaned``
+    (its key has no occurrence). ``rekey`` is the occurrence ``rekey`` would move it to:
+    ``occurrence_at(original_start_t)`` when moved, the first occurrence at or after it when
+    orphaned (``None``: there is none)."""
+
+    row: Event
+    status: str
+    new_start: int | None
+    rekey: Occurrence | None
+
+
+def reconcile(
+    rule: Rule | None, ctx: RecurrenceContext | None, rows: Iterable[Event]
+) -> list[Reconciliation]:
+    """The statuses of materialized occurrences under a (new) rule and context (``None``: the
+    event stops recurring, so every occurrence is orphaned). Ordered by key."""
+    found: list[Reconciliation] = []
+    for row in sorted(rows, key=lambda r: _key_order(r.occurrence_key or "0")):
+        assert row.occurrence_key is not None
+        current: Occurrence | None = None
+        if rule is not None and ctx is not None:
+            try:
+                current = occurrence(rule, ctx, row.occurrence_key)
+            except RecurrenceError:
+                current = None
+        original = row.original_start_t
+        if current is not None and current.start == original:
+            found.append(Reconciliation(row, UNCHANGED, current.start, None))
+            continue
+        status = ORPHANED if current is None else MOVED
+        target = None
+        if rule is not None and ctx is not None and original is not None:
+            target = _rekey_target(rule, ctx, original, moved=current is not None)
+        found.append(
+            Reconciliation(row, status, None if current is None else current.start, target)
+        )
+    return found
+
+
+def _rekey_target(
+    rule: Rule, ctx: RecurrenceContext, original: int, *, moved: bool
+) -> Occurrence | None:
+    try:
+        if moved:
+            key = occurrence_at(rule, ctx, original)
+            return None if key is None else occurrence(rule, ctx, key)
+        following = next_occurrences(rule, ctx, original, 1)
+    except RecurrenceError:
+        return None
+    return following[0] if following else None
+
+
 # --- reads ---------------------------------------------------------------------------------------
 
 
@@ -626,13 +700,17 @@ def visible_materialized(
 __all__ = [
     "CANCELLED",
     "MODIFIED",
+    "MOVED",
     "OCCURRENCE_STATES",
+    "ORPHANED",
     "REFERENCED",
     "RULE_SLOT",
+    "UNCHANGED",
     "UNTIL_SLOT",
     "ListedOccurrence",
     "NotASeriesError",
     "OccurrenceList",
+    "Reconciliation",
     "RuleProblem",
     "SeriesProblem",
     "bounds_of",
@@ -649,6 +727,7 @@ __all__ = [
     "occurrences",
     "overlaps",
     "parse_rule",
+    "reconcile",
     "recurrence_context",
     "refresh_series",
     "row_context",

@@ -507,7 +507,11 @@ Decided with #48 where §7.2 is silent:
   `["event a start", "calendar c", "calendar c alignment:default", "event a start"]`) or
   `422 time_constraint` (`errors[]` per slot, `context.records`:
   `{record_type, id, slot, code, t}`) and the request transaction rolls back. `strict=False`
-  stores the problems as statuses and returns the violations (calendar proposals, #54).
+  stores the problems as statuses and returns the violations (calendar proposals, #54). The
+  returned `Propagation` also has each updated slot's new moment and status (`values`) and the
+  stored values the run started from (`before`). `dry=True` (a proposal's preview, inside a
+  SAVEPOINT the caller rolls back) stores only what the run reads back: calendar anchors, series
+  and materialized occurrences.
 - **Graph:** a calendar node depends on its own anchor slots (record type `calendar`), so moving a
   record a calendar is anchored to re-resolves the calendar's anchors, compiles it again
   (`compile_status`) and moves every date typed in it. A dimension node changes with `D`.
@@ -518,8 +522,8 @@ Decided with #48 where §7.2 is silent:
   with `spec: end`, resolving from its `start` slot) may not precede its start
   (`end_before_start`). This is checked for affected ends and for the ends of affected starts. A
   failed slot keeps its last good moment.
-- **Storage:** column slots are updated with one `UPDATE … executemany` per column set and
-  recorded with `history.record_bulk`; slots sharing a status column get the worst status of the
+- **Storage:** column slots are updated with one row update per record (its slots' columns
+  together), one `UPDATE … executemany` per column set, and recorded with `history.record_bulk`; slots sharing a status column get the worst status of the
   record's updated slots (`ok` < `trashed_ref` < the rest).
 - **Trash:** trashing or restoring an entity re-resolves what depends on its records (or on it as
   a calendar): `trashed_ref` and back to `ok`.
@@ -559,13 +563,55 @@ Decided with #48 where §7.2 is silent:
    definition, applies the strategies, propagates and records a single changeset (undoable).
    Records left in `invalid_date` without a strategy make the apply fail with `422`.
 
+Implementation (`lore.core.time.proposals`, #54; decided there where the above is silent):
+
+- **Preview.** The definition compiles first (`422 calendar_invalid`). The impact is a dry run of
+  the real write: inside a SAVEPOINT the definition is stored and propagated without the hard
+  checks (`dry`, §7.2.1), then rolled back, so preview and apply share one semantics. The
+  **items** are the slots whose moment or status changes (the calendar's own anchors aside) and
+  those the edit breaks, including series rules that no longer evaluate (slot `recurrence`) and
+  calendars that no longer compile (slot `definition`). Each item has a key
+  `<record type>/<id>/<slot>`, its entity and name, `old_t`, `old_status`, `new_t` (may lie
+  outside `[0, D]`; null when it doesn't resolve), the new `status` and `problem`, `old_display`
+  and `new_display` (the dimension's default calendar before and after the edit, at the spec's
+  precision when the calendar has that level), the constrained date (`constrained_t`,
+  `constrained_display`) for `invalid_date` dates in this calendar, and the `strategies` it takes.
+  `series` lists the series whose bounds move; `summary` counts items and problems. Proposals
+  live in `proposals` (`data-model.md` §5.9) for an hour; expired ones answer `404` and are
+  deleted when the vault opens and hourly.
+- **Strategies.** `pin_moment` keeps the precision when the default calendar (after the edit)
+  has the level, else `base`, and the circa flag; an end spec becomes a `time_point` end.
+  `constrain` applies only to dates of the edited calendar (the engine's `constrain` overflow;
+  the era-relative year and era follow the constrained moment). `default_strategy` covers items
+  without a strategy where it applies, else `keep_date`. Broken rules and calendars take only
+  `keep_date`. Unknown keys or strategies an item doesn't take are `422 validation_error` on
+  `strategies.<key>`.
+- **Unresolved.** Any slot left broken (not only `invalid_date`: out of bounds, unresolved, an end
+  before its start …) fails the apply with `422 proposal_unresolved` (`errors[]` on
+  `strategies.<key>`, `context.records`) unless the request gave its item a strategy explicitly:
+  an explicit `keep_date` accepts the problem, stored as the slot's status (§7.2 step 6).
+- **Stale.** `409 proposal_stale` when the definition revision moved, or when the calendar's
+  resolved anchors or the stored values (moment, status, spec) of the slots the edit reaches
+  differ from the preview's (a fingerprint; a new dependent counts). Applied proposals are
+  deleted.
+- **Apply** bumps the calendar entity's revision and its `definition_revision`, and takes a
+  database backup first when it has more than 100 items (`backup_before(…,
+  "calendar-proposal")`; the backup reads the committed database, so it is taken after the checks
+  and still holds the vault as it was). The result counts `kept`, `pinned`, `constrained` and
+  `accepted` (problems accepted by an explicit `keep_date`) and names the `backup`.
+- **Recurring series** whose rule or duration uses the calendar move with it (their bounds are in
+  `series`); their materialized occurrences show up as items through their slots (anchored to an
+  occurrence that no longer exists: `unresolved_ref`). Re-keying them is a recurrence proposal's
+  job (§7.5).
+
 ### 7.5 Recurrence-rule edits
 
 Changing an event's recurrence rule can make **materialized occurrences** (modified, cancelled or
 referenced occurrences) point at keys that no longer exist or now land elsewhere. The same
 proposal/apply pattern applies (`recurrence.md` §8): per materialized occurrence the user may
 **re-key** (keep its moment and find the occurrence key now at that moment), **keep key** (move
-with the rule), or **detach** (turn it into a standalone event).
+with the rule), or **detach** (turn it into a standalone event). Implementation:
+`lore.core.time.reconcile` (#54, `recurrence.md` §8).
 
 ## 8. Durations
 

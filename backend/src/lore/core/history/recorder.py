@@ -18,8 +18,10 @@ editing session (autosave) is one history entry and one undo. Both changesets mu
 of the same single entity: no entity row inserted or deleted, no trash or restore, no undo.
 """
 
+import copy
 import json
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -89,6 +91,20 @@ def context(session: Session) -> HistoryContext:
 def describe(session: Session, summary: str) -> None:
     """Set the summary of the changeset this transaction writes."""
     context(session).summary = summary
+
+
+@contextmanager
+def discarded(session: Session) -> Iterator[None]:
+    """Changes made inside are rolled back by the caller (a SAVEPOINT dry run, e.g. a calendar
+    proposal's preview): afterwards, history's pending changes are what they were before."""
+    saved = copy.deepcopy(session.info.get(_PENDING))
+    try:
+        yield
+    finally:
+        if saved is None:
+            session.info.pop(_PENDING, None)
+        else:
+            session.info[_PENDING] = saved
 
 
 def record_bulk(

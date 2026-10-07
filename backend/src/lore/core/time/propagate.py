@@ -25,7 +25,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from lore.chronology.schema import AbsoluteAnchor, EndSpec, TimePoint, TimePointEnd
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
@@ -100,6 +101,11 @@ class Propagation:
     updated: list[SlotNode] = field(default_factory=list)
     violations: list[Violation] = field(default_factory=list)
     affected: int = 0
+    values: dict[SlotNode, tuple[int | None, TimeStatus]] = field(default_factory=dict)
+    """The new moment and status of each updated slot (its own: a shared status column stores
+    the worst of the record's)."""
+    before: dict[SlotNode, SlotValue] = field(default_factory=dict)
+    """The stored values of the affected slots when the run started."""
 
 
 def describe(node: Node) -> str:
@@ -267,29 +273,35 @@ class TimeWriter:
 
     # --- propagation --------------------------------------------------------------------------
 
-    def propagate(self, *, strict: bool = True, path: str = "", rounds: int = 0) -> Propagation:
+    def propagate(
+        self, *, strict: bool = True, path: str = "", rounds: int = 0, dry: bool = False
+    ) -> Propagation:
         """Steps 2-6 of §7.2 for the nodes changed so far (then forgets them).
 
         A run that refreshed series through their rule's time points, calendar or dimension (not
         their start) runs again for what is anchored to their occurrences (at most
-        ``MAX_ROUNDS`` times)."""
+        ``MAX_ROUNDS`` times). ``dry`` (a calendar proposal's preview, rolled back by the caller)
+        stores only what the run reads back (calendar anchors, series and materialized
+        occurrences): the other new values are only in ``Propagation.values``."""
         changed, self.changed = self.changed, set()
         if not changed:
             return Propagation()
         self.session.flush()
         self._check_cycles(changed)
         affected, edges = self._closure(changed)
-        run = _Run(self, affected, edges)
+        run = _Run(self, affected, edges, dry=dry)
         result = run.execute()
         if strict and result.violations:
             raise constraint_error(result.violations, path)
         followers = run.followers - affected
         if followers and rounds < MAX_ROUNDS:
             self.changed.update(followers)
-            more = self.propagate(strict=strict, path=path, rounds=rounds + 1)
+            more = self.propagate(strict=strict, path=path, rounds=rounds + 1, dry=dry)
             result.updated += more.updated
             result.violations += more.violations
             result.affected += more.affected
+            result.values.update(more.values)
+            result.before = {**more.before, **result.before}
         return result
 
     def _check_cycles(self, changed: Iterable[Node]) -> None:
@@ -346,6 +358,10 @@ class TimeWriter:
             frontier = following
         return affected, depends_on
 
+    def closure(self, nodes: Iterable[Node]) -> set[Node]:
+        """The nodes and everything that transitively depends on them (no resolution)."""
+        return self._closure(set(nodes))[0]
+
     def _resolver(self, dimension_id: str, known: dict[SlotNode, Resolution]) -> Resolver | None:
         try:
             resolver = Resolver(self.context, dimension_id)
@@ -359,9 +375,15 @@ class _Run:
     """One propagation: resolves the affected nodes in topological order (steps 4-6)."""
 
     def __init__(
-        self, writer: TimeWriter, affected: set[Node], depends_on: dict[Node, set[Node]]
+        self,
+        writer: TimeWriter,
+        affected: set[Node],
+        depends_on: dict[Node, set[Node]],
+        *,
+        dry: bool = False,
     ) -> None:
         self.writer = writer
+        self.dry = dry
         self.session = writer.session
         self.slots = writer.slots
         self.affected = affected
@@ -370,22 +392,12 @@ class _Run:
         self.resolvers: dict[str, Resolver | None] = {}
         self.values = self._load([n for n in affected if isinstance(n, SlotNode)])
         self.pending: dict[str, list[SlotUpdate]] = {}
-        self.result = Propagation(affected=len(affected))
+        self.result = Propagation(affected=len(affected), before=self.values)
         self.followers: set[Node] = set()
         """Dependents of series refreshed without their own slots being affected."""
 
     def _load(self, nodes: Sequence[SlotNode]) -> dict[SlotNode, SlotValue]:
-        by_type: dict[str, list[SlotKey]] = {}
-        for node in nodes:
-            by_type.setdefault(node.type, []).append(SlotKey(node.id, node.slot))
-        values: dict[SlotNode, SlotValue] = {}
-        for record_type, keys in by_type.items():
-            if self.slots.get(record_type) is None:
-                continue
-            for start in range(0, len(keys), BATCH):
-                loaded = self.slots.load(self.session, record_type, keys[start : start + BATCH])
-                values.update({SlotNode(record_type, k.id, k.slot): v for k, v in loaded.items()})
-        return values
+        return load_values(self.slots, self.session, nodes)
 
     def execute(self) -> Propagation:
         order, stuck = self._order()
@@ -480,6 +492,7 @@ class _Run:
             return
         update = SlotUpdate(SlotKey(node.id, node.slot), t, status)
         self.result.updated.append(node)
+        self.result.values[node] = (t, status)
         if node.type == CALENDAR:
             self.slots.write(self.session, CALENDAR, [update])  # the calendar compiles next
         else:
@@ -527,9 +540,10 @@ class _Run:
     def _write(self) -> None:
         """Store the new values (step 5), one batch per record type. Slots sharing a status
         column get the worst status of the record's updated slots."""
-        for record_type, updates in sorted(self.pending.items()):
+        for record_type, all_updates in sorted(self.pending.items()):
             provider = self.slots.get(record_type)
             assert provider is not None
+            updates = self._read_back(record_type, all_updates) if self.dry else all_updates
             worst: dict[tuple[str, str | None], TimeStatus] = {}
             for update in updates:
                 column = _status_column(provider, update.key.slot)
@@ -543,6 +557,26 @@ class _Run:
             for start in range(0, len(combined), BATCH):
                 self.slots.write(self.session, record_type, combined[start : start + BATCH])
         self.pending.clear()
+
+    def _read_back(self, record_type: str, updates: list[SlotUpdate]) -> list[SlotUpdate]:
+        """A dry run's updates that later steps read from the database: those of series (their
+        bounds) and materialized occurrences (occurrence refs)."""
+        if record_type != EVENT:
+            return []
+        from lore.core.time.models import Event  # noqa: PLC0415 (import cycle)
+
+        ids = sorted({u.key.id for u in updates})
+        kept: set[str] = set()
+        for start in range(0, len(ids), BATCH):
+            kept.update(
+                self.session.scalars(
+                    select(Event.entity_id).where(
+                        Event.entity_id.in_(ids[start : start + BATCH]),
+                        or_(Event.recurrence.is_not(None), Event.series_entity_id.is_not(None)),
+                    )
+                )
+            )
+        return [u for u in updates if u.key.id in kept]
 
     def _check_order(self) -> None:
         """Hard check: an end may not precede the start it resolves from (checked for every
@@ -601,6 +635,24 @@ class _Run:
             return known.t
         value = stored.get(node)
         return None if value is None or value.spec is None else value.t
+
+
+def load_values(
+    registry: SlotRegistry, session: Session, nodes: Iterable[SlotNode]
+) -> dict[SlotNode, SlotValue]:
+    """The stored values of slots (in batches per record type; unknown record types and slots
+    without a stored value are left out)."""
+    by_type: dict[str, list[SlotKey]] = {}
+    for node in nodes:
+        by_type.setdefault(node.type, []).append(SlotKey(node.id, node.slot))
+    values: dict[SlotNode, SlotValue] = {}
+    for record_type, keys in by_type.items():
+        if registry.get(record_type) is None:
+            continue
+        for start in range(0, len(keys), BATCH):
+            loaded = registry.load(session, record_type, keys[start : start + BATCH])
+            values.update({SlotNode(record_type, k.id, k.slot): v for k, v in loaded.items()})
+    return values
 
 
 # --- entity lifecycle --------------------------------------------------------------------------
@@ -684,4 +736,5 @@ __all__ = [
     "constraint_error",
     "describe",
     "freeze_on_purge",
+    "load_values",
 ]

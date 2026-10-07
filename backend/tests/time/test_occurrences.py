@@ -179,10 +179,11 @@ def test_series_edits_move_referenced_occurrences(api: LinkApi, world: dict[str,
     rule = {"kind": "interval", "every": str(2 * DAY), "limit": {"kind": "never"}}
     assert patch(api, series["id"], recurrence=rule).status_code == 200
     assert ext_of(api, third["id"])["start_t"] == str(6 * DAY + 500)
-    # A rule without that occurrence any more: the occurrence can't resolve (reconciliation of
-    # rule edits is #54's).
+    # A rule without that occurrence any more orphans it: that goes through a recurrence
+    # proposal (test_recurrence_proposals.py).
     short = {"kind": "interval", "every": str(DAY), "limit": {"kind": "count", "count": "2"}}
-    problem(patch(api, series["id"], recurrence=short), 422, "time_constraint")
+    body = problem(patch(api, series["id"], recurrence=short), 409, "conflict")
+    assert body["context"]["orphaned"] == [third["id"]]
 
 
 def test_occurrence_anchors(api: LinkApi, world: dict[str, Any]) -> None:
