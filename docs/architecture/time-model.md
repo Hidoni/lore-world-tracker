@@ -247,6 +247,8 @@ Implementation (`lore.core.time.timeline_view`, #49; decided there where the abo
   moment; `covering(t)` is `overlaps(t, t)`.
 - **Entities:** `view.entities(Entity)` gives the conditions of §4.6 (`origin_timeline_id` NULL or
   in the lineage); `view.shows_entity(origin)` checks one loaded entity.
+- A timeline without ancestors (every prime) skips the ranking: none of its rows can be an
+  override, so its rows are a plain `timeline_id` filter (#51, for 100k-row windows).
 - The view doesn't check visibility: callers load the timeline through their policy and add the
   policy's conditions.
 

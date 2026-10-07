@@ -252,6 +252,9 @@ dimension with density and the viewport rectangle.
   panning reuses tiles and neighbors are prefetched.
 - The server applies LOD: items ordered by importance until the pixel budget is met. The rest
   become density buckets. Series that would expand to too many occurrences become bands.
+  Buckets carry `starts` (culled events starting there: label "+N", they add up to `culled`) and
+  `active` (culled events covering the slice: shade with this, so an era begun before the
+  window doesn't pile up at its left edge). Decided 2026-10-07.
 
 ### 9.3 Layout and rendering
 

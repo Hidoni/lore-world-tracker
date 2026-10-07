@@ -355,6 +355,42 @@ def reader_end(times: ReaderTimes, row: Event, dimension_id: str) -> dict[str, A
 # --- the event tree ----------------------------------------------------------------------------
 
 
+def shown_events(statement: Any, view: TimelineView, policy: VisibilityPolicy) -> Any:
+    """A ``view.select(Event)`` statement joined to the events' entities and restricted to those
+    a timeline shows: not in the trash, visible to the policy and to the timeline (§4.6)."""
+    return statement.join(Entity, Entity.id == Event.entity_id).where(
+        Entity.kind == EVENT,
+        Entity.deleted_at.is_(None),
+        *policy.entities(Entity),
+        *view.entities(Entity),
+    )
+
+
+def with_children(
+    session: Session, view: TimelineView, policy: VisibilityPolicy, ids: list[str]
+) -> set[str]:
+    """The events of ``ids`` that have sub-events the timeline shows."""
+    if not ids:
+        return set()
+    # From the parent index: the candidate children, then those the timeline has rows of.
+    candidates = dict(
+        session.execute(
+            select(Entity.id, Entity.parent_id).where(
+                Entity.parent_id.in_(ids),
+                Entity.kind == EVENT,
+                Entity.deleted_at.is_(None),
+                *policy.entities(Entity),
+                *view.entities(Entity),
+            )
+        ).all()
+    )
+    if not candidates:
+        return set()
+    shown = view.select(Event, where=lambda e: [e.entity_id.in_(list(candidates))])
+    found = session.scalars(shown.with_only_columns(Event.entity_id))
+    return {parent for child in found if (parent := candidates[child]) is not None}
+
+
 @dataclass(frozen=True)
 class EventTreeRow:
     entity: Entity
@@ -396,12 +432,7 @@ def event_tree(
     view = TimelineView.for_timeline(session, timeline_id)
 
     def shown(statement: Any) -> Any:
-        return statement.join(Entity, Entity.id == Event.entity_id).where(
-            Entity.kind == EVENT,
-            Entity.deleted_at.is_(None),
-            *policy.entities(Entity),
-            *view.entities(Entity),
-        )
+        return shown_events(statement, view, policy)
 
     statement = shown(view.select(Event)).add_columns(Entity)
     if parent_id is not None:
@@ -436,14 +467,6 @@ def event_tree(
     ).limit(limit + 1)
     found = [(row, entity) for row, entity in session.execute(statement)]
     page = found[:limit]
-    parents = [entity.id for _row, entity in page]
-    with_children: set[str] = set()
-    if parents:
-        children = (
-            shown(view.select(Event))
-            .with_only_columns(Entity.parent_id)
-            .where(Entity.parent_id.in_(parents))
-        )
-        with_children = {p for p in session.scalars(children.distinct()) if p is not None}
+    parents = with_children(session, view, policy, [entity.id for _row, entity in page])
     next_cursor = _cursor(*page[-1]) if len(found) > limit else None
-    return [EventTreeRow(e, r, e.id in with_children) for r, e in page], next_cursor
+    return [EventTreeRow(e, r, e.id in parents) for r, e in page], next_cursor

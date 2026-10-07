@@ -230,6 +230,20 @@ def event_tree(c: Canary) -> Iterator[Call]:
         yield Call(prime, {"parent": hidden_id}, status=404)
 
 
+@recipe(f"{V}/timelines/{{timeline_id}}/window")
+def timeline_window(c: Canary) -> Iterator[Call]:
+    url = f"{_v(c)}/timelines/{c.public['Prime']}/window"
+    whole = {"from": "0", "to": str(10**12 + 1)}
+    yield Call(url, {**whole, "px": 1500})
+    yield Call(url, {**whole, "px": 1})  # culled into buckets
+    yield Call(url, {**whole, "px": 1500, "parent": c.public["Coronation"]})
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/timelines/{hidden_id}/window", {**whole, "px": 10}, status=404)
+        yield Call(url, {**whole, "px": 10, "parent": hidden_id}, status=404)
+        yield Call(url, {**whole, "px": 10, "participant": hidden_id})
+        yield Call(url, {**whole, "px": 10, "tag": hidden_id})
+
+
 @recipe(f"{V}/calendars/presets")
 def calendar_presets(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/calendars/presets")

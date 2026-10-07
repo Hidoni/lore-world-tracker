@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Connection, Engine, create_engine, event
 from sqlalchemy.pool import ConnectionPoolEntry, Pool, QueuePool
 
 from lore.core.errors import LoreError
@@ -191,3 +191,27 @@ def vacuum(engine: Engine) -> None:
     """``VACUUM``: rebuild the database file without free pages (``lore vault optimize
     --vacuum``)."""
     _autocommit(engine, "VACUUM")
+
+
+class WriteCounter:
+    """Counts the committed transactions on an engine that changed the database (``sqlite3``'s
+    ``total_changes`` moved between ``BEGIN`` and ``COMMIT``), whatever wrote: services, bulk
+    SQL, undo, maintenance. Read transactions don't count. Caches of derived results key on
+    ``generation`` (the timeline window, ``lore.core.time.window``)."""
+
+    def __init__(self, engine: Engine) -> None:
+        self.generation = 0
+        event.listen(engine, "begin", self._begin)
+        event.listen(engine, "commit", self._commit)
+
+    @staticmethod
+    def _changes(connection: Connection) -> int:
+        driver = connection.connection.driver_connection
+        return int(getattr(driver, "total_changes", 0))
+
+    def _begin(self, connection: Connection) -> None:
+        connection.info["lore_changes_at_begin"] = self._changes(connection)
+
+    def _commit(self, connection: Connection) -> None:
+        if self._changes(connection) != connection.info.pop("lore_changes_at_begin", None):
+            self.generation += 1

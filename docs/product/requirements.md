@@ -331,7 +331,7 @@ M12 Sharing, backup & hardening · M13 Post-MVP.
 
 | ID | Requirement | MS |
 |----|-------------|----|
-| R-NFR-1 | Scale: 100k entities, 500k links, 100k events per vault. Timeline window query p95 < 150 ms; entity page < 300 ms locally; graph of 10k nodes interactive. | all |
+| R-NFR-1 | Scale: 100k entities, 500k links, 100k events per vault. Timeline window query p95 < 150 ms (cold zoom-out over all 100k events < 500 ms, repeats cached: decided 2026-10-07); entity page < 300 ms locally; graph of 10k nodes interactive. | all |
 | R-NFR-2 | Security: localhost binding by default; Host/Origin validation; CSRF-safe mutations; safe uploads; no raw HTML injection. | M0, M10, M12 |
 | R-NFR-3 | Accessibility: keyboard navigation, ARIA (Radix primitives), sufficient contrast. | M4+ |
 | R-NFR-4 | Latest Chrome, Firefox, Safari, Edge. | M4 |

@@ -3,6 +3,7 @@
 from lore.core.db.engine import (
     MIN_SQLITE_VERSION,
     SQLiteCapabilityError,
+    WriteCounter,
     create_vault_engine,
     ensure_sqlite_capabilities,
     for_writing,
@@ -15,6 +16,7 @@ from lore.core.db.engine import (
 __all__ = [
     "MIN_SQLITE_VERSION",
     "SQLiteCapabilityError",
+    "WriteCounter",
     "create_vault_engine",
     "ensure_sqlite_capabilities",
     "for_writing",

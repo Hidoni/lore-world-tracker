@@ -124,7 +124,17 @@ class Event(IdMixin, TimestampsMixin, Base):
 
     __table_args__ = (
         CheckConstraint("importance BETWEEN 1 AND 5", name="importance"),
-        Index("ix_events_timeline_id_start_t", "timeline_id", "start_t"),
+        # Covers the window scan (lineage range on start, overlap on end, LOD by importance) and
+        # the join to the entity, so 100k-event windows never touch the table (#51).
+        Index(
+            "ix_events_window",
+            "timeline_id",
+            "start_t",
+            "end_t",
+            "importance",
+            "entity_id",
+            "id",
+        ),
         Index("ix_events_timeline_id_end_t", "timeline_id", "end_t"),
         Index(
             "ix_events_timeline_id_series_start_t",

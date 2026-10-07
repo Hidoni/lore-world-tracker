@@ -72,7 +72,8 @@ Measured on the `large` sample vault on a typical dev laptop:
 
 | Operation | Budget (p95) |
 |-----------|--------------|
-| `GET /timelines/{id}/window` (any zoom, 1 tile, 1,500 px) | < 150 ms |
+| `GET /timelines/{id}/window` (1 tile, 1,500 px): ≤ 20k overlapping events, or any window already computed | < 150 ms |
+| `GET /timelines/{id}/window`: cold whole-dimension zoom-out over 100k events (decided 2026-10-07; repeats are served from the window cache) | < 500 ms |
 | Entity page API calls (entity + links + backlinks) | < 300 ms total |
 | Search (`/search`, `/search/quick`) | < 100 ms |
 | Calendar proposal over 10k dependent records | < 5 s |
