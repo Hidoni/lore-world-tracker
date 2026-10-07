@@ -80,6 +80,17 @@ class Entity(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDelet
         Index("ix_entities_origin_timeline_id", "origin_timeline_id"),
         Index("ix_entities_deleted_at", "deleted_at"),
         Index("ix_entities_kind_sort_name", "kind", "sort_name"),
+        # Narrow copy of what visibility and timeline filters read: per-row joins from
+        # time-bound tables (the timeline window, #51) stay index-only.
+        Index(
+            "ix_entities_visibility",
+            "id",
+            "kind",
+            "deleted_at",
+            "visibility",
+            "dimension_id",
+            "origin_timeline_id",
+        ),
         Index("ix_entities_parent_id_sort_name", "parent_id", "sort_name"),
     )
 

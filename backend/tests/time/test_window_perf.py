@@ -1,6 +1,7 @@
-"""Timeline window budget (``testing.md`` §4, R-NFR-1): ``/timelines/{id}/window`` < 150 ms (p95)
-over 100k events, zoomed out and zoomed in, 1,500 px. Marked ``perf`` (nightly, or
-``pytest -m perf``)."""
+"""Timeline window budgets (``testing.md`` §4, R-NFR-1; decided 2026-10-07) over 100k events at
+1,500 px, p95: < 150 ms cold for windows with up to 20k overlapping events, < 500 ms cold for the
+whole-dimension zoom-out, < 150 ms for any window already computed (``WINDOWS`` cache). Marked
+``perf`` (nightly, or ``pytest -m perf``)."""
 
 import random
 import time
@@ -14,12 +15,14 @@ from sqlalchemy import insert
 from lore.core.db.base import new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.models import Entity, entity_sort_name
+from lore.core.time.cache import WINDOWS
 from lore.core.time.models import Event
 from tests.conftest import local_client
 from tests.entity_api import HEADERS, Api, new_app
 
 EVENTS = 100_000
 BUDGET_MS = 150.0
+ZOOMED_OUT_MS = 500.0
 RUNS = 20
 D = 10**12
 INSTANT = {"kind": "instant"}
@@ -86,11 +89,13 @@ def test_window_over_100k_events(tmp_path: Path) -> None:
         api = Api(client)
         prime = populate(app, api)
 
-        def window(start: int, end: int, **params: Any) -> Callable[[], Any]:
+        def window(start: int, end: int, *, cold: bool, **params: Any) -> Callable[[], Any]:
             url = f"{api.base}/timelines/{prime}/window"
             query = {"from": str(start), "to": str(end), "px": 1500, **params}
 
             def call() -> Any:
+                if cold:
+                    WINDOWS.clear()
                 response = client.get(url, params=query)
                 assert response.status_code == 200, response.json()
                 return response.json()
@@ -98,19 +103,32 @@ def test_window_over_100k_events(tmp_path: Path) -> None:
             return call
 
         mid = D // 2
-        cases = {
-            "whole dimension": window(0, D + 1),
-            "1/100": window(mid, mid + D // 100),
-            "1/10,000": window(mid, mid + D // 10_000),
-            "1/1,000,000": window(mid, mid + D // 1_000_000),
-            "whole, importance ≥ 4": window(0, D + 1, min_importance=4),
-            "whole, as reader": window(0, D + 1, as_reader="true"),
+        zoomed_in: dict[str, tuple[int, int, dict[str, Any]]] = {
+            "1/100": (mid, mid + D // 100, {}),
+            "1/10,000": (mid, mid + D // 10_000, {}),
+            "1/1,000,000": (mid, mid + D // 1_000_000, {}),
+            "1/100 as reader": (mid, mid + D // 100, {"as_reader": "true"}),
         }
-        whole = cases["whole dimension"]()
+        zoomed_out: dict[str, tuple[int, int, dict[str, Any]]] = {
+            "whole dimension": (0, D + 1, {}),
+            "whole, importance ≥ 4": (0, D + 1, {"min_importance": 4}),
+            "whole, as reader": (0, D + 1, {"as_reader": "true"}),
+        }
+        whole = window(0, D + 1, cold=True)()
         assert len(whole["items"]) == 1500
         assert whole["culled"] == sum(b["starts"] for b in whole["buckets"])
-        results = {label: _p95_ms(call) for label, call in cases.items()}
-        report = ", ".join(f"{label}: {ms:.1f} ms" for label, ms in results.items())
+        assert window(mid, mid + D // 100, cold=True)()["total"] <= 20_000
+
+        budgets = [
+            *((f"cold {k}", window(a, b, cold=True, **p), BUDGET_MS)
+              for k, (a, b, p) in zoomed_in.items()),
+            *((f"cold {k}", window(a, b, cold=True, **p), ZOOMED_OUT_MS)
+              for k, (a, b, p) in zoomed_out.items()),
+            *((f"cached {k}", window(a, b, cold=False, **p), BUDGET_MS)
+              for k, (a, b, p) in {**zoomed_in, **zoomed_out}.items()),
+        ]  # fmt: skip
+        results = {label: (_p95_ms(call), limit) for label, call, limit in budgets}
+        report = ", ".join(f"{label}: {ms:.1f} ms" for label, (ms, _) in results.items())
         print(f"\np95 {report}")
-        slow = {label: ms for label, ms in results.items() if ms > BUDGET_MS}
-        assert not slow, f"over the {BUDGET_MS:.0f} ms budget: {slow}"
+        slow = {label: ms for label, (ms, limit) in results.items() if ms > limit}
+        assert not slow, f"over budget: {slow}"

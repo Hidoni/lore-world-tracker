@@ -787,6 +787,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/timelines/{timeline_id}/window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Window
+         * @description The events of the timeline overlapping ``[from, to)``: at most ``min(px, 2000)`` of them,
+         *     by importance, then duration, then start; the rest are counted in density buckets
+         *     (``px / 4`` of them). ``404`` for a timeline or parent the request may not see.
+         */
+        get: operations["timelines_window"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2515,6 +2537,36 @@ export interface components {
              */
             items: components["schemas"]["TimelineNode"][];
         };
+        /** TimelineWindow */
+        TimelineWindow: {
+            /**
+             * Items
+             * @description The kept events, by start (then longer first).
+             */
+            items: components["schemas"]["WindowItemOut"][];
+            /**
+             * Buckets
+             * @description Culled events per bucket of the window (buckets with any).
+             */
+            buckets: components["schemas"]["WindowBucket"][];
+            /**
+             * Series Bands
+             * @description Recurring series (#52).
+             */
+            series_bands: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Total
+             * @description Events overlapping the window after the filters.
+             */
+            total: number;
+            /**
+             * Culled
+             * @description Events left out of `items` (the sum of `buckets[].starts`).
+             */
+            culled: number;
+        };
         /**
          * TrashItem
          * @description A trashed entity. ``orphan_count``: its children that are not in the trash (the tree shows
@@ -2733,6 +2785,82 @@ export interface components {
         };
         /** @enum {string} */
         Visibility: "public" | "spoiler" | "private";
+        /** WindowBucket */
+        WindowBucket: {
+            /**
+             * From
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            from: string;
+            /**
+             * To
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            to: string;
+            /**
+             * Starts
+             * @description Culled events starting in the bucket (the first: or before the window); they add up to `culled`.
+             */
+            starts: number;
+            /**
+             * Active
+             * @description Culled events covering any part of the bucket.
+             */
+            active: number;
+        };
+        /** WindowItemOut */
+        WindowItemOut: {
+            /** Entity Id */
+            entity_id: string;
+            /** Row Id */
+            row_id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Parent Id
+             * @description Null when the request can't see the parent.
+             */
+            parent_id: string | null;
+            /**
+             * Has Children
+             * @description Whether the timeline shows sub-events under it.
+             */
+            has_children: boolean;
+            /** Start T */
+            start_t: string | null;
+            /** End T */
+            end_t: string | null;
+            /**
+             * Start Precision
+             * @description The start's precision (a calendar level or `base`).
+             */
+            start_precision: string;
+            /** Start Approximate */
+            start_approximate: boolean;
+            /**
+             * End Kind
+             * @description `time_point`, `duration`, `instant`, `end_of_time` or `unknown` (open end).
+             */
+            end_kind: string;
+            /**
+             * End Precision
+             * @description A `time_point` end's precision; other ends derive theirs from the start.
+             */
+            end_precision: string | null;
+            /** End Approximate */
+            end_approximate: boolean;
+            /** Importance */
+            importance: number;
+            /** Category */
+            category: string | null;
+            /** Time Status */
+            time_status: string | null;
+        };
         /** WizardCalendar */
         WizardCalendar: {
             name: components["schemas"]["EntityName"];
@@ -4478,6 +4606,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventTreePage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    timelines_window: {
+        parameters: {
+            query: {
+                /** @description The window's first moment. */
+                from: string;
+                /** @description The moment after the window (half-open). */
+                to: string;
+                /** @description The window's width in pixels. */
+                px: number;
+                min_importance?: number | null;
+                /** @description Categories (any; repeatable). */
+                category?: string[] | null;
+                /** @description Tag ids (all required; repeatable). */
+                tag?: string[] | null;
+                /** @description Entity ids (any of them takes part; repeatable). */
+                participant?: string[] | null;
+                /** @description An event: only its sub-events (any depth). */
+                parent?: string | null;
+                /** @description Recurring series (#52). */
+                include_series?: boolean;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Timeline id. */
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineWindow"];
                 };
             };
             /** @description Problem */

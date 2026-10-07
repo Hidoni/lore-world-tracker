@@ -270,22 +270,22 @@ def get_window(
     return TimelineWindow(
         items=[
             WindowItemOut(
-                entity_id=item.entity.id,
-                row_id=item.row.id,
-                name=item.entity.name,
-                visibility=item.entity.visibility,
+                entity_id=item.entity_id,
+                row_id=item.row_id,
+                name=item.name,
+                visibility=item.visibility,  # type: ignore[arg-type]
                 parent_id=item.parent_id,
                 has_children=item.has_children,
-                start_t=item.row.start_t,
-                end_t=item.row.end_t,
+                start_t=item.start_t,
+                end_t=item.end_t,
                 start_precision=item.start_precision,
                 start_approximate=item.start_approximate,
                 end_kind=item.end_kind,
                 end_precision=item.end_precision,
                 end_approximate=item.end_approximate,
-                importance=item.row.importance,
-                category=item.row.category,
-                time_status=item.row.time_status,
+                importance=item.importance,
+                category=item.category,
+                time_status=item.time_status,
             )
             for item in window.items
         ],

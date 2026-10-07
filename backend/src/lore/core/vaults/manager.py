@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from lore import __version__
-from lore.core.db import create_vault_engine, for_writing, optimize
+from lore.core.db import WriteCounter, create_vault_engine, for_writing, optimize
 from lore.core.db.migrate import (
     Migrator,
     SchemaState,
@@ -38,7 +38,7 @@ from lore.core.db.migrate import (
 from lore.core.errors import InvalidInputError, ReadOnlyError
 from lore.core.history.recorder import install as install_history
 from lore.core.history.tables import HistoryTable, core_history_tables
-from lore.core.time.cache import CALENDARS
+from lore.core.time.cache import CALENDARS, WINDOWS
 from lore.core.vaults.backups import (
     DEFAULT_LIMITS,
     BackupInfo,
@@ -190,8 +190,11 @@ class OpenVault:
     history_tables: tuple[HistoryTable, ...] = field(default_factory=core_history_tables)
     sessions: sessionmaker[Session] = field(init=False)
     write_sessions: sessionmaker[Session] = field(init=False)
+    # Bumped by every committed transaction that changed the database (cache keys).
+    writes: WriteCounter = field(init=False)
 
     def __post_init__(self) -> None:
+        self.writes = WriteCounter(self.engine)
         self.sessions = sessionmaker(self.engine, expire_on_commit=False)
         # A read-only database can't take the write lock; its writes fail either way.
         writer = self.engine if self.read_only else for_writing(self.engine)
@@ -741,6 +744,7 @@ class VaultManager:
                 logger.warning("PRAGMA optimize failed for vault %s", vault_id, exc_info=True)
         opened.engine.dispose()
         CALENDARS.forget_vault(vault_id)
+        WINDOWS.forget_vault(vault_id)
 
     def close(self) -> None:
         """Dispose every engine and release every lock (app shutdown)."""

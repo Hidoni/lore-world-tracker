@@ -16,25 +16,26 @@
 - Visibility: only events the policy and the timeline show; participant links must be visible
   too. Precision names reach readers as ``ReaderTimes`` shows the points.
 
-The overlap query fetches only ids, moments and importance; full rows are loaded for the items
-kept.
+The overlap query fetches only ids, raw moment keys and importance; the items kept are loaded
+with the columns they show. Results are cached per vault write generation (``WINDOWS``, decided
+2026-10-07): any committed write to the vault invalidates them.
 """
 
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import String, exists, select, type_coerce
+from sqlalchemy import JSON, String, exists, select, type_coerce
 from sqlalchemy.orm import aliased
 
 from lore.chronology.numbers import from_sortable_key, sortable_key
 from lore.core.entities.models import Entity, EntityTag
 from lore.core.errors import ErrorItem, InvalidInputError
 from lore.core.links.models import Link
+from lore.core.time.cache import WINDOWS
 from lore.core.time.events import EVENT, shown_events, with_children
 from lore.core.time.models import Event
 from lore.core.time.redact import ReaderTimes
-from lore.core.time.specs import dump_spec, parse_end_spec
 from lore.core.time.timeline_view import TimelineView
 from lore.core.visibility import VisibilityPolicy
 
@@ -60,10 +61,17 @@ class WindowQuery:
 
 @dataclass(frozen=True)
 class WindowItem:
-    entity: Entity
-    row: Event
+    entity_id: str
+    row_id: str
+    name: str
+    visibility: str
     parent_id: str | None
     has_children: bool
+    start_t: int | None
+    end_t: int | None
+    importance: int
+    category: str | None
+    time_status: str | None
     start_precision: str
     start_approximate: bool
     end_precision: str | None
@@ -108,6 +116,20 @@ def timeline_window(
 ) -> Window:
     if query.start >= query.end:
         raise _invalid("to", "The window must end after it starts.")
+    vault = context.vault
+    key = (timeline_id, query, type(policy).__name__, policy.reader)
+    window: Window = WINDOWS.get(
+        vault.id,
+        vault.writes.generation,  # read before the query: a later write can't be cached as old
+        key,
+        lambda: _compute(context, policy, timeline_id, query),
+    )
+    return window
+
+
+def _compute(
+    context: VaultContext, policy: VisibilityPolicy, timeline_id: str, query: WindowQuery
+) -> Window:
     session = context.session
     view = TimelineView.for_timeline(session, timeline_id)
     # Raw sortable keys (text order is numeric order): decoding 2 x 100k moments costs more
@@ -221,38 +243,56 @@ def _descendants(parent_id: str) -> Any:
 def _items(
     context: VaultContext, policy: VisibilityPolicy, view: TimelineView, row_ids: list[str]
 ) -> list[WindowItem]:
+    """The kept rows, with only the columns the window shows (specs as plain JSON)."""
     if not row_ids:
         return []
     session = context.session
-    pairs = session.execute(
-        select(Event, Entity)
+    rows = session.execute(
+        select(
+            Event.id, Event.entity_id, Event.start_t, Event.end_t, Event.importance,
+            Event.category, Event.time_status, type_coerce(Event.start_spec, JSON),
+            type_coerce(Event.end_spec, JSON), Entity.name, Entity.visibility,
+            Entity.parent_id, Entity.dimension_id,
+        )
         .join(Entity, Entity.id == Event.entity_id)
         .where(Event.id.in_(row_ids))
         .order_by(Event.start_t, Event.end_t.desc(), Event.id)
-    ).all()
-    parents = with_children(session, view, policy, [entity.id for _row, entity in pairs])
-    hidden_parents = {
-        e.parent_id for _r, e in pairs if e.parent_id is not None
-    } - policy.visible_ids(session, [e.parent_id for _r, e in pairs])
+    ).all()  # fmt: skip
+    parents = with_children(session, view, policy, [row.entity_id for row in rows])
+    named_parents = {row.parent_id for row in rows if row.parent_id is not None}
+    shown_parents = policy.visible_ids(session, named_parents) if policy.reader else named_parents
     times = ReaderTimes(context, policy)
+
+    def shown(point: dict[str, Any], dimension_id: str | None) -> dict[str, Any]:
+        if not policy.reader or point["anchor"]["kind"] == "absolute":
+            return point
+        return times.point(point, dimension_id) or {}
+
     items = []
-    for row, entity in pairs:
-        start = times.point(dump_spec(row.start_spec), entity.dimension_id) or {}
-        end = parse_end_spec(row.end_spec)
+    for row in rows:
+        start_spec, end_spec = row[7], row[8]
+        start = shown(start_spec, row.dimension_id)
         end_point: dict[str, Any] = {}
-        if end.kind == "time_point":
-            end_point = times.point(dump_spec(end.time_point), entity.dimension_id) or {}
+        if end_spec["kind"] == "time_point":
+            end_point = shown(end_spec["time_point"], row.dimension_id)
         items.append(
             WindowItem(
-                entity=entity,
-                row=row,
-                parent_id=None if entity.parent_id in hidden_parents else entity.parent_id,
-                has_children=entity.id in parents,
+                entity_id=row.entity_id,
+                row_id=row.id,
+                name=row.name,
+                visibility=row.visibility,
+                parent_id=row.parent_id if row.parent_id in shown_parents else None,
+                has_children=row.entity_id in parents,
+                start_t=row.start_t,
+                end_t=row.end_t,
+                importance=row.importance,
+                category=row.category,
+                time_status=row.time_status,
                 start_precision=str(start.get("precision", "base")),
                 start_approximate=bool(start.get("approximate", False)),
                 end_precision=end_point.get("precision"),
                 end_approximate=bool(end_point.get("approximate", False)),
-                end_kind=end.kind,
+                end_kind=str(end_spec["kind"]),
             )
         )
     return items

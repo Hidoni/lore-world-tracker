@@ -68,7 +68,9 @@ format version** (folder layout; see persistence doc).
 | `created_at`, `updated_at`, `deleted_at` | | |
 
 Indexes: `(kind)`, `(dimension_id, kind)`, `(parent_id)`, `(origin_timeline_id)`,
-`(deleted_at)`, `(kind, sort_name)`, `(parent_id, sort_name)`.
+`(deleted_at)`, `(kind, sort_name)`, `(parent_id, sort_name)`, and the covering
+`ix_entities_visibility (id, kind, deleted_at, visibility, dimension_id, origin_timeline_id)` so
+visibility joins from time-bound tables stay index-only (the timeline window, #51).
 
 ### 3.2 Aliases and tags
 
@@ -229,7 +231,9 @@ One **home row** per event entity, plus **override rows** in branches (`time-mod
 | `original_start_t` NULL | |
 | `revision`, `created_at`, `updated_at` | `revision` counts the row's own changes; trash state follows the entity |
 
-Indexes: `(timeline_id, start_t)`, `(timeline_id, end_t)`,
+Indexes: the covering `ix_events_window (timeline_id, start_t, end_t, importance, entity_id,
+id)` (lineage ranges on the start, overlap on the end and LOD without touching the table: #51),
+`(timeline_id, end_t)`,
 `(timeline_id, series_start_t) WHERE recurrence IS NOT NULL`, unique
 `(series_entity_id, occurrence_key, timeline_id) WHERE series_entity_id IS NOT NULL`,
 `(entity_id)`, `(overrides_id)`. CHECK `importance BETWEEN 1 AND 5`. Model `lore.core.time.models.Event`
