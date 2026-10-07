@@ -134,12 +134,18 @@ def reindex_vault(
     registry: ModuleRegistry,
     checks: Sequence[DerivedDataCheck] = DERIVED_DATA,
 ) -> dict[str, int]:
-    """Rebuild every kind of derived data in one write transaction; returns the count of each."""
+    """Rebuild every kind of derived data in one write transaction; returns the count of each.
+    The consistency findings are scanned again afterwards (``consistency``: their number); a
+    repair records findings but never refuses (``record_only``)."""
+    from lore.core.consistency.engine import record_only, scan  # noqa: PLC0415 (import cycle)
+
     counts: dict[str, int] = {}
     with vault.write_sessions.begin() as session:
+        record_only(session)
         context = VaultContext(vault, session, registry)
         for check in checks:
             counts[check.id] = check.rebuild(context)
+        counts["consistency"] = sum(scan(context).values())
     return counts
 
 

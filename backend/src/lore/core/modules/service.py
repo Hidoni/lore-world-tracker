@@ -117,4 +117,9 @@ def set_module_enabled(
     from lore.core.search.indexer import SearchIndexer  # noqa: PLC0415
 
     SearchIndexer(context).reindex_for_modules([*change.enabled, *change.disabled])
+    if change.enabled or change.disabled:
+        # Rules (and the kinds they look at) come and go with modules (consistency.md §3.3).
+        from lore.core.consistency.engine import scan  # noqa: PLC0415 (import cycle)
+
+        scan(context)
     return change

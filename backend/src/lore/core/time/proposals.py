@@ -54,6 +54,7 @@ from lore.chronology.schema import (
     TimePoint,
     TimePointEnd,
 )
+from lore.core.consistency.engine import accept
 from lore.core.db.types import utc_now
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
@@ -642,6 +643,8 @@ def apply_calendar_proposal(
         writer.set_spec(node.type, node.id, node.slot, spec, store=True,
                         dimension_id=value.dimension_id)  # fmt: skip
     result = writer.propagate(strict=False, path="strategies")
+    # Records given a strategy explicitly may keep hard-rule problems (consistency.md §3).
+    accept(session, (items[k]["entity_id"] for k in strategies if items[k]["entity_id"]))
     before = {**result.before, **values}  # the pinned and constrained slots as they were
     if fingerprint(entity.id, anchors, before) != proposal.impact["fingerprint"]:
         raise _stale(entity)

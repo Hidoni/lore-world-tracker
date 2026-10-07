@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query, Response
+from fastapi import APIRouter, Body, Path, Query, Response
 
 from lore.chronology.schema import MOMENT_PATTERN
 from lore.core.api.deps import (
@@ -14,6 +14,7 @@ from lore.core.api.deps import (
     VaultManagerDep,
     WritableVaultDep,
 )
+from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.entities.models import Entity
 from lore.core.entities.schemas import (
     ID_PATTERN,
@@ -219,6 +220,7 @@ def post_calendar_apply(
     from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
 
     context = VaultContext(vault, session, registry)
+    request_suppress(session, body.suppress)
     entity = _calendar(context, calendar_id)
     applied = apply_calendar_proposal(
         context,
@@ -548,6 +550,9 @@ def post_occurrence(
     session: SessionDep,
     registry: ModuleRegistryDep,
     response: Response,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> EntityWriteResult:
     """Materialize an occurrence (``recurrence.md`` §7), get-or-create: ``201`` with a new event
     entity anchored to the occurrence (``occurrence_state = referenced``, named "<series>
@@ -557,6 +562,7 @@ def post_occurrence(
     from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
 
     context = VaultContext(vault, session, registry)
+    request_suppress(session, suppress.suppress if suppress else None)
     service = EntityService(context)
     series_entity, row = _series_row(context, event_id)
     existing = materialized_row(session, series_entity.id, key, row.timeline_id)
@@ -605,6 +611,9 @@ def delete_occurrence(
     trash_sub_events: Annotated[
         bool, Query(description="Confirm moving the occurrence's sub-events to the trash too.")
     ] = False,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> EntityDeleteResult:
     """Revert an occurrence to the computed one by moving its materialized event to the trash
     (``recurrence.md`` §7). One with sub-events needs ``trash_sub_events=true`` (else ``409
@@ -613,6 +622,7 @@ def delete_occurrence(
     from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
 
     context = VaultContext(vault, session, registry)
+    request_suppress(session, suppress.suppress if suppress else None)
     service = EntityService(context)
     series_entity, row = _series_row(context, event_id)
     existing = materialized_row(session, series_entity.id, key, row.timeline_id)
@@ -679,6 +689,7 @@ def post_recurrence_apply(
     from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
 
     context = VaultContext(vault, session, registry)
+    request_suppress(session, body.suppress)
     entity = _event(context, event_id)
     applied = apply_rule_change(context, entity, proposal_id, body.strategies)
     return RecurrenceApplyOut(

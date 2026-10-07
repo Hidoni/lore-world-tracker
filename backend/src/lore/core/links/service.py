@@ -27,6 +27,7 @@ from jsonschema import Draft202012Validator
 from sqlalchemy import ColumnElement, case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from lore.core.consistency.schemas import request_suppress
 from lore.core.db.base import new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.errors import RevisionConflictError
@@ -168,6 +169,7 @@ class LinkService:
     # --- writes ---------------------------------------------------------------------------------
 
     def create(self, data: LinkCreate) -> LinkWriteResult:
+        request_suppress(self.session, data.suppress)
         link = self.add(data)
         return LinkWriteResult(link=link_out(link), affected=self.affected([link]))
 
@@ -200,6 +202,7 @@ class LinkService:
         return link
 
     def update(self, link_id: str, data: LinkUpdate) -> LinkWriteResult:
+        request_suppress(self.session, data.suppress)
         link, info = self._load(link_id)
         if link.deleted_at is not None:
             raise ConflictError("The link is in the trash.")
@@ -209,7 +212,7 @@ class LinkService:
                 f"on {data.revision}).",
                 context={"current": link_out(link).model_dump(mode="json")},
             )
-        sent = data.model_fields_set - {"revision"}
+        sent = data.model_fields_set - {"revision", "suppress"}
         if sent:
             link.updated_at = utc_now()  # first: one UPDATE even if a query autoflushes
         if "visibility" in sent:

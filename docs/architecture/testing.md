@@ -77,7 +77,7 @@ Measured on the `large` sample vault on a typical dev laptop:
 | Entity page API calls (entity + links + backlinks) | < 300 ms total |
 | Search (`/search`, `/search/quick`) | < 100 ms |
 | Calendar proposal over 10k dependent records (preview, and apply; `tests/time/test_proposals_perf.py`) | < 5 s each |
-| Full consistency scan | < 10 s |
+| Full consistency scan (100k events; `tests/consistency/test_consistency_perf.py`) | < 10 s |
 | Graph endpoint, 10k nodes | < 1 s |
 | Timeline pan/zoom with 1,000 visible items | 60 fps (Playwright trace) |
 

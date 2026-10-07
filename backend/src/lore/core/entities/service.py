@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 
+from lore.core.consistency.schemas import request_suppress
 from lore.core.db.base import VISIBILITIES, Visibility, new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.errors import ParentNotAllowedError, RevisionConflictError
@@ -214,6 +215,7 @@ class EntityService:
     # --- writes ---------------------------------------------------------------------------------
 
     def create(self, data: EntityCreate) -> EntityWriteResult:
+        request_suppress(self.session, data.suppress)
         kind = self.kinds.get(data.kind)
         if kind is None:
             if data.kind in self.registry.all_kind_keys():
@@ -258,6 +260,7 @@ class EntityService:
         )
 
     def update(self, entity_id: str, data: EntityUpdate) -> EntityWriteResult:
+        request_suppress(self.session, data.suppress)
         entity = self._load(entity_id)
         kind = self._kind_of(entity)
         if entity.deleted_at is not None:
@@ -268,7 +271,7 @@ class EntityService:
                 f"the edit is based on {data.revision}).",
                 context={"current": self.to_out(entity).model_dump(mode="json")},
             )
-        sent = data.model_fields_set - {"revision"}
+        sent = data.model_fields_set - {"revision", "suppress"}
         old_parent, old_dimension = entity.parent_id, entity.dimension_id
         if sent:
             # First, so queries that autoflush midway don't update the row (and revision) twice;

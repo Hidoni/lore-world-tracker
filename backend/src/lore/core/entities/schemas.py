@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
 from lore.core.links.schemas import EntityLinkAdd
 from lore.core.types import Affected
@@ -60,6 +61,9 @@ class _EntityWrite(_Input):
     )
     links_add: list[EntityLinkAdd] = Field(
         default_factory=list, max_length=500, description="Links to create with the entity."
+    )
+    suppress: list[SuppressItem] = Field(
+        default_factory=list, max_length=500, description=SUPPRESS_DESCRIPTION
     )
 
 

@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Body, Path, Query
 
 from lore.core.api.deps import (
     ModuleRegistryDep,
@@ -11,6 +11,7 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
+from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.links.schemas import (
     ID_PATTERN,
     LINK_TYPE_KEY_PATTERN,
@@ -60,9 +61,16 @@ def update_link(
 
 @router.delete("/{link_id}", name="delete")
 def delete_link(
-    link_id: LinkIdPath, _vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+    link_id: LinkIdPath,
+    _vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> LinkDeleteResult:
     """Move the link to the trash."""
+    request_suppress(session, suppress.suppress if suppress else None)
     return LinkService(session, registry).trash(link_id)
 
 

@@ -1,8 +1,9 @@
 """Which tables history records, and which entities each row belongs to (``data-model.md`` §7).
 
-Every authored table is recorded; derived ones (mentions, search, dependencies, findings,
-proposals) are not. Core registers its tables here; a module lists each of its tables in
-``ModuleSpec.history_tables`` (``derived=True`` for derived ones), which the registry checks.
+Every authored table is recorded (consistency suppressions too); derived ones (mentions, search,
+dependencies, findings, proposals) are not. Core registers its tables here; a module lists each
+of its tables in ``ModuleSpec.history_tables`` (``derived=True`` for derived ones), which the
+registry checks.
 Vault settings (``vault_meta``) aren't world data and aren't recorded (decided 2026-10-04).
 """
 
@@ -47,6 +48,7 @@ class HistoryTable:
 
 
 def core_history_tables() -> tuple[HistoryTable, ...]:
+    from lore.core.consistency.models import Suppression  # noqa: PLC0415
     from lore.core.entities.models import Entity, EntityAlias, EntityTag, Tag  # noqa: PLC0415
     from lore.core.links.models import CustomLinkType, Link  # noqa: PLC0415
     from lore.core.time.models import Calendar, Dimension, Event, Timeline  # noqa: PLC0415
@@ -62,4 +64,5 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         HistoryTable.of(EntityTag, columns_owner("entity_id")),
         HistoryTable.of(Link, columns_owner("source_id", "target_id")),
         HistoryTable.of(CustomLinkType),
+        HistoryTable.of(Suppression),
     )

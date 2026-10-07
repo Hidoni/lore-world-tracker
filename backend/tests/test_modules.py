@@ -243,8 +243,14 @@ def test_views_follow_enablement() -> None:
     assert "optional.studies" not in [
         t.definition.key for t in REGISTRY.link_types_for({"optional"})
     ]
-    assert [r.id for r in REGISTRY.rules_for({"sample"})] == ["sample.creature.too_dangerous"]
-    assert REGISTRY.rules_for({"base"}) == []
+    core_rules = [r.id for r in REGISTRY.rules_for(set())]  # core's own (lore.core.consistency)
+    assert core_rules
+    assert all(i.startswith("core.") for i in core_rules)
+    assert [r.id for r in REGISTRY.rules_for({"sample"})] == [
+        *core_rules,
+        "sample.creature.too_dangerous",
+    ]
+    assert [r.id for r in REGISTRY.rules_for({"base"})] == core_rules
 
 
 # --- API ------------------------------------------------------------------------------------
@@ -318,7 +324,9 @@ def test_registry_endpoint(client: TestClient) -> None:
     assert links["core.related"]["symmetric"] is True
     assert "optional.studies" not in links
     assert [t["key"] for t in registry["field_types"]][-1] == "sample_rating"
-    [rule] = registry["consistency_rules"]
+    rules = registry["consistency_rules"]
+    assert {r["owner"] for r in rules[:-1]} == {"core"}  # core's rules first
+    rule = rules[-1]
     assert rule == {
         "id": "sample.creature.too_dangerous", "owner": "sample", "title": "Too dangerous",
         "description": "Lower the danger.", "category": "module", "default_severity": "warning",

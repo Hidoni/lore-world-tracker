@@ -35,8 +35,19 @@ class RuleDef:
 ```
 
 Implementation: `lore.core.registry.RuleDef` (with `Trigger` and `QuickFixDef`). Modules register
-rules in `ModuleSpec.consistency_rules` and the registry endpoint lists those of enabled modules.
-Until the engine exists (M3-12), `check`/`scan` default to returning no findings.
+rules in `ModuleSpec.consistency_rules`; core's are `lore.core.consistency.rules.CORE_RULES`. The
+registry endpoint lists those of core and the enabled modules. The engine is
+`lore.core.consistency` (#55): `engine` (evaluation, blocking, scans), `compare` (§4), `rules`,
+`service`/`router` (the API).
+
+- **Rule contract.** `check(ctx, subjects)` returns **every** finding of the rule that involves
+  one of the subject entities (findings about those subjects it doesn't return are deleted);
+  `scan(ctx)` returns all of them. Both yield `FindingDraft(rule_id, subjects, message,
+  certainty, discriminator, timeline_id, data)`; subjects are entity ids in a meaningful order.
+- **Triggers.** `Trigger("record", <kind>|"*")`: an entity of the kind whose row, or any
+  recorded row it owns (events, calendars, … including propagation's bulk updates), changed.
+  `Trigger("link_type", <key>|"*")`: the ends of changed links of the type.
+  `Trigger("field", <key>)`: entities whose field changed. Trashed entities have no findings.
 
 `RuleContext` gives access to the session, `TimelineView`, the existence/as-of helpers, compiled
 calendars and the vault settings. Rules are pure readers. Only quick fixes write, and they do so
@@ -58,6 +69,31 @@ through normal services.
    changes from `off`. Target: < 10 s for 100k entities. Rules must implement `scan` with
    set-based SQL, not per-entity Python loops.
 4. **Disabled modules** are not evaluated. Their findings are hidden, not deleted.
+
+Implementation (decided with #55 where the above is silent):
+
+- **Every write is checked.** The vault's session factories carry the engine (`OpenVault` with
+  its module registry), so API requests, the CLI and scripts all go through it: each time a
+  session is about to write a changeset (at commit, or an undo's own `write_now`), before history
+  records it. Repairs (`lore vault reindex`, which also rescans) call `record_only(session)`:
+  findings are updated, nothing blocks.
+- **Fixed findings are deleted** (not kept as resolved). Setting a rule `off` deletes its
+  findings; leaving `off` scans it. Suppressions are kept, so a finding found again stays
+  suppressed.
+- **Save anyway.** `suppress` items name a finding by `fingerprint`, or by `rule_id` for every
+  new blocking finding of that rule the write produces: a create's findings name the new entity,
+  whose id is new on every attempt. Unknown fingerprints, or rules without a blocking finding,
+  are `422 validation_error` on `suppress`. Suppressions requested for other findings of the
+  write or for open findings are recorded too; hard-rule ones are ignored (they still block).
+  Every write takes `suppress`: entity and link create/update, the proposal applies, and an
+  optional body `{suppress}` on trash, restore, occurrence materialize/delete and undo. An undo
+  that would add a blocking finding answers `409 revert_conflict` with `context.findings`.
+- **Calendar proposals.** Records a proposal's apply gives a strategy explicitly
+  (`time-model.md` §7.4) don't block on **hard** rules (`accept`); their findings are recorded.
+  Configurable error rules (e.g. `core.recurrence.invalid_rule`) still need `suppress`.
+- **Scans** run on `POST /consistency/scan`, after module enable/disable, when a rule leaves
+  `off`, on the first author-mode open after a schema change (`vault_meta.
+  consistency_scanned_revision`) and in `lore vault reindex`.
 5. **Timelines:** narrative rules evaluate per timeline lineage (`TimelineView`). A finding
    records `timeline_id` when it is timeline-specific (e.g. only in a branch).
 
@@ -76,6 +112,10 @@ Possible violations are recorded with `certainty: possible` and shown at `info` 
 unless "show uncertain" is on). They never block writes. Shared helpers in
 `lore.core.consistency.compare` implement this once. Rules must use them.
 
+Findings API (`api.md` §2): author-only. The list shows rules that are evaluated; `severity` is
+the rule's effective one, `info` for possible findings; order: error, warning, info, then the
+most recently found first (decided with #55).
+
 ## 5. UI
 
 - **Findings panel** (`/v/$vault/consistency`): filter by severity, certainty, rule, owner,
@@ -89,6 +129,14 @@ unless "show uncertain" is on). They never block writes. Shared helpers in
   suppressions.
 
 ## 6. Rule catalog (initial)
+
+Core's rules as implemented (#55): the hard rules below except the M9 ones (time statuses come
+from the stored `time_status`: `out_of_bounds`, `cycle`, `invalid_date` (also `calendar_error`)
+and `unresolved_ref`; `end_before_start` from stored moments; one `core.parent.cycle` finding per
+cycle), `core.recurrence.invalid_rule`, `core.time.anchor_to_trashed` (status `trashed_ref`),
+`core.event.subevent_outside_parent` (series parents aside), `core.event.effect_before_cause`
+(same dimension only) and `core.event.duplicate_name_same_time` (names compared ignoring case
+and accents; possible when a start is circa). The other core rules arrive with their features.
 
 Hard rules (core, `error`, not configurable):
 

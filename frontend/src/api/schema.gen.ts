@@ -566,7 +566,9 @@ export interface paths {
         put?: never;
         /**
          * Revert
-         * @description Undo a changeset (``409 revert_conflict`` when its rows changed since).
+         * @description Undo a changeset (``409 revert_conflict`` when its rows changed since, or when the undo
+         *     would break rules: ``context.problems``, and ``context.findings`` for error-severity
+         *     consistency findings, which ``suppress`` can save anyway).
          */
         post: operations["changes_revert"];
         delete?: never;
@@ -632,6 +634,128 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Findings
+         * @description Open findings of the rules this vault evaluates, most severe first, then newest.
+         */
+        get: operations["consistency_findings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan
+         * @description Re-run every evaluated rule over the whole vault (its findings are replaced).
+         */
+        post: operations["consistency_scan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rules
+         * @description The rules of core and the enabled modules with this vault's severities.
+         */
+        get: operations["consistency_rules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Rule
+         * @description Set a rule's severity (``off`` deletes its findings; leaving ``off`` scans it). Hard
+         *     rules: ``422``.
+         */
+        patch: operations["consistency_update_rule"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/suppressions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suppress
+         * @description Mark an open finding as intentional (``404`` unknown, ``409`` already suppressed, ``422``
+         *     for hard rules).
+         */
+        post: operations["consistency_suppress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/consistency/suppressions/{fingerprint}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unsuppress
+         * @description Take a suppression back.
+         */
+        delete: operations["consistency_unsuppress"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1161,6 +1285,11 @@ export interface components {
              * @default keep_date
              */
             default_strategy: components["schemas"]["CalendarStrategy"];
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
         };
         /** CalendarApplyOut */
         CalendarApplyOut: {
@@ -1612,6 +1741,11 @@ export interface components {
              * @description Links to create with the entity.
              */
             links_add?: components["schemas"]["EntityLinkAdd"][];
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
             /** Kind */
             kind: string;
             name: components["schemas"]["EntityName"];
@@ -1837,6 +1971,11 @@ export interface components {
              */
             links_add?: components["schemas"]["EntityLinkAdd"][];
             /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /**
              * Revision
              * @description The revision the edit is based on (409 on mismatch).
              */
@@ -1990,6 +2129,67 @@ export interface components {
             /** Items */
             items: components["schemas"]["FieldValue"][];
         };
+        /** FindingOut */
+        FindingOut: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Rule Id */
+            rule_id: string;
+            /** Owner */
+            owner: string;
+            /** Title */
+            title: string;
+            /** @description The rule's severity; `info` for possible (uncertain) findings. */
+            severity: components["schemas"]["ShownSeverity"];
+            /**
+             * Certainty
+             * @enum {string}
+             */
+            certainty: "definite" | "possible";
+            /** Message */
+            message: string;
+            /** Subjects */
+            subjects: components["schemas"]["FindingSubject"][];
+            /** Timeline Id */
+            timeline_id: string | null;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            suppression: components["schemas"]["SuppressionOut"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** FindingPage */
+        FindingPage: {
+            /**
+             * Items
+             * @description By severity (error, warning, info), newest first.
+             */
+            items: components["schemas"]["FindingOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** FindingSubject */
+        FindingSubject: {
+            /** Id */
+            id: string;
+            /**
+             * Name
+             * @description Null when the entity no longer exists.
+             */
+            name: string | null;
+            /** Kind */
+            kind: string | null;
+        };
         /** GraphStyleIn */
         GraphStyleIn: {
             /** Color */
@@ -2092,6 +2292,11 @@ export interface components {
             link_type: components["schemas"]["LinkTypeKey"];
             source_id: components["schemas"]["Id"];
             target_id: components["schemas"]["Id"];
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
         };
         /**
          * LinkDeleteResult
@@ -2303,6 +2508,11 @@ export interface components {
             sort_key?: components["schemas"]["SortKey"] | null;
             /** Revision */
             revision: number;
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
         };
         /** LinkWriteResult */
         LinkWriteResult: {
@@ -2621,6 +2831,11 @@ export interface components {
             strategies?: {
                 [key: string]: components["schemas"]["RecurrenceStrategy"];
             };
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
         };
         /** RecurrenceApplyOut */
         RecurrenceApplyOut: {
@@ -2832,6 +3047,45 @@ export interface components {
             affected: components["schemas"]["Affected"];
         };
         Role: string;
+        /** RuleInfo */
+        RuleInfo: {
+            /** Id */
+            id: string;
+            /** Owner */
+            owner: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Category */
+            category: string;
+            /**
+             * Default Severity
+             * @enum {string}
+             */
+            default_severity: "off" | "warning" | "error";
+            /**
+             * Severity
+             * @description This vault's severity.
+             * @enum {string}
+             */
+            severity: "off" | "warning" | "error";
+            /**
+             * Configurable
+             * @description False: a hard rule (always `error`).
+             */
+            configurable: boolean;
+            /**
+             * Findings
+             * @description Open findings (not suppressed).
+             */
+            findings: number;
+        };
+        /** RuleList */
+        RuleList: {
+            /** Items */
+            items: components["schemas"]["RuleInfo"][];
+        };
         /** RuleOut */
         RuleOut: {
             /** Id */
@@ -2859,6 +3113,14 @@ export interface components {
             /** Quick Fixes */
             quick_fixes: components["schemas"]["QuickFixOut"][];
         };
+        /** RuleUpdate */
+        RuleUpdate: {
+            /**
+             * Severity
+             * @description The vault's severity; null goes back to the rule's default.
+             */
+            severity: ("off" | "warning" | "error") | null;
+        };
         /** Sample */
         Sample: {
             /** T */
@@ -2869,6 +3131,19 @@ export interface components {
             fields: {
                 [key: string]: unknown;
             };
+        };
+        /** ScanResult */
+        ScanResult: {
+            /**
+             * Rules
+             * @description Rules evaluated.
+             */
+            rules: number;
+            /**
+             * Findings
+             * @description Open findings after the scan (suppressed included).
+             */
+            findings: number;
         };
         /**
          * SearchHit
@@ -2953,6 +3228,8 @@ export interface components {
             /** New End T */
             new_end_t: string | null;
         };
+        /** @enum {string} */
+        ShownSeverity: "error" | "warning" | "info";
         /**
          * SlotRef
          * @description A referenceable time slot of a record (time-model §6).
@@ -2989,6 +3266,49 @@ export interface components {
         /** @enum {string} */
         SnippetSource: "aliases" | "summary" | "body" | "fields" | "extra";
         SortKey: string;
+        /**
+         * SuppressIn
+         * @description The optional body of writes that have none otherwise (trash, restore, undo, …).
+         */
+        SuppressIn: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+        };
+        /**
+         * SuppressItem
+         * @description Findings the write declares intentional ("save anyway", ``consistency.md`` §3): one
+         *     finding by ``fingerprint``, or by ``rule_id`` every new blocking finding of that rule the
+         *     write produces (a create's findings name an id that is new on every attempt; decided with
+         *     #55). Give exactly one of them.
+         */
+        SuppressItem: {
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Rule Id */
+            rule_id?: string | null;
+            /** Note */
+            note: string;
+        };
+        /** SuppressionIn */
+        SuppressionIn: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Note */
+            note: string;
+        };
+        /** SuppressionOut */
+        SuppressionOut: {
+            /** Note */
+            note: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         TagName: string;
         /** TagOut */
         TagOut: {
@@ -4166,7 +4486,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4279,7 +4603,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4427,7 +4755,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4794,7 +5126,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4926,6 +5262,226 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["QuickResults"];
                 };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_findings: {
+        parameters: {
+            query?: {
+                /** @description Suppressed findings or not. */
+                status?: "open" | "suppressed" | "all";
+                /** @description Severities (repeatable; `info`: possible findings). */
+                severity?: ("error" | "warning" | "info")[] | null;
+                certainty?: ("definite" | "possible") | null;
+                /** @description Rule ids (repeatable). */
+                rule?: string[] | null;
+                /** @description `core` or a module id. */
+                owner?: string | null;
+                /** @description A subject. */
+                entity?: string | null;
+                timeline?: string | null;
+                cursor?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_scan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_rules: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_update_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleInfo"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_suppress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuppressionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    consistency_unsuppress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fingerprint: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Problem */
             default: {
@@ -5393,7 +5949,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5432,7 +5992,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

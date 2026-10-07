@@ -4,7 +4,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Body, Path, Query
 
 from lore.core.api.deps import (
     ModuleRegistryDep,
@@ -13,6 +13,7 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
+from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.history.schemas import ChangesetDetail, ChangesetPage, RevertResult
 from lore.core.history.service import HistoryService
 from lore.core.visibility import VisibilityPolicy
@@ -65,8 +66,14 @@ def revert_changeset(
     vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> RevertResult:
-    """Undo a changeset (``409 revert_conflict`` when its rows changed since)."""
+    """Undo a changeset (``409 revert_conflict`` when its rows changed since, or when the undo
+    would break rules: ``context.problems``, and ``context.findings`` for error-severity
+    consistency findings, which ``suppress`` can save anyway)."""
+    request_suppress(session, suppress.suppress if suppress else None)
     return HistoryService(session, registry, vault).revert(changeset_id)
 
 

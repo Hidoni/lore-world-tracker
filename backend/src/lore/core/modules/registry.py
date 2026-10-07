@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 
 from sqlalchemy import MetaData
 
+from lore.core.consistency.rules import CORE_RULES
 from lore.core.entities.extensions import CORE_PURGE_HOOKS, KindExtension, PurgeHook
 from lore.core.history.tables import HistoryTable, core_history_tables
 from lore.core.modules.spec import ModuleSpec
@@ -168,7 +169,7 @@ class ModuleRegistry:
     def rules_for(self, enabled: Iterable[str]) -> list[RuleDef]:
         rules: list[RuleDef] = []
         for _owner, module in self._owners(enabled):
-            rules.extend(module.consistency_rules if module else ())
+            rules.extend(CORE_RULES if module is None else module.consistency_rules)
         return rules
 
     def kind_extensions_for(self, enabled: Iterable[str]) -> dict[str, KindExtension]:
@@ -433,7 +434,7 @@ class ModuleRegistry:
 
     def _validate_rules(self) -> list[str]:
         problems: list[str] = []
-        owners: dict[str, str] = {}
+        owners: dict[str, str] = {rule.id: CORE for rule in CORE_RULES}
         for module in self.modules:
             for rule in module.consistency_rules:
                 where = f"{module.id}: rule {rule.id!r}"

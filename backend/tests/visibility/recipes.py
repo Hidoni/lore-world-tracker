@@ -188,6 +188,21 @@ def entity_history(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/entities/{entity_id}/history", status=404)
 
 
+# --- consistency (author-only) -------------------------------------------------------------------
+
+
+@recipe(f"{V}/consistency/findings")
+def findings(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/consistency/findings", status=404)
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/consistency/findings", {"entity": hidden_id}, status=404)
+
+
+@recipe(f"{V}/consistency/rules")
+def consistency_rules(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/consistency/rules", status=404)
+
+
 # --- search --------------------------------------------------------------------------------------
 
 
