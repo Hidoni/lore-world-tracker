@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from lore.chronology.schema import TimePoint
+from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
 from lore.core.types import Affected
 
@@ -127,6 +128,9 @@ class LinkCreate(_LinkFields):
     link_type: LinkTypeKey
     source_id: Id
     target_id: Id
+    suppress: list[SuppressItem] = Field(
+        default_factory=list, max_length=500, description=SUPPRESS_DESCRIPTION
+    )
 
 
 class EntityLinkAdd(_LinkFields):
@@ -144,6 +148,9 @@ class LinkUpdate(_LinkFields):
     revision: int
     data: dict[str, Any] | None = None  # type: ignore[assignment]
     visibility: Visibility | None = None  # type: ignore[assignment]
+    suppress: list[SuppressItem] = Field(
+        default_factory=list, max_length=500, description=SUPPRESS_DESCRIPTION
+    )
 
 
 class LinkOut(BaseModel):

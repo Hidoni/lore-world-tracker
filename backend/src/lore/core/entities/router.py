@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Body, Path, Query
 from sqlalchemy.orm import Session
 
 from lore.core.api.deps import (
@@ -12,6 +12,7 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
+from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.entities.queries import EntityQueries
 from lore.core.entities.schemas import (
     ID_PATTERN,
@@ -206,6 +207,7 @@ def update_entity(
 
 @router.delete("/{entity_id}", name="delete")
 def delete_entity(
+    *,
     entity_id: EntityIdPath,
     vault: WritableVaultDep,
     session: SessionDep,
@@ -213,9 +215,13 @@ def delete_entity(
     purge: Annotated[
         bool, Query(description="Delete permanently (only entities already in the trash).")
     ] = False,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> EntityDeleteResult:
     """Move to the trash, or purge from it (``409 conflict`` while the entity isn't trashed, has
     children or is still referenced)."""
+    request_suppress(session, suppress.suppress if suppress else None)
     service = _service(vault, session, registry)
     return service.purge(entity_id) if purge else service.trash(entity_id)
 
@@ -226,6 +232,10 @@ def restore_entity(
     vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
+    suppress: Annotated[
+        SuppressIn | None, Body(description="Save anyway: findings to suppress.")
+    ] = None,
 ) -> EntityWriteResult:
     """Take the entity out of the trash."""
+    request_suppress(session, suppress.suppress if suppress else None)
     return _service(vault, session, registry).restore(entity_id)

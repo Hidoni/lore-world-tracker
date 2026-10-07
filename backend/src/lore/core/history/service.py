@@ -24,6 +24,7 @@ from typing import Any
 from sqlalchemy import JSON, Table, func, select
 from sqlalchemy.orm import Session
 
+from lore.core.consistency.engine import ConsistencyError
 from lore.core.entities.models import Entity
 from lore.core.entities.service import EntityService
 from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
@@ -382,7 +383,14 @@ class HistoryService:
                 ),
                 context={"rows": [], "problems": problems},
             )
-        undo_id = recorder.write_now(self.session)
+        try:
+            undo_id = recorder.write_now(self.session)  # runs the consistency checks
+        except ConsistencyError as exc:
+            raise RevertConflictError(
+                f"Undoing this would break consistency rules: {exc.detail}",
+                errors=exc.errors,
+                context={"rows": [], "problems": [], **(exc.context or {})},
+            ) from exc
         history.origin, history.reverts_changeset_id, history.summary = "system", None, None
         assert undo_id is not None
         changeset.reverted_by_changeset_id = undo_id

@@ -33,6 +33,7 @@
 | `name` | display name |
 | `created_at` | timestamp |
 | `settings` | `{modules: {<id>: {enabled: bool, settings: {...}}}, consistency: {<rule_id>: "off"|"warning"|"error"}, display: {...}, defaults: {visibility: "public"}}` |
+| `consistency_scanned_revision` | the schema revision the consistency findings were last fully scanned at (§9.1) |
 
 `vault_id`, `name` and `created_at` are seeded by the first migration from `vault.json`, which stays
 authoritative for the name (`vault_meta.name` follows it on rename and on open). Model:
@@ -448,6 +449,20 @@ modules' kinds or document types, and module documents whose entity is trashed o
 `INDEX_VERSION` the index was built with: the first author-mode open of a vault whose index is
 missing (e.g. right after the migration that created the tables) or was built by another version
 rebuilds it. Alembic autogenerate ignores the FTS tables (`include_object` hook).
+
+### 9.1 Consistency tables
+
+`lore.core.consistency.models` (`consistency.md` §3):
+
+| Table | Columns | Notes |
+|-------|---------|-------|
+| `consistency_findings` (derived) | `id`, `fingerprint` UNIQUE, `rule_id`, `certainty` (`definite`/`possible`), `message`, `timeline_id`, `data` JSON, `created_at`, `updated_at` | Open findings only: a finding no longer produced is deleted. Not recorded in history. |
+| `consistency_finding_entities` (derived) | `finding_id` → findings (CASCADE), `entity_id`, `position` | The subjects, in order (filters, badges). No foreign key to `entities`: the engine deletes findings of purged entities. |
+| `consistency_suppressions` | `fingerprint` PK, `rule_id`, `note`, `created_at` | Authored (recorded in history). Kept when its finding goes away. |
+
+Severities live in `vault_meta.settings.consistency`. The first author-mode open after a schema
+change (`consistency_scanned_revision` differs from `alembic_version`) runs a full scan, and so
+does `lore vault reindex`.
 
 ## 10. Versioned JSON documents
 

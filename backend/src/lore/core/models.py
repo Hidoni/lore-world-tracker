@@ -9,6 +9,7 @@ from sqlalchemy import MetaData
 
 
 def load_metadata() -> MetaData:
+    from lore.core.consistency import models as _consistency  # noqa: F401, PLC0415
     from lore.core.db.base import Base  # noqa: PLC0415
     from lore.core.entities import models as _entities  # noqa: F401, PLC0415
     from lore.core.history import models as _history  # noqa: F401, PLC0415

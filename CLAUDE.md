@@ -145,3 +145,6 @@ squash-merge after green CI (details in `docs/plan/workflow.md`).
 - Recurrence windows must jump with ordinal arithmetic. A loop from the series start is a bug
   even if tests pass.
 - Visibility leaks hide in derived data: search snippets, counts, graph edges, mentions, media.
+- Every changeset any vault session writes (API, CLI, scripts, bulk writers) runs the consistency
+  engine first and may be refused with `consistency_error`. Repairs that must not be refused call
+  `lore.core.consistency.engine.record_only(session)`. Rules are pure readers.

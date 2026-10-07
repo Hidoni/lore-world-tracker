@@ -20,7 +20,7 @@ of the same single entity: no entity row inserted or deleted, no trash or restor
 
 import copy
 import json
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -42,6 +42,7 @@ _TABLES = "lore_history_tables"
 _PENDING = "lore_history_pending"
 _CONTEXT = "lore_history_context"
 _DISABLED = "lore_history_disabled"
+_BEFORE_WRITE = "lore_history_before_write"
 
 type RowKey = tuple[str, str]  # (table, row id)
 
@@ -71,9 +72,18 @@ class _Net:
     changes: list[_Pending] = field(default_factory=list)
 
 
-def install(factory: sessionmaker[Session], tables: Iterable[HistoryTable]) -> None:
+def install(
+    factory: sessionmaker[Session],
+    tables: Iterable[HistoryTable],
+    before_write: BeforeWrite | None = None,
+) -> None:
+    """Record the factory's sessions; ``before_write`` runs before each changeset is written
+    (see :func:`before_write`)."""
     recorded = {t.name: t for t in tables if not t.derived}
-    factory.kw.setdefault("info", {})[_TABLES] = recorded
+    info = factory.kw.setdefault("info", {})
+    info[_TABLES] = recorded
+    if before_write is not None:
+        info[_BEFORE_WRITE] = before_write
     event.listen(factory, "before_flush", _before_flush)
     event.listen(factory, "after_flush", _after_flush)
     event.listen(factory, "before_commit", _before_commit)
@@ -225,10 +235,41 @@ def _before_commit(session: Session) -> None:
         write_now(session)
 
 
+@dataclass(frozen=True)
+class RecordedChange:
+    """A row a changeset is about to record: raw stored values before and after (``None``:
+    inserted / deleted) and the entities it belongs to."""
+
+    table: str
+    row_id: str
+    before: Mapping[str, Any] | None
+    after: Mapping[str, Any] | None
+    owners: tuple[str, ...]
+
+
+type BeforeWrite = Callable[[Session, list[RecordedChange]], None]
+
+
+def before_write(session: Session, callback: BeforeWrite | None) -> None:
+    """Run ``callback`` with the changes each time this session is about to write a changeset
+    (consistency checks, ``lore.core.consistency``). Rows it writes join the changeset; raising
+    aborts the write (and, at commit, the transaction)."""
+    if callback is None:
+        session.info.pop(_BEFORE_WRITE, None)
+    else:
+        session.info[_BEFORE_WRITE] = callback
+
+
 def write_now(session: Session) -> str | None:
     """Write the transaction's changes as a changeset now (normally done at commit) and return
     its id; None when nothing changed. Later writes in the transaction start a new one."""
     session.flush()  # the commit's own flush runs after the before_commit hook
+    callback: BeforeWrite | None = session.info.get(_BEFORE_WRITE)
+    if callback is not None:
+        changes = [p for p in _pending(session).values() if p.before != p.after]
+        if changes:
+            callback(session, [_recorded(session, c) for c in changes])
+            session.flush()
     pending = session.info.pop(_PENDING, None)
     changes = [p for p in (pending or {}).values() if p.before != p.after]
     if not changes:
@@ -243,6 +284,13 @@ def write_now(session: Session) -> str | None:
 
 
 # --- writing --------------------------------------------------------------------------------------
+
+
+def _recorded(session: Session, change: _Pending) -> RecordedChange:
+    return RecordedChange(
+        change.table, change.row_id, change.before, change.after,
+        tuple(_owners(session, change)),
+    )  # fmt: skip
 
 
 def _op(change: _Pending) -> str:

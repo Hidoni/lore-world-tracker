@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from lore.chronology.schema import BaseUnit, EndSpec, TimePoint
 from lore.chronology.schema import MomentStr as ChronologyMomentStr
+from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
 from lore.core.entities.schemas import ID_PATTERN, EntityId, EntityName, EntityOut
 from lore.core.time.calendars import CalendarSource
@@ -404,6 +405,9 @@ class CalendarApplyIn(BaseModel):
         default="keep_date",
         description="For items without a strategy, where it applies (else `keep_date`).",
     )
+    suppress: list[SuppressItem] = Field(
+        default_factory=list, max_length=500, description=SUPPRESS_DESCRIPTION
+    )
 
 
 class CalendarApplyOut(BaseModel):
@@ -473,6 +477,9 @@ class RecurrenceApplyIn(BaseModel):
     strategies: dict[str, RecurrenceStrategy] = Field(
         default_factory=dict,
         description="Occurrence entity id → strategy (others: their default).",
+    )
+    suppress: list[SuppressItem] = Field(
+        default_factory=list, max_length=500, description=SUPPRESS_DESCRIPTION
     )
 
 

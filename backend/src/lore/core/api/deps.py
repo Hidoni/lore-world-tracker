@@ -80,7 +80,8 @@ def get_session(request: Request, vault: VaultDep) -> Iterator[Session]:
     reported to the client. Requests that may write (anything but GET/HEAD/OPTIONS) begin with
     ``BEGIN IMMEDIATE``, so overlapping writes queue instead of failing with "database is
     locked"."""
-    factory = vault.sessions if request.method in _READ_METHODS else vault.write_sessions
+    writing = request.method not in _READ_METHODS
+    factory = vault.write_sessions if writing else vault.sessions
     with factory() as session, session.begin():
         history = history_context(session)
         history.origin = _ORIGINS.get(request.headers.get(CLIENT_HEADER, ""), "api")

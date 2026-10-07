@@ -88,6 +88,8 @@ logger = logging.getLogger(__name__)
 
 # How often the scheduler runs PRAGMA optimize on an open vault (§2: "on vault close and daily").
 OPTIMIZE_EVERY = timedelta(days=1)
+# The schema revision the vault's consistency findings were last fully scanned at.
+CONSISTENCY_SCANNED = "consistency_scanned_revision"
 # How often the scheduler deletes expired proposals of an open vault (data-model.md §5.9).
 CLEANUP_EVERY = timedelta(hours=1)
 
@@ -190,6 +192,9 @@ class OpenVault:
     # The tables history records (core's plus every module's); writes through both factories
     # are recorded as changesets (lore.core.history).
     history_tables: tuple[HistoryTable, ...] = field(default_factory=core_history_tables)
+    # With a module registry, every changeset is checked by the consistency engine first
+    # (lore.core.consistency): API requests, the CLI and scripts alike.
+    registry: ModuleRegistry | None = None
     sessions: sessionmaker[Session] = field(init=False)
     write_sessions: sessionmaker[Session] = field(init=False)
     # Bumped by every committed transaction that changed the database (cache keys).
@@ -202,8 +207,13 @@ class OpenVault:
         writer = self.engine if self.read_only else for_writing(self.engine)
         self.write_sessions = sessionmaker(writer, expire_on_commit=False)
         if not self.read_only:
+            check = None
+            if self.registry is not None:
+                from lore.core.consistency.engine import checker  # noqa: PLC0415 (import cycle)
+
+                check = checker(self, self.registry)
             for factory in (self.sessions, self.write_sessions):
-                install_history(factory, self.history_tables)
+                install_history(factory, self.history_tables, check)
 
     @property
     def id(self) -> str:
@@ -678,7 +688,7 @@ class VaultManager:
                 if self.module_registry is not None
                 else core_history_tables()
             )
-            opened = OpenVault(info, engine, self.read_only, tables)
+            opened = OpenVault(info, engine, self.read_only, tables, self.module_registry)
             if not self.read_only:
                 _sync_meta_name(opened)
                 if self.module_registry is not None:
@@ -686,6 +696,8 @@ class VaultManager:
                         _record_module_states(session, self.module_registry)
                     with opened.write_sessions.begin() as session:
                         _ensure_search_index(opened, session, self.module_registry)
+                    with opened.write_sessions.begin() as session:
+                        _ensure_consistency_scan(opened, session, self.module_registry)
                 with opened.write_sessions.begin() as session:
                     _purge_proposals(session)
             self._open[vault_id] = opened
@@ -825,6 +837,21 @@ def _record_module_states(session: Session, registry: ModuleRegistry) -> None:
     from lore.core.modules.service import record_module_states  # noqa: PLC0415
 
     record_module_states(session, registry)
+
+
+def _ensure_consistency_scan(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:
+    """A full consistency scan after the schema changed (migrations may touch time data,
+    ``consistency.md`` §3.3): the schema revision last scanned is kept in ``vault_meta``."""
+    from lore.core.consistency.engine import scan  # noqa: PLC0415 (import cycle)
+    from lore.core.modules.spec import VaultContext  # noqa: PLC0415
+
+    revision = session.connection().exec_driver_sql("SELECT version_num FROM alembic_version")
+    current = revision.scalar()
+    if get_meta(session, CONSISTENCY_SCANNED) == current:
+        return
+    counts = scan(VaultContext(opened, session, registry))
+    set_meta(session, CONSISTENCY_SCANNED, current)
+    logger.info("scanned vault %s for consistency (%d findings)", opened.id, sum(counts.values()))
 
 
 def _ensure_search_index(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:

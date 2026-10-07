@@ -110,7 +110,7 @@ def test_corrupted_derived_data_is_detected_and_fixed_by_reindex(
     manager = manager_of(client)
     assert manager.module_registry is not None
     counts = reindex_vault(manager.open(api.vault), manager.module_registry)
-    assert counts == {"search": 3, "mentions": 3, "time": 0}
+    assert counts == {"search": 3, "mentions": 3, "time": 0, "consistency": 0}
     assert codes(client, api.vault) == []
     hits = api.client.get(f"{api.base}/search", params={"q": "heavy"}).json()["items"]
     assert [hit["name"] for hit in hits] == ["Anvil"]

@@ -28,6 +28,7 @@ from lore.core.api.middleware import (
     allowed_hosts,
 )
 from lore.core.api.spa import spa_router
+from lore.core.consistency import router as consistency_router
 from lore.core.db import ensure_sqlite_capabilities
 from lore.core.entities import router as entities_router
 from lore.core.history import router as history_router
@@ -110,6 +111,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(history_router.router)
     api.include_router(history_router.entity_router)
     api.include_router(search_router.router)
+    api.include_router(consistency_router.router)
     api.include_router(time_router.router)
     api.include_router(time_router.calendars_router)
     api.include_router(time_router.time_router)

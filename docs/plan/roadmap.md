@@ -172,9 +172,10 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #54 | M3-11 | Proposals: calendar edit impact preview/apply (keep dates / pin / constrain) and recurrence-rule reconciliation | L | P0 | #53 |
 | #55 | M3-12 | Consistency engine framework, findings/suppressions API, precision-aware comparisons, core structural and event rules | L | P0 | #53 |
 | #56 | M3-13 | Sample world generator: time data (dimensions, calendars, events, recurrences, anchors) and backend perf harness | M | P1 | #54, #55 |
-| #57 | M3-14 | Release v0.2.0: time core complete (fixture vault, changelog) | S | P1 | #56 |
+| #57 | M3-14 | Release v0.2.0: time core complete (fixture vault, changelog) | S | P1 | #56, #230 |
 | #222 | M3-15 | SortableBigInt renders literal binds triple-quoted (bug) | S | P2 | – |
 | #224 | M3-16 | Report propagated time changes in write responses (affected.time_changed and moved entities) | S | P1 | #50 |
+| #230 | M3-17 | Decide: should keep_key reset an occurrence's original_start_t (recurrence proposals)? | S | P1 | #54 |
 
 ### M4: Frontend foundation
 
