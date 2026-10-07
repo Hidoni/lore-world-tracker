@@ -25,6 +25,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
+
 from lore.chronology.schema import AbsoluteAnchor, EndSpec, TimePoint, TimePointEnd
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
 from lore.core.time.dependencies import (
@@ -49,6 +51,7 @@ CALENDAR = "calendar"
 EVENT = "event"
 BATCH = 5000  # keys per load (SQLite's variable limit)
 GOOD = frozenset({TimeStatus.OK, TimeStatus.TRASHED_REF})
+MAX_ROUNDS = 8  # follow-up runs for occurrence refs of refreshed series
 _SEVERITY = {TimeStatus.OK: 0, TimeStatus.TRASHED_REF: 1}
 
 type Node = Target
@@ -175,6 +178,16 @@ class TimeWriter:
         definition, a dimension's duration, a record taken out of the trash)."""
         self.changed.update(nodes)
 
+    def touch_series(self, *series_ids: str) -> None:
+        """Occurrences of these series may have moved (a materialized occurrence changed, or the
+        rule did): whatever is anchored to the series resolves again (occurrence refs depend on
+        the series' ``start``/``end`` slots, ``recurrence.md`` §7)."""
+        from lore.core.time.series import series_slots  # noqa: PLC0415 (import cycle)
+
+        own = set(series_ids)
+        for node in series_slots(series_ids):
+            self.changed.update(d for d in self.index.dependents_of(node) if d.id not in own)
+
     def touch_entity(self, entity_id: str) -> None:
         """An entity was trashed or restored: whatever depends on its records (or on it as a
         calendar) resolves again, to update ``trashed_ref`` statuses (§7.3)."""
@@ -186,6 +199,13 @@ class TimeWriter:
         for node in self.index.dependents_of(CalendarNode(entity_id)):
             if (node.type, node.id) not in own:
                 self.changed.add(node)
+        from lore.core.time.models import Event  # noqa: PLC0415 (import cycle)
+
+        series_id = self.session.scalar(
+            select(Event.series_entity_id).where(Event.entity_id == entity_id)
+        )
+        if series_id is not None:  # a materialized occurrence: refs to it fall back or return
+            self.touch_series(series_id)
 
     def _records_of_entity(self, entity_id: str) -> set[tuple[str, str]]:
         return {
@@ -247,8 +267,12 @@ class TimeWriter:
 
     # --- propagation --------------------------------------------------------------------------
 
-    def propagate(self, *, strict: bool = True, path: str = "") -> Propagation:
-        """Steps 2-6 of §7.2 for the nodes changed so far (then forgets them)."""
+    def propagate(self, *, strict: bool = True, path: str = "", rounds: int = 0) -> Propagation:
+        """Steps 2-6 of §7.2 for the nodes changed so far (then forgets them).
+
+        A run that refreshed series through their rule's time points, calendar or dimension (not
+        their start) runs again for what is anchored to their occurrences (at most
+        ``MAX_ROUNDS`` times)."""
         changed, self.changed = self.changed, set()
         if not changed:
             return Propagation()
@@ -259,6 +283,13 @@ class TimeWriter:
         result = run.execute()
         if strict and result.violations:
             raise constraint_error(result.violations, path)
+        followers = run.followers - affected
+        if followers and rounds < MAX_ROUNDS:
+            self.changed.update(followers)
+            more = self.propagate(strict=strict, path=path, rounds=rounds + 1)
+            result.updated += more.updated
+            result.violations += more.violations
+            result.affected += more.affected
         return result
 
     def _check_cycles(self, changed: Iterable[Node]) -> None:
@@ -340,6 +371,8 @@ class _Run:
         self.values = self._load([n for n in affected if isinstance(n, SlotNode)])
         self.pending: dict[str, list[SlotUpdate]] = {}
         self.result = Propagation(affected=len(affected))
+        self.followers: set[Node] = set()
+        """Dependents of series refreshed without their own slots being affected."""
 
     def _load(self, nodes: Sequence[SlotNode]) -> dict[SlotNode, SlotValue]:
         by_type: dict[str, list[SlotKey]] = {}
@@ -550,10 +583,17 @@ class _Run:
         dimensions = {n.dimension_id for n in self.affected if isinstance(n, DimensionNode)}
         if not (events or calendars or dimensions):
             return
-        for problem in refresh_series(self.writer.context, events, calendars, dimensions):
+        problems, refreshed = refresh_series(self.writer.context, events, calendars, dimensions)
+        for problem in problems:
             self.result.violations.append(
                 Violation(EVENT, problem.entity_id, "recurrence", problem.code, problem.message)
             )
+        quiet = [i for i in refreshed if SlotNode(EVENT, i, "start") not in self.affected]
+        if quiet:
+            before = set(self.writer.changed)
+            self.writer.touch_series(*quiet)
+            self.followers = self.writer.changed - before
+            self.writer.changed = before
 
     def _t(self, node: SlotNode, stored: dict[SlotNode, SlotValue]) -> int | None:
         known = self.known.get(node)

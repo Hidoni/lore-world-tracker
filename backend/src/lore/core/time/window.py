@@ -21,6 +21,10 @@
   occurrences become items (``occurrence_key`` set) that take part in LOD and buckets like events;
   a truncated expansion becomes a **series band** (``estimated_count``, over the part of the
   window the series covers) instead. ``include_series=false`` leaves series out.
+- **Materialized occurrences** are events of their own: an occurrence with a materialized
+  row (visible to the policy) isn't computed again; the row is an item at its own time
+  (``modified`` ones move in and out of windows), with ``occurrence_key``, ``series_id`` and
+  ``occurrence_state``. ``cancelled`` rows are left out unless ``include_cancelled``.
 
 The overlap query fetches only ids, raw moment keys and importance; the items kept are loaded
 with the columns they show. Results are cached per vault write generation (``WINDOWS``, decided
@@ -44,7 +48,7 @@ from lore.core.time.events import EVENT, shown_events, with_children
 from lore.core.time.models import Event
 from lore.core.time.redact import ReaderTimes
 from lore.core.time.resolve import Resolver
-from lore.core.time.series import RuleProblem, row_context
+from lore.core.time.series import CANCELLED, RuleProblem, row_context, visible_materialized
 from lore.core.time.timeline_view import TimelineView
 from lore.core.visibility import VisibilityPolicy
 
@@ -67,6 +71,7 @@ class WindowQuery:
     participants: tuple[str, ...] = ()
     parent: str | None = None
     include_series: bool = True
+    include_cancelled: bool = False
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,8 @@ class WindowItem:
     end_approximate: bool
     end_kind: str
     occurrence_key: str | None = None
+    series_id: str | None = None
+    occurrence_state: str | None = None
 
 
 @dataclass(frozen=True)
@@ -169,20 +176,30 @@ def _compute(
     )  # fmt: skip
     for condition in _filters(policy, query):
         statement = statement.where(condition)
-    series_ids = set(
-        session.scalars(
-            view.select(Event, where=lambda e: [e.recurrence.is_not(None)]).with_only_columns(
-                Event.id
-            )
+    # Series and cancelled occurrences of the lineage's timelines (a superset of what the view
+    # shows: they are only left out of the scan), through their partial indexes: few rows, where
+    # the view's own conditions would make SQLite walk the timeline's whole window index.
+    lineage = set(view.timeline_ids)
+    series_ids = {
+        row_id
+        for row_id, timeline in session.execute(
+            select(Event.id, Event.timeline_id).where(Event.recurrence.is_not(None))
         )
-    )
-    rows: list[_Row] = [
-        tuple(row) for row in session.execute(statement) if row[0] not in series_ids
-    ]
+        if timeline in lineage
+    }
+    left_out = series_ids
+    if not query.include_cancelled:
+        cancelled = select(Event.id, Event.timeline_id).where(
+            Event.series_entity_id.is_not(None), Event.occurrence_state == CANCELLED
+        )
+        left_out = left_out | {
+            i for i, timeline in session.execute(cancelled) if timeline in lineage
+        }
+    rows: list[_Row] = [tuple(row) for row in session.execute(statement) if row[0] not in left_out]
     occurrences: dict[str, _Occurrence] = {}
     bands: list[SeriesBand] = []
     if query.include_series and series_ids:
-        occurrences, bands = _expand_series(context, policy, view, query)
+        occurrences, bands = _expand_series(context, policy, view, query, series_ids)
         rows += [(o_id, sortable_key(o.start), sortable_key(o.end), o.importance)
                  for o_id, o in occurrences.items()]  # fmt: skip
 
@@ -204,13 +221,18 @@ class _Occurrence:
 
 
 def _expand_series(
-    context: VaultContext, policy: VisibilityPolicy, view: TimelineView, query: WindowQuery
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    view: TimelineView,
+    query: WindowQuery,
+    series_ids: set[str],
 ) -> tuple[dict[str, _Occurrence], list[SeriesBand]]:
     """The occurrences of the candidate series in the window (by synthetic id
     ``<row id>:<key>``) and the bands of those with too many."""
     session = context.session
+    wanted = sorted(series_ids)
     statement = shown_events(
-        view.select(Event, where=lambda e: [e.recurrence.is_not(None)]), view, policy
+        view.select(Event, where=lambda e: [e.id.in_(wanted)]), view, policy
     ).where(Event.series_start_t < query.end, Event.series_end_t >= query.start)
     for condition in _filters(policy, query):
         statement = statement.where(condition)
@@ -218,7 +240,15 @@ def _expand_series(
     occurrences: dict[str, _Occurrence] = {}
     bands: list[SeriesBand] = []
     resolvers: dict[str, Resolver] = {}
-    for row, name, visibility, dimension_id in session.execute(statement):
+    candidates = session.execute(statement).all()
+    # Materialized occurrences replace the computed ones: they are events of the window
+    # themselves (drawn at their own time, or left out when cancelled; recurrence.md §7).
+    own = {
+        (m.series_entity_id, m.occurrence_key)
+        for m in visible_materialized(session, policy, [row.entity_id for row, *_ in candidates])
+        if m.timeline_id in view.timeline_ids
+    }
+    for row, name, visibility, dimension_id in candidates:
         if dimension_id not in resolvers:
             resolvers[dimension_id] = Resolver(context, dimension_id)
         found = row_context(resolvers[dimension_id], row)
@@ -246,6 +276,8 @@ def _expand_series(
             )
             continue
         for item in expansion.items:
+            if (row.entity_id, item.key) in own:
+                continue
             occurrences[f"{row.id}:{item.key}"] = _Occurrence(
                 row.id, item.key, item.start, item.end, row.importance
             )
@@ -360,11 +392,14 @@ def _items(
             Event.id, Event.entity_id, Event.start_t, Event.end_t, Event.importance,
             Event.category, Event.time_status, type_coerce(Event.start_spec, JSON),
             type_coerce(Event.end_spec, JSON), Entity.name, Entity.visibility,
-            Entity.parent_id, Entity.dimension_id,
+            Entity.parent_id, Entity.dimension_id, Event.series_entity_id, Event.occurrence_key,
+            Event.occurrence_state,
         )
         .join(Entity, Entity.id == Event.entity_id)
         .where(Event.id.in_(row_ids))
     ).all()  # fmt: skip
+    named_series = {row.series_entity_id for row in rows if row.series_entity_id is not None}
+    shown_series = policy.visible_ids(session, named_series) if policy.reader else named_series
     parents = with_children(session, view, policy, [row.entity_id for row in rows])
     named_parents = {row.parent_id for row in rows if row.parent_id is not None}
     shown_parents = policy.visible_ids(session, named_parents) if policy.reader else named_parents
@@ -403,7 +438,15 @@ def _items(
                 end_precision=end_point.get("precision"),
                 end_approximate=bool(end_point.get("approximate", False)),
                 end_kind=str(end_spec["kind"]),
-                occurrence_key=None if occurrence is None else occurrence.key,
+                occurrence_key=row.occurrence_key if occurrence is None else occurrence.key,
+                series_id=(
+                    row.entity_id
+                    if occurrence is not None
+                    else row.series_entity_id
+                    if row.series_entity_id in shown_series
+                    else None
+                ),
+                occurrence_state=row.occurrence_state,
             )
         )
     items.sort(key=_order)

@@ -12,12 +12,15 @@ Rules (technical choices documented in ``time-model.md`` §5.3 and §6):
   (``invalid_date``, ``unresolved_ref``, ``calendar_error``, ``cycle``) and ``t = None``; one
   outside ``[0, D]`` has ``t`` and status ``out_of_bounds``; one whose anchor reaches a record in
   the trash has ``trashed_ref``. Specs that can never resolve (an unknown or unreferenceable slot,
-  an occurrence ref until #53) have no status (``None``). ``require`` turns errors into
-  problem+json (``invalid_date``, ``reform_gap``, ``reform_ambiguous``, …).
+  an occurrence ref to something other than an event) have no status (``None``). ``require``
+  turns errors into problem+json (``invalid_date``, ``reform_gap``, ``reform_ambiguous``, …).
 - **Relative anchors** use the target slot's stored (last good) moment; its extent and precision
   come from resolving the target's spec. The default precision is the coarser of the target's
   precision and the offset's finest unit (the longer unit at the resolved moment; ties keep the
-  target's). With that precision the extent is the target's extent shifted by the offset; with
+  target's). An occurrence ref (``ref.occurrence``) uses the occurrence's moment: a
+  ``modified`` materialized occurrence's own, else the one computed from the series' rule (with
+  the series slot's extent width); a key without an occurrence is ``unresolved_ref``. With that
+  precision the extent is the target's extent shifted by the offset; with
   another (explicit) precision it is ``[t, end of the precision unit containing t)``.
 - **Precision calendar:** the level named by a precision belongs to the anchor's calendar, the
   offset's calendar (relative anchors with a calendar offset) or the dimension's default calendar
@@ -58,7 +61,7 @@ from lore.chronology.schema import (
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
 from lore.core.time.dependencies import SlotNode
-from lore.core.time.models import Calendar, Dimension
+from lore.core.time.models import Calendar, Dimension, Event
 from lore.core.time.slots import SlotError, SlotKey, SlotProvider, SlotRegistry
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
 from lore.core.time.status import TimeStatus
@@ -68,6 +71,7 @@ if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
 
 BASE = "base"
+EVENT = "event"
 MAX_DEPTH = 64
 """How deep relative anchors may chain while resolving a target's extent (deeper: ``cycle``)."""
 
@@ -341,17 +345,20 @@ class Resolver:
         depth: int,
     ) -> Resolution:
         ref = anchor.ref
-        if ref.occurrence is not None:
-            return _failed(None, "not_supported",
-                           "Anchors to single occurrences of recurring events aren't supported "
-                           "yet.", "anchor.ref.occurrence")  # fmt: skip
         try:
             self.slots.check_ref(ref)
         except SlotError as error:
             unreferenceable = error.code == "slot_not_referenceable"
             code: ProblemCode = "slot_not_referenceable" if unreferenceable else "unknown_slot"
             return _failed(None, code, str(error), "anchor.ref")
+        if ref.occurrence is not None and ref.type != EVENT:
+            return _failed(None, "not_supported", "Only events have occurrences.",
+                           "anchor.ref.occurrence")  # fmt: skip
         target = self.slot(ref.type, ref.id, ref.slot, seen, depth)
+        if target.ok and target.t is not None and ref.occurrence is not None:
+            target = self._occurrence(
+                ref.id, ref.slot, ref.occurrence, target, seen=seen, depth=depth
+            )
         if not target.ok or target.t is None:
             return replace(target, problem=_at(target.problem, "anchor.ref"))
         return self._offset(target, anchor.offset, precision, "anchor.offset")
@@ -402,6 +409,57 @@ class Resolver:
             )
         trashed = value.trashed or (fresh is not None and fresh.status == TimeStatus.TRASHED_REF)
         return self._trash(result, trashed)
+
+    def _occurrence(
+        self,
+        series_id: str,
+        slot: str,
+        key: str,
+        series_slot: Resolution,
+        *,
+        seen: frozenset[tuple[str, str, str]],
+        depth: int,
+    ) -> Resolution:
+        """Slot ``slot`` of occurrence ``key`` of a series (``recurrence.md`` §7): a
+        ``modified`` materialized occurrence's own moment, else the computed one, with the width
+        of the series slot's extent."""
+        from lore.core.time import series  # noqa: PLC0415 (import cycle)
+
+        row = self.session.scalar(
+            select(Event).where(Event.entity_id == series_id, Event.overrides_id.is_(None))
+        )
+        if row is None or row.recurrence is None:
+            return _failed(TimeStatus.UNRESOLVED_REF, "unresolved_ref",
+                           "The anchor's target isn't a recurring event.",
+                           "anchor.ref.occurrence")  # fmt: skip
+        own = series.materialized_row(self.session, series_id, key, row.timeline_id)
+        if own is not None and own.occurrence_state == series.MODIFIED:
+            entity = self.session.get(Entity, own.entity_id)
+            if entity is not None and entity.deleted_at is None:
+                found = self.slot(EVENT, own.entity_id, slot, seen, depth + 1)
+                if found.t is not None and found.status != TimeStatus.UNRESOLVED_REF:
+                    return found
+        start = series_slot if slot == "start" else self.slot(EVENT, series_id, "start", seen,
+                                                               depth + 1)  # fmt: skip
+        resolved: dict[str, int] = {}
+        for point_slot, (pointer, _point) in series.rule_points(
+            series.parse_rule(row.recurrence)
+        ).items():
+            moment = self.slot(EVENT, series_id, point_slot, seen, depth + 1).t
+            if moment is not None:
+                resolved[pointer] = moment
+        computed = series.compute_occurrence(
+            self, row, key, series_start=start.t, resolved=resolved
+        )
+        if isinstance(computed, series.RuleProblem):
+            return _failed(TimeStatus.UNRESOLVED_REF, "unresolved_ref",
+                           f"No occurrence {key!r}: {computed.message}",
+                           "anchor.ref.occurrence")  # fmt: skip
+        t = computed.start if slot == "start" else computed.end
+        assert series_slot.t is not None
+        assert series_slot.extent is not None
+        lo, hi = series_slot.extent
+        return replace(series_slot, t=t, extent=(t + lo - series_slot.t, t + hi - series_slot.t))
 
     def forget_calendar(self, calendar_id: str) -> None:
         """Compile the calendar again on its next use (its anchors or definition changed)."""

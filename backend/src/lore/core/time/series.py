@@ -28,10 +28,12 @@ from sqlalchemy.orm import Session
 from lore.chronology.calendar.compile import ValidationError as RuleError
 from lore.chronology.calendar.compiled import CompiledCalendar
 from lore.chronology.recurrence import (
-    Expansion,
+    Occurrence,
     RecurrenceContext,
     RecurrenceError,
     expand,
+    occurrence,
+    occurrence_number,
     series_bounds,
 )
 from lore.chronology.recurrence import validate_rule as engine_validate
@@ -48,11 +50,13 @@ from lore.chronology.schema import (
 )
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError
+from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Event, Timeline
 from lore.core.time.resolve import Resolution, Resolver
 from lore.core.time.slots import SlotKey, SlotMoment, SlotUpdate, SlotValue, SpecUpdate
 from lore.core.time.specs import dump_spec, parse_end_spec
 from lore.core.time.status import TimeStatus
+from lore.core.visibility import VisibilityPolicy
 
 if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
@@ -316,11 +320,12 @@ def refresh_series(
     event_ids: Iterable[str],
     calendar_ids: Iterable[str],
     dimension_ids: Iterable[str],
-) -> list[SeriesProblem]:
+) -> tuple[list[SeriesProblem], set[str]]:
     """Recompute the bounds of the series among ``event_ids``, of every series whose rule (or
     calendar duration) uses one of ``calendar_ids`` and of every series in ``dimension_ids``
     (``recurrence.md`` §5.5). Events that stopped being series lose their bounds. A rule that no
-    longer evaluates keeps its last bounds and is reported."""
+    longer evaluates keeps its last bounds and is reported. Returns the problems and the ids of
+    the series looked at."""
     session = context.session
     session.flush()
     rows = list(_series_rows(session, event_ids).values())
@@ -347,7 +352,7 @@ def refresh_series(
             continue
         assert not isinstance(found, RuleProblem)
         _set_bounds(row, *bounds_of(*found))
-    return problems
+    return problems, {row.entity_id for row in rows if row.recurrence is not None}
 
 
 def _all_series(session: Session) -> Iterable[Event]:
@@ -395,6 +400,96 @@ def _set_bounds(row: Event, start: int | None, end: int | None) -> None:
         row.series_end_t = end
 
 
+# --- occurrences --------------------------------------------------------------------------------
+
+REFERENCED = "referenced"
+MODIFIED = "modified"
+CANCELLED = "cancelled"
+OCCURRENCE_STATES = (REFERENCED, MODIFIED, CANCELLED)
+
+
+def occurrence_point(series_id: str, slot: str, key: str) -> TimePoint:
+    """``relative(ref = {event: series, slot, occurrence: key}, 0)`` (``recurrence.md`` §7)."""
+    return TimePoint.model_validate(
+        {
+            "anchor": {
+                "kind": "relative",
+                "ref": {"type": EVENT, "id": series_id, "slot": slot, "occurrence": key},
+                "offset": {"kind": "base", "units": "0"},
+            },
+            "precision": "base",
+        }
+    )
+
+
+def is_occurrence_point(point: Any, series_id: str, slot: str, key: str) -> bool:
+    """Whether a spec is the default anchor of a referenced occurrence's slot."""
+    return dump_spec(point) == dump_spec(occurrence_point(series_id, slot, key))
+
+
+def compute_occurrence(
+    resolver: Resolver, row: Event, key: str, *, series_start: int | None = None,
+    resolved: dict[str, int] | None = None,
+) -> Occurrence | RuleProblem:  # fmt: skip
+    """A series' computed occurrence ``key`` (``not_found`` as a problem). ``series_start`` and
+    ``resolved`` replace the stored moments (a propagation run's new values)."""
+    rule = stored_rule(row)
+    start = row.start_t if series_start is None else series_start
+    if rule is None or start is None:
+        return RuleProblem("not_a_series", "", "The event doesn't recur.")
+    if resolved is None:
+        resolved = {pointer: int(t) for pointer, t in (row.recurrence_resolved or {}).items()}
+    ctx = recurrence_context(resolver, rule, start, parse_end_spec(row.end_spec), resolved)
+    if isinstance(ctx, RuleProblem):
+        return ctx
+    try:
+        return occurrence(rule, ctx, key)
+    except RecurrenceError as exc:
+        return RuleProblem(exc.code, "", str(exc))
+
+
+def materialized(session: Session, series_ids: Iterable[str], *, live: bool = True) -> list[Event]:
+    """The materialized occurrences of series (home rows; ``live``: not in the trash)."""
+    wanted = sorted(set(series_ids))
+    if not wanted:
+        return []
+    statement = select(Event).where(
+        Event.series_entity_id.in_(wanted), Event.overrides_id.is_(None)
+    )
+    if live:
+        statement = statement.join(Entity, Entity.id == Event.entity_id).where(
+            Entity.deleted_at.is_(None)
+        )
+    return list(session.scalars(statement))
+
+
+def materialized_row(session: Session, series_id: str, key: str, timeline_id: str) -> Event | None:
+    """The occurrence's materialized row in a timeline (in the trash or not)."""
+    return session.scalar(
+        select(Event).where(
+            Event.series_entity_id == series_id,
+            Event.occurrence_key == key,
+            Event.timeline_id == timeline_id,
+        )
+    )
+
+
+def number_of(resolver: Resolver, row: Event, key: str) -> int | None:
+    """The occurrence number of ``key`` (``recurrence.md`` §3); ``None`` without one."""
+    found = row_context(resolver, row)
+    if isinstance(found, RuleProblem):
+        return None
+    try:
+        return occurrence_number(*found, key)
+    except RecurrenceError:
+        return None
+
+
+def series_slots(series_ids: Iterable[str]) -> list[SlotNode]:
+    """The slots occurrence refs to these series depend on."""
+    return [SlotNode(EVENT, i, slot) for i in sorted(set(series_ids)) for slot in ("start", "end")]
+
+
 # --- reads ---------------------------------------------------------------------------------------
 
 
@@ -405,11 +500,46 @@ class NotASeriesError(ConflictError):
     title = "Not a recurring event"
 
 
+@dataclass(frozen=True)
+class ListedOccurrence:
+    """An occurrence as listed: computed, or its materialized row (``entity_id``, ``state``)."""
+
+    key: str
+    start: int
+    end: int
+    number: int | None
+    entity_id: str | None = None
+    state: str | None = None
+
+
+@dataclass(frozen=True)
+class OccurrenceList:
+    items: list[ListedOccurrence]
+    truncated: bool
+    estimated_count: int | None
+
+
+def overlaps(start: int, end: int, w0: int, w1: int) -> bool:
+    """``time-model.md`` §2.1 overlap of a span (or instant) and the window ``[w0, w1)``."""
+    if start == end:
+        return w0 <= start < w1
+    return start < w1 and w0 < end
+
+
 def occurrences(
-    context: VaultContext, row: Event, window: tuple[int, int], limit: int
-) -> Expansion:
-    """``GET /events/{id}/occurrences`` (computed occurrences only until materialized ones
-    exist, #53): ``expand`` over ``[from, to)`` with ``max_items = limit``."""
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    row: Event,
+    window: tuple[int, int],
+    limit: int,
+    *,
+    include_cancelled: bool = False,
+) -> OccurrenceList:
+    """``GET /events/{id}/occurrences``: ``expand`` over ``[from, to)`` with ``max_items =
+    limit``, merged with the materialized occurrences the policy sees (``recurrence.md`` §7):
+    a materialized key replaces the computed occurrence (a ``modified`` one at its own time, so
+    rows moved into the window are listed and rows moved out aren't), ``cancelled`` ones only
+    with ``include_cancelled``. More than ``limit`` merged items truncate too."""
     if row.recurrence is None:
         raise NotASeriesError("The event doesn't recur.")
     timeline = context.session.get(Timeline, row.timeline_id)
@@ -417,23 +547,107 @@ def occurrences(
     found = row_context(Resolver(context, timeline.dimension_id), row)
     if isinstance(found, RuleProblem):
         raise ConflictError(f"The recurrence rule can't be evaluated: {found.message}")
+    rule, ctx = found
     try:
-        return expand(*found, window, limit)
+        expansion = expand(rule, ctx, window, limit)
     except RecurrenceError as exc:
         raise ConflictError(f"The recurrence rule can't be evaluated: {exc}") from exc
+    if expansion.truncated:
+        return OccurrenceList([], True, expansion.estimated_count)
+    rows = visible_materialized(context.session, policy, [row.entity_id])
+    by_key = {m.occurrence_key: m for m in rows if m.timeline_id == row.timeline_id}
+    listed = merge(expansion.items, by_key, window, include_cancelled=include_cancelled)
+    if len(listed) > limit:
+        return OccurrenceList([], True, len(listed))
+    items = []
+    for key, (start, end, own) in listed.items():
+        try:
+            number: int | None = occurrence_number(rule, ctx, key)
+        except RecurrenceError:
+            number = None
+        items.append(ListedOccurrence(
+            key, start, end, number,
+            None if own is None else own.entity_id,
+            None if own is None else own.occurrence_state,
+        ))  # fmt: skip
+    items.sort(key=lambda o: (o.start, -o.end, _key_order(o.key)))
+    return OccurrenceList(items, False, None)
+
+
+def merge(
+    computed: Iterable[Occurrence],
+    own_rows: dict[str | None, Event],
+    window: tuple[int, int],
+    *,
+    include_cancelled: bool,
+) -> dict[str, tuple[int, int, Event | None]]:
+    """Key → (start, end, materialized row or None) of a series' occurrences in a window: the
+    computed ones, replaced by their materialized rows (§7)."""
+    listed: dict[str, tuple[int, int, Event | None]] = {
+        item.key: (item.start, item.end, None) for item in computed
+    }
+    for key, own in own_rows.items():
+        if key is None or own.start_t is None or own.end_t is None:
+            continue
+        shown = own.occurrence_state != CANCELLED or include_cancelled
+        if shown and overlaps(own.start_t, own.end_t, *window):
+            listed[key] = (own.start_t, own.end_t, own)
+        else:
+            listed.pop(key, None)  # cancelled, or moved out of the window
+    return listed
+
+
+def _key_order(key: str) -> tuple[int, int]:
+    head, _, tail = key.partition(".")
+    return int(head), int(tail or -1)
+
+
+def visible_materialized(
+    session: Session, policy: VisibilityPolicy, series_ids: Iterable[str]
+) -> list[Event]:
+    """The live materialized occurrences of series that the policy sees."""
+    wanted = sorted(set(series_ids))
+    if not wanted:
+        return []
+    return list(
+        session.scalars(
+            select(Event)
+            .join(Entity, Entity.id == Event.entity_id)
+            .where(
+                Event.series_entity_id.in_(wanted),
+                Event.overrides_id.is_(None),
+                Entity.deleted_at.is_(None),
+                *policy.entities(Entity),
+            )
+        )
+    )
 
 
 __all__ = [
+    "CANCELLED",
+    "MODIFIED",
+    "OCCURRENCE_STATES",
+    "REFERENCED",
     "RULE_SLOT",
     "UNTIL_SLOT",
+    "ListedOccurrence",
     "NotASeriesError",
+    "OccurrenceList",
     "RuleProblem",
     "SeriesProblem",
     "bounds_of",
     "check_rule",
+    "compute_occurrence",
     "dump_rule",
+    "is_occurrence_point",
     "load_rule_slots",
+    "materialized",
+    "materialized_row",
+    "merge",
+    "number_of",
+    "occurrence_point",
     "occurrences",
+    "overlaps",
     "parse_rule",
     "recurrence_context",
     "refresh_series",
@@ -441,7 +655,9 @@ __all__ = [
     "rule_moments_beyond",
     "rule_points",
     "rule_slot_keys",
+    "series_slots",
     "series_using",
+    "visible_materialized",
     "write_rule_slots",
     "write_rule_specs",
 ]

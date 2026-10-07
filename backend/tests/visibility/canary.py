@@ -283,8 +283,9 @@ def _series(
     b: _Builder, home: dict[str, Any], secret: dict[str, Any], plot: dict[str, Any]
 ) -> None:
     """Recurring events: a yearly rule in the private calendar (readers get no rule), a comet
-    whose exclusion is anchored to a private event (readers get its moment) and a private
-    series (its occurrences and bands never reach readers)."""
+    whose exclusion is anchored to a private event (readers get its moment) with a private and
+    a public materialized occurrence, and a private series (its occurrences and bands never reach
+    readers)."""
     start = {"anchor": {"kind": "absolute", "t": "0"}, "precision": "base"}
     at_plot = {
         "anchor": {
@@ -303,6 +304,11 @@ def _series(
         "limit": {"kind": "count", "count": "50"},
         "exclusions": [{"from": at_plot, "to": at_plot, "note": "Hidden by the plot"}],
     }
-    b.public("event", "Comet", ext={"start": start, "recurrence": comet}, **home)
+    comet_event = b.public("event", "Comet", ext={"start": start, "recurrence": comet}, **home)
+    # A private materialized occurrence (moved): readers get the computed occurrence instead.
+    moved = {"series_id": comet_event["id"], "occurrence_key": "3", "start": at_plot}
+    b.hidden("event", visibility="private", ext=moved, **home)
+    referenced = {"series_id": comet_event["id"], "occurrence_key": "4"}
+    b.public("event", "Comet return", ext=referenced, **home)
     hidden = {"kind": "interval", "every": "86400", "limit": {"kind": "never"}}
     b.hidden("event", visibility="private", ext={"start": start, "recurrence": hidden}, **home)

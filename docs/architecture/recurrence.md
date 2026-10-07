@@ -354,7 +354,7 @@ Implementation (`lore.core.time.series`, #52; decided there where the above is s
   (`422 time_constraint`, slot `recurrence`, code `rule.<code>`). Both columns are NULL when the
   series has no occurrence.
 - `GET /events/{id}/occurrences?from=&to=&limit=` is `expand` over the window with
-  `max_items = limit` (computed occurrences only until materialized ones exist, #53).
+  `max_items = limit`, merged with the materialized occurrences (§7).
 
 ### 5.6 Searches and limits (`lore.chronology.recurrence`, `@lore/chronology` `recurrence/`)
 
@@ -409,6 +409,40 @@ Behavior:
   `cancelled` occurrences are omitted and shown only in "show cancelled" mode.
 - Deleting a materialized occurrence reverts it to the computed one, after confirmation when it
   has sub-events, which are then moved to trash.
+
+Implementation (`lore.core.time.events`, `lore.core.time.series`, #53; decided there where the
+above is silent):
+
+- **Materializing.** `POST /events/{series}/occurrences/{key}` answers `201` with a new event
+  (named "<series> (<occurrence date>)": the series start's precision, its default calendar's
+  finest level for `base`; the series' visibility, importance and category) or `200` with the
+  existing one. The entity API can create one too, with `ext: {series_id, occurrence_key}` (and
+  optionally its own `start`/`end`, which make it `modified`), once per key (`409
+  occurrence_exists`). A key without an occurrence is `404 occurrence_not_found`; one whose
+  materialized occurrence is in the trash is `409 occurrence_in_trash` (restore or purge it).
+  The series and key can't change, and an occurrence can't recur.
+- **State.** `occurrence_state` follows the specs: `referenced` while start and end are the
+  occurrence's own anchors, `modified` otherwise. `ext.cancelled: true` cancels (the specs are
+  kept), `false` takes it back to `referenced`/`modified`.
+- **Occurrence refs** (`time-model.md` §5.2) resolve to a `modified` materialized occurrence's
+  own moment (not in the trash, not cancelled), else to the computed occurrence, with the
+  width of the series slot's extent. Their edges point at the series' `start`/`end` slot; when a
+  materialized occurrence changes state or time, is trashed or restored, or a series is
+  refreshed without its start moving (its rule's calendar, `until` or exclusions changed),
+  whatever is anchored to the series resolves again (`TimeWriter.touch_series`, follow-up
+  propagation runs).
+- **Deleting.** Trashing a materialized occurrence with live sub-events answers `409
+  occurrence_has_sub_events`; `DELETE /events/{series}/occurrences/{key}?trash_sub_events=true`
+  trashes the sub-events and the occurrence.
+- **Merging.** The window and the occurrences list replace a computed occurrence by its
+  materialized row when the request can see that row (otherwise the computed occurrence shows).
+  `include_cancelled` shows cancelled ones (with their state). Occurrence list items carry
+  `number`, `entity_id` and `state`; window items carry `occurrence_key`, `series_id` and
+  `occurrence_state`.
+- **Reads.** A materialized occurrence's `ext` has `series_id`, `occurrence_key`,
+  `occurrence_state`, `original_start_t`, `occurrence_number` and `series_participants` (the
+  series' visible `core.participant` links: `{entity_id, role}`; the occurrence's own come from its
+  links), all null (or empty) for other events and for readers who can't see the series.
 
 ## 8. Rule-change reconciliation (R-REC-6)
 

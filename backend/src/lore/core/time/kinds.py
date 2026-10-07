@@ -80,6 +80,7 @@ CORE_KIND_EXTENSIONS: tuple[KindExtension, ...] = (
         write=events.write_event,
         read=events.read_event,
         update=events.update_event,
+        trash=events.trash_event,
         purge=events.purge_event,
         stored_problems=events.event_problems,
     ),
