@@ -1,7 +1,8 @@
 """The in-process maintenance scheduler (``persistence-and-migrations.md`` §2, §5): a daemon
 thread that, every ``interval`` seconds while the app runs, calls
-``VaultManager.run_scheduled_backups`` and ``VaultManager.run_scheduled_optimize`` (the daily
-``PRAGMA optimize``). The app starts it in author mode only; a read-only server never writes."""
+``VaultManager.run_scheduled_backups``, ``VaultManager.run_scheduled_optimize`` (the daily
+``PRAGMA optimize``) and ``VaultManager.run_scheduled_cleanup`` (hourly: expired proposals). The
+app starts it in author mode only; a read-only server never writes."""
 
 import logging
 import threading
@@ -40,7 +41,11 @@ class MaintenanceScheduler:
             self._thread = None
 
     def run_once(self) -> None:
-        for task in (self.manager.run_scheduled_backups, self.manager.run_scheduled_optimize):
+        for task in (
+            self.manager.run_scheduled_backups,
+            self.manager.run_scheduled_optimize,
+            self.manager.run_scheduled_cleanup,
+        ):
             try:
                 task()
             except Exception:  # pragma: no cover - the tasks log their own failures

@@ -224,15 +224,16 @@ def test_the_daily_optimize_skips_read_only_servers_and_logs_failures(
     assert "PRAGMA optimize failed" in caplog.text
 
 
-def test_the_scheduler_runs_backups_and_the_daily_optimize(
+def test_the_scheduler_runs_backups_the_daily_optimize_and_the_cleanup(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = manager_of(client)
     calls: list[str] = []
     monkeypatch.setattr(manager, "run_scheduled_backups", lambda: calls.append("backups"))
     monkeypatch.setattr(manager, "run_scheduled_optimize", lambda: calls.append("optimize"))
+    monkeypatch.setattr(manager, "run_scheduled_cleanup", lambda: calls.append("cleanup"))
     client.app.state.scheduler.run_once()  # type: ignore[attr-defined]
-    assert calls == ["backups", "optimize"]
+    assert calls == ["backups", "optimize", "cleanup"]
 
 
 # --- the CLI ----------------------------------------------------------------------------------

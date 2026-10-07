@@ -722,6 +722,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/calendars/{calendar_id}/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose
+         * @description Preview a calendar edit (``time-model.md`` §7.4, D1): every record whose moment or status
+         *     the new definition changes, with old/new moments and displays, its status and the strategies
+         *     it takes. Invalid definitions fail fast (``422 calendar_invalid``). The proposal is kept for an
+         *     hour; apply it to save the definition.
+         */
+        post: operations["calendars_propose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/calendars/{calendar_id}/proposals/{proposal_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Proposal
+         * @description Apply a calendar proposal: save the definition, apply each record's strategy
+         *     (``keep_date``, ``pin_moment``, ``constrain``) and propagate, as one changeset (one undo).
+         *     ``409 proposal_stale`` when anything it was computed from changed; ``422
+         *     proposal_unresolved`` for records left broken without an explicit strategy. More than 100
+         *     items take a backup first.
+         */
+        post: operations["calendars_apply_proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/time/resolve": {
         parameters: {
             query?: never;
@@ -858,6 +905,52 @@ export interface paths {
          *     occurrence.
          */
         delete: operations["events_delete_occurrence"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/events/{event_id}/recurrence/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Recurrence
+         * @description Preview a change of an event's recurrence rule (and optionally its start and end):
+         *     every materialized occurrence with its status (``unchanged``, ``moved``, ``orphaned``,
+         *     ``recurrence.md`` §8) and the strategies it takes. The change is checked like a PATCH (``422``
+         *     on ``rule…``, ``start``, ``end``). The proposal is kept for an hour.
+         */
+        post: operations["events_propose_recurrence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/events/{event_id}/recurrence/proposals/{proposal_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Recurrence Proposal
+         * @description Apply a recurrence proposal: reconcile each materialized occurrence (``keep_key``,
+         *     ``rekey``, ``detach``, ``trash``; others take their default) and save the series' rule, start
+         *     and end, as one changeset. ``409 proposal_stale`` when the series or its occurrences changed,
+         *     ``409 rekey_conflict`` when two occurrences would share a key.
+         */
+        post: operations["events_apply_recurrence_proposal"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1054,6 +1147,42 @@ export interface components {
             /** Regime */
             regime?: string | null;
         };
+        /** CalendarApplyIn */
+        CalendarApplyIn: {
+            /**
+             * Strategies
+             * @description Item key → strategy.
+             */
+            strategies?: {
+                [key: string]: components["schemas"]["CalendarStrategy"];
+            };
+            /**
+             * @description For items without a strategy, where it applies (else `keep_date`).
+             * @default keep_date
+             */
+            default_strategy: components["schemas"]["CalendarStrategy"];
+        };
+        /** CalendarApplyOut */
+        CalendarApplyOut: {
+            calendar: components["schemas"]["EntityOut"];
+            /** Kept */
+            kept: number;
+            /** Pinned */
+            pinned: number;
+            /** Constrained */
+            constrained: number;
+            /**
+             * Accepted
+             * @description Records left with a problem by an explicit `keep_date`.
+             */
+            accepted: number;
+            /**
+             * Backup
+             * @description The backup taken first (more than 100 items).
+             */
+            backup: string | null;
+            affected: components["schemas"]["Affected"];
+        };
         /**
          * CalendarDuration
          * @description Amounts of calendar units, applied by calendar arithmetic (chronology-engine §9).
@@ -1088,6 +1217,151 @@ export interface components {
             calendar_id?: components["schemas"]["EntityId"] | null;
             source: components["schemas"]["CalendarSource"];
         };
+        /** CalendarProposalIn */
+        CalendarProposalIn: {
+            /**
+             * Definition
+             * @description The new calendar definition.
+             */
+            definition: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * CalendarProposalItem
+         * @description A slot whose moment or status the edit changes, or that it breaks (slot ``recurrence``: a
+         *     series rule that no longer evaluates; slot ``definition``: a calendar that no longer
+         *     compiles).
+         */
+        CalendarProposalItem: {
+            /**
+             * Key
+             * @description `<record type>/<id>/<slot>`: the key of `strategies`.
+             */
+            key: string;
+            /** Record Type */
+            record_type: string;
+            /** Id */
+            id: string;
+            /** Slot */
+            slot: string;
+            /**
+             * Entity Id
+             * @description The entity the record belongs to.
+             */
+            entity_id: string | null;
+            /**
+             * Name
+             * @description That entity's name.
+             */
+            name: string | null;
+            /**
+             * Old T
+             * @description The stored moment now.
+             */
+            old_t: string | null;
+            old_status: components["schemas"]["TimeStatus"] | null;
+            /**
+             * New T
+             * @description The moment with the new definition (`keep_date`); may lie outside `[0, D]` (`out_of_bounds`); null when it doesn't resolve.
+             */
+            new_t: string | null;
+            /** @description The status with the new definition. */
+            status: components["schemas"]["TimeStatus"] | null;
+            /** @description Why the record breaks (hard rule), if it does. */
+            problem: components["schemas"]["ProposalProblem"] | null;
+            /**
+             * Old Display
+             * @description `old_t` in the display calendar, before.
+             */
+            old_display: string | null;
+            /**
+             * New Display
+             * @description `new_t` in the display calendar, after.
+             */
+            new_display: string | null;
+            /**
+             * Constrained T
+             * @description `constrain`: the moment of the nearest valid date (invalid dates only).
+             */
+            constrained_t: string | null;
+            /** Constrained Display */
+            constrained_display: string | null;
+            /**
+             * Strategies
+             * @description The strategies the record takes.
+             */
+            strategies: components["schemas"]["CalendarStrategy"][];
+        };
+        /** CalendarProposalOut */
+        CalendarProposalOut: {
+            /** Id */
+            id: string;
+            /** Calendar Id */
+            calendar_id: string;
+            /**
+             * Base Revision
+             * @description The definition revision the preview is based on.
+             */
+            base_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Display Calendar Id
+             * @description The calendar of the displays: the dimension's default (or `absolute`).
+             */
+            display_calendar_id: string;
+            /**
+             * Definition
+             * @description The new definition, as it will be stored.
+             */
+            definition: {
+                [key: string]: unknown;
+            };
+            /** Items */
+            items: components["schemas"]["CalendarProposalItem"][];
+            /** Series */
+            series: components["schemas"]["SeriesBoundsChange"][];
+            summary: components["schemas"]["CalendarProposalSummary"];
+        };
+        /** CalendarProposalSummary */
+        CalendarProposalSummary: {
+            /**
+             * Affected
+             * @description Nodes the change reached (slots, calendars, dimensions).
+             */
+            affected: number;
+            /**
+             * Changed
+             * @description Items (records that change or break).
+             */
+            changed: number;
+            /**
+             * Problems
+             * @description Items with a problem.
+             */
+            problems: number;
+            /**
+             * By Problem
+             * @description Items per problem code.
+             */
+            by_problem: {
+                [key: string]: number;
+            };
+            /**
+             * Series
+             * @description Series whose bounds move.
+             */
+            series: number;
+        };
         /**
          * CalendarSource
          * @description Exactly one of ``definition`` (a full definition) and ``preset``.
@@ -1099,6 +1373,8 @@ export interface components {
             } | null;
             preset?: components["schemas"]["PresetChoice"] | null;
         };
+        /** @enum {string} */
+        CalendarStrategy: "keep_date" | "pin_moment" | "constrain";
         /**
          * ChangeOut
          * @description A row-level change. ``before``/``after`` are the full rows (JSON columns decoded).
@@ -2282,6 +2558,13 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** ProposalProblem */
+        ProposalProblem: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /** QuickFixOut */
         QuickFixOut: {
             /** Id */
@@ -2329,6 +2612,132 @@ export interface components {
             /** Den */
             den: string;
         };
+        /** RecurrenceApplyIn */
+        RecurrenceApplyIn: {
+            /**
+             * Strategies
+             * @description Occurrence entity id → strategy (others: their default).
+             */
+            strategies?: {
+                [key: string]: components["schemas"]["RecurrenceStrategy"];
+            };
+        };
+        /** RecurrenceApplyOut */
+        RecurrenceApplyOut: {
+            event: components["schemas"]["EntityOut"];
+            /** Kept */
+            kept: number;
+            /** Rekeyed */
+            rekeyed: number;
+            /** Detached */
+            detached: number;
+            /** Trashed */
+            trashed: number;
+            affected: components["schemas"]["Affected"];
+        };
+        /**
+         * RecurrenceProposalIn
+         * @description The series' new rule (null: it stops recurring) and, optionally, its new start and end.
+         */
+        RecurrenceProposalIn: {
+            /**
+             * Rule
+             * @description The new recurrence rule, or null.
+             */
+            rule: {
+                [key: string]: unknown;
+            } | null;
+            start?: components["schemas"]["TimePoint"] | null;
+            end?: components["schemas"]["EndSpec"] | null;
+        };
+        /**
+         * RecurrenceProposalItem
+         * @description A materialized occurrence (not in the trash) and what the change does to it.
+         */
+        RecurrenceProposalItem: {
+            /** Entity Id */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Key */
+            key: string;
+            /**
+             * State
+             * @description `referenced`, `modified` or `cancelled`.
+             */
+            state: string;
+            /**
+             * Original Start T
+             * @description Its computed start when materialized.
+             */
+            original_start_t: string | null;
+            /**
+             * Start T
+             * @description Its stored start now.
+             */
+            start_t: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unchanged" | "moved" | "orphaned";
+            /**
+             * New Start T
+             * @description The key's computed start with the new rule (null when orphaned).
+             */
+            new_start_t: string | null;
+            /**
+             * Rekey Key
+             * @description `rekey` target: the occurrence starting at `original_start_t` (moved), or the first at or after it (orphaned).
+             */
+            rekey_key: string | null;
+            /** Rekey Start T */
+            rekey_start_t: string | null;
+            /**
+             * Rekey Held By
+             * @description The materialized occurrence already holding `rekey_key`, if any.
+             */
+            rekey_held_by: string | null;
+            /** Strategies */
+            strategies: components["schemas"]["RecurrenceStrategy"][];
+            default_strategy: components["schemas"]["RecurrenceStrategy"] | null;
+        };
+        /** RecurrenceProposalOut */
+        RecurrenceProposalOut: {
+            /** Id */
+            id: string;
+            /** Event Id */
+            event_id: string;
+            /**
+             * Base Revision
+             * @description The series row's revision the preview is based on.
+             */
+            base_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Items */
+            items: components["schemas"]["RecurrenceProposalItem"][];
+            summary: components["schemas"]["RecurrenceProposalSummary"];
+        };
+        /** RecurrenceProposalSummary */
+        RecurrenceProposalSummary: {
+            /** Unchanged */
+            unchanged: number;
+            /** Moved */
+            moved: number;
+            /** Orphaned */
+            orphaned: number;
+        };
+        /** @enum {string} */
+        RecurrenceStrategy: "keep_key" | "rekey" | "detach" | "trash";
         /**
          * Registry
          * @description Everything the generic UI is generated from, for this vault's enabled modules.
@@ -2528,6 +2937,21 @@ export interface components {
              * @example 435000000000000000
              */
             estimated_count: string;
+        };
+        /** SeriesBoundsChange */
+        SeriesBoundsChange: {
+            /** Entity Id */
+            entity_id: string;
+            /** Name */
+            name: string | null;
+            /** Old Start T */
+            old_start_t: string | null;
+            /** Old End T */
+            old_end_t: string | null;
+            /** New Start T */
+            new_start_t: string | null;
+            /** New End T */
+            new_end_t: string | null;
         };
         /**
          * SlotRef
@@ -4658,6 +5082,84 @@ export interface operations {
             };
         };
     };
+    calendars_propose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Calendar id. */
+                calendar_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarProposalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarProposalOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    calendars_apply_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Calendar id. */
+                calendar_id: string;
+                /** @description Proposal id. */
+                proposal_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarApplyOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     time_resolve: {
         parameters: {
             query?: {
@@ -4939,6 +5441,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDeleteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_propose_recurrence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id. */
+                event_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceProposalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceProposalOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_apply_recurrence_proposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id. */
+                event_id: string;
+                /** @description Proposal id. */
+                proposal_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceApplyOut"];
                 };
             };
             /** @description Problem */

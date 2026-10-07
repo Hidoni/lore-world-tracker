@@ -1,6 +1,7 @@
 """API models of the time routes (``docs/architecture/api.md`` §2, Time)."""
 
-from typing import Annotated, Any
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -10,7 +11,7 @@ from lore.core.db.base import Visibility
 from lore.core.entities.schemas import ID_PATTERN, EntityId, EntityName, EntityOut
 from lore.core.time.calendars import CalendarSource
 from lore.core.time.status import TimeStatus
-from lore.core.types import BigIntStr, MomentStr
+from lore.core.types import Affected, BigIntStr, MomentStr
 
 
 class TimelineNode(BaseModel):
@@ -312,3 +313,173 @@ class OccurrencePage(BaseModel):
     estimated_count: MomentStr | None = Field(
         description="When truncated: how many overlap (exact when the rule can be counted)."
     )
+
+
+# --- proposals (time-model.md §7.4-§7.5, recurrence.md §8) ---------------------------------------
+
+type CalendarStrategy = Literal["keep_date", "pin_moment", "constrain"]
+type RecurrenceStrategy = Literal["keep_key", "rekey", "detach", "trash"]
+
+
+class CalendarProposalIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    definition: dict[str, Any] = Field(description="The new calendar definition.")
+
+
+class ProposalProblem(BaseModel):
+    code: str
+    message: str
+
+
+class CalendarProposalItem(BaseModel):
+    """A slot whose moment or status the edit changes, or that it breaks (slot ``recurrence``: a
+    series rule that no longer evaluates; slot ``definition``: a calendar that no longer
+    compiles)."""
+
+    key: str = Field(description="`<record type>/<id>/<slot>`: the key of `strategies`.")
+    record_type: str
+    id: str
+    slot: str
+    entity_id: str | None = Field(description="The entity the record belongs to.")
+    name: str | None = Field(description="That entity's name.")
+    old_t: MomentStr | None = Field(description="The stored moment now.")
+    old_status: TimeStatus | None
+    new_t: BigIntStr | None = Field(
+        description="The moment with the new definition (`keep_date`); may lie outside "
+        "`[0, D]` (`out_of_bounds`); null when it doesn't resolve."
+    )
+    status: TimeStatus | None = Field(description="The status with the new definition.")
+    problem: ProposalProblem | None = Field(
+        description="Why the record breaks (hard rule), if it does."
+    )
+    old_display: str | None = Field(description="`old_t` in the display calendar, before.")
+    new_display: str | None = Field(description="`new_t` in the display calendar, after.")
+    constrained_t: MomentStr | None = Field(
+        description="`constrain`: the moment of the nearest valid date (invalid dates only)."
+    )
+    constrained_display: str | None
+    strategies: list[CalendarStrategy] = Field(description="The strategies the record takes.")
+
+
+class SeriesBoundsChange(BaseModel):
+    entity_id: str
+    name: str | None
+    old_start_t: MomentStr | None
+    old_end_t: MomentStr | None
+    new_start_t: MomentStr | None
+    new_end_t: MomentStr | None
+
+
+class CalendarProposalSummary(BaseModel):
+    affected: int = Field(description="Nodes the change reached (slots, calendars, dimensions).")
+    changed: int = Field(description="Items (records that change or break).")
+    problems: int = Field(description="Items with a problem.")
+    by_problem: dict[str, int] = Field(description="Items per problem code.")
+    series: int = Field(description="Series whose bounds move.")
+
+
+class CalendarProposalOut(BaseModel):
+    id: str
+    calendar_id: str
+    base_revision: int = Field(description="The definition revision the preview is based on.")
+    created_at: datetime
+    expires_at: datetime
+    display_calendar_id: str = Field(
+        description="The calendar of the displays: the dimension's default (or `absolute`)."
+    )
+    definition: dict[str, Any] = Field(description="The new definition, as it will be stored.")
+    items: list[CalendarProposalItem]
+    series: list[SeriesBoundsChange]
+    summary: CalendarProposalSummary
+
+
+class CalendarApplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategies: dict[str, CalendarStrategy] = Field(
+        default_factory=dict, description="Item key → strategy."
+    )
+    default_strategy: CalendarStrategy = Field(
+        default="keep_date",
+        description="For items without a strategy, where it applies (else `keep_date`).",
+    )
+
+
+class CalendarApplyOut(BaseModel):
+    calendar: EntityOut
+    kept: int
+    pinned: int
+    constrained: int
+    accepted: int = Field(description="Records left with a problem by an explicit `keep_date`.")
+    backup: str | None = Field(description="The backup taken first (more than 100 items).")
+    affected: Affected
+
+
+class RecurrenceProposalIn(BaseModel):
+    """The series' new rule (null: it stops recurring) and, optionally, its new start and end."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: dict[str, Any] | None = Field(description="The new recurrence rule, or null.")
+    start: TimePoint | None = None
+    end: EndSpec | None = None
+
+
+class RecurrenceProposalItem(BaseModel):
+    """A materialized occurrence (not in the trash) and what the change does to it."""
+
+    entity_id: str
+    name: str
+    key: str
+    state: str = Field(description="`referenced`, `modified` or `cancelled`.")
+    original_start_t: MomentStr | None = Field(description="Its computed start when materialized.")
+    start_t: MomentStr | None = Field(description="Its stored start now.")
+    status: Literal["unchanged", "moved", "orphaned"]
+    new_start_t: MomentStr | None = Field(
+        description="The key's computed start with the new rule (null when orphaned)."
+    )
+    rekey_key: str | None = Field(
+        description="`rekey` target: the occurrence starting at `original_start_t` (moved), or "
+        "the first at or after it (orphaned)."
+    )
+    rekey_start_t: MomentStr | None
+    rekey_held_by: str | None = Field(
+        description="The materialized occurrence already holding `rekey_key`, if any."
+    )
+    strategies: list[RecurrenceStrategy]
+    default_strategy: RecurrenceStrategy | None
+
+
+class RecurrenceProposalSummary(BaseModel):
+    unchanged: int
+    moved: int
+    orphaned: int
+
+
+class RecurrenceProposalOut(BaseModel):
+    id: str
+    event_id: str
+    base_revision: int = Field(description="The series row's revision the preview is based on.")
+    created_at: datetime
+    expires_at: datetime
+    items: list[RecurrenceProposalItem]
+    summary: RecurrenceProposalSummary
+
+
+class RecurrenceApplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategies: dict[str, RecurrenceStrategy] = Field(
+        default_factory=dict,
+        description="Occurrence entity id → strategy (others: their default).",
+    )
+
+
+class RecurrenceApplyOut(BaseModel):
+    event: EntityOut
+    kept: int
+    rekeyed: int
+    detached: int
+    trashed: int
+    affected: Affected

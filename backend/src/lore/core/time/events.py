@@ -32,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from lore.chronology.recurrence import RecurrenceContext
 from lore.chronology.schema import EndSpec, InstantEnd, TimePoint, TimePointEnd
 from lore.core.entities.errors import ParentNotAllowedError
 from lore.core.entities.models import Entity
@@ -151,7 +152,7 @@ def write_event(
     if row.series_entity_id is not None and write.rule is not None:
         raise _invalid("ext.recurrence", "An occurrence of a recurring event can't recur.")
     if write.start is not None or write.end is not None or write.rule_sent:
-        _write_times(context, entity.dimension_id, row, start=write.start, end=write.end,
+        write_times(context, entity.dimension_id, row, start=write.start, end=write.end,
                      rule=write.rule, rule_sent=write.rule_sent)  # fmt: skip
     if row.series_entity_id is not None and not creating:
         sent = data.model_fields_set
@@ -191,7 +192,7 @@ def _create(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
         )
         session.add(row)
     _check_parent(context, entity, row.timeline_id)
-    rule = _rule(data.recurrence)
+    rule = parse_rule_document(data.recurrence)
     return _Write(
         row, row.start_spec, parse_end_spec(row.end_spec), rule, rule is not None,
         occurrence_changed=row.occurrence_state == series.MODIFIED,
@@ -216,7 +217,7 @@ def _patch(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
         raise _invalid("ext.cancelled", "Only occurrences of recurring events can be "
                        "cancelled (true or false).")  # fmt: skip
     rule_sent = "recurrence" in sent
-    rule = _rule(data.recurrence) if rule_sent else series.stored_rule(row)
+    rule = parse_rule_document(data.recurrence) if rule_sent else series.stored_rule(row)
     if data.importance is not None:
         row.importance = data.importance
     if "category" in sent:
@@ -304,7 +305,7 @@ def _materialize(context: VaultContext, entity: Entity, data: EventExt) -> Event
     return row
 
 
-def _rule(document: dict[str, Any] | None) -> series.Rule | None:
+def parse_rule_document(document: dict[str, Any] | None) -> series.Rule | None:
     if document is None:
         return None
     try:
@@ -358,7 +359,77 @@ def _timeline(session: Session, dimension_id: str, timeline_id: str | None) -> s
     return timeline_id
 
 
-def _write_times(
+@dataclass(frozen=True)
+class SeriesPlan:
+    """A write's new start and rule, checked (``plan_times``): the rule and the engine's context
+    for it (``None`` without a rule, or while the start doesn't resolve)."""
+
+    started: Resolution
+    rule: series.Rule | None
+    resolved: dict[str, int]
+    context: RecurrenceContext | None
+
+
+def plan_times(
+    context: VaultContext,
+    dimension_id: str,
+    row: Event,
+    *,
+    start: TimePoint | None,
+    end: EndSpec | None,
+    rule: series.Rule | None,
+) -> SeriesPlan:
+    """Check that new specs (and the series' rule, ``recurrence.md`` §9) resolve: ``422`` on
+    ``ext.start``, ``ext.end`` and ``ext.recurrence…``. ``rule`` is the rule the event will have
+    (the stored one when the write doesn't change it)."""
+    resolver = Resolver(context, dimension_id, row.timeline_id)
+    started = resolver.resolve(start if start is not None else row.start_spec)
+    if start is not None:
+        _require(started, "ext.start")
+    if end is not None:
+        _require(resolver.resolve_end(end, started), "ext.end")
+    end_spec = end or parse_end_spec(row.end_spec)
+    resolved: dict[str, int] = {}
+    ctx = None
+    if rule is not None:
+        resolved = _check_rule(resolver, rule, started, end_spec)
+        if started.t is not None:
+            found = series.recurrence_context(resolver, rule, started.t, end_spec, resolved)
+            ctx = None if isinstance(found, series.RuleProblem) else found
+    return SeriesPlan(started, rule, resolved, ctx)
+
+
+class OccurrencesOrphanedError(ConflictError):
+    """A direct series edit would orphan materialized occurrences (``recurrence.md`` §8)."""
+
+    code = "conflict"
+    title = "Materialized occurrences would be orphaned"
+
+
+def _check_orphans(context: VaultContext, row: Event, plan: SeriesPlan) -> None:
+    """Direct edits of a series' rule, start or end may move its materialized occurrences (they
+    keep their keys, the default) but not orphan them: that goes through a recurrence proposal
+    (decided with #54)."""
+    if row.series_entity_id is not None or (row.recurrence is None and plan.rule is None):
+        return
+    live = series.materialized(context.session, [row.entity_id])
+    orphaned = [
+        r.row.entity_id
+        for r in series.reconcile(plan.rule, plan.context, live)
+        if r.status == series.ORPHANED
+    ]
+    if orphaned:
+        raise OccurrencesOrphanedError(
+            f"{len(orphaned)} materialized occurrence(s) would lose their occurrence: reconcile "
+            "them through a recurrence proposal.",
+            context={
+                "orphaned": orphaned,
+                "proposals": f"/events/{row.entity_id}/recurrence/proposals",
+            },
+        )
+
+
+def write_times(
     context: VaultContext,
     dimension_id: str,
     row: Event,
@@ -367,19 +438,17 @@ def _write_times(
     end: EndSpec | None,
     rule: series.Rule | None,
     rule_sent: bool,
+    writer: TimeWriter | None = None,
+    reconciled: bool = False,
 ) -> None:
     """Check that the new specs (and the series' rule) resolve, store them and propagate
-    (§7.2). Propagation refreshes the series bounds."""
+    (§7.2). Propagation refreshes the series bounds. ``writer`` may hold changes of the same
+    write already (a recurrence proposal's reconciliation, ``reconciled``: no orphan check)."""
     session = context.session
-    resolver = Resolver(context, dimension_id, row.timeline_id)
-    started = resolver.resolve(start if start is not None else row.start_spec)
-    if start is not None:
-        _require(started, "ext.start")
-    if end is not None:
-        _require(resolver.resolve_end(end, started), "ext.end")
-    resolved: dict[str, int] = {}
-    if rule is not None:
-        resolved = _check_rule(resolver, rule, started, end or parse_end_spec(row.end_spec))
+    plan = plan_times(context, dimension_id, row, start=start, end=end, rule=rule)
+    if not reconciled:
+        _check_orphans(context, row, plan)
+    resolved = plan.resolved
     old_rule = series.stored_rule(row)
     old_points = {} if old_rule is None else series.rule_points(old_rule)
     if start is not None:
@@ -392,7 +461,7 @@ def _write_times(
         if rule is None:
             row.series_start_t = row.series_end_t = None
     session.flush()
-    writer = TimeWriter(context)
+    writer = writer or TimeWriter(context)
     if start is not None:
         writer.set_spec(EVENT, row.entity_id, "start", start)
     if end is not None:

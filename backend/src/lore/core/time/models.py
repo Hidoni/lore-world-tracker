@@ -5,8 +5,13 @@
 ``time_dependencies`` holds the edges propagation walks. It is derived from the specs, but kept in
 the same transaction as them (not recorded in history). Dependents and targets are polymorphic
 (any registered record type), so it has no foreign keys.
+
+``proposals`` (§5.9) holds short-lived impact previews of calendar and recurrence-rule edits
+(``time-model.md`` §7.4-§7.5). They aren't world data: not recorded in history, purged when they
+expire.
 """
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Index, Integer, String, text
@@ -14,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from lore.chronology.schema import TimePoint
 from lore.core.db.base import Base, IdMixin, TimestampsMixin
-from lore.core.db.types import SortableBigInt
+from lore.core.db.types import SortableBigInt, UTCDateTime
 from lore.core.time.specs import EndSpecColumn, moment_column, spec_column, status_column
 
 RESTRICT = "RESTRICT"
@@ -178,4 +183,25 @@ class TimeDependency(Base):
         Index("ix_time_dependencies_dependent", "dependent_type", "dependent_id", "dependent_slot"),
         Index("ix_time_dependencies_target", "target_type", "target_id", "target_slot"),
         Index("ix_time_dependencies_target_calendar_id", "target_calendar_id"),
+    )
+
+
+class Proposal(IdMixin, Base):
+    """An impact preview (``data-model.md`` §5.9): ``kind`` ``calendar`` (``target_id`` = the
+    calendar) or ``recurrence`` (the series event); ``payload`` is the requested change, ``impact``
+    what it does, ``base_revision`` the target's revision it was computed against."""
+
+    __tablename__ = "proposals"
+
+    kind: Mapped[str] = mapped_column(String)  # calendar | recurrence
+    target_id: Mapped[str] = mapped_column(String)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    impact: Mapped[dict[str, Any]] = mapped_column(JSON)
+    base_revision: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('calendar', 'recurrence')", name="kind"),
+        Index("ix_proposals_expires_at", "expires_at"),
     )

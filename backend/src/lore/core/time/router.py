@@ -11,6 +11,7 @@ from lore.core.api.deps import (
     SessionDep,
     SettingsDep,
     VaultDep,
+    VaultManagerDep,
     WritableVaultDep,
 )
 from lore.core.entities.models import Entity
@@ -23,13 +24,19 @@ from lore.core.entities.schemas import (
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
-from lore.core.time.calendars import Preview, presets
+from lore.core.time.calendars import CALENDAR, Preview, presets
 from lore.core.time.dimensions import TIMELINE, timeline_tree
 from lore.core.time.events import EVENT, EventTimes, event_tree, home_row, live_sub_events
-from lore.core.time.models import Event
+from lore.core.time.models import Event, Proposal
+from lore.core.time.proposals import BACKUP_REASON, apply_calendar_proposal, preview_calendar_edit
+from lore.core.time.reconcile import apply_rule_change, preview_rule_change
 from lore.core.time.resolve import Resolver
 from lore.core.time.schemas import (
+    CalendarApplyIn,
+    CalendarApplyOut,
     CalendarPreviewIn,
+    CalendarProposalIn,
+    CalendarProposalOut,
     ConvertIn,
     ConvertOut,
     DimensionCreated,
@@ -41,6 +48,10 @@ from lore.core.time.schemas import (
     OccurrencePage,
     PresetList,
     PresetOut,
+    RecurrenceApplyIn,
+    RecurrenceApplyOut,
+    RecurrenceProposalIn,
+    RecurrenceProposalOut,
     ResolveIn,
     ResolveOut,
     SeriesBandOut,
@@ -70,6 +81,8 @@ timelines_router = APIRouter(prefix="/vaults/{vault_id}/timelines", tags=["timel
 DimensionIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Dimension id.")]
 TimelineIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Timeline id.")]
 EventIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Event id.")]
+CalendarIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Calendar id.")]
+ProposalIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Proposal id.")]
 
 
 class OccurrenceNotFoundError(NotFoundError):
@@ -144,6 +157,91 @@ def post_preview(
     errors (`ok: false`) or a few sample dates. Nothing is stored."""
     context = VaultContext(vault, session, registry)
     return preview_calendar(context, policy, body, settings.spec_dir)
+
+
+def _calendar(context: VaultContext, calendar_id: str) -> Entity:
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    entity = EntityService(context).load(calendar_id)
+    if entity.kind != CALENDAR:
+        raise NotFoundError(f"No calendar {calendar_id}.")
+    return entity
+
+
+def calendar_proposal_out(proposal: Proposal) -> CalendarProposalOut:
+    impact = proposal.impact
+    return CalendarProposalOut.model_validate(
+        {
+            "id": proposal.id,
+            "calendar_id": proposal.target_id,
+            "base_revision": proposal.base_revision,
+            "created_at": proposal.created_at,
+            "expires_at": proposal.expires_at,
+            **{key: impact[key] for key in
+               ("display_calendar_id", "definition", "items", "series", "summary")},
+        }
+    )  # fmt: skip
+
+
+@calendars_router.post("/{calendar_id}/proposals", name="propose", status_code=201)
+def post_calendar_proposal(
+    calendar_id: CalendarIdPath,
+    body: CalendarProposalIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> CalendarProposalOut:
+    """Preview a calendar edit (``time-model.md`` §7.4, D1): every record whose moment or status
+    the new definition changes, with old/new moments and displays, its status and the strategies
+    it takes. Invalid definitions fail fast (``422 calendar_invalid``). The proposal is kept for an
+    hour; apply it to save the definition."""
+    context = VaultContext(vault, session, registry)
+    proposal = preview_calendar_edit(context, _calendar(context, calendar_id), body.definition)
+    return calendar_proposal_out(proposal)
+
+
+@calendars_router.post("/{calendar_id}/proposals/{proposal_id}/apply", name="apply_proposal")
+def post_calendar_apply(
+    *,
+    calendar_id: CalendarIdPath,
+    proposal_id: ProposalIdPath,
+    body: CalendarApplyIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    manager: VaultManagerDep,
+) -> CalendarApplyOut:
+    """Apply a calendar proposal: save the definition, apply each record's strategy
+    (``keep_date``, ``pin_moment``, ``constrain``) and propagate, as one changeset (one undo).
+    ``409 proposal_stale`` when anything it was computed from changed; ``422
+    proposal_unresolved`` for records left broken without an explicit strategy. More than 100
+    items take a backup first."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    entity = _calendar(context, calendar_id)
+    applied = apply_calendar_proposal(
+        context,
+        entity,
+        proposal_id,
+        strategies=body.strategies,
+        default_strategy=body.default_strategy,
+        backup=lambda: manager.backup_before(vault.id, BACKUP_REASON).id,
+    )
+    return CalendarApplyOut(
+        calendar=EntityService(context).to_out(entity),
+        kept=applied.kept,
+        pinned=applied.pinned,
+        constrained=applied.constrained,
+        accepted=applied.accepted,
+        backup=applied.backup,
+        affected=Affected(
+            entities=applied.entity_ids,
+            dimensions=[str(entity.dimension_id)],
+            time_changed=True,
+            search_changed=False,
+        ),
+    )
 
 
 @time_router.post("/resolve", name="resolve")
@@ -524,3 +622,75 @@ def delete_occurrence(
         for child in live_sub_events(session, existing.entity_id):
             service.trash(child)
     return service.trash(existing.entity_id)
+
+
+def _event(context: VaultContext, event_id: str) -> Entity:
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    entity = EntityService(context).load(event_id)
+    if entity.kind != EVENT:
+        raise NotFoundError(f"No event {event_id}.")
+    return entity
+
+
+@events_router.post("/{event_id}/recurrence/proposals", name="propose_recurrence", status_code=201)
+def post_recurrence_proposal(
+    event_id: EventIdPath,
+    body: RecurrenceProposalIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> RecurrenceProposalOut:
+    """Preview a change of an event's recurrence rule (and optionally its start and end):
+    every materialized occurrence with its status (``unchanged``, ``moved``, ``orphaned``,
+    ``recurrence.md`` §8) and the strategies it takes. The change is checked like a PATCH (``422``
+    on ``rule…``, ``start``, ``end``). The proposal is kept for an hour."""
+    context = VaultContext(vault, session, registry)
+    payload = body.model_dump(mode="json", by_alias=True, exclude_unset=True)
+    proposal = preview_rule_change(context, _event(context, event_id), payload)
+    return RecurrenceProposalOut.model_validate(
+        {
+            "id": proposal.id,
+            "event_id": proposal.target_id,
+            "base_revision": proposal.base_revision,
+            "created_at": proposal.created_at,
+            "expires_at": proposal.expires_at,
+            **proposal.impact,
+        }
+    )
+
+
+@events_router.post(
+    "/{event_id}/recurrence/proposals/{proposal_id}/apply", name="apply_recurrence_proposal"
+)
+def post_recurrence_apply(
+    *,
+    event_id: EventIdPath,
+    proposal_id: ProposalIdPath,
+    body: RecurrenceApplyIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> RecurrenceApplyOut:
+    """Apply a recurrence proposal: reconcile each materialized occurrence (``keep_key``,
+    ``rekey``, ``detach``, ``trash``; others take their default) and save the series' rule, start
+    and end, as one changeset. ``409 proposal_stale`` when the series or its occurrences changed,
+    ``409 rekey_conflict`` when two occurrences would share a key."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    entity = _event(context, event_id)
+    applied = apply_rule_change(context, entity, proposal_id, body.strategies)
+    return RecurrenceApplyOut(
+        event=EntityService(context).to_out(entity),
+        kept=applied.kept,
+        rekeyed=applied.rekeyed,
+        detached=applied.detached,
+        trashed=applied.trashed,
+        affected=Affected(
+            entities=applied.entity_ids,
+            dimensions=[str(entity.dimension_id)],
+            time_changed=True,
+            search_changed=applied.trashed > 0,
+        ),
+    )

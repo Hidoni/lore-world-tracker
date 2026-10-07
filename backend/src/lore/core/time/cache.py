@@ -1,9 +1,11 @@
 """Process-wide LRU caches: compiled calendars (``time-model.md`` §7.2, ``chronology-engine.md``
 §4) and timeline windows (``lore.core.time.window``).
 
-Keys are ``(vault id, calendar id, definition revision, digest of the compile context)``: the
-context holds the resolved anchors, the base unit and ``D``, so any change to them misses. A
-vault's entries are dropped when its engine closes (a restore can bring back old revisions).
+Keys are ``(vault id, calendar id, definition revision, digest of the definition and the compile
+context)``: the context holds the resolved anchors, the base unit and ``D``, so any change to them
+misses (and so does another definition under the same revision, as a proposal's rolled-back dry
+run leaves behind). A vault's entries are dropped when its engine closes (a restore can bring
+back old revisions).
 """
 
 import threading
