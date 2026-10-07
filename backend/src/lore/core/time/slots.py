@@ -8,8 +8,10 @@ propagation only ever touch slots through the registry, so they work for any tab
 
 A ``SlotDef`` names one slot (``start``) or a family of slots (``exclusion:*`` covers
 ``exclusion:0.from`` …; ``*`` covers every slot name). Fixed slots stored in columns
-(``<slot>_spec``, ``<slot>_t``, ``time_status``) get a default loader and writer; record types
-whose slots live elsewhere (inside JSON documents, in keyed rows) bring their own.
+(``<slot>_spec``, ``<slot>_t``, ``time_status``) get a default loader and writer; slots that live
+elsewhere (families, and ``custom`` slots: inside JSON documents, in keyed rows) need the
+provider's own, which only ever see those slots. One record type may mix both (an event's
+``start`` column and its rule's ``recurrence_until``).
 """
 
 import re
@@ -43,7 +45,8 @@ class SlotDef:
     ``name`` is a slot name (``start``), a family (``exclusion:*`` matches ``exclusion:<any>``) or
     ``*`` (any slot not matched otherwise). The column names default to ``<name>_spec`` /
     ``<name>_t`` for fixed slots; families have no columns, so their provider needs its own loader
-    and writer. ``status_column`` may be shared by several slots of the record.
+    and writer. ``custom`` slots have a fixed name but no columns either (time points inside a
+    JSON document). ``status_column`` may be shared by several slots of the record.
     """
 
     name: str
@@ -54,6 +57,8 @@ class SlotDef:
     status_column: str | None = "time_status"
     start: str = "start"
     """For end specs: the slot of the same record the end resolves from (and may not precede)."""
+    custom: bool = False
+    """Stored by the provider's own loader and writer (no columns)."""
 
     @property
     def is_family(self) -> bool:
@@ -61,8 +66,9 @@ class SlotDef:
 
     @property
     def columns(self) -> tuple[str, str] | None:
-        """``(spec column, resolved column)`` of a fixed slot; ``None`` for families."""
-        if self.is_family:
+        """``(spec column, resolved column)`` of a fixed slot; ``None`` for families and custom
+        slots."""
+        if self.is_family or self.custom:
             return None
         return (
             self.spec_column or f"{self.name}_spec",
@@ -150,8 +156,9 @@ type BeyondQuery = Callable[[Session, str, int], list[SlotMoment]]
 class SlotProvider:
     """A record type with time slots (``ModuleSpec.slot_providers`` for module records).
 
-    ``load``/``write`` default to column access on ``model`` (fixed slots only). Trashed rows are
-    reported for a model with ``deleted_at``, or through ``entity_column`` when the row's trash
+    Slots with columns are loaded and written by column access on ``model``; ``load``/``write``
+    (and ``write_spec``, ``keys``, ``beyond``) handle the families and custom slots. Trashed rows
+    are reported for a model with ``deleted_at``, or through ``entity_column`` when the row's trash
     state is its entity's (extension tables). ``id_column`` is the record id the slot refs use.
 
     How to find the records of a dimension (R-DIM-3): ``dimension_column`` (holds the dimension
@@ -177,55 +184,85 @@ class SlotProvider:
         ordered = sorted(self.slots, key=lambda s: (s.name == "*", s.is_family))
         return next((definition for definition in ordered if definition.matches(name)), None)
 
+    def in_columns(self, slot: str) -> bool:
+        """Whether a slot is stored in columns (else by the provider's own functions)."""
+        definition = self.slot(slot)
+        return definition is not None and self._stored_in_columns(definition)
+
+    def _stored_in_columns(self, definition: SlotDef) -> bool:
+        """A fixed slot whose columns exist (with a loader, missing columns make it custom)."""
+        columns = definition.columns
+        table = getattr(self.model, "__table__", None)
+        return (
+            columns is not None
+            and table is not None
+            and all(column in table.columns for column in columns)
+        )
+
     def load_slots(self, session: Session, keys: Sequence[SlotKey]) -> dict[SlotKey, SlotValue]:
-        if self.load is not None:
-            return self.load(session, keys)
-        return _load_columns(self, session, keys)
+        columns = [key for key in keys if self.in_columns(key.slot)]
+        custom = [key for key in keys if not self.in_columns(key.slot)]
+        result = _load_columns(self, session, columns) if columns else {}
+        if custom:
+            if self.load is None:
+                raise SlotError("unknown_slot", f"{self.record_type} has no loader")
+            result.update(self.load(session, custom))
+        return result
 
     def write_slots(self, session: Session, updates: Sequence[SlotUpdate]) -> None:
-        if self.write is not None:
-            self.write(session, updates)
-        else:
-            _write_columns(self, session, updates)
+        columns = [u for u in updates if self.in_columns(u.key.slot)]
+        custom = [u for u in updates if not self.in_columns(u.key.slot)]
+        if columns:
+            _write_columns(self, session, columns)
+        if custom:
+            if self.write is None:
+                raise SlotError("unknown_slot", f"{self.record_type} has no writer")
+            self.write(session, custom)
 
     def moments_beyond(self, session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
+        found = _beyond_columns(self, session, dimension_id, bound)
         if self.beyond is not None:
-            return self.beyond(session, dimension_id, bound)
-        return _beyond_columns(self, session, dimension_id, bound)
+            found += self.beyond(session, dimension_id, bound)
+        return found
 
     def write_specs(self, session: Session, updates: Sequence[SpecUpdate]) -> None:
-        """Store new specs: the provider's ``write_spec``, or the spec columns of fixed slots
-        (``SlotError`` ``not_supported`` for a custom provider without one)."""
-        if self.write_spec is not None:
-            self.write_spec(session, updates)
-        elif self.load is None:
-            _write_spec_columns(self, session, updates)
-        elif updates:
-            raise SlotError("not_supported", f"{self.record_type} slots can't be given a new spec")
+        """Store new specs: the spec columns of column slots, the provider's ``write_spec`` for
+        the others (``SlotError`` ``not_supported`` without one)."""
+        columns = [u for u in updates if self.in_columns(u.key.slot)]
+        custom = [u for u in updates if not self.in_columns(u.key.slot)]
+        if columns:
+            _write_spec_columns(self, session, columns)
+        if custom:
+            if self.write_spec is None:
+                raise SlotError(
+                    "not_supported", f"{self.record_type} slots can't be given a new spec"
+                )
+            self.write_spec(session, custom)
 
     def all_keys(self, session: Session) -> list[SlotKey]:
-        """Every slot with a spec: the provider's ``keys``, or the spec columns of fixed slots
-        (none for a custom provider without ``keys``)."""
+        """Every slot with a spec: the spec columns of column slots and the provider's ``keys``
+        (custom slots without ``keys`` are never listed)."""
+        found = _keys_columns(self, session)
         if self.keys is not None:
-            return self.keys(session)
-        if self.load is not None:
-            return []
-        return _keys_columns(self, session)
+            found += self.keys(session)
+        return sorted(found, key=lambda key: (key.id, key.slot))
 
     def record_keys(self, session: Session, record_id: str) -> list[SlotKey]:
         """The slots of one record that have a spec."""
+        found: list[SlotKey] = []
+        row = _rows(self, session, [record_id]).get(record_id) if self._column_slots() else None
+        if row is not None:
+            found = [
+                SlotKey(record_id, slot.name)
+                for slot in self._column_slots()
+                if slot.columns is not None and getattr(row, slot.columns[0]) is not None
+            ]
         if self.keys is not None:
-            return [key for key in self.keys(session) if key.id == record_id]
-        if self.load is not None:
-            return []
-        row = _rows(self, session, [record_id]).get(record_id)
-        if row is None:
-            return []
-        return [
-            SlotKey(record_id, slot.name)
-            for slot in self.slots
-            if slot.columns is not None and getattr(row, slot.columns[0]) is not None
-        ]
+            found += [key for key in self.keys(session) if key.id == record_id]
+        return found
+
+    def _column_slots(self) -> list[SlotDef]:
+        return [slot for slot in self.slots if self._stored_in_columns(slot)]
 
     def records_of_entity(self, session: Session, entity_id: str) -> list[str]:
         """Ids of the records that belong to an entity (through ``entity_column``)."""
@@ -383,9 +420,10 @@ def _validate_slots(where: str, provider: SlotProvider) -> list[str]:
         if name in seen:
             problems.append(f"{where}: duplicate slot {name!r}")
         seen.add(name)
-        if slot.is_family:
+        if slot.is_family or slot.custom:
             if not custom:
-                problems.append(f"{where}: slot family {name!r} needs a loader and a writer")
+                what = "slot family" if slot.is_family else "custom slot"
+                problems.append(f"{where}: {what} {name!r} needs a loader and a writer")
             continue
         wanted = [*(slot.columns or ()), slot.status_column]
         missing = [c for c in wanted if c is not None and c not in columns]
@@ -410,8 +448,8 @@ def _validate_lookup(where: str, provider: SlotProvider, columns: set[str]) -> l
         problems.append(
             f"{where}: give one of dimension_column and timeline_column, or a beyond query"
         )
-    if provider.beyond is None and any(slot.is_family for slot in provider.slots):
-        problems.append(f"{where}: slot families need a beyond query")
+    if provider.beyond is None and any(slot.is_family or slot.custom for slot in provider.slots):
+        problems.append(f"{where}: slot families and custom slots need a beyond query")
     return problems
 
 
@@ -503,15 +541,18 @@ def _beyond_columns(
     provider: SlotProvider, session: Session, dimension_id: str, bound: int
 ) -> list[SlotMoment]:
     model: Any = provider.model
+    if not provider._column_slots() or (
+        provider.dimension_column is None and provider.timeline_column is None
+    ):
+        return []
     if provider.dimension_column is not None:
         in_dimension = getattr(model, provider.dimension_column) == dimension_id
     else:
         timeline_ids = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
         in_dimension = getattr(model, str(provider.timeline_column)).in_(timeline_ids)
     found: list[SlotMoment] = []
-    for slot in provider.slots:
-        if slot.columns is None:
-            continue
+    for slot in provider._column_slots():
+        assert slot.columns is not None
         resolved = getattr(model, slot.columns[1])
         rows = session.execute(
             select(getattr(model, provider.id_column), resolved).where(
@@ -584,9 +625,8 @@ def _write_spec_columns(
 def _keys_columns(provider: SlotProvider, session: Session) -> list[SlotKey]:
     model: Any = provider.model
     found: list[SlotKey] = []
-    for slot in provider.slots:
-        if slot.columns is None:
-            continue
+    for slot in provider._column_slots():
+        assert slot.columns is not None
         spec = getattr(model, slot.columns[0])
         ids: Iterable[Any] = session.scalars(
             select(getattr(model, provider.id_column)).where(spec.is_not(None))

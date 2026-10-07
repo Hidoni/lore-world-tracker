@@ -238,6 +238,24 @@ class WindowItemOut(BaseModel):
     importance: int
     category: str | None
     time_status: str | None
+    occurrence_key: str | None = Field(
+        description="For an occurrence of a recurring series (the item is the series' event): "
+        "its key (`k`, or `k.j`); null for other events."
+    )
+
+
+class SeriesBandOut(BaseModel):
+    entity_id: str
+    row_id: str
+    name: str
+    visibility: Visibility
+    importance: int
+    category: str | None
+    from_t: MomentStr = Field(serialization_alias="from")
+    to_t: MomentStr = Field(serialization_alias="to")
+    estimated_count: MomentStr = Field(
+        description="The occurrences overlapping the window (exact when the rule can be counted)."
+    )
 
 
 class WindowBucket(BaseModel):
@@ -255,6 +273,28 @@ class TimelineWindow(BaseModel):
     buckets: list[WindowBucket] = Field(
         description="Culled events per bucket of the window (buckets with any)."
     )
-    series_bands: list[dict[str, Any]] = Field(description="Recurring series (#52).")
-    total: int = Field(description="Events overlapping the window after the filters.")
-    culled: int = Field(description="Events left out of `items` (the sum of `buckets[].starts`).")
+    series_bands: list[SeriesBandOut] = Field(
+        description="Recurring series with too many occurrences in the window to list, over the "
+        "part of the window they cover."
+    )
+    total: int = Field(
+        description="Events and occurrences overlapping the window after the filters (bands "
+        "excluded)."
+    )
+    culled: int = Field(
+        description="Events and occurrences left out of `items` (the sum of `buckets[].starts`)."
+    )
+
+
+class OccurrenceOut(BaseModel):
+    key: str = Field(description="`k`, or `k.j` for rules with several positions per period.")
+    start_t: MomentStr
+    end_t: MomentStr
+
+
+class OccurrencePage(BaseModel):
+    items: list[OccurrenceOut] = Field(description="By start; empty when `truncated`.")
+    truncated: bool = Field(description="More than `limit` occurrences overlap the window.")
+    estimated_count: MomentStr | None = Field(
+        description="When truncated: how many overlap (exact when the rule can be counted)."
+    )

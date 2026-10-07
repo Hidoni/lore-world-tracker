@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
 
 CALENDAR = "calendar"
+EVENT = "event"
 BATCH = 5000  # keys per load (SQLite's variable limit)
 GOOD = frozenset({TimeStatus.OK, TimeStatus.TRASHED_REF})
 _SEVERITY = {TimeStatus.OK: 0, TimeStatus.TRASHED_REF: 1}
@@ -368,6 +369,7 @@ class _Run:
                 self._fail(node, TimeStatus.CYCLE, "time_cycle", "The anchors form a cycle.")
         self._write()
         self._check_order()
+        self._series()
         return self.result
 
     def _order(self) -> tuple[list[Node], set[Node]]:
@@ -537,6 +539,21 @@ class _Run:
                     Violation(end.type, end.id, end.slot, "end_before_start",
                               "The end lies before the start.", end_t)
                 )  # fmt: skip
+
+    def _series(self) -> None:
+        """Refresh the bounds of the recurring series the run touched (``recurrence.md`` §5.5):
+        through an event slot, the rule's calendar or the dimension's duration."""
+        from lore.core.time.series import refresh_series  # noqa: PLC0415 (import cycle)
+
+        events = {n.id for n in self.affected if isinstance(n, SlotNode) and n.type == EVENT}
+        calendars = {n.calendar_id for n in self.affected if isinstance(n, CalendarNode)}
+        dimensions = {n.dimension_id for n in self.affected if isinstance(n, DimensionNode)}
+        if not (events or calendars or dimensions):
+            return
+        for problem in refresh_series(self.writer.context, events, calendars, dimensions):
+            self.result.violations.append(
+                Violation(EVENT, problem.entity_id, "recurrence", problem.code, problem.message)
+            )
 
     def _t(self, node: SlotNode, stored: dict[SlotNode, SlotValue]) -> int | None:
         known = self.known.get(node)
