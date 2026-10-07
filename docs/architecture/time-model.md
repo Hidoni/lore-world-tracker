@@ -180,13 +180,18 @@ belong to the diverging future). The start moment per record type:
 
 | Record type | start moment `s(r)` |
 |-------------|---------------------|
-| event | `start_t` (for a series: `series_start_t`) |
+| event | `start_t` (also for a series: see below) |
 | fact, temporal link | `valid_from_t`, where null = −∞ (always inherited) |
 | worldline segment | `start_t` |
 | module records with validity (e.g. map pins) | their `valid_from_t` (null = −∞) |
 
 Timeless records (links without validity, entity rows themselves) are not timeline-bound. They are
 visible in every timeline, subject to entity visibility (§4.6).
+
+A series is visible by its **series start** `start_t`, not by its first occurrence
+`series_start_t` (decided with #52): an override may add exclusions (§4.4, `recurrence.md` §6),
+which can move the first occurrence but never the start, and an override must start where its root
+does.
 
 ### 4.4 Overrides
 
@@ -413,7 +418,7 @@ others may reference the slot.
 | Record type | Table | Slots | Referenceable |
 |-------------|-------|-------|---------------|
 | `event` | `events` | `start`, `end` | yes (incl. occurrences) |
-| `event` (series) | `events` | `recurrence_until`, `exclusion:<i>.from`, `exclusion:<i>.to` | no |
+| `event` (series) | `events` (inside `recurrence`; moments in `recurrence_resolved`) | `recurrence_until`, `exclusion:<i>.from`, `exclusion:<i>.to` | no |
 | `entity_field` | `entity_time_fields` | `<field key>` (time-point fields), `fact:<fact id>` | no |
 | `timeline` | `timelines` | `branch_point` | yes |
 | `fact` | `entity_facts` | `valid_from`, `valid_to` | yes |
@@ -433,8 +438,9 @@ with the `lore.chronology.schema` models, `spec_column`/`moment_column`/`status_
 `lore.core.time.slots`. A `SlotProvider` registers a record type (core: `CORE_SLOT_PROVIDERS`;
 modules: `ModuleSpec.slot_providers`, record types `<module id>.<type>`) with its model and
 `SlotDef`s: a slot name (`start`), a family (`exclusion:*`) or `*`, its spec kind (`time_point` or
-`end`), `referenceable`, and its columns. Fixed slots in columns get a default loader and writer;
-families need the provider's own. `SlotRegistry.check_ref` rejects relative anchors to unknown
+`end`), `referenceable`, and its columns. Fixed slots whose columns exist get a default loader and
+writer; families and `custom` slots (fixed names stored elsewhere, e.g. inside a JSON document)
+need the provider's own, which only ever see those slots, so one record type can mix both (#52). `SlotRegistry.check_ref` rejects relative anchors to unknown
 (`unknown_slot`) or non-referenceable (`slot_not_referenceable`) slots. Status values:
 `lore.core.time.TimeStatus`.
 
@@ -477,7 +483,8 @@ so a change of `D` re-resolves exactly those slots; decided 2026-10-05). Impleme
 4. Topologically sort the affected subgraph (Kahn's algorithm).
 5. Resolve each node in order with the chronology engine, using already-updated values. Write
    `*_t` and status. Changed resolved values of an event series also refresh
-   `series_start_t/series_end_t` (`recurrence.md` §6).
+   `series_start_t/series_end_t` (`recurrence.md` §5.5): every series with an affected slot, an
+   affected rule calendar or an affected dimension duration.
 6. Run **hard structural checks** on every affected record: within `[0, D]`, `end ≥ start`, valid
    fields, no cycle. Hard checks cannot be disabled. A failure rejects the whole transaction with
    `422 time_constraint` and the list of offending records, unless the operation is a calendar
@@ -582,11 +589,13 @@ and `occurrence_key` (for materialized occurrences), `occurrence_state`.
 
 Implementation (`lore.core.time.events`, #50; decided 2026-10-06 where marked):
 
-- **`ext`** of kind `event`: `{timeline_id, start, end, importance, category}` on writes; reads
-  add `start_t`, `end_t`, `time_status` and `display: {calendar_id, start, end}` (the dimension's
+- **`ext`** of kind `event`: `{timeline_id, start, end, importance, category, recurrence}` on
+  writes (`recurrence`: a rule or null, `recurrence.md` §5.5); reads add `start_t`, `end_t`,
+  `time_status`, `series_start_t`, `series_end_t` and `display: {calendar_id, start, end}` (the dimension's
   default calendar, or `absolute` when the request can't see it or it doesn't compile; `"?"` for
   an `unknown` end). Readers get specs through `ReaderTimes`: a duration end in a calendar they
-  can't see becomes a `time_point` end at the stored moment.
+  can't see becomes a `time_point` end at the stored moment; a rule's time points are redacted
+  like any point, and a rule in a calendar they can't see is shown as `recurrence: null`.
 - **Defaults:** `timeline_id` = the dimension's prime; `end` = `instant` (decided); importance 3.
   `start` is required on creation. `start`, `end` and `importance` can't be removed, and the
   timeline can't change (moving between timelines is left to the branches module).
@@ -603,8 +612,9 @@ Implementation (`lore.core.time.events`, #50; decided 2026-10-06 where marked):
   create and when `parent_id` changes (`422 parent_not_allowed`).
 - **Purge** freezes what is anchored to the event (§7.3), then deletes its rows. A timeline with
   events can't be purged (`409`, `context.references`).
-- `TimelineView` registers `events` with start `start_t` and end `end_t` (series bounds arrive
-  with #52).
+- `TimelineView` registers `events` with start `start_t` and end `end_t` (series too, §4.3). The
+  timeline window leaves series rows out of the overlap scan and selects candidate series by
+  their bounds instead (`recurrence.md` §5.5).
 
 ### 9.2 Sub-events
 

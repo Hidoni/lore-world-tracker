@@ -16,10 +16,14 @@ noted):
   the dependent's timeline". Only home rows exist until M9 (#115 makes the slots
   timeline-aware).
 - Purging an event freezes what is anchored to it, then deletes its rows.
+- ``recurrence`` (a rule, or null) makes the event a **series** (``lore.core.time.series``,
+  ``recurrence.md``): the rule is validated with the event's start and end on every write that
+  changes one of them (``422`` with ``rule.<code>`` errors under ``ext.recurrence`` or ``ext.end``).
 """
 
 import base64
 import binascii
+import copy
 import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -32,8 +36,10 @@ from lore.chronology.schema import EndSpec, InstantEnd, TimePoint
 from lore.core.entities.errors import ParentNotAllowedError
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
+from lore.core.time import series
 from lore.core.time.batch import Lens, display
 from lore.core.time.calendars import lens
+from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Event, Timeline
 from lore.core.time.propagate import TimeWriter, freeze_on_purge
 from lore.core.time.redact import ReaderTimes
@@ -70,6 +76,7 @@ class EventExt(BaseModel):
     end: EndSpec | None = None
     importance: int | None = Field(default=None, ge=1, le=5)
     category: str | None = Field(default=None, min_length=1, max_length=200)
+    recurrence: dict[str, Any] | None = None
 
 
 def _parse(ext: dict[str, Any] | None) -> EventExt:
@@ -127,6 +134,8 @@ def write_event(
         session.add(row)
         _check_parent(context, entity, row.timeline_id)
         start, end = data.start, data.end or INSTANT
+        rule = _rule(data.recurrence)
+        rule_sent = rule is not None
     else:
         found = home_row(session, entity.id)
         if found is None:
@@ -139,15 +148,38 @@ def write_event(
             raise _invalid("ext.timeline_id", "An event can't move to another timeline.")
         start = data.start if "start" in sent else None
         end = data.end if "end" in sent else None
+        rule_sent = "recurrence" in sent
+        rule = _rule(data.recurrence) if rule_sent else series.stored_rule(row)
         if data.importance is not None:
             row.importance = data.importance
         if "category" in sent:
             row.category = data.category
         if sent - {"timeline_id"}:
             row.revision += 1
-    if start is not None or end is not None:
-        _write_times(context, entity.dimension_id, row, start, end)
+    if start is not None or end is not None or rule_sent:
+        _write_times(
+            context, entity.dimension_id, row, start=start, end=end, rule=rule, rule_sent=rule_sent
+        )
     session.flush()
+
+
+def _rule(document: dict[str, Any] | None) -> series.Rule | None:
+    if document is None:
+        return None
+    try:
+        return series.parse_rule(document)
+    except ValidationError as exc:
+        raise InvalidInputError(
+            "The recurrence rule is invalid.",
+            errors=[
+                ErrorItem(
+                    path=".".join(["ext.recurrence", *(str(part) for part in error["loc"])]),
+                    code="invalid_value",
+                    message=str(error["msg"]),
+                )
+                for error in exc.errors(include_url=False)
+            ],
+        ) from exc
 
 
 def _require_calendar(session: Session, dimension_id: str) -> None:
@@ -189,10 +221,14 @@ def _write_times(
     context: VaultContext,
     dimension_id: str,
     row: Event,
+    *,
     start: TimePoint | None,
     end: EndSpec | None,
+    rule: series.Rule | None,
+    rule_sent: bool,
 ) -> None:
-    """Check that the new specs resolve, store them and propagate (§7.2)."""
+    """Check that the new specs (and the series' rule) resolve, store them and propagate
+    (§7.2). Propagation refreshes the series bounds."""
     session = context.session
     resolver = Resolver(context, dimension_id, row.timeline_id)
     started = resolver.resolve(start if start is not None else row.start_spec)
@@ -200,17 +236,61 @@ def _write_times(
         _require(started, "ext.start")
     if end is not None:
         _require(resolver.resolve_end(end, started), "ext.end")
+    resolved: dict[str, int] = {}
+    if rule is not None:
+        resolved = _check_rule(resolver, rule, started, end or parse_end_spec(row.end_spec))
+    old_rule = series.stored_rule(row)
+    old_points = {} if old_rule is None else series.rule_points(old_rule)
     if start is not None:
         row.start_spec = start
     if end is not None:
         row.end_spec = end
+    if rule_sent:
+        row.recurrence = None if rule is None else series.dump_rule(rule)
+        row.recurrence_resolved = None if rule is None else {p: str(t) for p, t in resolved.items()}
+        if rule is None:
+            row.series_start_t = row.series_end_t = None
     session.flush()
     writer = TimeWriter(context)
     if start is not None:
         writer.set_spec(EVENT, row.entity_id, "start", start)
     if end is not None:
         writer.set_spec(EVENT, row.entity_id, "end", end, dimension_id=dimension_id)
+    if rule_sent:
+        points = {} if rule is None else series.rule_points(rule)
+        for slot in sorted(old_points.keys() - points.keys()):
+            writer.set_spec(EVENT, row.entity_id, slot, None)
+        for slot, (_pointer, point) in sorted(points.items()):
+            writer.set_spec(EVENT, row.entity_id, slot, point)
+        writer.touch(SlotNode(EVENT, row.entity_id, "start"))  # refreshes the series bounds
     writer.propagate(path="ext")
+
+
+def _check_rule(
+    resolver: Resolver, rule: series.Rule, started: Resolution, end: EndSpec
+) -> dict[str, int]:
+    """Resolve the rule's time points and validate the rule against the series' start and end
+    (``recurrence.md`` §9). Returns the resolved moments by JSON pointer."""
+    resolved: dict[str, int] = {}
+    for _slot, (pointer, point) in sorted(series.rule_points(rule).items()):
+        resolution = resolver.resolve(point)
+        _require(resolution, "ext.recurrence" + pointer.replace("/", "."))
+        assert resolution.t is not None
+        resolved[pointer] = resolution.t
+    if started.t is None:
+        return resolved
+    ctx = series.recurrence_context(resolver, rule, started.t, end, resolved)
+    problem = ctx if isinstance(ctx, series.RuleProblem) else series.check_rule(rule, ctx)
+    if problem is not None:
+        if problem.path.startswith("/end"):
+            path = "ext" + problem.path.replace("/", ".")
+        else:
+            path = "ext.recurrence" + problem.path.replace("/", ".")
+        raise InvalidInputError(
+            f"The recurrence rule is invalid: {problem.message}",
+            errors=[ErrorItem(path=path, code=problem.code, message=problem.message)],
+        )
+    return resolved
 
 
 def _require(resolution: Resolution, path: str) -> None:
@@ -328,8 +408,35 @@ def read_event(
         "time_status": row.time_status,
         "importance": row.importance,
         "category": row.category,
+        "recurrence": reader_rule(times, row, entity.dimension_id),
+        "series_start_t": None if row.series_start_t is None else str(row.series_start_t),
+        "series_end_t": None if row.series_end_t is None else str(row.series_end_t),
         "display": EventTimes(context, policy).displays(entity.dimension_id, row),
     }
+
+
+def reader_rule(times: ReaderTimes, row: Event, dimension_id: str) -> dict[str, Any] | None:
+    """A series' rule as the policy may see it: its time points redacted like any point; null
+    when the reader can't see the rule's calendar (or a point can't be shown)."""
+    if row.recurrence is None or not times.policy.reader:
+        return row.recurrence
+    rule = series.stored_rule(row)
+    assert rule is not None
+    calendar_id = getattr(rule, "calendar_id", None)
+    session = times.context.session
+    if calendar_id is not None and not times.policy.visible_ids(session, [calendar_id]):
+        return None
+    document = copy.deepcopy(row.recurrence)
+    for pointer, point in series.rule_points(rule).values():
+        shown = times.point(dump_spec(point), dimension_id)
+        if shown is None:
+            return None
+        *parents, last = [part for part in pointer.split("/") if part]
+        node: Any = document
+        for part in parents:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+        node[last] = shown
+    return document
 
 
 def reader_end(times: ReaderTimes, row: Event, dimension_id: str) -> dict[str, Any] | None:

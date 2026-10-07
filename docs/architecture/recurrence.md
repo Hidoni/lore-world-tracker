@@ -329,7 +329,32 @@ next occurrences are `position(G(t) + 1)` / `position(G(t + 1))`, skipping exclu
 On every write of the series, or re-resolution of its start, limit, exclusions or calendar, the
 server stores `series_start_t` (first occurrence start) and `series_end_t` (end of the last
 occurrence, or `D` for `never`) in `events`. Window queries use these columns to select candidate
-series (`series_start_t < w1 AND series_end_t > w0`) before expanding.
+series (`series_start_t < w1 AND series_end_t >= w0`, so that an instant occurrence at `w0` counts)
+before expanding.
+
+Implementation (`lore.core.time.series`, #52; decided there where the above is silent):
+
+- The rule is the event's `ext.recurrence` (stored with its defaults, like specs). Its time points
+  are slots of the event (`recurrence_until`, `exclusion:<i>.from`, `exclusion:<i>.to`,
+  `time-model.md` §6): anchorable, propagated and frozen on purge like any slot. Their resolved
+  moments are stored in `events.recurrence_resolved` by JSON pointer (`/limit/until`,
+  `/exclusions/<i>/from`), which is the engine's `ctx.resolved`.
+- Writes that change a series' rule, start or end validate the rule (§9) with the new values:
+  `422` with `rule.<code>` errors at `ext.recurrence.<path>` (`ext.end…` for paths into the
+  series), anchor problems at the time point's path. The warning
+  `rule.series_start_not_occurrence` doesn't refuse the write.
+- The calendar of a calendar rule must be a calendar of the event's dimension; it is also the
+  calendar of a calendar duration (the engines take one calendar), so a calendar rule's series
+  can't use a calendar duration in another calendar (`rule.unknown_calendar` at
+  `/end/duration/calendar_id`). An interval rule's calendar duration may use any calendar of the
+  dimension.
+- Bounds are refreshed by propagation (`time-model.md` §7.2 step 5) for every series the run
+  touched: through one of its slots, its rule's (or duration's) calendar, or its dimension's `D`.
+  A rule that no longer evaluates (`until` before the start, …) is a hard violation
+  (`422 time_constraint`, slot `recurrence`, code `rule.<code>`). Both columns are NULL when the
+  series has no occurrence.
+- `GET /events/{id}/occurrences?from=&to=&limit=` is `expand` over the window with
+  `max_items = limit` (computed occurrences only until materialized ones exist, #53).
 
 ### 5.6 Searches and limits (`lore.chronology.recurrence`, `@lore/chronology` `recurrence/`)
 

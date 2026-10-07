@@ -2,7 +2,7 @@
 (``time-model.md`` §6, ``modules.md`` §2.1)."""
 
 from lore.core.entities.extensions import KindExtension
-from lore.core.time import calendars, dimensions, events
+from lore.core.time import calendars, dimensions, events, series
 from lore.core.time.models import Calendar, Dimension, Event, Timeline
 from lore.core.time.slots import SlotDef, SlotProvider
 
@@ -29,11 +29,19 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         (
             SlotDef("start", referenceable=True),
             SlotDef("end", spec="end", referenceable=True),
+            # The recurrence rule's time points (recurrence.md §2), stored in the rule.
+            SlotDef(series.UNTIL_SLOT, custom=True),
+            SlotDef("exclusion:*"),  # exclusion:<i>.from, exclusion:<i>.to
         ),
         # Refs name the event entity; only home rows exist until branches (#115).
         id_column="entity_id",
         entity_column="entity_id",
         timeline_column="timeline_id",
+        load=series.load_rule_slots,
+        write=series.write_rule_slots,
+        beyond=series.rule_moments_beyond,
+        write_spec=series.write_rule_specs,
+        keys=series.rule_slot_keys,
     ),
     SlotProvider(
         calendars.CALENDAR,

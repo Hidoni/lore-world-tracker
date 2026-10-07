@@ -14,12 +14,12 @@ from lore.core.api.deps import (
     WritableVaultDep,
 )
 from lore.core.entities.schemas import ID_PATTERN
-from lore.core.errors import NotFoundError
+from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
 from lore.core.time.calendars import Preview, presets
 from lore.core.time.dimensions import TIMELINE, timeline_tree
-from lore.core.time.events import EVENT, EventTimes, event_tree
+from lore.core.time.events import EVENT, EventTimes, event_tree, home_row
 from lore.core.time.schemas import (
     CalendarPreviewIn,
     ConvertIn,
@@ -29,25 +29,31 @@ from lore.core.time.schemas import (
     EventDisplay,
     EventTreeNode,
     EventTreePage,
+    OccurrenceOut,
+    OccurrencePage,
     PresetList,
     PresetOut,
     ResolveIn,
     ResolveOut,
+    SeriesBandOut,
     TimelineTree,
     TimelineWindow,
     WindowBucket,
     WindowItemOut,
 )
+from lore.core.time.series import occurrences
 from lore.core.time.window import WindowQuery, timeline_window
 from lore.core.time.wizard import create_dimension, preview_calendar
 
 router = APIRouter(prefix="/vaults/{vault_id}/dimensions", tags=["dimensions"])
+events_router = APIRouter(prefix="/vaults/{vault_id}/events", tags=["events"])
 calendars_router = APIRouter(prefix="/vaults/{vault_id}/calendars", tags=["calendars"])
 time_router = APIRouter(prefix="/vaults/{vault_id}/time", tags=["time"])
 timelines_router = APIRouter(prefix="/vaults/{vault_id}/timelines", tags=["timelines"])
 
 DimensionIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Dimension id.")]
 TimelineIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Timeline id.")]
+EventIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Event id.")]
 
 
 @router.get("/{dimension_id}/timelines", name="timelines")
@@ -237,7 +243,10 @@ def get_window(
         str | None,
         Query(pattern=ID_PATTERN, description="An event: only its sub-events (any depth)."),
     ] = None,
-    include_series: Annotated[bool, Query(description="Recurring series (#52).")] = True,
+    include_series: Annotated[
+        bool,
+        Query(description="Expand recurring series into occurrences (or bands when too many)."),
+    ] = True,
 ) -> TimelineWindow:
     """The events of the timeline overlapping ``[from, to)``: at most ``min(px, 2000)`` of them,
     by importance, then duration, then start; the rest are counted in density buckets
@@ -251,7 +260,6 @@ def get_window(
         raise NotFoundError(f"No timeline {timeline_id}.")
     if parent is not None and entities.load_visible(parent).kind != EVENT:
         raise NotFoundError(f"No event {parent}.")
-    _ = include_series  # series bands arrive with recurring events (#52)
     window = timeline_window(
         context,
         policy,
@@ -265,6 +273,7 @@ def get_window(
             tags=tuple(tags or ()),
             participants=tuple(participants or ()),
             parent=parent,
+            include_series=include_series,
         ),
     )
     return TimelineWindow(
@@ -286,6 +295,7 @@ def get_window(
                 importance=item.importance,
                 category=item.category,
                 time_status=item.time_status,
+                occurrence_key=item.occurrence_key,
             )
             for item in window.items
         ],
@@ -293,7 +303,73 @@ def get_window(
             WindowBucket(from_t=b.start, to_t=b.end, starts=b.starts, active=b.active)
             for b in window.buckets
         ],
-        series_bands=[],
+        series_bands=[
+            SeriesBandOut(
+                entity_id=band.entity_id,
+                row_id=band.row_id,
+                name=band.name,
+                visibility=band.visibility,  # type: ignore[arg-type]
+                importance=band.importance,
+                category=band.category,
+                from_t=band.start,
+                to_t=band.end,
+                estimated_count=band.estimated_count,
+            )
+            for band in window.series_bands
+        ],
         total=window.total,
         culled=window.culled,
+    )
+
+
+@events_router.get("/{event_id}/occurrences", name="occurrences")
+def get_occurrences(
+    *,
+    event_id: EventIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    start: Annotated[
+        str,
+        Query(
+            alias="from",
+            pattern=MOMENT_PATTERN,
+            max_length=1000,
+            description="The window's first moment.",
+        ),
+    ],
+    end: Annotated[
+        str,
+        Query(
+            alias="to",
+            pattern=MOMENT_PATTERN,
+            max_length=1000,
+            description="The moment after the window (half-open).",
+        ),
+    ],
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+) -> OccurrencePage:
+    """The occurrences of a recurring event overlapping ``[from, to)``, computed from its rule
+    (``recurrence.md`` §4 ``expand``). More than ``limit`` of them give ``truncated`` with a count
+    and no items. ``404`` for an event the request may not see, ``409 not_a_series`` for an event
+    that doesn't recur."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    entity = EntityService(context, policy).load_visible(event_id)
+    row = home_row(session, entity.id) if entity.kind == EVENT else None
+    if row is None:
+        raise NotFoundError(f"No event {event_id}.")
+    if int(start) >= int(end):
+        raise InvalidInputError(
+            "The window must end after it starts.",
+            errors=[ErrorItem(path="to", code="invalid_value",
+                              message="The window must end after it starts.")],
+        )  # fmt: skip
+    expansion = occurrences(context, row, (int(start), int(end)), limit)
+    return OccurrencePage(
+        items=[OccurrenceOut(key=o.key, start_t=o.start, end_t=o.end) for o in expansion.items],
+        truncated=expansion.truncated,
+        estimated_count=expansion.estimated_count,
     )

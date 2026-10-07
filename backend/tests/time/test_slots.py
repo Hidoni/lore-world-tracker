@@ -344,7 +344,7 @@ def test_dimension_lookup_errors() -> None:
         dimension_column="id",
     )  # fmt: skip
     assert validate_providers("x", [family], (Rule,)) == [
-        "x: slot provider 'x.rule': slot families need a beyond query"
+        "x: slot provider 'x.rule': slot families and custom slots need a beyond query"
     ]
 
 

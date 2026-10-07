@@ -224,7 +224,8 @@ One **home row** per event entity, plus **override rows** in branches (`time-mod
 | `importance` INTEGER | 1–5, default 3; copied to override rows |
 | `category` TEXT NULL | copied to override rows |
 | `recurrence` JSON NULL | rule (`recurrence.md` §2) |
-| `series_start_t`, `series_end_t` NULL | cached series bounds |
+| `recurrence_resolved` JSON NULL | the rule's resolved time points: JSON pointer → moment string |
+| `series_start_t`, `series_end_t` NULL | cached series bounds (NULL without occurrences) |
 | `series_entity_id` NULL → entities | for materialized occurrences |
 | `occurrence_key` TEXT NULL | |
 | `occurrence_state` TEXT NULL | `referenced` / `modified` / `cancelled` |

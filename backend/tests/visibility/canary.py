@@ -274,5 +274,35 @@ def _events(
         "event", "Aftermath", parent_id=plot["id"], ext={"start": after_plot}, **home
     )
     b.hidden_link("core.causes", plot, aftermath, data={"description": b.canary_string()})
+    _series(b, home, secret, plot)
     b.hidden("calendar", ext={"definition": YEARS}, dimension_id=realm["id"])
     b.hidden("event", dimension_id=realm["id"])
+
+
+def _series(
+    b: _Builder, home: dict[str, Any], secret: dict[str, Any], plot: dict[str, Any]
+) -> None:
+    """Recurring events: a yearly rule in the private calendar (readers get no rule), a comet
+    whose exclusion is anchored to a private event (readers get its moment) and a private
+    series (its occurrences and bands never reach readers)."""
+    start = {"anchor": {"kind": "absolute", "t": "0"}, "precision": "base"}
+    at_plot = {
+        "anchor": {
+            "kind": "relative",
+            "ref": {"type": "event", "id": plot["id"], "slot": "start"},
+            "offset": {"kind": "base", "units": "0"},
+        },
+        "precision": "base",
+    }
+    yearly = {"kind": "calendar", "calendar_id": secret["id"], "freq": {"level": "year"},
+              "limit": {"kind": "never"}}  # fmt: skip
+    b.public("event", "Festival", ext={"start": start, "recurrence": yearly}, **home)
+    comet = {
+        "kind": "interval",
+        "every": "1000",
+        "limit": {"kind": "count", "count": "50"},
+        "exclusions": [{"from": at_plot, "to": at_plot, "note": "Hidden by the plot"}],
+    }
+    b.public("event", "Comet", ext={"start": start, "recurrence": comet}, **home)
+    hidden = {"kind": "interval", "every": "86400", "limit": {"kind": "never"}}
+    b.hidden("event", visibility="private", ext={"start": start, "recurrence": hidden}, **home)

@@ -14,7 +14,8 @@ moment) and the compile status. Rules (decided 2026-10-05 where noted):
   ``errors[].path`` are JSON pointers into the definition. A calendar is a node of the dependency
   graph (``lore.core.time.propagate``): it depends on its anchor slots, and propagation compiles it
   again when they move.
-- The definition can be edited directly only while nothing depends on the calendar; otherwise
+- The definition can be edited directly only while nothing depends on the calendar (no time slot
+  and no recurring series, whose occurrences it places); otherwise
   ``409 conflict`` points to the proposals flow (#54).
 - The first calendar of a dimension becomes its default (decided). The default calendar can't be
   trashed or purged while it's the default (``409``), unless it's the dimension's only calendar:
@@ -395,7 +396,11 @@ def _parse_ext(ext: dict[str, Any] | None) -> CalendarExt:
 
 
 def _dependents(session: Session, calendar_id: str) -> int:
-    return len(DependencyIndex(session).dependents_of(CalendarNode(calendar_id)))
+    """Time slots and recurring series that depend on the calendar."""
+    from lore.core.time.series import series_using  # noqa: PLC0415 (import cycle)
+
+    slots = len(DependencyIndex(session).dependents_of(CalendarNode(calendar_id)))
+    return slots + len(series_using(session, calendar_id))
 
 
 def _store(context: VaultContext, row: Calendar, compiled: Compiled) -> None:
@@ -457,7 +462,8 @@ def write_calendar(
     dependents = _dependents(session, entity.id)
     if dependents:
         raise ConflictError(
-            f"{dependents} time slots depend on this calendar: change its definition through a "
+            f"{dependents} time slots or recurring series depend on this calendar: change its "
+            "definition through a "
             "calendar proposal (impact preview), not directly.",
             context={"dependents": dependents, "proposals": f"/calendars/{entity.id}/proposals"},
         )

@@ -112,6 +112,8 @@ class Event(IdMixin, TimestampsMixin, Base):
     importance: Mapped[int] = mapped_column(Integer, default=3, server_default=text("3"))
     category: Mapped[str | None] = mapped_column(String)
     recurrence: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    recurrence_resolved: Mapped[dict[str, str] | None] = mapped_column(JSON)
+    """The rule's time points resolved (JSON pointer into the rule → moment string)."""
     series_start_t: Mapped[int | None] = moment_column()
     series_end_t: Mapped[int | None] = moment_column()
     series_entity_id: Mapped[str | None] = mapped_column(

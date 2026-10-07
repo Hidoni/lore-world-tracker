@@ -244,6 +244,18 @@ def timeline_window(c: Canary) -> Iterator[Call]:
         yield Call(url, {**whole, "px": 10, "tag": hidden_id})
 
 
+@recipe(f"{V}/events/{{event_id}}/occurrences")
+def occurrences(c: Canary) -> Iterator[Call]:
+    window = {"from": "0", "to": str(10**12 + 1)}
+    for name in ("Festival", "Comet"):
+        url = f"{_v(c)}/events/{c.public[name]}/occurrences"
+        yield Call(url, window)
+        yield Call(url, {**window, "limit": 1})  # truncated
+    yield Call(f"{_v(c)}/events/{c.public['Coronation']}/occurrences", window, status=409)
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/events/{hidden_id}/occurrences", window, status=404)
+
+
 @recipe(f"{V}/calendars/presets")
 def calendar_presets(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/calendars/presets")

@@ -809,6 +809,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/events/{event_id}/occurrences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Occurrences
+         * @description The occurrences of a recurring event overlapping ``[from, to)``, computed from its rule
+         *     (``recurrence.md`` §4 ``expand``). More than ``limit`` of them give ``truncated`` with a count
+         *     and no items. ``404`` for an event the request may not see, ``409 not_a_series`` for an event
+         *     that doesn't recur.
+         */
+        get: operations["events_occurrences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2068,6 +2091,46 @@ export interface components {
             /** Modules */
             modules: components["schemas"]["ModuleState"][];
         };
+        /** OccurrenceOut */
+        OccurrenceOut: {
+            /**
+             * Key
+             * @description `k`, or `k.j` for rules with several positions per period.
+             */
+            key: string;
+            /**
+             * Start T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            start_t: string;
+            /**
+             * End T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            end_t: string;
+        };
+        /** OccurrencePage */
+        OccurrencePage: {
+            /**
+             * Items
+             * @description By start; empty when `truncated`.
+             */
+            items: components["schemas"]["OccurrenceOut"][];
+            /**
+             * Truncated
+             * @description More than `limit` occurrences overlap the window.
+             */
+            truncated: boolean;
+            /**
+             * Estimated Count
+             * @description When truncated: how many overlap (exact when the rule can be counted).
+             */
+            estimated_count: string | null;
+        };
         /**
          * PresetChoice
          * @description A preset instantiated for a dimension (``chronology-engine.md`` §13).
@@ -2384,6 +2447,42 @@ export interface components {
             /** Next Cursor */
             next_cursor: string | null;
         };
+        /** SeriesBandOut */
+        SeriesBandOut: {
+            /** Entity Id */
+            entity_id: string;
+            /** Row Id */
+            row_id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Importance */
+            importance: number;
+            /** Category */
+            category: string | null;
+            /**
+             * From
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            from: string;
+            /**
+             * To
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            to: string;
+            /**
+             * Estimated Count
+             * Format: bigint
+             * @description The occurrences overlapping the window (exact when the rule can be counted).
+             * @example 0
+             * @example 435000000000000000
+             */
+            estimated_count: string;
+        };
         /**
          * SlotRef
          * @description A referenceable time slot of a record (time-model §6).
@@ -2551,19 +2650,17 @@ export interface components {
             buckets: components["schemas"]["WindowBucket"][];
             /**
              * Series Bands
-             * @description Recurring series (#52).
+             * @description Recurring series with too many occurrences in the window to list, over the part of the window they cover.
              */
-            series_bands: {
-                [key: string]: unknown;
-            }[];
+            series_bands: components["schemas"]["SeriesBandOut"][];
             /**
              * Total
-             * @description Events overlapping the window after the filters.
+             * @description Events and occurrences overlapping the window after the filters (bands excluded).
              */
             total: number;
             /**
              * Culled
-             * @description Events left out of `items` (the sum of `buckets[].starts`).
+             * @description Events and occurrences left out of `items` (the sum of `buckets[].starts`).
              */
             culled: number;
         };
@@ -2860,6 +2957,11 @@ export interface components {
             category: string | null;
             /** Time Status */
             time_status: string | null;
+            /**
+             * Occurrence Key
+             * @description For an occurrence of a recurring series (the item is the series' event): its key (`k`, or `k.j`); null for other events.
+             */
+            occurrence_key: string | null;
         };
         /** WizardCalendar */
         WizardCalendar: {
@@ -4637,7 +4739,7 @@ export interface operations {
                 participant?: string[] | null;
                 /** @description An event: only its sub-events (any depth). */
                 parent?: string | null;
-                /** @description Recurring series (#52). */
+                /** @description Expand recurring series into occurrences (or bands when too many). */
                 include_series?: boolean;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
@@ -4660,6 +4762,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineWindow"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_occurrences: {
+        parameters: {
+            query: {
+                /** @description The window's first moment. */
+                from: string;
+                /** @description The moment after the window (half-open). */
+                to: string;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Event id. */
+                event_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccurrencePage"];
                 };
             };
             /** @description Problem */

@@ -15,6 +15,12 @@
   ``parent`` (all descendants of that event). Decided 2026-10-06.
 - Visibility: only events the policy and the timeline show; participant links must be visible
   too. Precision names reach readers as ``ReaderTimes`` shows the points.
+- **Series** (``recurrence.md`` §5.1, §5.5; #52): a series row isn't an item itself. Candidate
+  series are those with ``series_start_t < to`` and ``series_end_t >= from`` (``>=``: an instant
+  occurrence at ``from`` counts); each is expanded with ``expand(max_items = budget)``. Its
+  occurrences become items (``occurrence_key`` set) that take part in LOD and buckets like events;
+  a truncated expansion becomes a **series band** (``estimated_count``, over the part of the
+  window the series covers) instead. ``include_series=false`` leaves series out.
 
 The overlap query fetches only ids, raw moment keys and importance; the items kept are loaded
 with the columns they show. Results are cached per vault write generation (``WINDOWS``, decided
@@ -29,6 +35,7 @@ from sqlalchemy import JSON, String, exists, select, type_coerce
 from sqlalchemy.orm import aliased
 
 from lore.chronology.numbers import from_sortable_key, sortable_key
+from lore.chronology.recurrence import RecurrenceError, expand
 from lore.core.entities.models import Entity, EntityTag
 from lore.core.errors import ErrorItem, InvalidInputError
 from lore.core.links.models import Link
@@ -36,6 +43,8 @@ from lore.core.time.cache import WINDOWS
 from lore.core.time.events import EVENT, shown_events, with_children
 from lore.core.time.models import Event
 from lore.core.time.redact import ReaderTimes
+from lore.core.time.resolve import Resolver
+from lore.core.time.series import RuleProblem, row_context
 from lore.core.time.timeline_view import TimelineView
 from lore.core.visibility import VisibilityPolicy
 
@@ -57,6 +66,7 @@ class WindowQuery:
     tags: tuple[str, ...] = ()
     participants: tuple[str, ...] = ()
     parent: str | None = None
+    include_series: bool = True
 
 
 @dataclass(frozen=True)
@@ -77,6 +87,22 @@ class WindowItem:
     end_precision: str | None
     end_approximate: bool
     end_kind: str
+    occurrence_key: str | None = None
+
+
+@dataclass(frozen=True)
+class SeriesBand:
+    """A series with too many occurrences in the window to list."""
+
+    entity_id: str
+    row_id: str
+    name: str
+    visibility: str
+    importance: int
+    category: str | None
+    start: int
+    end: int
+    estimated_count: int
 
 
 @dataclass(frozen=True)
@@ -91,6 +117,7 @@ class Bucket:
 class Window:
     items: list[WindowItem] = field(default_factory=list)
     buckets: list[Bucket] = field(default_factory=list)
+    series_bands: list[SeriesBand] = field(default_factory=list)
     total: int = 0
     culled: int = 0
 
@@ -142,13 +169,88 @@ def _compute(
     )  # fmt: skip
     for condition in _filters(policy, query):
         statement = statement.where(condition)
-    rows: list[_Row] = [tuple(row) for row in session.execute(statement)]
+    series_ids = set(
+        session.scalars(
+            view.select(Event, where=lambda e: [e.recurrence.is_not(None)]).with_only_columns(
+                Event.id
+            )
+        )
+    )
+    rows: list[_Row] = [
+        tuple(row) for row in session.execute(statement) if row[0] not in series_ids
+    ]
+    occurrences: dict[str, _Occurrence] = {}
+    bands: list[SeriesBand] = []
+    if query.include_series and series_ids:
+        occurrences, bands = _expand_series(context, policy, view, query)
+        rows += [(o_id, sortable_key(o.start), sortable_key(o.end), o.importance)
+                 for o_id, o in occurrences.items()]  # fmt: skip
 
     kept = _keep(rows, budget(query.px))
     culled = [row for row in rows if row[0] not in kept]
     window = Window(buckets=_buckets(culled, query), total=len(rows), culled=len(culled))
-    window.items = _items(context, policy, view, sorted(kept))
+    window.items = _items(context, policy, view, sorted(kept), occurrences)
+    window.series_bands = bands
     return window
+
+
+@dataclass(frozen=True)
+class _Occurrence:
+    row_id: str
+    key: str
+    start: int
+    end: int
+    importance: int
+
+
+def _expand_series(
+    context: VaultContext, policy: VisibilityPolicy, view: TimelineView, query: WindowQuery
+) -> tuple[dict[str, _Occurrence], list[SeriesBand]]:
+    """The occurrences of the candidate series in the window (by synthetic id
+    ``<row id>:<key>``) and the bands of those with too many."""
+    session = context.session
+    statement = shown_events(
+        view.select(Event, where=lambda e: [e.recurrence.is_not(None)]), view, policy
+    ).where(Event.series_start_t < query.end, Event.series_end_t >= query.start)
+    for condition in _filters(policy, query):
+        statement = statement.where(condition)
+    statement = statement.add_columns(Entity.name, Entity.visibility, Entity.dimension_id)
+    occurrences: dict[str, _Occurrence] = {}
+    bands: list[SeriesBand] = []
+    resolvers: dict[str, Resolver] = {}
+    for row, name, visibility, dimension_id in session.execute(statement):
+        if dimension_id not in resolvers:
+            resolvers[dimension_id] = Resolver(context, dimension_id)
+        found = row_context(resolvers[dimension_id], row)
+        if isinstance(found, RuleProblem):
+            continue  # a rule that no longer evaluates (its findings say why)
+        rule, ctx = found
+        try:
+            expansion = expand(rule, ctx, (query.start, query.end), budget(query.px))
+        except RecurrenceError:
+            continue
+        if expansion.truncated:
+            assert expansion.estimated_count is not None
+            bands.append(
+                SeriesBand(
+                    entity_id=row.entity_id,
+                    row_id=row.id,
+                    name=name,
+                    visibility=visibility,
+                    importance=row.importance,
+                    category=row.category,
+                    start=max(query.start, row.series_start_t),
+                    end=min(query.end, row.series_end_t),
+                    estimated_count=expansion.estimated_count,
+                )
+            )
+            continue
+        for item in expansion.items:
+            occurrences[f"{row.id}:{item.key}"] = _Occurrence(
+                row.id, item.key, item.start, item.end, row.importance
+            )
+    bands.sort(key=lambda band: (band.start, band.row_id))
+    return occurrences, bands
 
 
 type _Row = tuple[str, str, str, int]  # row id, start key, end key, importance
@@ -241,11 +343,17 @@ def _descendants(parent_id: str) -> Any:
 
 
 def _items(
-    context: VaultContext, policy: VisibilityPolicy, view: TimelineView, row_ids: list[str]
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    view: TimelineView,
+    kept: list[str],
+    occurrences: dict[str, _Occurrence],
 ) -> list[WindowItem]:
-    """The kept rows, with only the columns the window shows (specs as plain JSON)."""
-    if not row_ids:
+    """The kept rows and occurrences, with only the columns the window shows (specs as plain
+    JSON), by start, then the later end first, then row id and occurrence key."""
+    if not kept:
         return []
+    row_ids = sorted({occurrences[i].row_id if i in occurrences else i for i in kept})
     session = context.session
     rows = session.execute(
         select(
@@ -256,7 +364,6 @@ def _items(
         )
         .join(Entity, Entity.id == Event.entity_id)
         .where(Event.id.in_(row_ids))
-        .order_by(Event.start_t, Event.end_t.desc(), Event.id)
     ).all()  # fmt: skip
     parents = with_children(session, view, policy, [row.entity_id for row in rows])
     named_parents = {row.parent_id for row in rows if row.parent_id is not None}
@@ -268,8 +375,11 @@ def _items(
             return point
         return times.point(point, dimension_id) or {}
 
+    by_id = {row.id: row for row in rows}
     items = []
-    for row in rows:
+    for kept_id in kept:
+        occurrence = occurrences.get(kept_id)
+        row = by_id[occurrence.row_id if occurrence is not None else kept_id]
         start_spec, end_spec = row[7], row[8]
         start = shown(start_spec, row.dimension_id)
         end_point: dict[str, Any] = {}
@@ -283,8 +393,8 @@ def _items(
                 visibility=row.visibility,
                 parent_id=row.parent_id if row.parent_id in shown_parents else None,
                 has_children=row.entity_id in parents,
-                start_t=row.start_t,
-                end_t=row.end_t,
+                start_t=row.start_t if occurrence is None else occurrence.start,
+                end_t=row.end_t if occurrence is None else occurrence.end,
                 importance=row.importance,
                 category=row.category,
                 time_status=row.time_status,
@@ -293,6 +403,16 @@ def _items(
                 end_precision=end_point.get("precision"),
                 end_approximate=bool(end_point.get("approximate", False)),
                 end_kind=str(end_spec["kind"]),
+                occurrence_key=None if occurrence is None else occurrence.key,
             )
         )
+    items.sort(key=_order)
     return items
+
+
+def _order(item: WindowItem) -> tuple[int, int, str, int, str]:
+    start = item.start_t if item.start_t is not None else -1
+    end = item.end_t if item.end_t is not None else -1
+    key = item.occurrence_key or ""
+    head, _, tail = key.partition(".")
+    return (start, -end, item.row_id, int(head or -1), tail)
