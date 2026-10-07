@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Path, Query, Response
 
 from lore.chronology.schema import MOMENT_PATTERN
 from lore.core.api.deps import (
@@ -13,13 +13,21 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
-from lore.core.entities.schemas import ID_PATTERN
-from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
+from lore.core.entities.models import Entity
+from lore.core.entities.schemas import (
+    ID_PATTERN,
+    EntityCreate,
+    EntityDeleteResult,
+    EntityWriteResult,
+)
+from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
 from lore.core.time.calendars import Preview, presets
 from lore.core.time.dimensions import TIMELINE, timeline_tree
-from lore.core.time.events import EVENT, EventTimes, event_tree, home_row
+from lore.core.time.events import EVENT, EventTimes, event_tree, home_row, live_sub_events
+from lore.core.time.models import Event
+from lore.core.time.resolve import Resolver
 from lore.core.time.schemas import (
     CalendarPreviewIn,
     ConvertIn,
@@ -41,9 +49,17 @@ from lore.core.time.schemas import (
     WindowBucket,
     WindowItemOut,
 )
-from lore.core.time.series import occurrences
+from lore.core.time.series import (
+    NotASeriesError,
+    RuleProblem,
+    compute_occurrence,
+    materialized_row,
+    occurrences,
+)
 from lore.core.time.window import WindowQuery, timeline_window
 from lore.core.time.wizard import create_dimension, preview_calendar
+from lore.core.types import Affected
+from lore.core.visibility import AUTHOR
 
 router = APIRouter(prefix="/vaults/{vault_id}/dimensions", tags=["dimensions"])
 events_router = APIRouter(prefix="/vaults/{vault_id}/events", tags=["events"])
@@ -54,6 +70,16 @@ timelines_router = APIRouter(prefix="/vaults/{vault_id}/timelines", tags=["timel
 DimensionIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Dimension id.")]
 TimelineIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Timeline id.")]
 EventIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Event id.")]
+
+
+class OccurrenceNotFoundError(NotFoundError):
+    code = "occurrence_not_found"
+    title = "No such occurrence"
+
+
+class OccurrenceInTrashError(ConflictError):
+    code = "occurrence_in_trash"
+    title = "Occurrence in the trash"
 
 
 @router.get("/{dimension_id}/timelines", name="timelines")
@@ -247,6 +273,9 @@ def get_window(
         bool,
         Query(description="Expand recurring series into occurrences (or bands when too many)."),
     ] = True,
+    include_cancelled: Annotated[
+        bool, Query(description="Show cancelled occurrences (materialized, with their state).")
+    ] = False,
 ) -> TimelineWindow:
     """The events of the timeline overlapping ``[from, to)``: at most ``min(px, 2000)`` of them,
     by importance, then duration, then start; the rest are counted in density buckets
@@ -274,6 +303,7 @@ def get_window(
             participants=tuple(participants or ()),
             parent=parent,
             include_series=include_series,
+            include_cancelled=include_cancelled,
         ),
     )
     return TimelineWindow(
@@ -296,6 +326,8 @@ def get_window(
                 category=item.category,
                 time_status=item.time_status,
                 occurrence_key=item.occurrence_key,
+                series_id=item.series_id,
+                occurrence_state=item.occurrence_state,
             )
             for item in window.items
         ],
@@ -349,11 +381,14 @@ def get_occurrences(
         ),
     ],
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    include_cancelled: Annotated[
+        bool, Query(description="List cancelled occurrences too (with their state).")
+    ] = False,
 ) -> OccurrencePage:
-    """The occurrences of a recurring event overlapping ``[from, to)``, computed from its rule
-    (``recurrence.md`` §4 ``expand``). More than ``limit`` of them give ``truncated`` with a count
-    and no items. ``404`` for an event the request may not see, ``409 not_a_series`` for an event
-    that doesn't recur."""
+    """The occurrences of a recurring event overlapping ``[from, to)``: computed from its rule
+    (``recurrence.md`` §4 ``expand``) and replaced by their materialized occurrences (§7). More
+    than ``limit`` of them give ``truncated`` with a count and no items. ``404`` for an event the
+    request may not see, ``409 not_a_series`` for an event that doesn't recur."""
     from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
 
     context = VaultContext(vault, session, registry)
@@ -367,9 +402,125 @@ def get_occurrences(
             errors=[ErrorItem(path="to", code="invalid_value",
                               message="The window must end after it starts.")],
         )  # fmt: skip
-    expansion = occurrences(context, row, (int(start), int(end)), limit)
-    return OccurrencePage(
-        items=[OccurrenceOut(key=o.key, start_t=o.start, end_t=o.end) for o in expansion.items],
-        truncated=expansion.truncated,
-        estimated_count=expansion.estimated_count,
+    listed = occurrences(
+        context, policy, row, (int(start), int(end)), limit, include_cancelled=include_cancelled
     )
+    return OccurrencePage(
+        items=[
+            OccurrenceOut(
+                key=o.key,
+                start_t=o.start,
+                end_t=o.end,
+                number=o.number,
+                entity_id=o.entity_id,
+                state=o.state,
+            )
+            for o in listed.items
+        ],
+        truncated=listed.truncated,
+        estimated_count=listed.estimated_count,
+    )
+
+
+OccurrenceKeyPath = Annotated[
+    str,
+    Path(pattern=r"^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?$", max_length=1100,
+         description="Occurrence key: `k`, or `k.j`."),
+]  # fmt: skip
+
+
+def _series_row(context: VaultContext, event_id: str) -> tuple[Entity, Event]:
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    entity = EntityService(context).load(event_id)
+    row = home_row(context.session, entity.id) if entity.kind == EVENT else None
+    if row is None:
+        raise NotFoundError(f"No event {event_id}.")
+    if row.recurrence is None:
+        raise NotASeriesError("The event doesn't recur.")
+    return entity, row
+
+
+@events_router.post("/{event_id}/occurrences/{key}", name="materialize_occurrence")
+def post_occurrence(
+    *,
+    event_id: EventIdPath,
+    key: OccurrenceKeyPath,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    response: Response,
+) -> EntityWriteResult:
+    """Materialize an occurrence (``recurrence.md`` §7), get-or-create: ``201`` with a new event
+    entity anchored to the occurrence (``occurrence_state = referenced``, named "<series>
+    (<date>)"), or ``200`` with the existing one. ``404 occurrence_not_found`` for a key without
+    an occurrence, ``409 not_a_series``, ``409 occurrence_in_trash`` when its materialized
+    occurrence is in the trash (restore or purge it)."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    service = EntityService(context)
+    series_entity, row = _series_row(context, event_id)
+    existing = materialized_row(session, series_entity.id, key, row.timeline_id)
+    if existing is not None:
+        found = service.load(existing.entity_id)
+        if found.deleted_at is not None:
+            raise OccurrenceInTrashError(
+                "The occurrence's materialized event is in the trash: restore or purge it.",
+                context={"entity_id": found.id},
+            )
+        response.status_code = 200
+        return EntityWriteResult(
+            entity=service.to_out(found),
+            affected=Affected(entities=[], dimensions=[], time_changed=False,
+                              search_changed=False),
+        )  # fmt: skip
+    assert series_entity.dimension_id is not None
+    resolver = Resolver(context, series_entity.dimension_id, row.timeline_id)
+    computed = compute_occurrence(resolver, row, key)
+    if isinstance(computed, RuleProblem):
+        raise OccurrenceNotFoundError(f"The series has no occurrence {key!r}.")
+    shown = EventTimes(context, AUTHOR).occurrence_display(
+        series_entity.dimension_id, row, computed.start
+    )
+    name = f"{series_entity.name} ({shown})" if shown else series_entity.name
+    response.status_code = 201
+    return service.create(
+        EntityCreate(
+            kind=EVENT,
+            name=name[:200],
+            dimension_id=series_entity.dimension_id,
+            visibility=series_entity.visibility,
+            ext={"series_id": series_entity.id, "occurrence_key": key},
+        )
+    )
+
+
+@events_router.delete("/{event_id}/occurrences/{key}", name="delete_occurrence")
+def delete_occurrence(
+    *,
+    event_id: EventIdPath,
+    key: OccurrenceKeyPath,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    trash_sub_events: Annotated[
+        bool, Query(description="Confirm moving the occurrence's sub-events to the trash too.")
+    ] = False,
+) -> EntityDeleteResult:
+    """Revert an occurrence to the computed one by moving its materialized event to the trash
+    (``recurrence.md`` §7). One with sub-events needs ``trash_sub_events=true`` (else ``409
+    occurrence_has_sub_events``), which trashes them too. ``404`` without a materialized
+    occurrence."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    service = EntityService(context)
+    series_entity, row = _series_row(context, event_id)
+    existing = materialized_row(session, series_entity.id, key, row.timeline_id)
+    if existing is None or service.load(existing.entity_id).deleted_at is not None:
+        raise NotFoundError(f"Occurrence {key!r} isn't materialized.")
+    if trash_sub_events:
+        for child in live_sub_events(session, existing.entity_id):
+            service.trash(child)
+    return service.trash(existing.entity_id)

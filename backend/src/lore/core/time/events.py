@@ -32,18 +32,19 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from lore.chronology.schema import EndSpec, InstantEnd, TimePoint
+from lore.chronology.schema import EndSpec, InstantEnd, TimePoint, TimePointEnd
 from lore.core.entities.errors import ParentNotAllowedError
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
+from lore.core.links.models import Link
 from lore.core.time import series
 from lore.core.time.batch import Lens, display
-from lore.core.time.calendars import lens
+from lore.core.time.calendars import AbsoluteLens, lens
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Event, Timeline
 from lore.core.time.propagate import TimeWriter, freeze_on_purge
 from lore.core.time.redact import ReaderTimes
-from lore.core.time.resolve import Resolution, Resolver, require
+from lore.core.time.resolve import BASE, Resolution, Resolver, require
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID, dump_spec, parse_end_spec
 from lore.core.time.timeline_view import TimeBound, TimelineView, register_time_bound
 from lore.core.visibility import AUTHOR, VisibilityPolicy
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
 
 EVENT = "event"
+PARTICIPANT = "core.participant"
 INSTANT: EndSpec = InstantEnd(kind="instant")
 
 # Series start at series_start_t (recurrence, #52); until then every row starts at start_t.
@@ -77,6 +79,23 @@ class EventExt(BaseModel):
     importance: int | None = Field(default=None, ge=1, le=5)
     category: str | None = Field(default=None, min_length=1, max_length=200)
     recurrence: dict[str, Any] | None = None
+    series_id: str | None = None
+    occurrence_key: str | None = Field(default=None, max_length=1100)
+    cancelled: bool | None = None
+
+
+class OccurrenceExistsError(ConflictError):
+    """The occurrence is already materialized (``recurrence.md`` §7)."""
+
+    code = "occurrence_exists"
+    title = "Occurrence already materialized"
+
+
+class OccurrenceHasSubEventsError(ConflictError):
+    """Trashing a materialized occurrence that has sub-events needs a confirmation."""
+
+    code = "occurrence_has_sub_events"
+    title = "Occurrence has sub-events"
 
 
 def _parse(ext: dict[str, Any] | None) -> EventExt:
@@ -110,19 +129,58 @@ def home_row(session: Session, entity_id: str) -> Event | None:
 # --- writes ----------------------------------------------------------------------------------
 
 
+@dataclass
+class _Write:
+    """What a write changes: the row and the specs and rule to store (``None``: unchanged)."""
+
+    row: Event
+    start: TimePoint | None
+    end: EndSpec | None
+    rule: series.Rule | None
+    rule_sent: bool
+    occurrence_changed: bool = False
+
+
 def write_event(
     context: VaultContext, entity: Entity, ext: dict[str, Any] | None, creating: bool
 ) -> None:
     data = _parse(ext)
-    sent = data.model_fields_set
-    session = context.session
     assert entity.dimension_id is not None  # events always have a home dimension
-    start: TimePoint | None
-    end: EndSpec | None
-    if creating:
-        _require_calendar(session, entity.dimension_id)
+    write = _create(context, entity, data) if creating else _patch(context, entity, data)
+    row = write.row
+    if row.series_entity_id is not None and write.rule is not None:
+        raise _invalid("ext.recurrence", "An occurrence of a recurring event can't recur.")
+    if write.start is not None or write.end is not None or write.rule_sent:
+        _write_times(context, entity.dimension_id, row, start=write.start, end=write.end,
+                     rule=write.rule, rule_sent=write.rule_sent)  # fmt: skip
+    if row.series_entity_id is not None and not creating:
+        sent = data.model_fields_set
+        state = _occurrence_state(row, data.cancelled if "cancelled" in sent else None)
+        moved = write.start is not None or write.end is not None
+        write.occurrence_changed = state != row.occurrence_state or (
+            state == series.MODIFIED and moved
+        )
+        row.occurrence_state = state
+    if write.occurrence_changed:
+        assert row.series_entity_id is not None
+        writer = TimeWriter(context)
+        writer.touch_series(row.series_entity_id)  # occurrence refs now see (or stop seeing) it
+        writer.propagate(path="ext")
+    context.session.flush()
+
+
+def _create(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
+    session = context.session
+    assert entity.dimension_id is not None
+    _require_calendar(session, entity.dimension_id)
+    if data.series_id is not None or data.occurrence_key is not None:
+        row = _materialize(context, entity, data)
+    else:
         if data.start is None:
             raise _invalid("ext.start", "An event needs a start.", code="required")
+        if data.cancelled is not None:
+            raise _invalid("ext.cancelled", "Only occurrences of recurring events can be "
+                           "cancelled.")  # fmt: skip
         row = Event(
             entity_id=entity.id,
             timeline_id=_timeline(session, entity.dimension_id, data.timeline_id),
@@ -132,35 +190,118 @@ def write_event(
             category=data.category,
         )
         session.add(row)
-        _check_parent(context, entity, row.timeline_id)
-        start, end = data.start, data.end or INSTANT
-        rule = _rule(data.recurrence)
-        rule_sent = rule is not None
-    else:
-        found = home_row(session, entity.id)
-        if found is None:
-            raise ConflictError("The event has no time data.")
-        row = found
-        for key in ("start", "end", "importance"):
-            if key in sent and getattr(data, key) is None:
-                raise _invalid(f"ext.{key}", f"The event's {key} can't be removed.")
-        if "timeline_id" in sent and data.timeline_id != row.timeline_id:
-            raise _invalid("ext.timeline_id", "An event can't move to another timeline.")
-        start = data.start if "start" in sent else None
-        end = data.end if "end" in sent else None
-        rule_sent = "recurrence" in sent
-        rule = _rule(data.recurrence) if rule_sent else series.stored_rule(row)
-        if data.importance is not None:
-            row.importance = data.importance
-        if "category" in sent:
-            row.category = data.category
-        if sent - {"timeline_id"}:
-            row.revision += 1
-    if start is not None or end is not None or rule_sent:
-        _write_times(
-            context, entity.dimension_id, row, start=start, end=end, rule=rule, rule_sent=rule_sent
+    _check_parent(context, entity, row.timeline_id)
+    rule = _rule(data.recurrence)
+    return _Write(
+        row, row.start_spec, parse_end_spec(row.end_spec), rule, rule is not None,
+        occurrence_changed=row.occurrence_state == series.MODIFIED,
+    )  # fmt: skip
+
+
+def _patch(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
+    sent = data.model_fields_set
+    row = home_row(context.session, entity.id)
+    if row is None:
+        raise ConflictError("The event has no time data.")
+    for key in ("start", "end", "importance"):
+        if key in sent and getattr(data, key) is None:
+            raise _invalid(f"ext.{key}", f"The event's {key} can't be removed.")
+    if "timeline_id" in sent and data.timeline_id != row.timeline_id:
+        raise _invalid("ext.timeline_id", "An event can't move to another timeline.")
+    for key, current in (("series_id", row.series_entity_id),
+                         ("occurrence_key", row.occurrence_key)):  # fmt: skip
+        if key in sent and getattr(data, key) != current:
+            raise _invalid(f"ext.{key}", "An occurrence can't move to another series or key.")
+    if "cancelled" in sent and (row.series_entity_id is None or data.cancelled is None):
+        raise _invalid("ext.cancelled", "Only occurrences of recurring events can be "
+                       "cancelled (true or false).")  # fmt: skip
+    rule_sent = "recurrence" in sent
+    rule = _rule(data.recurrence) if rule_sent else series.stored_rule(row)
+    if data.importance is not None:
+        row.importance = data.importance
+    if "category" in sent:
+        row.category = data.category
+    if sent - {"timeline_id", "series_id", "occurrence_key"}:
+        row.revision += 1
+    return _Write(
+        row,
+        data.start if "start" in sent else None,
+        data.end if "end" in sent else None,
+        rule,
+        rule_sent,
+    )
+
+
+def _occurrence_state(row: Event, cancelled: bool | None) -> str:
+    """``cancelled`` when cancelled (``cancelled`` true, or still cancelled), else ``referenced``
+    while both specs are the occurrence's own anchors and ``modified`` otherwise."""
+    if cancelled or (cancelled is None and row.occurrence_state == series.CANCELLED):
+        return series.CANCELLED
+    assert row.series_entity_id is not None
+    assert row.occurrence_key is not None
+    end = parse_end_spec(row.end_spec)
+    own = series.is_occurrence_point(
+        row.start_spec, row.series_entity_id, "start", row.occurrence_key
+    ) and end.kind == "time_point" and series.is_occurrence_point(
+        end.time_point, row.series_entity_id, "end", row.occurrence_key
+    )  # fmt: skip
+    return series.REFERENCED if own else series.MODIFIED
+
+
+def _materialize(context: VaultContext, entity: Entity, data: EventExt) -> Event:
+    """A materialized occurrence (``recurrence.md`` §7): an event of the series' dimension and
+    timeline, anchored to the computed occurrence unless the request gives its own times
+    (``modified`` then). Importance and category default to the series'."""
+    session = context.session
+    if data.series_id is None or data.occurrence_key is None:
+        path = "ext.series_id" if data.series_id is None else "ext.occurrence_key"
+        raise _invalid(path, "An occurrence needs a series and an occurrence key.", "required")
+    series_entity = session.get(Entity, data.series_id)
+    series_row = home_row(session, data.series_id)
+    if (
+        series_entity is None
+        or series_entity.kind != EVENT
+        or series_row is None
+        or series_entity.dimension_id != entity.dimension_id
+    ):
+        raise _invalid("ext.series_id", "The series must be an event of the same dimension.")
+    if series_row.recurrence is None:
+        raise _invalid("ext.series_id", "The event doesn't recur.", "not_a_series")
+    if series_entity.deleted_at is not None:
+        raise _invalid("ext.series_id", "The series is in the trash.")
+    if "timeline_id" in data.model_fields_set and data.timeline_id != series_row.timeline_id:
+        raise _invalid("ext.timeline_id", "An occurrence lives in its series' timeline.")
+    key = data.occurrence_key
+    existing = series.materialized_row(session, data.series_id, key, series_row.timeline_id)
+    if existing is not None:
+        raise OccurrenceExistsError(
+            "The occurrence is already materialized.",
+            context={"entity_id": existing.entity_id},
         )
-    session.flush()
+    assert entity.dimension_id is not None
+    resolver = Resolver(context, entity.dimension_id, series_row.timeline_id)
+    computed = series.compute_occurrence(resolver, series_row, key)
+    if isinstance(computed, series.RuleProblem):
+        raise _invalid("ext.occurrence_key", f"The series has no occurrence {key!r}.",
+                       "occurrence_not_found")  # fmt: skip
+    own_start = series.occurrence_point(data.series_id, "start", key)
+    own_end = TimePointEnd(
+        kind="time_point", time_point=series.occurrence_point(data.series_id, "end", key)
+    )
+    row = Event(
+        entity_id=entity.id,
+        timeline_id=series_row.timeline_id,
+        start_spec=data.start or own_start,
+        end_spec=data.end or own_end,
+        importance=data.importance or series_row.importance,
+        category=data.category if "category" in data.model_fields_set else series_row.category,
+        series_entity_id=data.series_id,
+        occurrence_key=key,
+        original_start_t=computed.start,
+    )
+    row.occurrence_state = _occurrence_state(row, data.cancelled)
+    session.add(row)
+    return row
 
 
 def _rule(document: dict[str, Any] | None) -> series.Rule | None:
@@ -379,6 +520,20 @@ class EventTimes:
             self._lenses[dimension_id] = (calendar_id, found)
         return self._lenses[dimension_id]
 
+    def occurrence_display(self, dimension_id: str, row: Event, t: int) -> str | None:
+        """An occurrence start of a series, at the precision of the series start."""
+        precision = TimePoint.model_validate(row.start_spec).precision
+        lens_ = self.lens(dimension_id)[1]
+        if precision == BASE and not isinstance(lens_, AbsoluteLens):
+            precision = lens_.levels[0]  # names read better with a date than with base units
+        point = TimePoint.model_validate(
+            {"anchor": {"kind": "absolute", "t": str(t)}, "precision": precision}
+        )
+        resolution = self._resolver(dimension_id).resolve(point)
+        if resolution.t is None:
+            resolution = self._resolver(dimension_id).resolve(replace_precision(point))
+        return display(lens_, resolution)
+
     def displays(self, dimension_id: str, row: Event) -> dict[str, str | None]:
         resolver = self._resolver(dimension_id)
         calendar_id, lens_ = self.lens(dimension_id)
@@ -390,6 +545,10 @@ class EventTimes:
             "start": display(lens_, start),
             "end": "?" if unknown else display(lens_, end),
         }
+
+
+def replace_precision(point: TimePoint, precision: str = "base") -> TimePoint:
+    return point.model_copy(update={"precision": precision})
 
 
 def read_event(
@@ -411,8 +570,77 @@ def read_event(
         "recurrence": reader_rule(times, row, entity.dimension_id),
         "series_start_t": None if row.series_start_t is None else str(row.series_start_t),
         "series_end_t": None if row.series_end_t is None else str(row.series_end_t),
+        **_occurrence_read(context, policy, row, entity.dimension_id),
         "display": EventTimes(context, policy).displays(entity.dimension_id, row),
     }
+
+
+def _occurrence_read(
+    context: VaultContext, policy: VisibilityPolicy, row: Event, dimension_id: str
+) -> dict[str, Any]:
+    """A materialized occurrence's members (null for other events, and for a reader who can't
+    see the series): its series, key, state, original start, number (``recurrence.md`` §3) and
+    the series' participants (shown with the occurrence's own, §7)."""
+    session = context.session
+    series_id = row.series_entity_id
+    if series_id is None or not policy.visible_ids(session, [series_id]):
+        return {"series_id": None, "occurrence_key": None, "occurrence_state": None,
+                "original_start_t": None, "occurrence_number": None,
+                "series_participants": []}  # fmt: skip
+    assert row.occurrence_key is not None
+    series_row = home_row(session, series_id)
+    number = None
+    if series_row is not None:
+        number = series.number_of(Resolver(context, dimension_id), series_row, row.occurrence_key)
+    participants = session.execute(
+        select(Link.target_id, Link.role)
+        .where(
+            Link.source_id == series_id,
+            Link.link_type == PARTICIPANT,
+            Link.deleted_at.is_(None),
+            *policy.links(Link),
+        )
+        .order_by(Link.target_id)
+    ).all()
+    return {
+        "series_id": series_id,
+        "occurrence_key": row.occurrence_key,
+        "occurrence_state": row.occurrence_state,
+        "original_start_t": None if row.original_start_t is None else str(row.original_start_t),
+        "occurrence_number": number,
+        "series_participants": [{"entity_id": t, "role": role} for t, role in participants],
+    }
+
+
+def trash_event(context: VaultContext, entity: Entity, trashing: bool) -> None:
+    """A materialized occurrence with sub-events is trashed through
+    ``DELETE /events/{series}/occurrences/{key}?trash_sub_events=true``, which trashes them too
+    (``recurrence.md`` §7: deleting it reverts to the computed occurrence after confirmation)."""
+    row = home_row(context.session, entity.id)
+    if not trashing or row is None or row.series_entity_id is None:
+        return
+    children = live_sub_events(context.session, entity.id)
+    if children:
+        raise OccurrenceHasSubEventsError(
+            f"The occurrence has {len(children)} sub-events: confirm moving them to the trash "
+            "with it.",
+            context={
+                "sub_events": children,
+                "delete": f"/events/{row.series_entity_id}/occurrences/{row.occurrence_key}"
+                "?trash_sub_events=true",
+            },
+        )
+
+
+def live_sub_events(session: Session, entity_id: str) -> list[str]:
+    return list(
+        session.scalars(
+            select(Entity.id)
+            .where(Entity.parent_id == entity_id, Entity.kind == EVENT,
+                   Entity.deleted_at.is_(None))
+            .order_by(Entity.id)
+        )
+    )  # fmt: skip
 
 
 def reader_rule(times: ReaderTimes, row: Event, dimension_id: str) -> dict[str, Any] | None:

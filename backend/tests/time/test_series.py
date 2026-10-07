@@ -359,9 +359,8 @@ def test_occurrences_endpoint(api: LinkApi, world: dict[str, Any]) -> None:
     comet = series(api, world, every(1000), end=lasting(10), start=at(500))
     page = occurrences(api, comet, 1000, 3600).json()
     assert page == {
-        "items": [{"key": "1", "start_t": "1500", "end_t": "1510"},
-                  {"key": "2", "start_t": "2500", "end_t": "2510"},
-                  {"key": "3", "start_t": "3500", "end_t": "3510"}],
+        "items": [{"key": str(k), "start_t": str(k * 1000 + 500), "end_t": str(k * 1000 + 510),
+                   "number": k + 1, "entity_id": None, "state": None} for k in (1, 2, 3)],
         "truncated": False,
         "estimated_count": None,
     }  # fmt: skip

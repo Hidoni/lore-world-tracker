@@ -384,7 +384,9 @@ points (`resolve`) and end specs (`resolve_end(end, start)`) with the Python eng
   `unresolved_ref`, `calendar_error` or `cycle`; one outside `[0, D]` keeps its `t` with status
   `out_of_bounds`; a reference to a record or calendar in the trash gives `trashed_ref` (it still
   resolves). Specs that can never resolve have no status: an unknown slot (`unknown_slot`), an
-  unreferenceable one (`slot_not_referenceable`), an occurrence ref (`not_supported` until #53).
+  unreferenceable one (`slot_not_referenceable`), an occurrence ref to something other than an
+  event (`not_supported`). Occurrence refs resolve as `recurrence.md` §7 says (#53); a key
+  without an occurrence is `unresolved_ref`.
   `require(resolution, path)` turns problems into `422` problem+json for writes: `invalid_date`,
   `reform_gap`, `reform_ambiguous`, `not_supported`, else `invalid_date` with the problem's code in
   `errors[].code`.

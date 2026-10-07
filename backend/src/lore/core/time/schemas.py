@@ -240,7 +240,14 @@ class WindowItemOut(BaseModel):
     time_status: str | None
     occurrence_key: str | None = Field(
         description="For an occurrence of a recurring series (the item is the series' event): "
-        "its key (`k`, or `k.j`); null for other events."
+        "its key (`k`, or `k.j`), also for materialized occurrences; null for other events."
+    )
+    series_id: str | None = Field(
+        description="The series of an occurrence (computed: `entity_id`; materialized: its "
+        "series, null when the request can't see it)."
+    )
+    occurrence_state: str | None = Field(
+        description="A materialized occurrence's `referenced`, `modified` or `cancelled`."
     )
 
 
@@ -290,6 +297,13 @@ class OccurrenceOut(BaseModel):
     key: str = Field(description="`k`, or `k.j` for rules with several positions per period.")
     start_t: MomentStr
     end_t: MomentStr
+    number: int | None = Field(
+        description="The occurrence number (1-based, among the occurrences that happen)."
+    )
+    entity_id: str | None = Field(description="The materialized occurrence, if any.")
+    state: str | None = Field(
+        description="`referenced`, `modified` or `cancelled` (materialized occurrences)."
+    )
 
 
 class OccurrencePage(BaseModel):

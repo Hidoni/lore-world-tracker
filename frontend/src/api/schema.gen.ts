@@ -818,15 +818,46 @@ export interface paths {
         };
         /**
          * Occurrences
-         * @description The occurrences of a recurring event overlapping ``[from, to)``, computed from its rule
-         *     (``recurrence.md`` §4 ``expand``). More than ``limit`` of them give ``truncated`` with a count
-         *     and no items. ``404`` for an event the request may not see, ``409 not_a_series`` for an event
-         *     that doesn't recur.
+         * @description The occurrences of a recurring event overlapping ``[from, to)``: computed from its rule
+         *     (``recurrence.md`` §4 ``expand``) and replaced by their materialized occurrences (§7). More
+         *     than ``limit`` of them give ``truncated`` with a count and no items. ``404`` for an event the
+         *     request may not see, ``409 not_a_series`` for an event that doesn't recur.
          */
         get: operations["events_occurrences"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/events/{event_id}/occurrences/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Materialize Occurrence
+         * @description Materialize an occurrence (``recurrence.md`` §7), get-or-create: ``201`` with a new event
+         *     entity anchored to the occurrence (``occurrence_state = referenced``, named "<series>
+         *     (<date>)"), or ``200`` with the existing one. ``404 occurrence_not_found`` for a key without
+         *     an occurrence, ``409 not_a_series``, ``409 occurrence_in_trash`` when its materialized
+         *     occurrence is in the trash (restore or purge it).
+         */
+        post: operations["events_materialize_occurrence"];
+        /**
+         * Delete Occurrence
+         * @description Revert an occurrence to the computed one by moving its materialized event to the trash
+         *     (``recurrence.md`` §7). One with sub-events needs ``trash_sub_events=true`` (else ``409
+         *     occurrence_has_sub_events``), which trashes them too. ``404`` without a materialized
+         *     occurrence.
+         */
+        delete: operations["events_delete_occurrence"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2112,6 +2143,21 @@ export interface components {
              * @example 435000000000000000
              */
             end_t: string;
+            /**
+             * Number
+             * @description The occurrence number (1-based, among the occurrences that happen).
+             */
+            number: number | null;
+            /**
+             * Entity Id
+             * @description The materialized occurrence, if any.
+             */
+            entity_id: string | null;
+            /**
+             * State
+             * @description `referenced`, `modified` or `cancelled` (materialized occurrences).
+             */
+            state: string | null;
         };
         /** OccurrencePage */
         OccurrencePage: {
@@ -2959,9 +3005,19 @@ export interface components {
             time_status: string | null;
             /**
              * Occurrence Key
-             * @description For an occurrence of a recurring series (the item is the series' event): its key (`k`, or `k.j`); null for other events.
+             * @description For an occurrence of a recurring series (the item is the series' event): its key (`k`, or `k.j`), also for materialized occurrences; null for other events.
              */
             occurrence_key: string | null;
+            /**
+             * Series Id
+             * @description The series of an occurrence (computed: `entity_id`; materialized: its series, null when the request can't see it).
+             */
+            series_id: string | null;
+            /**
+             * Occurrence State
+             * @description A materialized occurrence's `referenced`, `modified` or `cancelled`.
+             */
+            occurrence_state: string | null;
         };
         /** WizardCalendar */
         WizardCalendar: {
@@ -4741,6 +4797,8 @@ export interface operations {
                 parent?: string | null;
                 /** @description Expand recurring series into occurrences (or bands when too many). */
                 include_series?: boolean;
+                /** @description Show cancelled occurrences (materialized, with their state). */
+                include_cancelled?: boolean;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -4783,6 +4841,8 @@ export interface operations {
                 /** @description The moment after the window (half-open). */
                 to: string;
                 limit?: number;
+                /** @description List cancelled occurrences too (with their state). */
+                include_cancelled?: boolean;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -4804,6 +4864,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OccurrencePage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_materialize_occurrence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id. */
+                event_id: string;
+                /** @description Occurrence key: `k`, or `k.j`. */
+                key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_delete_occurrence: {
+        parameters: {
+            query?: {
+                /** @description Confirm moving the occurrence's sub-events to the trash too. */
+                trash_sub_events?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Event id. */
+                event_id: string;
+                /** @description Occurrence key: `k`, or `k.j`. */
+                key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDeleteResult"];
                 };
             };
             /** @description Problem */
