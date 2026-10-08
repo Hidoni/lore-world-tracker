@@ -348,7 +348,12 @@ def _series_rows(ctx: RuleContext, subjects: Iterable[str] | None) -> list[Event
     if subjects is None:
         return list(ctx.session.scalars(statement))
     ids = set(subjects)
-    for calendar_id in list(ids):
+    # Only a calendar has dependent series: series_using reads every series, so it runs once per
+    # calendar among the subjects, not once per subject.
+    calendars = ctx.session.scalars(
+        select(Entity.id).where(Entity.id.in_(sorted(ids)), Entity.kind == "calendar")
+    ).all()
+    for calendar_id in calendars:
         ids.update(series_using(ctx.session, calendar_id))
     dimensions = ctx.session.scalars(
         select(Entity.id).where(Entity.id.in_(sorted(ids)), Entity.kind == "dimension")

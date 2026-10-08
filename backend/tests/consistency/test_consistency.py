@@ -10,11 +10,13 @@ from typing import Any
 import pytest
 from sqlalchemy import update
 
+from lore.core.consistency import rules
 from lore.core.consistency.compare import Point, violates_order, worst
 from lore.core.consistency.engine import ConsistencyError, record_only
 from lore.core.entities.models import Entity
 from lore.core.history import recorder
 from lore.core.time.models import Calendar, Event
+from lore.core.time.series import series_using as using
 from tests.entity_api import LinkApi, make_client, problem
 from tests.time.test_proposals import two_months
 
@@ -382,6 +384,25 @@ def test_recurrence_rule_broken_by_a_calendar_edit(api: LinkApi, world: dict[str
     assert done.status_code == 200, done.json()
     [suppressed] = findings(api, status="suppressed")
     assert suppressed["rule_id"] == "core.recurrence.invalid_rule"
+
+
+def test_only_a_calendar_write_looks_up_its_series(
+    api: LinkApi, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``series_using`` reads every series: writing events and links never calls it (a link
+    write per event pair made the ``large`` sample world quadratic), a calendar edit does."""
+    looked_up: list[str] = []
+
+    def series_using(session: Any, calendar_id: str) -> list[str]:
+        looked_up.append(calendar_id)
+        return using(session, calendar_id)
+
+    monkeypatch.setattr(rules, "series_using", series_using)
+    a, b = made(event(api, world, "Spark", at(DAY))), made(event(api, world, "Fire", at(2 * DAY)))
+    api.made_link("core.causes", a, b)
+    assert looked_up == []
+    assert patch(api, world["calendar"]["id"], name="Old Reckoning").status_code == 200
+    assert looked_up == [world["calendar"]["id"]]
 
 
 # --- API ------------------------------------------------------------------------------------------
