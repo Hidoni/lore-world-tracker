@@ -11,7 +11,7 @@ DATA_DIR := $(CURDIR)/data
 UV := uv --directory $(BACKEND)
 
 .PHONY: help setup dev check check-backend check-frontend check-chronology test test-backend \
-	test-frontend test-chronology test-differential bench e2e gen check-contract fmt docker \
+	test-frontend test-chronology test-differential bench perf e2e gen check-contract fmt docker \
 	docker-smoke sample-vault
 
 help: ## List the targets
@@ -63,6 +63,9 @@ test-differential: ## Random calendars and ops through both engines, results com
 bench: ## Chronology benchmarks and perf budgets, both engines (testing.md §4.1)
 	$(UV) run pytest -m perf tests/chronology --no-cov
 	npm run bench -w @lore/chronology
+
+perf: ## Backend perf budgets (testing.md §4): synthetic data and the cached `large` sample world (built on first run, ~1 h)
+	$(UV) run pytest -m perf --ignore=tests/chronology --no-cov -s
 
 check-chronology: ## Fail if chronology JSON Schemas or TS types drifted from the Pydantic models (run make gen)
 	$(UV) run lore chronology export-schemas --check
