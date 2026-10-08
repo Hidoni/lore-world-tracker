@@ -110,6 +110,30 @@ def test_fixture_content_survives_the_upgrade(upgraded: Any) -> None:
     assert set(expected["custom_link_types"]) <= link_types
 
 
+def _check_time(client: TestClient, expected: dict[str, Any]) -> None:
+    """The time facts of a sample world (from v0.2.0 on): calendars, the core events' moments and
+    the series' materialized occurrences."""
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    calendars = {e["name"] for e in _all(client, f"{base}/entities", kind="calendar")}
+    assert set(expected.get("calendars", {})) <= calendars
+    events = {e["name"]: e["id"] for e in _all(client, f"{base}/entities", kind="event")}
+    for name, moments in expected.get("moments", {}).items():
+        ext = client.get(f"{base}/entities/{events[name]}").json()["ext"]
+        assert [ext["start_t"], ext["end_t"], ext["time_status"]] == [*moments, "ok"], name
+    for name, states in expected.get("occurrences", {}).items():
+        found = {}
+        for event_id in events.values():
+            ext = client.get(f"{base}/entities/{event_id}").json()["ext"]
+            if ext["series_id"] == events[name]:
+                found[ext["occurrence_key"]] = ext["occurrence_state"]
+        assert found == states, name
+
+
+def test_fixture_time_survives_the_upgrade(upgraded: Any) -> None:
+    client, expected = upgraded
+    _check_time(client, expected)
+
+
 def test_readers_never_see_the_fixtures_private_content(upgraded: Any) -> None:
     client, expected = upgraded
     base = f"/api/v1/vaults/{expected['vault_id']}"
@@ -169,7 +193,9 @@ def _content(data_dir: Path, vault_id: str) -> list[tuple[Any, ...]]:
                 sorted(tag["name"] for tag in entity["tags"]),
                 [alias["alias"] for alias in entity["aliases"]],
                 json.dumps(entity["body"], sort_keys=True).count("entityLink"),
-                (entity["ext"] or {}).get("start_t"),
+                [(entity["ext"] or {}).get(key) for key in (
+                    "start_t", "end_t", "time_status", "occurrence_key", "occurrence_state")],
+                ((entity["ext"] or {}).get("recurrence") or {}).get("kind"),
                 sorted((item["link"]["link_type"], item["direction"], item["other"]["name"])
                        for item in links),
             ))  # fmt: skip
@@ -186,13 +212,45 @@ def test_the_generator_is_deterministic_for_a_seed(
     second = generate(tmp_path / "b", "small", seed=7)
     other = generate(tmp_path / "c", "small", seed=8)
 
-    assert first.entities == {"calendar": 4, "dimension": 3, "event": 9 + 120, "timeline": 3}
-    assert first.links == 6 + 150
+    assert first.entities == {"calendar": 11, "dimension": 4, "event": 47 + 120,
+                              "timeline": 4}  # fmt: skip
+    assert first.links == 10 + 150
     assert (first.entities, first.links) == (second.entities, second.links)
     assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
     assert _content(tmp_path / "a", first.vault_id) != _content(tmp_path / "c", other.vault_id)
     with _client(tmp_path / "a") as client:
         assert check_vault(_manager(client), first.vault_id).problems == ()
+
+
+def test_the_core_has_its_time_facts(tmp_path: Path) -> None:
+    """Every preset and the custom calendar, events at every precision and with every end kind,
+    series of every rule kind with materialized occurrences, all resolved (``testing.md`` §2)."""
+    world = generate(tmp_path, "tiny")
+    assert sorted(world.calendars.values()) == sorted([
+        "alternating-years", "custom", "gregorian", "julian", "julian-gregorian",
+        "lunisolar-metonic", "mayan", "shire-reckoning", "simple-360", "simple-360",
+        "simple-360",
+    ])  # fmt: skip
+    assert world.occurrences == {
+        "Rite of Tides": {"2": "referenced", "4": "modified", "6": "cancelled"}
+    }
+    assert world.moments["The Endless Vigil"][1] == str(10**110)  # end_of_time
+    expected = {**world.__dict__}
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{world.vault_id}"
+        _check_time(client, expected)
+        events = _all(client, f"{base}/entities", kind="event")
+        exts = [client.get(f"{base}/entities/{e['id']}").json()["ext"] for e in events]
+        anchors = {x["start"]["anchor"]["kind"] for x in exts}
+        precisions = {x["start"]["precision"] for x in exts}
+        ends = {x["end"]["kind"] for x in exts}
+        rules = {x["recurrence"]["kind"] for x in exts if x["recurrence"]}
+        assert anchors == {"absolute", "calendar", "relative"}
+        assert {"base", "second", "minute", "hour", "day", "month", "year", "kin"} <= precisions
+        assert ends == {"time_point", "duration", "instant", "end_of_time", "unknown"}
+        assert rules == {"calendar", "interval"}
+        assert any(x["start"]["approximate"] for x in exts)
+        assert check_vault(_manager(client), world.vault_id).problems == ()
 
 
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
@@ -208,7 +266,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "19 entities, 6 links" in capsys.readouterr().out
+    assert "66 entities, 10 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 
