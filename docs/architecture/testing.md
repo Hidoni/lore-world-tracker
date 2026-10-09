@@ -34,10 +34,22 @@
   timestamps differ). It is used for manual testing, e2e, perf and the golden fixture vaults
   (`--fixture DIR`, `persistence-and-migrations.md` §3.5).
   - **The core** (every size; `tiny` is only the core): a fixed, hand-written set with stable
-    names that tests rely on, covering every feature the app has.
+    names that tests rely on, covering every feature the app has. Time (#56): four dimensions
+    (Aetheria lasts 10^110 seconds), a calendar from every preset plus the custom "Imperial
+    Reckoning" using every calendar feature (two regimes, one starting at an event; named, run and
+    intercalary units; cycle and rules year patterns with an exception; a week continued across
+    the reform and a reset ten-day count; backward, forward and prefix eras; overlays; formats),
+    events typed in every calendar at every precision (era, regime and circa dates included) with
+    every end kind, a chain of relative anchors, recurring events of every rule kind (calendar
+    level and cycle periods, interval, filters, selectors, limits, exclusions) with referenced,
+    modified and cancelled occurrences, a sub-event of an occurrence and an anchor to one.
   - **The bulk** (`small` and up): seeded random events with mentions, tags, aliases, hierarchy and
     private/spoiler content, and links between them. `small` ≈ 1k events / 3k links, `medium` ≈
-    10k / 40k, `large` ≈ 100k events / 500k links (takes about 20 minutes to build).
+    10k / 40k, `large` ≈ 100k events / 500k links (takes about 2 hours to build, until #235
+    brings it back to about 20 minutes). Their starts are absolute, dates in three calendars at
+    random precisions (some circa) or relative to a recent event (base or calendar offsets, start
+    or end); their ends are every kind; every 100th event recurs (interval, yearly or monthly
+    rules), and some series have a materialized occurrence.
   - **Every milestone extends it** with the features it adds (target: every calendar feature,
     recurring events, branches, worldlines, correspondences, facts, module kinds, private
     content, media): a new step in the core, bulk volume where it matters, and the facts tests
@@ -81,8 +93,34 @@ Measured on the `large` sample vault on a typical dev laptop:
 | Graph endpoint, 10k nodes | < 1 s |
 | Timeline pan/zoom with 1,000 visible items | 60 fps (Playwright trace) |
 
-Perf tests are marked `perf` and run nightly and when a PR has the label `perf`. Regressions
-greater than 25% fail the nightly run.
+Perf tests are marked `perf`; `make perf` runs the backend ones (`make bench` the chronology
+ones). They are meant to run nightly and when a PR has the label `perf`, and regressions greater
+than 25% should then fail the nightly run. Each feature's perf test checks its budget on synthetic
+rows (uniform, fast to insert); `tests/test_sample_world_perf.py` checks the window, proposal and
+scan budgets on the `large` sample world, whose data looks like a real vault (calendar dates,
+relative chains, series, private content). `tests/sample_world.py` builds that world once and
+caches it in `LORE_SAMPLE_CACHE` (default `backend/.pytest_cache/d/sample-worlds`), keyed by the
+generator, the app version and the migrations; the tests work on a copy.
+`LORE_PERF_SAMPLE_SIZE=small` runs them on a smaller world for a quick try.
+
+### 4.0 Results
+
+Measured 2026-10-09 on `large` (seed default: 100,365 events, 500,010 links, 1.6 GB `lore.db`)
+on a Ryzen 7 5800X under WSL2 (16 GB), app version 0.1.0 + #56. Every miss has a follow-up.
+
+| Operation | Measured | Budget | Follow-up |
+|-----------|----------|--------|-----------|
+| Window, cold, 1/10 of the bulk (17,409 events) / 1/100 / 1/10,000 | 756 / 340 / 247 ms | < 150 ms | #236 |
+| Window, cold, whole bulk / whole dimension / importance ≥ 4 | 2,288 / 2,326 / 701 ms | < 500 ms | #236 |
+| Window, cold, as reader: 1/10 / whole bulk | 3,362 / 5,090 ms | < 150 / 500 ms | #236 |
+| Window, cached (all of the above) | 6–37 ms | < 150 ms | met |
+| Calendar proposal over 22,985 dependents: preview / apply | 9.3 / 123 s | < 5 s each | #237, #235 |
+| Full consistency scan | > 15 min (stopped) | < 10 s | #235 |
+| Building `large` (`make_sample_vault.py`) | 2 h 05 min (45 min events, 80 min links) | about 20 min before M3 | #235 |
+| Starting the app on `large` | 10 min | – | #238 |
+
+The consistency rules dominate the scan, the apply and the build: they resolve each time point
+on its own (1.2 ms per point, 3+ queries; #235).
 
 ### 4.1 Chronology engine budgets
 
