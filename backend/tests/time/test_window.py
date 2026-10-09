@@ -2,12 +2,15 @@
 buckets, filters, visibility and the cache (decisions of 2026-10-06/07 in
 ``lore.core.time.window``)."""
 
+import sqlite3
 from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import event as sa_event
+from sqlalchemy.pool import Pool
 
 from lore.core.history import recorder
 from lore.core.time.cache import WINDOWS
@@ -104,6 +107,27 @@ def test_items(api: LinkApi, world: dict[str, Any]) -> None:
         "year", True, "unknown"
     )  # fmt: skip
     assert era["end_precision"] is None
+
+
+def test_has_children_of_an_era_past_the_variable_limit(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """An era can have more sub-events than SQLite takes bound variables (32,766): the window
+    asks for them with a subquery, not a list of ids. Here the limit is 20 and the era has 30
+    sub-events, all outside the window."""
+    era = event(api, world, "Age of Ash", 0, 100)
+    for i in range(30):
+        event(api, world, f"Ember {i}", 1000 + i, parent_id=era["id"])
+
+    def lower_the_limit(connection: Any, _record: Any, _proxy: Any) -> None:
+        connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 20)
+
+    sa_event.listen(Pool, "checkout", lower_the_limit)
+    try:
+        [item] = window(api, world, 0, 100)["items"]
+    finally:
+        sa_event.remove(Pool, "checkout", lower_the_limit)
+    assert (item["name"], item["has_children"]) == ("Age of Ash", True)
 
 
 def test_lod_keeps_importance_then_duration_then_start(api: LinkApi, world: dict[str, Any]) -> None:

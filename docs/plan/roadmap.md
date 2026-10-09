@@ -172,10 +172,16 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #54 | M3-11 | Proposals: calendar edit impact preview/apply (keep dates / pin / constrain) and recurrence-rule reconciliation | L | P0 | #53 |
 | #55 | M3-12 | Consistency engine framework, findings/suppressions API, precision-aware comparisons, core structural and event rules | L | P0 | #53 |
 | #56 | M3-13 | Sample world generator: time data (dimensions, calendars, events, recurrences, anchors) and backend perf harness | M | P1 | #54, #55 |
-| #57 | M3-14 | Release v0.2.0: time core complete (fixture vault, changelog) | S | P1 | #56, #230 |
+| #57 | M3-14 | Release v0.2.0: time core complete (fixture vault, changelog) | S | P1 | #56, #230, #235, #236, #237, #238 |
 | #222 | M3-15 | SortableBigInt renders literal binds triple-quoted (bug) | S | P2 | – |
 | #224 | M3-16 | Report propagated time changes in write responses (affected.time_changed and moved entities) | S | P1 | #50 |
 | #230 | M3-17 | Decide: should keep_key reset an occurrence's original_start_t (recurrence proposals)? | S | P1 | #54 |
+| #233 | M3-18 | Calendar proposal apply answers 409 proposal_stale when pinning an item that broke without moving (bug) | S | P1 | – |
+| #234 | M3-19 | A modified occurrence anchored to its own occurrence resolves against itself (bug) | S | P1 | – |
+| #235 | M3-20 | Consistency rules load time points one at a time: slow bulk writes (large takes 2 h to build) and full scans (> 15 min on large) | M | P0 | #56 |
+| #236 | M3-21 | Timeline window: cold windows miss their budgets on the large sample world (0.25–5 s; as reader slowest) | M | P1 | #56 |
+| #237 | M3-22 | Calendar proposals over the large sample world: preview 9.3 s and apply 123 s (budget < 5 s each) | M | P1 | #56, #235 |
+| #238 | M3-23 | App startup on the large sample world takes 10 minutes before serving requests | S | P1 | #56 |
 
 ### M4: Frontend foundation
 

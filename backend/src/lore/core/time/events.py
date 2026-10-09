@@ -776,21 +776,21 @@ def with_children(
     """The events of ``ids`` that have sub-events the timeline shows."""
     if not ids:
         return set()
-    # From the parent index: the candidate children, then those the timeline has rows of.
-    candidates = dict(
-        session.execute(
-            select(Entity.id, Entity.parent_id).where(
-                Entity.parent_id.in_(ids),
-                Entity.kind == EVENT,
-                Entity.deleted_at.is_(None),
-                *policy.entities(Entity),
-                *view.entities(Entity),
-            )
-        ).all()
+    # From the parent index: the candidate children, then those the timeline has rows of. The
+    # second query takes the first as a subquery: an era can have more children than SQLite
+    # takes bound variables.
+    children = select(Entity.id, Entity.parent_id).where(
+        Entity.parent_id.in_(ids),
+        Entity.kind == EVENT,
+        Entity.deleted_at.is_(None),
+        *policy.entities(Entity),
+        *view.entities(Entity),
     )
+    candidates = dict(session.execute(children).all())
     if not candidates:
         return set()
-    shown = view.select(Event, where=lambda e: [e.entity_id.in_(list(candidates))])
+    child_ids = children.with_only_columns(Entity.id)
+    shown = view.select(Event, where=lambda e: [e.entity_id.in_(child_ids)])
     found = session.scalars(shown.with_only_columns(Event.entity_id))
     return {parent for child in found if (parent := candidates[child]) is not None}
 
