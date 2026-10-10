@@ -18,7 +18,7 @@ from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Index, Intege
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lore.chronology.schema import TimePoint
-from lore.core.db.base import Base, IdMixin, TimestampsMixin
+from lore.core.db.base import Base, IdMixin, TimestampsMixin, keep_loaded
 from lore.core.db.types import SortableBigInt, UTCDateTime
 from lore.core.time.specs import EndSpecColumn, moment_column, spec_column, status_column
 
@@ -96,6 +96,10 @@ class Calendar(Base):
     )
 
     __table_args__ = (Index("ix_calendars_dimension_id", "dimension_id"),)
+
+
+for _model in (Dimension, Timeline, Calendar):
+    keep_loaded(_model)
 
 
 class Event(IdMixin, TimestampsMixin, Base):
