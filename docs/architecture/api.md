@@ -123,7 +123,18 @@ Entity write semantics (`lore.core.entities.service`):
   still referenced (a dimension's entities, a timeline's branch-only entities or links). Purge
   hooks run first; aliases, tag assignments and links touching the entity are deleted with it.
 - `affected.entities` lists the entity, its old/new parents and, for a purge, the other endpoints
-  of deleted links. `affected.time_changed` is always `false` until M3.
+  of deleted links.
+- **Time in `affected`** (every write response, `lore.core.time.changes`; #224): time writes
+  propagate (`time-model.md` §7.2), so `affected.entities` also lists every entity with a time
+  slot whose stored moment or status the request's transaction changed (the events anchored to a
+  moved event, the dates of an edited calendar, the `end_of_time` ends of a dimension whose
+  duration changed, what turns `trashed_ref` when its anchor's target is trashed, anchors frozen
+  by a purge), a dimension whose present moved and a series whose rule or bounds changed.
+  `affected.dimensions` adds their dimensions, and `affected.time_changed` is `true` exactly when
+  there is such a change (an undo: also when a row it put back differs in a moment or status).
+  A write that changes no moment or status (a rename, an anchor retyped to the same moment)
+  reports `time_changed: false`. Applying a calendar or recurrence proposal always reports
+  `true`.
 
 ### Links & link types
 

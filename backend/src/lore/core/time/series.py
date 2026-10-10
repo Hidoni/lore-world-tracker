@@ -52,6 +52,7 @@ from lore.chronology.schema import (
 )
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError
+from lore.core.time.changes import note_entities
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Event, Timeline
 from lore.core.time.resolve import Resolution, Resolver
@@ -364,7 +365,7 @@ def refresh_series(
     resolvers: dict[str, Resolver] = {}
     for row in sorted(rows, key=lambda r: r.entity_id):
         if row.recurrence is None:
-            _set_bounds(row, None, None)
+            _set_bounds(session, row, None, None)
             continue
         timeline = session.get(Timeline, row.timeline_id)
         if timeline is None:
@@ -377,7 +378,7 @@ def refresh_series(
             problems.append(SeriesProblem(row.entity_id, problem.code, problem.message))
             continue
         assert not isinstance(found, RuleProblem)
-        _set_bounds(row, *bounds_of(*found))
+        _set_bounds(session, row, *bounds_of(*found))
     return problems, {row.entity_id for row in rows if row.recurrence is not None}
 
 
@@ -419,11 +420,11 @@ def series_using(session: Session, calendar_id: str) -> list[str]:
     return sorted(row.entity_id for row in _using(session, {calendar_id}))
 
 
-def _set_bounds(row: Event, start: int | None, end: int | None) -> None:
-    if row.series_start_t != start:
-        row.series_start_t = start
-    if row.series_end_t != end:
-        row.series_end_t = end
+def _set_bounds(session: Session, row: Event, start: int | None, end: int | None) -> None:
+    if (row.series_start_t, row.series_end_t) == (start, end):
+        return
+    row.series_start_t, row.series_end_t = start, end
+    note_entities(session, [row.entity_id])  # for the write's `affected`
 
 
 # --- occurrences --------------------------------------------------------------------------------

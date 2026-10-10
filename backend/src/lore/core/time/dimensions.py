@@ -33,6 +33,7 @@ from lore.core.db.types import utc_now
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.time.calendars import check_default_calendar
+from lore.core.time.changes import note_entities
 from lore.core.time.dependencies import (
     DependencyIndex,
     DimensionNode,
@@ -183,6 +184,7 @@ def _check_spec(data: DimensionExt, creating: bool) -> int | None:
 
 def _set_present(context: VaultContext, row: Dimension, point: TimePoint | None) -> None:
     """Store and resolve the present moment; it stays linked to its anchor."""
+    before = (row.present_t, row.time_status)
     if point is None:
         row.present_spec, row.present_t, row.time_status = None, None, None
     else:
@@ -192,6 +194,8 @@ def _set_present(context: VaultContext, row: Dimension, point: TimePoint | None)
         t = require(resolution, "ext.present")
         status = TimeStatus.OK if resolution.status is None else resolution.status
         row.present_spec, row.present_t, row.time_status = point, t, status.value
+    if (row.present_t, row.time_status) != before:
+        note_entities(context.session, [row.entity_id])  # stored here, not by propagation
     context.session.flush()
     writer = TimeWriter(context)
     writer.set_spec(DIMENSION, row.entity_id, "present", point)

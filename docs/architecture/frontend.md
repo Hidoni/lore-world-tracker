@@ -134,7 +134,9 @@ interface Mutations { /* author-only writes; absent in read-only/static contexts
 - **Invalidation:** every write response includes
   `affected: {entities: id[], dimensions: id[], time_changed: bool, search_changed: bool}`. A
   central `invalidateAffected()` maps that to query keys (entity, lists, tree, backlinks, windows
-  of affected dimensions…).
+  of affected dimensions…). `entities` includes the records the write moved through time
+  propagation (the dependents of a moved event, …), and `time_changed` says that some stored
+  moment or status changed, so timeline windows of `dimensions` are stale (`api.md` §2).
 - **Query keys:** `[vault, area, id?, params?]`, defined in `data/keys.ts` only.
 - **Autosave:** field edits save on blur/enter. Rich text autosaves 1.5 s after the last
   keystroke and on navigation. `409 revision_conflict` opens a conflict dialog (reload theirs /
