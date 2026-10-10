@@ -283,6 +283,51 @@ def test_stale_proposals(api: LinkApi, world: dict[str, Any]) -> None:
     assert start_t(api, thaw["id"]) == 31 * DAY  # 2 Thawing with 30-day Frostfalls
 
 
+def test_pinning_an_end_that_broke_without_moving(api: LinkApi, world: dict[str, Any]) -> None:
+    """#233: an end the edit only leaves before its start isn't reached by the propagation;
+    pinning it (which makes it and its dependents part of the apply's) isn't stale."""
+
+    def absolute(t: int) -> dict[str, Any]:
+        return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}
+
+    def short_event(name: str) -> dict[str, Any]:
+        end = {"kind": "time_point", "time_point": absolute(FROST * DAY + 3600)}
+        return event(api, world, name, date(world, 1, "thawing", 1), end=end)
+
+    def after_end(of: dict[str, Any]) -> dict[str, Any]:
+        ref = {"type": "event", "id": of["id"], "slot": "end"}
+        offset = {"kind": "base", "units": "60"}
+        return {"anchor": {"kind": "relative", "ref": ref, "offset": offset}, "precision": "base"}
+
+    short, other = short_event("Short"), short_event("Other")
+    after = event(api, world, "After", after_end(short))
+    proposal = propose(api, world, two_months(frost=32))
+    found = items(proposal)
+    assert found[(short["id"], "start")]["new_t"] == str(32 * DAY)
+    item = found[(short["id"], "end")]
+    assert (item["old_t"], item["new_t"]) == (str(FROST * DAY + 3600),) * 2  # it doesn't move
+    assert (item["problem"]["code"], item["status"]) == ("end_before_start", "ok")
+    assert item["strategies"] == ["keep_date", "pin_moment"]
+    assert (after["id"], "start") not in found
+    strategies = {item["key"]: "pin_moment", found[(other["id"], "end")]["key"]: "keep_date"}
+    applied = apply(api, world, proposal, strategies=strategies)
+    assert applied.status_code == 200, applied.json()
+    assert (applied.json()["pinned"], applied.json()["accepted"]) == (1, 2)
+    pinned_ext = ext_of(api, short["id"])
+    assert pinned_ext["end"]["time_point"]["anchor"] == {"kind": "absolute",
+                                                         "t": str(FROST * DAY + 3600)}  # fmt: skip
+    assert (pinned_ext["start_t"], pinned_ext["end_t"]) == (str(32 * DAY), str(FROST * DAY + 3600))
+    assert start_t(api, after["id"]) == FROST * DAY + 3660
+
+    # What depends on such an end is part of what the preview was computed from, pinned or not.
+    proposal = propose(api, world, two_months(frost=33))
+    key = items(proposal)[(short["id"], "end")]["key"]
+    assert api.patch(api.get(after["id"]).json(),
+                     ext={"start": after_end(other)}).status_code == 200  # fmt: skip
+    problem(apply(api, world, proposal, strategies={key: "pin_moment"}), 409, "proposal_stale")
+    problem(apply(api, world, proposal, strategies={key: "keep_date"}), 409, "proposal_stale")
+
+
 def test_undo_restores_every_moment(api: LinkApi, world: dict[str, Any]) -> None:
     thaw = event(api, world, "Thaw", date(world, 1, "thawing", 1))
     pinned = event(api, world, "Pinned", date(world, 2, "thawing", 1))

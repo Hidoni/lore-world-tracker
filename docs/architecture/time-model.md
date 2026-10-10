@@ -596,8 +596,11 @@ Implementation (`lore.core.time.proposals`, #54; decided there where the above i
   an explicit `keep_date` accepts the problem, stored as the slot's status (§7.2 step 6).
 - **Stale.** `409 proposal_stale` when the definition revision moved, or when the calendar's
   resolved anchors or the stored values (moment, status, spec) of the slots the edit reaches
-  differ from the preview's (a fingerprint; a new dependent counts). Applied proposals are
-  deleted.
+  differ from the preview's (a fingerprint; a new dependent counts). The slots the edit reaches
+  are those its propagation re-resolves, plus the items it breaks without moving them (an end
+  left before its moved start) and what depends on those: pinning such an item re-resolves them
+  too, so they count at preview and at apply whatever the strategies are (#233). Applied
+  proposals are deleted.
 - **Apply** bumps the calendar entity's revision and its `definition_revision`, and takes a
   database backup first when it has more than 100 items (`backup_before(…,
   "calendar-proposal")`; the backup reads the committed database, so it is taken after the checks

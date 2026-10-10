@@ -276,7 +276,8 @@ Short-lived impact previews (`time-model.md` §7.4, `recurrence.md` §8):
 created_at, expires_at`. Purged on startup and hourly (when a vault opens, and by the
 maintenance scheduler for open vaults). Not recorded in history; an applied proposal is deleted.
 `payload` is the request (the definition, or the rule, start and end); `impact` the preview's
-items (and, for calendars, the fingerprint stale detection compares).
+items (and, for calendars, the fingerprint stale detection compares and `unmoved`, the keys of the
+items it breaks without moving them).
 
 ## 6. Links, facts and mentions
 
