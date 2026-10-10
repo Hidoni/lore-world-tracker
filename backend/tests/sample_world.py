@@ -1,5 +1,5 @@
 """Sample worlds for the perf tests (``testing.md`` §4): built once per generator version and
-cached, since ``large`` takes hours (#235).
+cached, since ``large`` takes a while (``testing.md`` §2).
 
 The cache lives in ``LORE_SAMPLE_CACHE`` (default: ``.pytest_cache/d/sample-worlds`` in
 ``backend/``). An entry is keyed by the size, the seed, and digests of the generator, the app

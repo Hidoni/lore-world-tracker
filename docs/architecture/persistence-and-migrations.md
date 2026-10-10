@@ -308,8 +308,10 @@ by data migrations, so at runtime all documents are at the current version. API 
 - **Format:** a zip with `manifest.json` (`{format_version: 1, app_version, schema_revision,
   vault: {...vault.json}, created_at, includes_media, kind, reason, files: {<path>: <sha256>}}`),
   `lore.db` (made with `VACUUM INTO`, which gives a consistent compact copy without stopping
-  writes), and `media/` when included. Implementation: `lore.core.vaults.backups`, driven by
-  `VaultManager.backup` / `.restore` / `.run_scheduled_backups`.
+  writes), and `media/` when included. Entries are deflated: at the default level, or at the
+  fastest one in pre-operation backups, which a request waits for (#237: a third of the time
+  for a sixth more bytes on a 1.6 GB database). Implementation: `lore.core.vaults.backups`,
+  driven by `VaultManager.backup` / `.restore` / `.run_scheduled_backups`.
 - **Where:** `backups/manual/<id>.zip` (manual) and `backups/auto/<id>.zip` (scheduled and
   pre-operation). The id is `<kind>-<UTC yyyymmdd-hhmmss>` (`-2`, … on a clash) with kind
   `manual`, `scheduled` or `pre-<reason>`. Zips are assembled under a hidden name and renamed
@@ -330,7 +332,11 @@ by data migrations, so at runtime all documents are at the current version. API 
   expired proposals, `data-model.md` §5.9; author mode only, never on a read-only server) checks
   every 10 minutes. It backs up each vault **this process has open** whose newest scheduled backup is older than `every_hours` (or that has none),
   then deletes scheduled backups beyond the newest `keep`. Manual and pre-operation backups are
-  never pruned. Failures are logged and retried at the next check.
+  never pruned. Failures are logged and retried at the next check. The first check comes ten
+  minutes after the app starts, and a pass never holds up requests (#238: a scheduled backup of a
+  large vault takes half a minute; the vault is read and written meanwhile). Starting the app
+  and opening a vault do no maintenance beyond deleting expired proposals, unless the schema
+  changed (migration, search index and consistency scan, §3.3).
 - **Restore:** `POST /vaults/restore` (multipart) or `lore vault restore`. Validates the manifest
   and checksums while extracting into a staging folder (`security.md` §3: unsafe names,
   symlinks, unlisted files, file-count and size caps), then turns it into a **new** vault folder

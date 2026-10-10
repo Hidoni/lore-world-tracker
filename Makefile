@@ -64,7 +64,7 @@ bench: ## Chronology benchmarks and perf budgets, both engines (testing.md §4.1
 	$(UV) run pytest -m perf tests/chronology --no-cov
 	npm run bench -w @lore/chronology
 
-perf: ## Backend perf budgets (testing.md §4): synthetic data and the cached `large` sample world (built on first run, ~1 h)
+perf: ## Backend perf budgets (testing.md §4): synthetic data and the cached `large` sample world (built on first run, ~45 min)
 	$(UV) run pytest -m perf --ignore=tests/chronology --no-cov -s
 
 check-chronology: ## Fail if chronology JSON Schemas or TS types drifted from the Pydantic models (run make gen)

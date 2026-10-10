@@ -48,6 +48,16 @@ registry endpoint lists those of core and the enabled modules. The engine is
   recorded row it owns (events, calendars, … including propagation's bulk updates), changed.
   `Trigger("link_type", <key>|"*")`: the ends of changed links of the type.
   `Trigger("field", <key>)`: entities whose field changed. Trashed entities have no findings.
+  A link is none of its ends' records: a changed link fires `link_type` triggers only (decided
+  with #235: writing a link doesn't move its ends, and re-checking both ends' time rules made
+  every link cost as much as two event edits). A rule that reads links declares their types.
+- **Sets, not records** (#235). `check` and `scan` read in sets. A rule that compares time
+  points selects its candidates on stored moments, asks `RuleContext.preload` for the slots of
+  those whose moments conflict and only then reads `point`s (each resolved once per context);
+  `Resolver.preload` loads them with the slots their specs resolve through. A `check` must reach
+  its rows from its subjects through an index, whatever the vault's size: the cost of a write's
+  check may not grow with the vault (`tests/consistency/test_consistency_perf.py`). Findings are
+  stored with bulk statements.
 
 `RuleContext` gives access to the session, `TimelineView`, the existence/as-of helpers, compiled
 calendars and the vault settings. Rules are pure readers. Only quick fixes write, and they do so
