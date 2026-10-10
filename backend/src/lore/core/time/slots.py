@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, Literal, cast
 
-from sqlalchemy import bindparam, select
+from sqlalchemy import bindparam, literal, null, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,7 @@ _RECORD_TYPE = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?")
 _SLOT_NAME = re.compile(r"[a-z][a-z0-9_]*")
 _BATCH = 5000  # ids per IN (...)
 _MISSING = object()
+_STATUSES = {status.value: status for status in TimeStatus}
 CORE = "core"
 
 
@@ -209,6 +210,11 @@ class SlotProvider:
 
     @cached_property
     def _in_columns(self) -> dict[str, bool]:
+        return {}
+
+    @cached_property
+    def _statements(self) -> dict[frozenset[str], Any]:
+        """Slot names → the statement loading them (``_load_statement``)."""
         return {}
 
     def _stored_in_columns(self, definition: SlotDef) -> bool:
@@ -495,58 +501,68 @@ def _rows(provider: SlotProvider, session: Session, ids: Iterable[str]) -> dict[
     return {str(getattr(row, provider.id_column)): row for row in rows}
 
 
-def _dimensions(provider: SlotProvider, session: Session, rows: Iterable[Any]) -> dict[str, str]:
-    """Record id → dimension id of loaded rows (``dimension_column`` or ``timeline_column``)."""
-    rows = list(rows)
+def _load_statement(provider: SlotProvider, slots: frozenset[str]) -> Any:
+    """``SELECT`` of the columns of ``slots``, with the rows' trash state (their own
+    ``deleted_at`` or their entity's) and dimension (``dimension_column``, or the timeline's of
+    ``timeline_column``). Built once per provider and slot set: resolution runs it per record."""
+    known = provider._statements.get(slots)
+    if known is not None:
+        return known
+    model: Any = provider.model
+    names = {provider.id_column}
+    for slot in slots:
+        definition = _fixed(provider, slot)
+        names.update(definition.columns or ())
+        if definition.status_column is not None:
+            names.add(definition.status_column)
+    table = model.__table__
+    source: Any = table
+    if hasattr(model, "deleted_at"):
+        trashed: Any = table.c.deleted_at.is_not(None)
+    elif provider.entity_column is not None:
+        owner = Entity.__table__.alias("slot_owner")
+        source = source.outerjoin(owner, owner.c.id == table.c[provider.entity_column])
+        trashed = owner.c.deleted_at.is_not(None)
+    else:
+        trashed = literal(value=False)
     if provider.dimension_column is not None:
-        return {
-            str(getattr(r, provider.id_column)): getattr(r, provider.dimension_column)
-            for r in rows
-            if getattr(r, provider.dimension_column) is not None
-        }
-    if provider.timeline_column is None:
-        return {}
-    timelines = {
-        str(getattr(r, provider.id_column)): getattr(r, provider.timeline_column) for r in rows
-    }
-    wanted = sorted({t for t in timelines.values() if t is not None})
-    found: dict[str, str] = dict(
-        session.execute(
-            select(Timeline.entity_id, Timeline.dimension_id).where(Timeline.entity_id.in_(wanted))
-        ).all()
+        dimension: Any = table.c[provider.dimension_column]
+    elif provider.timeline_column is not None:
+        timeline = Timeline.__table__.alias("slot_timeline")
+        source = source.outerjoin(
+            timeline, timeline.c.entity_id == table.c[provider.timeline_column]
+        )
+        dimension = timeline.c.dimension_id
+    else:
+        dimension = null()
+    statement = (
+        select(
+            *(table.c[name] for name in sorted(names)),
+            trashed.label("slot_trashed"),
+            dimension.label("slot_dimension"),
+        )
+        .select_from(source)
+        .where(table.c[provider.id_column].in_(bindparam("slot_ids", expanding=True)))
     )
-    return {i: found[t] for i, t in timelines.items() if t in found}
+    provider._statements[slots] = statement
+    return statement
 
 
 def _load_columns(
     provider: SlotProvider, session: Session, keys: Sequence[SlotKey]
 ) -> dict[SlotKey, SlotValue]:
     """Only the columns the slots need, without ORM objects (propagation loads tens of thousands
-    of slots at a time)."""
-    model: Any = provider.model
+    of slots at a time), with the rows' trash state and dimension in the same query (resolution
+    loads slots one record at a time: three queries each added up, #235)."""
     definitions = {slot: _fixed(provider, slot) for slot in {key.slot for key in keys}}
-    names = {provider.id_column}
-    for definition in definitions.values():
-        names.update(definition.columns or ())
-        if definition.status_column is not None:
-            names.add(definition.status_column)
-    for extra in (provider.entity_column, provider.dimension_column, provider.timeline_column):
-        if extra is not None:
-            names.add(extra)
-    if hasattr(model, "deleted_at"):
-        names.add("deleted_at")
-    table = model.__table__
-    columns = [table.c[name] for name in sorted(names)]
-    id_attr = table.c[provider.id_column]
+    statement = _load_statement(provider, frozenset(definitions))
     wanted = sorted({key.id for key in keys})
     rows: dict[str, Any] = {}
     session.flush()  # a Core select doesn't autoflush
     for start in range(0, len(wanted), _BATCH):
         chunk = wanted[start : start + _BATCH]
-        for found in session.execute(select(*columns).where(id_attr.in_(chunk))):
+        for found in session.execute(statement, {"slot_ids": chunk}):
             rows[str(getattr(found, provider.id_column))] = found
-    trashed_ids = _trashed(provider, session, rows.values())
-    dimensions = _dimensions(provider, session, rows.values())
     result: dict[SlotKey, SlotValue] = {}
     for key in keys:
         row = rows.get(key.id)
@@ -558,27 +574,11 @@ def _load_columns(
         result[key] = SlotValue(
             spec=getattr(row, spec_column),
             t=getattr(row, resolved_column),
-            status=None if status is None else TimeStatus(status),
-            trashed=key.id in trashed_ids,
-            dimension_id=dimensions.get(key.id),
+            status=None if status is None else _STATUSES[status],
+            trashed=bool(row.slot_trashed),
+            dimension_id=row.slot_dimension,
         )
     return result
-
-
-def _trashed(provider: SlotProvider, session: Session, rows: Iterable[Any]) -> set[str]:
-    """Ids of the loaded rows that are in the trash (their own ``deleted_at`` or their entity's)."""
-    rows = list(rows)
-    if hasattr(provider.model, "deleted_at"):
-        return {str(getattr(r, provider.id_column)) for r in rows if r.deleted_at is not None}
-    if provider.entity_column is None:
-        return set()
-    owners = {
-        str(getattr(r, provider.entity_column)): str(getattr(r, provider.id_column)) for r in rows
-    }
-    trashed = session.scalars(
-        select(Entity.id).where(Entity.id.in_(sorted(owners)), Entity.deleted_at.is_not(None))
-    )
-    return {owners[entity_id] for entity_id in trashed}
 
 
 def _beyond_columns(

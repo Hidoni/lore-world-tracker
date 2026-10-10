@@ -21,11 +21,12 @@ definite or possible). Trashed entities have no findings.
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, func, or_, select, type_coerce
 from sqlalchemy.orm import aliased
 
 from lore.core.consistency.compare import DEFINITE, POSSIBLE, violates_order, worst
 from lore.core.consistency.engine import FindingDraft, RuleContext
+from lore.core.db import Unindexed
 from lore.core.entities.models import Entity
 from lore.core.links.models import Link
 from lore.core.registry.types import RuleDef, Trigger
@@ -248,8 +249,30 @@ def _names(ctx: RuleContext, ids: Iterable[str]) -> dict[str, str]:
     return names
 
 
+def _ancestry(ctx: RuleContext, subjects: Iterable[str]) -> dict[str, str]:
+    """The parents of the subjects and of their ancestors, level by level: a write is checked
+    against the chains above what it touched, not against every entity's parent."""
+    parent_of: dict[str, str] = {}
+    looked_up: set[str] = set()
+    frontier = set(subjects)
+    while frontier:
+        looked_up |= frontier
+        found: dict[str, str] = {}
+        for batch in _chunks(frontier):
+            found.update(
+                ctx.session.execute(  # type: ignore[arg-type]
+                    select(Entity.id, Entity.parent_id).where(
+                        Entity.id.in_(batch), Entity.parent_id.is_not(None)
+                    )
+                ).all()
+            )
+        parent_of.update(found)
+        frontier = set(found.values()) - looked_up
+    return parent_of
+
+
 def _parent_cycle_check(ctx: RuleContext, subjects: frozenset[str]) -> Iterator[FindingDraft]:
-    parent_of = _parents(ctx)
+    parent_of = _ancestry(ctx, subjects)
     cycles = [c for s in sorted(subjects) if (c := _cycle_of(s, parent_of)) is not None]
     yield from _cycle_drafts(cycles, _names(ctx, (m for c in cycles for m in c)))
 
@@ -379,6 +402,39 @@ def _event_columns() -> tuple[Any, Any, Any, Any]:
     return child, parent, child_entity, parent_entity
 
 
+type _Slot = tuple[str, str]  # event id, slot
+
+
+class _Orders:
+    """Required orders ``a ≤ b`` between event slots, checked together: the slots are loaded
+    in sets (``RuleContext.preload``), and only those of the orders that their stored moments
+    violate. Either kind of violation needs ``t(a) > t(b)`` (``compare.py``)."""
+
+    def __init__(self, ctx: RuleContext) -> None:
+        self.ctx = ctx
+        self._wanted: dict[str, set[_Slot]] = {}
+
+    def want(self, dimension_id: str, a: _Slot, a_t: int | None, b: _Slot, b_t: int | None) -> bool:
+        """Note the slots of an order to check later; whether it can be violated at all."""
+        if a_t is None or b_t is None or a_t <= b_t:
+            return False
+        self._wanted.setdefault(dimension_id, set()).update((a, b))
+        return True
+
+    def load(self) -> None:
+        for dimension_id, slots in self._wanted.items():
+            self.ctx.preload(dimension_id, EVENT, slots)
+        self._wanted.clear()
+
+    def violated(self, dimension_id: str, a: _Slot, b: _Slot) -> Any:
+        """How certainly ``a ≤ b`` is violated."""
+        first = self.ctx.point(dimension_id, EVENT, *a)
+        second = self.ctx.point(dimension_id, EVENT, *b)
+        if first is None or second is None:
+            return None
+        return violates_order(first, second)
+
+
 def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:
     child, parent, child_entity, parent_entity = _event_columns()
     statement = (
@@ -389,6 +445,10 @@ def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iter
             parent_entity.name,
             child_entity.dimension_id,
             child.timeline_id,
+            child.start_t,
+            child.end_t,
+            parent.start_t,
+            parent.end_t,
         )
         .join(child_entity, child_entity.id == child.entity_id)
         .join(parent_entity, parent_entity.id == child_entity.parent_id)
@@ -408,20 +468,26 @@ def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iter
         query = statement
         if batch is not None:
             query = query.where(or_(child.entity_id.in_(batch), parent.entity_id.in_(batch)))
-        for (
-            child_id,
-            parent_id,
-            name,
-            parent_name,
-            dimension_id,
-            timeline_id,
-        ) in ctx.session.execute(query):
+        orders = _Orders(ctx)
+        candidates = []
+        for row in ctx.session.execute(query).all():
+            child_id, parent_id, _name, _parent_name, dimension_id, _timeline_id = row[:6]
+            child_start, child_end, parent_start, parent_end = row[6:]
             if dimension_id is None:
                 continue
-            certainty = worst(
-                _order(ctx, dimension_id, (parent_id, "start"), (child_id, "start")),
-                _order(ctx, dimension_id, (child_id, "end"), (parent_id, "end")),
-            )
+            starts = ((parent_id, "start"), (child_id, "start"))
+            ends = ((child_id, "end"), (parent_id, "end"))
+            checked = [
+                order
+                for order, a_t, b_t in ((starts, parent_start, child_start),
+                                        (ends, child_end, parent_end))
+                if orders.want(dimension_id, order[0], a_t, order[1], b_t)
+            ]  # fmt: skip
+            candidates.append((row, checked))
+        orders.load()
+        for row, checked in candidates:
+            child_id, parent_id, name, parent_name, dimension_id, timeline_id = row[:6]
+            certainty = worst(*(orders.violated(dimension_id, a, b) for a, b in checked))
             if certainty is not None:
                 yield FindingDraft(
                     "core.event.subevent_outside_parent",
@@ -432,13 +498,44 @@ def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iter
                 )
 
 
-def _order(ctx: RuleContext, dimension_id: str, a: tuple[str, str], b: tuple[str, str]) -> Any:
-    """How certainly ``a ≤ b`` (event slots) is violated."""
-    first = ctx.point(dimension_id, EVENT, *a)
-    second = ctx.point(dimension_id, EVENT, *b)
-    if first is None or second is None:
-        return None
-    return violates_order(first, second)
+def _causality_scan() -> Any:
+    """Every candidate, from one pass over the events: the live home rows are set aside
+    (materialized) with their starts and each ``core.causes`` link looks its two ends up there,
+    instead of in two tables each (a large world has 100k such links, #235)."""
+    started = (
+        select(
+            Event.entity_id.label("id"),
+            Event.timeline_id.label("timeline_id"),
+            Event.start_t.label("start_t"),
+            Entity.name.label("name"),
+            Entity.dimension_id.label("dimension_id"),
+        )
+        .join(Entity, Entity.id == Event.entity_id)
+        .where(Event.overrides_id.is_(None), Entity.deleted_at.is_(None))
+        .cte("started_events")
+        .prefix_with("MATERIALIZED")
+    )
+    cause, effect = started.alias("cause"), started.alias("effect")
+    return (
+        select(
+            Link.source_id,
+            Link.target_id,
+            cause.c.name,
+            effect.c.name,
+            cause.c.dimension_id,
+            effect.c.timeline_id,
+            cause.c.start_t,
+            effect.c.start_t,
+        )
+        .join(cause, cause.c.id == Link.source_id)
+        .join(effect, effect.c.id == Link.target_id)
+        .where(
+            Link.link_type == "core.causes",
+            Link.deleted_at.is_(None),
+            cause.c.dimension_id == effect.c.dimension_id,
+            effect.c.start_t < cause.c.start_t,
+        )
+    )
 
 
 def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:
@@ -451,6 +548,8 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
             effect_entity.name,
             cause_entity.dimension_id,
             effect.timeline_id,
+            cause.start_t,
+            effect.start_t,
         )
         .join(cause_entity, cause_entity.id == Link.source_id)
         .join(effect_entity, effect_entity.id == Link.target_id)
@@ -467,9 +566,14 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
     )
     batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
     for batch in batches:
-        query = statement
+        query = _causality_scan() if batch is None else statement
         if batch is not None:
             query = query.where(or_(Link.source_id.in_(batch), Link.target_id.in_(batch)))
+        orders = _Orders(ctx)
+        candidates = ctx.session.execute(query).all()
+        for cause_id, effect_id, *_names, dimension_id, _timeline, cause_t, effect_t in candidates:
+            orders.want(dimension_id, (cause_id, "start"), cause_t, (effect_id, "start"), effect_t)
+        orders.load()
         for (
             cause_id,
             effect_id,
@@ -477,8 +581,10 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
             effect_name,
             dimension_id,
             timeline_id,
-        ) in ctx.session.execute(query):
-            certainty = _order(ctx, dimension_id, (cause_id, "start"), (effect_id, "start"))
+            _cause_t,
+            _effect_t,
+        ) in candidates:
+            certainty = orders.violated(dimension_id, (cause_id, "start"), (effect_id, "start"))
             if certainty is not None:
                 yield FindingDraft(
                     "core.event.effect_before_cause",
@@ -500,59 +606,110 @@ def _overlap(a: Any, b: Any) -> Any:
     )
 
 
+def _duplicate_drafts(rows: Iterable[Any]) -> Iterator[FindingDraft]:
+    """Findings of ``(event, other event, name, timeline, circa, circa)`` rows, once per pair."""
+    seen: set[tuple[str, str]] = set()
+    for a_id, b_id, name, timeline_id, a_circa, b_circa in rows:
+        pair = (a_id, b_id) if a_id < b_id else (b_id, a_id)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        yield FindingDraft(
+            "core.event.duplicate_name_same_time",
+            pair,
+            f"Two events named “{name}” overlap in time.",
+            certainty=POSSIBLE if a_circa or b_circa else DEFINITE,
+            timeline_id=timeline_id,
+        )
+
+
+def _circa(row: Any) -> Any:
+    """Whether an event row's start is circa (from the stored document)."""
+    return func.coalesce(func.json_extract(type_coerce(row.start_spec, String), "$.approximate"), 0)
+
+
+def _duplicate_scan(ctx: RuleContext) -> Iterator[FindingDraft]:
+    """Every pair, from one pass over the events: the live, non-recurring home rows are set
+    aside (materialized) with their names and joined to themselves on timeline and name. Joining
+    the tables themselves fetched a million rows one by one on a large world (#235)."""
+    named = (
+        select(
+            Event.entity_id.label("id"),
+            Event.timeline_id.label("timeline_id"),
+            Entity.sort_name.label("sort_name"),
+            Entity.name.label("name"),
+            Event.start_t.label("start_t"),
+            Event.end_t.label("end_t"),
+            _circa(Event).label("circa"),
+        )
+        .join(Entity, Entity.id == Event.entity_id)
+        .where(
+            Event.overrides_id.is_(None),
+            Event.recurrence.is_(None),
+            Entity.deleted_at.is_(None),
+        )
+        .cte("named_events")
+        .prefix_with("MATERIALIZED")
+    )
+    first, second = named.alias("a"), named.alias("b")
+    statement = select(
+        first.c.id, second.c.id, first.c.name, first.c.timeline_id, first.c.circa, second.c.circa
+    ).join_from(
+        first,
+        second,
+        and_(
+            second.c.timeline_id == first.c.timeline_id,
+            second.c.sort_name == first.c.sort_name,
+            second.c.id > first.c.id,
+            _overlap(first.c, second.c),
+        ),
+    )
+    yield from _duplicate_drafts(ctx.session.execute(statement))
+
+
 def _duplicate_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:
+    if subjects is None:
+        yield from _duplicate_scan(ctx)
+        return
     first, second, first_entity, second_entity = _event_columns()
+    # From a subject to the events of the same name, through the (kind, name) index, and only
+    # then to their rows: the other event's columns are kept from picking an index, or SQLite
+    # walks half the timeline for each subject.
+    other = Unindexed(second)
     statement = (
         select(
             first.entity_id,
             second.entity_id,
             first_entity.name,
             first.timeline_id,
-            first.start_spec,
-            second.start_spec,
+            _circa(first),
+            _circa(second),
         )
         .join(first_entity, first_entity.id == first.entity_id)
         .join(
-            second,
-            and_(second.timeline_id == first.timeline_id, second.entity_id != first.entity_id),
+            second_entity,
+            and_(
+                second_entity.kind == EVENT,
+                second_entity.sort_name == first_entity.sort_name,
+                second_entity.id != first_entity.id,
+            ),
         )
-        .join(second_entity, second_entity.id == second.entity_id)
+        .join(second, second.entity_id == second_entity.id)
         .where(
             first.overrides_id.is_(None),
-            second.overrides_id.is_(None),
+            other.overrides_id.is_(None),
             first.recurrence.is_(None),
-            second.recurrence.is_(None),
+            other.recurrence.is_(None),
             first_entity.deleted_at.is_(None),
             second_entity.deleted_at.is_(None),
-            # Only names used more than once (keeps the self-join small: #55 scan budget).
-            first_entity.sort_name.in_(
-                select(Entity.sort_name)
-                .where(Entity.kind == EVENT, Entity.deleted_at.is_(None))
-                .group_by(Entity.sort_name)
-                .having(func.count() > 1)
-            ),
-            first_entity.sort_name == second_entity.sort_name,
-            _overlap(first, second),
+            other.timeline_id == first.timeline_id,
+            _overlap(first, other),
         )
     )
-    batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
-    seen: set[tuple[str, str]] = set()
-    for batch in batches:
-        query = statement.where(first.entity_id < second.entity_id)
-        if batch is not None:
-            query = query.where(or_(first.entity_id.in_(batch), second.entity_id.in_(batch)))
-        for a_id, b_id, name, timeline_id, a_spec, b_spec in ctx.session.execute(query):
-            if (a_id, b_id) in seen:
-                continue
-            seen.add((a_id, b_id))
-            circa = a_spec.approximate or b_spec.approximate
-            yield FindingDraft(
-                "core.event.duplicate_name_same_time",
-                (a_id, b_id),
-                f"Two events named “{name}” overlap in time.",
-                certainty=POSSIBLE if circa else DEFINITE,
-                timeline_id=timeline_id,
-            )
+    rows: list[Any] = []
+    for batch in _chunks(subjects):
+        rows += ctx.session.execute(statement.where(first.entity_id.in_(batch))).all()
+    yield from _duplicate_drafts(rows)
 
 
 # --- the catalog ---------------------------------------------------------------------------------

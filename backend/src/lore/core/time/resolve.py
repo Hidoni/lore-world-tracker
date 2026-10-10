@@ -29,7 +29,7 @@ Rules (technical choices documented in ``time-model.md`` §5.3 and §6):
   calendar or slot owner is reported as ``unresolved_ref`` (never its moment).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -62,7 +62,7 @@ from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Dimension, Event
-from lore.core.time.slots import SlotError, SlotKey, SlotProvider, SlotRegistry
+from lore.core.time.slots import SlotError, SlotKey, SlotProvider, SlotRegistry, SlotValue
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
 from lore.core.time.status import TimeStatus
 from lore.core.visibility import AUTHOR, VisibilityPolicy
@@ -74,6 +74,8 @@ BASE = "base"
 EVENT = "event"
 MAX_DEPTH = 64
 """How deep relative anchors may chain while resolving a target's extent (deeper: ``cycle``)."""
+
+_NOT_LOADED: Any = object()
 
 type ProblemCode = Literal[
     "invalid_date",
@@ -250,6 +252,9 @@ class Resolver:
         self.calendars = _Calendars(context, dimension_id, policy)
         self.known: dict[SlotNode, Resolution] = {}
         """Slots resolved in the current propagation run: used instead of their stored values."""
+        self.stored: dict[SlotNode, SlotValue | None] = {}
+        """Stored slots loaded in sets (``preload``), for readers that resolve many of them
+        while nothing is written: used instead of loading each one."""
 
     # --- time points --------------------------------------------------------------------------
 
@@ -381,7 +386,10 @@ class Resolver:
             return known
         provider, definition = self.slots.slot(record_type, slot)
         key = SlotKey(record_id, slot)
-        value = self.slots.load(self.session, record_type, [key]).get(key)
+        value = self.stored.get(SlotNode(*node), _NOT_LOADED)
+        if value is _NOT_LOADED:
+            value = self.slots.load(self.session, record_type, [key]).get(key)
+        assert value is None or isinstance(value, SlotValue)
         if value is None or value.t is None or not self._visible(provider, record_id):
             return _failed(TimeStatus.UNRESOLVED_REF, "unresolved_ref",
                            "The anchor's target doesn't exist (or has no moment).")  # fmt: skip
@@ -409,6 +417,49 @@ class Resolver:
             )
         trashed = value.trashed or (fresh is not None and fresh.status == TimeStatus.TRASHED_REF)
         return self._trash(result, trashed)
+
+    def preload(self, nodes: Iterable[SlotNode]) -> None:
+        """Load stored slots in sets, with the slots their specs resolve through (the targets
+        of relative anchors, the starts of ends), so that ``slot`` doesn't load them one by one.
+        For readers only: what is loaded here isn't read again."""
+        wanted = {node for node in nodes if node not in self.stored}
+        for _ in range(MAX_DEPTH + 2):
+            if not wanted:
+                return
+            # Records are loaded together when they need the same slots: a record's row is read
+            # (and its specs parsed) once, with only the columns of the slots asked for.
+            by_record: dict[tuple[str, str], list[str]] = {}
+            for node in wanted:
+                provider = self.slots.get(node.type)
+                if provider is not None and provider.slot(node.slot) is not None:
+                    by_record.setdefault((node.type, node.id), []).append(node.slot)
+            by_slots: dict[tuple[str, tuple[str, ...]], list[SlotKey]] = {}
+            for (record_type, record_id), slots in by_record.items():
+                by_slots.setdefault((record_type, tuple(sorted(slots))), []).extend(
+                    SlotKey(record_id, slot) for slot in slots
+                )
+            needed: set[SlotNode] = set()
+            for (record_type, _slots), keys in by_slots.items():
+                loaded = self.slots.load(self.session, record_type, keys)
+                for key in keys:
+                    value = loaded.get(key)
+                    self.stored[SlotNode(record_type, key.id, key.slot)] = value
+                    if value is not None:
+                        needed.update(self._resolves_through(record_type, key, value))
+            wanted = {node for node in needed if node not in self.stored}
+
+    def _resolves_through(
+        self, record_type: str, key: SlotKey, value: SlotValue
+    ) -> Iterator[SlotNode]:
+        """The stored slots ``slot`` reads to resolve a slot's spec."""
+        spec = value.spec
+        _provider, definition = self.slots.slot(record_type, key.slot)
+        if spec is not None and not isinstance(spec, TimePoint) and definition.spec == "end":
+            yield SlotNode(record_type, key.id, definition.start)
+            spec = spec.time_point if isinstance(spec, TimePointEnd) else None
+        if isinstance(spec, TimePoint) and isinstance(spec.anchor, RelativeAnchor):
+            ref = spec.anchor.ref
+            yield SlotNode(ref.type, ref.id, ref.slot)
 
     def _occurrence(
         self,
