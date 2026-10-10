@@ -129,28 +129,45 @@ class AuthorPolicy(VisibilityPolicy):
     """Sees everything."""
 
 
+_READER_ENTITIES: dict[type, tuple[ColumnElement[bool], ...]] = {}
+
+
 class ReaderPolicy(VisibilityPolicy):
     reader = True
 
     def entities(self, e: EntityTable) -> Conditions:
-        dimension = aliased(Entity)
-        timeline = aliased(Entity)
+        if e is Entity:
+            # Built once: these four conditions go into every reader statement, and building
+            # them costs more than running most of those (a few ms; expressions are immutable).
+            known = _READER_ENTITIES.get(type(self))
+            if known is None:
+                known = _READER_ENTITIES[type(self)] = tuple(self._entities(Entity))
+            return list(known)
+        return self._entities(e)
+
+    def _entities(self, e: EntityTable) -> Conditions:
         return [
             e.visibility != PRIVATE,
             e.deleted_at.is_(None),
-            or_(
-                e.dimension_id.is_(None),
-                exists().where(dimension.id == e.dimension_id, *self._own(dimension)),
-            ),
-            or_(
-                e.origin_timeline_id.is_(None),
-                exists().where(timeline.id == e.origin_timeline_id, *self._own(timeline)),
-            ),
+            self._shown_ref(e.dimension_id, "dimension"),
+            self._shown_ref(e.origin_timeline_id, "timeline"),
         ]
 
     @staticmethod
     def _own(e: EntityTable) -> Conditions:
         return [e.visibility != PRIVATE, e.deleted_at.is_(None)]
+
+    def _shown_ref(self, column: Any, kind: str) -> ColumnElement[bool]:
+        """NULL, or an entity that is itself shown (``_own``). The entities of ``kind`` that
+        are shown are few and listed once per statement: a row whose reference is among them
+        (nearly every row) is settled without a lookup of its own, which a scan of 100k
+        entities otherwise pays twice per row. The lookup stays as the rule itself."""
+        listed, target = aliased(Entity), aliased(Entity)
+        return or_(
+            column.is_(None),
+            column.in_(select(listed.id).where(listed.kind == kind, *self._own(listed))),
+            exists().where(target.id == column, *self._own(target)),
+        )
 
     def entity_ref(self, column: Any) -> Conditions:
         target = aliased(Entity)

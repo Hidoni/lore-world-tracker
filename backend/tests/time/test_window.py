@@ -2,6 +2,7 @@
 buckets, filters, visibility and the cache (decisions of 2026-10-06/07 in
 ``lore.core.time.window``)."""
 
+import copy
 import sqlite3
 from collections.abc import Iterator
 from datetime import timedelta
@@ -15,10 +16,13 @@ from sqlalchemy.pool import Pool
 from lore.chronology.recurrence import RecurrenceContext, expand
 from lore.core.history import recorder
 from lore.core.time.cache import WINDOWS
+from lore.core.time.events import with_children
 from lore.core.time.series import parse_rule
 from lore.core.time.specs import parse_end_spec
+from lore.core.time.timeline_view import LineageEntry, TimelineView
 from lore.core.time.window import _expanded, bucket_bounds
-from tests.entity_api import LinkApi, invalid, make_client, problem
+from lore.core.visibility import AUTHOR
+from tests.entity_api import YEARS, LinkApi, invalid, make_client, problem
 from tests.queries import statements
 
 
@@ -322,3 +326,43 @@ def test_series_too_long_to_cache_are_counted_into_bands(
     narrow = window(api, world, 1000, 1100, px=40)
     assert narrow["series_bands"] == []
     assert [i["start_t"] for i in narrow["items"]] == [str(1000 + 10 * k) for k in range(10)]
+
+
+def test_cached_occurrences_follow_their_calendar(api: LinkApi, world: dict[str, Any]) -> None:
+    """The occurrences kept for a series are those of its calendar as it was compiled: after a
+    calendar edit they are computed again."""
+    calendar = world["calendar"]["id"]
+    rule = {"kind": "calendar", "calendar_id": calendar, "freq": {"level": "year"},
+            "limit": {"kind": "count", "count": "4"}}  # fmt: skip
+    event(api, world, "New Year", 0, ext={"recurrence": rule})
+    year = 365 * 86_400
+    assert [i["start_t"] for i in window(api, world, 0, 10 * year)["items"]] == [
+        str(k * year) for k in range(4)
+    ]
+    shorter = copy.deepcopy(YEARS)
+    shorter["regimes"][0]["templates"]["year"]["uniform"]["count"] = "360"
+    url = f"{api.base}/calendars/{calendar}/proposals"
+    proposal = api.client.post(url, json={"definition": shorter})
+    assert proposal.status_code == 201, proposal.json()
+    applied = api.client.post(f"{url}/{proposal.json()['id']}/apply", json={})
+    assert applied.status_code == 200, applied.json()
+    assert [i["start_t"] for i in window(api, world, 0, 10 * year)["items"]] == [
+        str(k * 360 * 86_400) for k in range(4)
+    ]
+
+
+def test_sub_event_markers_in_a_lineage(api: LinkApi, world: dict[str, Any]) -> None:
+    """``has_children`` is found the same way for a timeline with ancestors (rows resolved over
+    its lineage) as for a prime."""
+    era = event(api, world, "Era", 0, 1000)
+    event(api, world, "Battle", 10, parent_id=era["id"])
+    lone = event(api, world, "Lone", 20)
+    vault = api.client.app.state.vaults.open(api.vault)  # type: ignore[attr-defined]
+    prime = [LineageEntry(world["prime"], None, 0)]
+    branch = [LineageEntry("a-branch", None, 0), LineageEntry(world["prime"], 500, 1)]
+    with vault.sessions() as session:
+        for lineage in (prime, branch):
+            view = TimelineView(lineage)
+            found = with_children(session, view, AUTHOR, [era["id"], lone["id"]])
+            assert found == {era["id"]}
+            assert with_children(session, view, AUTHOR, []) == set()

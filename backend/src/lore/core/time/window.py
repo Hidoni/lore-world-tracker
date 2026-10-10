@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import JSON, String, exists, select, type_coerce
 from sqlalchemy.orm import Session, aliased
 
-from lore.chronology.numbers import from_sortable_key, sortable_key
+from lore.chronology.numbers import KEY_PREFIX_LENGTH, sortable_key
 from lore.chronology.recurrence import (
     Occurrence,
     RecurrenceContext,
@@ -471,8 +471,14 @@ def _keep(rows: list[_Row], keep: int) -> set[str]:
         if len(tier) <= room:
             kept.update(row[0] for row in tier)
             continue
+        # The keys are stored moments (or made here): decoded without checking them again.
         ranked = sorted(
-            tier, key=lambda r: (from_sortable_key(r[1]) - from_sortable_key(r[2]), r[1], r[0])
+            tier,
+            key=lambda r: (
+                int(r[1][KEY_PREFIX_LENGTH:]) - int(r[2][KEY_PREFIX_LENGTH:]),
+                r[1],
+                r[0],
+            ),
         )
         kept.update(row[0] for row in ranked[:room])
     return kept
