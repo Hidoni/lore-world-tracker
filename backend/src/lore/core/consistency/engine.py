@@ -8,8 +8,8 @@ Rules set to ``off``, and those of disabled modules, are not evaluated.
   API requests, the CLI and scripts alike. Each time a session is about to write a changeset (at
   commit, or an undo's ``write_now``), the changed rows are mapped to subject entities through
   the rules' triggers (``record`` = an entity of a kind, or any kind with ``*``, whose row or
-  records changed, propagation included; ``link_type`` = the ends of changed links of a type;
-  ``field`` = entities whose field changed). ``check``
+  records changed, propagation included; ``link_type`` = the ends of changed links of a type,
+  which is all a changed link fires; ``field`` = entities whose field changed). ``check``
   returns every finding of the rule that involves one of the subjects; findings are upserted by
   fingerprint, and the rule's findings about those subjects that weren't produced again are
   deleted (decided with #55: a fixed finding is deleted). Findings about purged entities are
@@ -28,16 +28,18 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from sqlalchemy import delete, select
+from sqlalchemy import bindparam, delete, insert, select, update
 from sqlalchemy.orm import Session
 
 from lore.core.consistency.compare import DEFINITE, Certainty, Point
 from lore.core.consistency.models import Finding, FindingEntity, Suppression
+from lore.core.db.base import new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.models import Entity
 from lore.core.errors import ErrorItem, InvalidInputError
 from lore.core.history import recorder
 from lore.core.registry.types import RuleDef
+from lore.core.time.dependencies import SlotNode
 from lore.core.time.resolve import Resolver
 from lore.core.vaults.meta import get_meta, set_meta
 
@@ -88,6 +90,7 @@ class RuleContext:
         self.session = context.session
         self.registry = context.registry
         self._resolvers: dict[str, Resolver | None] = {}
+        self._points: dict[tuple[str, str, str, str], Point | None] = {}
         self._tables: set[str] | None = None
 
     def has_table(self, name: str) -> bool:
@@ -106,12 +109,25 @@ class RuleContext:
                 self._resolvers[dimension_id] = None
         return self._resolvers[dimension_id]
 
-    def point(self, dimension_id: str, record_type: str, record_id: str, slot: str) -> Point | None:
-        """A stored slot as a point (moment, extent, circa); ``None`` without a moment."""
+    def preload(
+        self, dimension_id: str, record_type: str, slots: Iterable[tuple[str, str]]
+    ) -> None:
+        """Load the stored slots ``(record id, slot)`` a rule is about to ask ``point`` for, in
+        sets: a rule over thousands of records must not load them one by one (#235)."""
         resolver = self.resolver(dimension_id)
-        if resolver is None:
-            return None
-        return Point.of(resolver.slot(record_type, record_id, slot))
+        if resolver is not None:
+            resolver.preload(SlotNode(record_type, record_id, slot) for record_id, slot in slots)
+
+    def point(self, dimension_id: str, record_type: str, record_id: str, slot: str) -> Point | None:
+        """A stored slot as a point (moment, extent, circa); ``None`` without a moment. Each
+        slot is resolved once per context (rules are readers: nothing changes under them)."""
+        key = (dimension_id, record_type, record_id, slot)
+        if key not in self._points:
+            resolver = self.resolver(dimension_id)
+            self._points[key] = (
+                None if resolver is None else Point.of(resolver.slot(record_type, record_id, slot))
+            )
+        return self._points[key]
 
 
 # --- severities -----------------------------------------------------------------------------------
@@ -160,20 +176,35 @@ def evaluated_rules(context: VaultContext) -> list[RuleDef]:
 # --- storage --------------------------------------------------------------------------------------
 
 
-def _existing(session: Session, rule_id: str, subjects: Iterable[str] | None) -> dict[str, Finding]:
-    """The rule's findings (about any of ``subjects``; all without), by fingerprint."""
-    statement = select(Finding).where(Finding.rule_id == rule_id)
-    if subjects is None:
-        return {f.fingerprint: f for f in session.scalars(statement)}
-    wanted = sorted(set(subjects))
-    found: dict[str, Finding] = {}
+# Bulk writes go to the tables: the findings are derived data (not recorded in history).
+_FINDINGS: Any = Finding.__table__
+_SUBJECTS: Any = FindingEntity.__table__
+
+type _Stored = tuple[str, str, str, str | None, Any]  # id, certainty, message, timeline, data
+
+
+def _chunks(values: Iterable[str]) -> Iterable[list[str]]:
+    wanted = sorted(set(values))
     for start in range(0, len(wanted), _BATCH):
-        ids = select(FindingEntity.finding_id).where(
-            FindingEntity.entity_id.in_(wanted[start : start + _BATCH])
-        )
-        found.update(
-            {f.fingerprint: f for f in session.scalars(statement.where(Finding.id.in_(ids)))}
-        )
+        yield wanted[start : start + _BATCH]
+
+
+def _stored(statement: Any, session: Session) -> dict[str, _Stored]:
+    return {row[0]: tuple(row[1:]) for row in session.execute(statement)}
+
+
+def _existing(session: Session, rule_id: str, subjects: Iterable[str] | None) -> dict[str, _Stored]:
+    """The rule's findings (about any of ``subjects``; all without), by fingerprint."""
+    statement = select(
+        Finding.fingerprint, Finding.id, Finding.certainty, Finding.message, Finding.timeline_id,
+        Finding.data,
+    ).where(Finding.rule_id == rule_id)  # fmt: skip
+    if subjects is None:
+        return _stored(statement, session)
+    found: dict[str, _Stored] = {}
+    for batch in _chunks(subjects):
+        ids = select(FindingEntity.finding_id).where(FindingEntity.entity_id.in_(batch))
+        found.update(_stored(statement.where(Finding.id.in_(ids)), session))
     return found
 
 
@@ -181,60 +212,94 @@ def store_findings(
     session: Session, rule_id: str, drafts: Iterable[FindingDraft], scope: Iterable[str] | None
 ) -> list[FindingDraft]:
     """Upsert the rule's findings by fingerprint and delete those about ``scope`` (every one of
-    the rule's without) that weren't produced. Returns the drafts that are new."""
+    the rule's without) that weren't produced. Returns the drafts that are new. Everything is
+    read and written in sets: a scan or a calendar edit stores tens of thousands (#235)."""
     produced: dict[str, FindingDraft] = {}
     for draft in drafts:
         produced.setdefault(draft.fingerprint, draft)
-    existing = _existing(session, rule_id, scope)
-    for fingerprint, finding in existing.items():
-        if fingerprint not in produced:
-            session.delete(finding)
-    known = existing | {
-        f.fingerprint: f
-        for f in session.scalars(
-            select(Finding).where(Finding.fingerprint.in_(sorted(set(produced) - set(existing))))
-        )
-    }
-    new: list[FindingDraft] = []
-    now = utc_now()
-    for fingerprint, draft in produced.items():
-        found = known.get(fingerprint)
-        values = {
-            "certainty": draft.certainty,
-            "message": draft.message,
-            "timeline_id": draft.timeline_id,
-            "data": dict(draft.data),
-        }
-        if found is None:
-            found = Finding(
-                fingerprint=fingerprint, rule_id=rule_id, created_at=now, updated_at=now, **values
-            )
-            session.add(found)
-            session.flush()
-            new.append(draft)
-        elif any(getattr(found, k) != v for k, v in values.items()):
-            for key, value in values.items():
-                setattr(found, key, value)
-            found.updated_at = now
-        _store_subjects(session, found, draft.subjects)
     session.flush()
+    existing = _existing(session, rule_id, scope)
+    gone = [found[0] for fingerprint, found in existing.items() if fingerprint not in produced]
+    for batch in _chunks(gone):
+        session.execute(delete(Finding).where(Finding.id.in_(batch)))
+    known = dict(existing)
+    for batch in _chunks(set(produced) - set(existing)):  # found before, about other subjects
+        known.update(
+            _stored(
+                select(
+                    Finding.fingerprint, Finding.id, Finding.certainty, Finding.message,
+                    Finding.timeline_id, Finding.data,
+                ).where(Finding.fingerprint.in_(batch)),
+                session,
+            )
+        )  # fmt: skip
+    now = utc_now()
+    new: list[FindingDraft] = []
+    inserted: list[dict[str, Any]] = []
+    changed: list[dict[str, Any]] = []
+    subjects: dict[str, list[str]] = {}  # finding id -> its subjects, in order
+    for fingerprint, draft in produced.items():
+        values = (draft.certainty, draft.message, draft.timeline_id, dict(draft.data))
+        found = known.get(fingerprint)
+        if found is None:
+            finding_id = new_id()
+            row = dict(zip(("certainty", "message", "timeline_id", "data"), values, strict=True))
+            inserted.append(
+                {"id": finding_id, "fingerprint": fingerprint, "rule_id": rule_id,
+                 "created_at": now, "updated_at": now, **row}
+            )  # fmt: skip
+            new.append(draft)
+        else:
+            finding_id = found[0]
+            if found[1:] != values:
+                row = dict(zip(("b_certainty", "b_message", "b_timeline", "b_data"), values,
+                               strict=True))  # fmt: skip
+                changed.append({"b_id": finding_id, "b_updated_at": now, **row})
+        subjects[finding_id] = list(dict.fromkeys(draft.subjects))
+    for start in range(0, len(inserted), _BATCH):
+        session.execute(insert(_FINDINGS), inserted[start : start + _BATCH])
+    if changed:
+        session.execute(
+            update(_FINDINGS)
+            .where(_FINDINGS.c.id == bindparam("b_id"))
+            .values(
+                certainty=bindparam("b_certainty"),
+                message=bindparam("b_message"),
+                timeline_id=bindparam("b_timeline"),
+                data=bindparam("b_data"),
+                updated_at=bindparam("b_updated_at"),
+            ),
+            changed,
+        )
+    _store_subjects(session, subjects, {row["id"] for row in inserted})
+    if gone or inserted or changed:
+        for loaded in list(session.identity_map.values()):
+            if isinstance(loaded, Finding | FindingEntity):
+                session.expire(loaded)
     return new
 
 
-def _store_subjects(session: Session, finding: Finding, subjects: Sequence[str]) -> None:
-    wanted = list(dict.fromkeys(subjects))
-    current = list(
-        session.scalars(
-            select(FindingEntity.entity_id)
-            .where(FindingEntity.finding_id == finding.id)
-            .order_by(FindingEntity.position)
+def _store_subjects(session: Session, subjects: Mapping[str, list[str]], new: set[str]) -> None:
+    """Store the subjects of findings (by finding id), rewriting those that changed."""
+    current: dict[str, list[str]] = {}
+    for batch in _chunks(set(subjects) - new):
+        rows = session.execute(
+            select(FindingEntity.finding_id, FindingEntity.entity_id)
+            .where(FindingEntity.finding_id.in_(batch))
+            .order_by(FindingEntity.finding_id, FindingEntity.position)
         )
-    )
-    if current == wanted:
-        return
-    session.execute(delete(FindingEntity).where(FindingEntity.finding_id == finding.id))
-    for position, entity_id in enumerate(wanted):
-        session.add(FindingEntity(finding_id=finding.id, entity_id=entity_id, position=position))
+        for finding_id, entity_id in rows:
+            current.setdefault(finding_id, []).append(entity_id)
+    rewritten = [i for i, wanted in subjects.items() if i not in new and current.get(i) != wanted]
+    for batch in _chunks(rewritten):
+        session.execute(delete(FindingEntity).where(FindingEntity.finding_id.in_(batch)))
+    rows_to_add = [
+        {"finding_id": finding_id, "entity_id": entity_id, "position": position}
+        for finding_id in (*sorted(new), *rewritten)
+        for position, entity_id in enumerate(subjects[finding_id])
+    ]
+    for start in range(0, len(rows_to_add), _BATCH):
+        session.execute(insert(_SUBJECTS), rows_to_add[start : start + _BATCH])
 
 
 def delete_findings_of(session: Session, entity_ids: Iterable[str]) -> None:
@@ -282,8 +347,9 @@ def hits_of(session: Session, changes: Sequence[recorder.RecordedChange]) -> Hit
     hits = Hits()
     touched: set[str] = set()
     for change in changes:
-        touched.update(change.owners)
         rows = [row for row in (change.before, change.after) if row is not None]
+        if change.table != "links":  # a link changes neither of its ends' records
+            touched.update(change.owners)
         if change.table == "entities":
             row = rows[-1]
             hits.kinds[change.row_id] = str(row["kind"])

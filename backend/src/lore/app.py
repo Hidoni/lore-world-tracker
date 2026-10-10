@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import gc
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
@@ -57,14 +58,20 @@ def operation_id(route: APIRoute) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Refuse to start on an unsupported SQLite build; run the maintenance scheduler (author mode);
-    close vaults (engines, locks) on exit."""
+    close vaults (engines, locks) on exit.
+
+    What the app is made of (routes, models, mappers: a quarter of a million objects) is frozen
+    out of the garbage collector while it serves: a full collection walked all of it, for 85 ms
+    in about one request out of ten (#236)."""
     ensure_sqlite_capabilities()
     scheduler: MaintenanceScheduler | None = app.state.scheduler
     if scheduler is not None:
         scheduler.start()
+    gc.freeze()
     try:
         yield
     finally:
+        gc.unfreeze()
         if scheduler is not None:
             scheduler.stop()
         app.state.vaults.close()

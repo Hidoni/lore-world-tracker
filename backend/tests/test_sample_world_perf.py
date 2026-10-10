@@ -19,7 +19,7 @@ from scripts.make_sample_vault import SIZES, Size
 
 from lore.app import create_app
 from lore.config import Settings
-from lore.core.time.cache import WINDOWS
+from lore.core.time.cache import SERIES, WINDOWS
 from tests.conftest import local_client
 from tests.entity_api import HEADERS
 from tests.sample_world import copy_world
@@ -103,6 +103,16 @@ def test_windows(world: World) -> None:
     results = {label: (_p95_ms(call), limit) for label, call, limit in budgets}
     report = ", ".join(f"{label}: {ms:.1f} ms" for label, (ms, _) in results.items())
     print(f"\nwindow p95 ({tenth['total']} events in 1/10, {whole['total']} in all): {report}")
+    # Not a budget: a window's first computation since the app started (or since its series
+    # changed) also expands the series it shows; the cold windows above have them cached.
+    first = {}
+    for label, (a, b, p) in {**zoomed_in, **zoomed_out}.items():
+        SERIES.clear()
+        started = time.perf_counter()
+        window(a, b, cold=True, **p)()
+        first[label] = (time.perf_counter() - started) * 1000
+    print("first window with no series cached: "
+          + ", ".join(f"{label}: {ms:.0f} ms" for label, ms in first.items()))  # fmt: skip
     slow = {label: ms for label, (ms, limit) in results.items() if ms > limit}
     assert not slow, f"over budget: {slow}"
 

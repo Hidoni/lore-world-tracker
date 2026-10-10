@@ -38,7 +38,7 @@ from lore.core.db.migrate import (
 from lore.core.errors import InvalidInputError, ReadOnlyError
 from lore.core.history.recorder import install as install_history
 from lore.core.history.tables import HistoryTable, core_history_tables
-from lore.core.time.cache import CALENDARS, WINDOWS
+from lore.core.time.cache import CALENDARS, SERIES, WINDOWS
 from lore.core.vaults.backups import (
     DEFAULT_LIMITS,
     BackupInfo,
@@ -788,6 +788,7 @@ class VaultManager:
         opened.engine.dispose()
         CALENDARS.forget_vault(vault_id)
         WINDOWS.forget_vault(vault_id)
+        SERIES.forget_vault(vault_id)
 
     def close(self) -> None:
         """Dispose every engine and release every lock (app shutdown)."""

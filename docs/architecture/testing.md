@@ -45,8 +45,7 @@
     modified and cancelled occurrences, a sub-event of an occurrence and an anchor to one.
   - **The bulk** (`small` and up): seeded random events with mentions, tags, aliases, hierarchy and
     private/spoiler content, and links between them. `small` ≈ 1k events / 3k links, `medium` ≈
-    10k / 40k, `large` ≈ 100k events / 500k links (takes about 2 hours to build, until #235
-    brings it back to about 20 minutes). Their starts are absolute, dates in three calendars at
+    10k / 40k, `large` ≈ 100k events / 500k links (takes about 45 minutes to build, §4.0). Their starts are absolute, dates in three calendars at
     random precisions (some circa) or relative to a recent event (base or calendar offsets, start
     or end); their ends are every kind; every 100th event recurs (interval, yearly or monthly
     rules), and some series have a materialized occurrence.
@@ -105,22 +104,68 @@ generator, the app version and the migrations; the tests work on a copy.
 
 ### 4.0 Results
 
-Measured 2026-10-09 on `large` (seed default: 100,365 events, 500,010 links, 1.6 GB `lore.db`)
-on a Ryzen 7 5800X under WSL2 (16 GB), app version 0.1.0 + #56. Every miss has a follow-up.
+Measured 2026-10-10 on `large` (seed default: 100,365 events, 500,010 links, 1.6 GB `lore.db`)
+on a Ryzen 7 5800X under WSL2 (16 GB), after #235–#238; "before" is 2026-10-09 (app version
+0.1.0 + #56). Window times are the p95 of 20 runs, and vary by 10–20% between runs on this
+machine.
 
-| Operation | Measured | Budget | Follow-up |
-|-----------|----------|--------|-----------|
-| Window, cold, 1/10 of the bulk (17,409 events) / 1/100 / 1/10,000 | 756 / 340 / 247 ms | < 150 ms | #236 |
-| Window, cold, whole bulk / whole dimension / importance ≥ 4 | 2,288 / 2,326 / 701 ms | < 500 ms | #236 |
-| Window, cold, as reader: 1/10 / whole bulk | 3,362 / 5,090 ms | < 150 / 500 ms | #236 |
-| Window, cached (all of the above) | 6–37 ms | < 150 ms | met |
-| Calendar proposal over 22,985 dependents: preview / apply | 9.3 / 123 s | < 5 s each | #237, #235 |
-| Full consistency scan | > 15 min (stopped) | < 10 s | #235 |
-| Building `large` (`make_sample_vault.py`) | 2 h 05 min (45 min events, 80 min links) | about 20 min before M3 | #235 |
-| Starting the app on `large` | 10 min | – | #238 |
+| Operation | Before | Measured | Budget | |
+|-----------|--------|----------|--------|-|
+| Window, cold, 1/10 of the bulk (17,409 events) / 1/100 / 1/10,000 | 756 / 340 / 247 ms | 90 / 63 / 22 ms | < 150 ms | met |
+| Window, cold, whole bulk / whole dimension / importance ≥ 4 | 2,288 / 2,326 / 701 ms | 319 / 329 / 108 ms | < 500 ms | met |
+| Window, cold, as reader: 1/10 / whole bulk | 3,362 / 5,090 ms | 103 / 336 ms | < 150 / 500 ms | met |
+| Window, cached (all of the above) | 6–37 ms | 3–23 ms | < 150 ms | met |
+| Window, first since the app started (no series cached): 1/10 / whole bulk | (the cold ones above) | 157 / 974 ms | – | see below |
+| Calendar proposal over 22,985 dependents: preview | 9.3 s | 4.7 s (5.1–5.7 s on a busy machine) | < 5 s | met, barely |
+| Calendar proposal over 22,985 dependents: apply | 123 s | 22.2 s | < 5 s | missed (#237) |
+| Full consistency scan (50,358 findings) | > 15 min (stopped) | 7.9 s (9–10.7 s on a busy machine) | < 10 s | met |
+| Enabling `core.event.duplicate_name_same_time` | about 28 min | 0.6–0.9 s | – | |
+| Writing an event / a link (the generator, per write) | 18 / 9.6 ms | 14–27 / 1.2 ms | – | |
+| Building `large` (`make_sample_vault.py`) | 2 h 05 min (45 min events, 80 min links) | 46 min (35.5 min events, 10.3 min links; the test suite ran beside it) | about 20 min before M3 | missed: the event service (#241) |
+| Starting the app on `large`, to its first window | "10 min" | 1.5 s | < 10 s | met (it always was, see below) |
 
-The consistency rules dominate the scan, the apply and the build: they resolve each time point
-on its own (1.2 ms per point, 3+ queries; #235).
+What the numbers rest on, and what is left:
+
+- **Windows** (#236). A cold window's cost was the series (a query with a thousand ids, every
+  occurrence computed again), the sub-event markers (every child of every kept event read) and,
+  for readers, a visibility query per time point. Series now come through their partial index,
+  the occurrences of series with at most the item budget in all are kept (`SERIES`, checked
+  against the series' stored columns and compiled calendar on every use, so it survives
+  unrelated writes; longer series are counted before they are expanded), markers are one probe
+  per event and a reader's window asks once. A "cold" window above still has its series cached:
+  the first window after the app starts, or after its series or their calendar changed, expands
+  them (the "first" row). For readers, the policy's conditions on an entity's dimension and
+  origin timeline are settled against the few shown ones (listed once per statement) before
+  the per-row lookup, and are built once per process, not per statement (building them took
+  longer than most reader queries run).
+- **Garbage collection.** A full collection walked the 250k objects the app is made of, 85 ms
+  in about one request out of ten: the p95 of every window. The app freezes them out of the
+  collector at startup (`lore.app.lifespan`).
+- **Consistency** (#235). The scan's time is now the sub-event rule resolving the extents of the
+  50,032 sub-events that lie outside their parent in this world (half of all events: the
+  generator puts children in one of the last five eras at random), about 6 s of the 9. A world
+  with fewer findings scans in proportion: the uniform world of
+  `tests/consistency/test_consistency_perf.py` takes 0.8 s. The findings of the scan are the
+  ones the previous engine stored while the world was built (all 50,034 compared field by
+  field).
+- **Proposals** (#237). The preview is the dry-run propagation (2.6 s), formatting 47,674 dates
+  (2.2 s, was 4.5) and storing and returning an 11 MB preview. The apply is the backup (12 s:
+  `VACUUM INTO` 3.4 s, deflating 1.6 GB at the fastest level 7 s; was 29 s), the consistency
+  check of 23k changed events (4 s, was 115 s) and the propagation (2.5 s). A backup that is a
+  whole copy of the vault can't fit a 5 s budget at this size: stored without compression it
+  still takes 5–6 s (and 1.6 GB per backup, never pruned); Zstandard would take 2 s for a
+  smaller file, but most zip tools can't open such an entry. That is a product decision.
+- **Startup** (#238). There was no 10-minute startup: the timestamps that suggested it were
+  the maintenance scheduler's first pass (`CHECK_INTERVAL_SECONDS`, ten minutes after the app
+  starts), which began a scheduled backup while the window test was still running. Opening
+  `large` takes 40 ms, and the first window is served 1.5 s after the process starts (imports
+  included). A scheduler pass never holds requests up (`tests/test_backups.py`).
+- **Writes.** A link's check was 85% of writing it, an event's is now 7% (1 ms of 14): the rest
+  is the event service itself (propagation, dependency edges, displays, search: 50 statements
+  per event), and it grows from 14 ms in an empty vault to 27 ms at 100k events while `large`
+  is built, 500 events per transaction. Written one per request, an event costs the same next to
+  100k events as in an empty vault (`test_writes_cost_the_same_in_a_large_vault`). #241 looks at
+  the event service.
 
 ### 4.1 Chronology engine budgets
 

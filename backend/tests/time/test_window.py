@@ -2,6 +2,7 @@
 buckets, filters, visibility and the cache (decisions of 2026-10-06/07 in
 ``lore.core.time.window``)."""
 
+import copy
 import sqlite3
 from collections.abc import Iterator
 from datetime import timedelta
@@ -12,10 +13,17 @@ import pytest
 from sqlalchemy import event as sa_event
 from sqlalchemy.pool import Pool
 
+from lore.chronology.recurrence import RecurrenceContext, expand
 from lore.core.history import recorder
 from lore.core.time.cache import WINDOWS
-from lore.core.time.window import bucket_bounds
-from tests.entity_api import LinkApi, invalid, make_client, problem
+from lore.core.time.events import with_children
+from lore.core.time.series import parse_rule
+from lore.core.time.specs import parse_end_spec
+from lore.core.time.timeline_view import LineageEntry, TimelineView
+from lore.core.time.window import _expanded, bucket_bounds
+from lore.core.visibility import AUTHOR
+from tests.entity_api import YEARS, LinkApi, invalid, make_client, problem
+from tests.queries import statements
 
 
 @pytest.fixture
@@ -250,3 +258,111 @@ def test_writes_invalidate_the_cache(api: LinkApi, world: dict[str, Any]) -> Non
     assert names(window(api, world, 0, 100)) == ["Second"]
     api.delete(first["id"])
     assert names(window(api, world, 0, 1000)) == ["Second"]
+
+
+# --- large windows (#236) ------------------------------------------------------------------------
+
+
+def test_a_reader_window_asks_what_is_visible_once(api: LinkApi, world: dict[str, Any]) -> None:
+    """Redacting the points of a window doesn't ask for each one's calendar: a window over more
+    calendar-dated events runs the same statements."""
+    made = 0
+
+    def reader_window(events: int) -> tuple[int, int]:
+        nonlocal made
+        for _ in range(events):
+            made += 1
+            anchor = {"kind": "calendar", "calendar_id": world["calendar"]["id"],
+                      "fields": {"year": str(made)}}  # fmt: skip
+            ext = {"start": {"anchor": anchor, "precision": "year"}}
+            api.make("event", f"Year {made}", dimension_id=world["dimension"]["id"], ext=ext)
+        WINDOWS.clear()
+        with statements() as seen:
+            found = window(api, world, 0, 10**11, as_reader="true")
+        return len(found["items"]), len(seen)
+
+    few, few_statements = reader_window(4)
+    many, many_statements = reader_window(36)
+    assert (few, many) == (4, 40)
+    assert many_statements == few_statements
+
+
+@pytest.mark.parametrize(
+    "end",
+    [
+        {"kind": "instant"},
+        {"kind": "duration", "duration": {"kind": "base", "units": "3"}},
+        {"kind": "duration", "duration": {"kind": "base", "units": "20"}},  # they overlap
+    ],
+)
+def test_cached_occurrences_overlap_windows_as_expanded(end: dict[str, Any]) -> None:
+    """A series' occurrences in a window, taken from all of them (what the window caches), are
+    those ``expand`` finds for the window."""
+    rule = parse_rule({"kind": "interval", "every": "7", "limit": {"kind": "count", "count": "30"}})
+    ctx = RecurrenceContext(series_start=100, end=parse_end_spec(end), dimension_duration=10_000)
+    every = _expanded(rule, ctx, 1000)
+    assert every is not None
+    assert len(every.items) == 30
+    for w0 in range(80, 340, 3):
+        for width in (1, 2, 7, 20, 45, 400):
+            w1 = w0 + width
+            expected = [(o.key, o.start, o.end) for o in expand(rule, ctx, (w0, w1), 1000).items]
+            assert [every.items[i] for i in every.overlapping(w0, w1)] == expected, (w0, w1)
+    assert _expanded(rule, ctx, 29) is None  # more than the budget: expanded per window
+
+
+def test_series_too_long_to_cache_are_counted_into_bands(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """A series with more occurrences than the budget is a band with its exact count, or its
+    occurrences where the window holds few enough."""
+    rule = {"kind": "interval", "every": "10", "limit": {"kind": "count", "count": "500"}}
+    series = event(api, world, "Bell", 1000, ext={"recurrence": rule})
+    wide = window(api, world, 0, 10_000, px=40)
+    assert [(b["entity_id"], b["estimated_count"]) for b in wide["series_bands"]] == [
+        (series["id"], "500")
+    ]
+    assert wide["items"] == []
+    narrow = window(api, world, 1000, 1100, px=40)
+    assert narrow["series_bands"] == []
+    assert [i["start_t"] for i in narrow["items"]] == [str(1000 + 10 * k) for k in range(10)]
+
+
+def test_cached_occurrences_follow_their_calendar(api: LinkApi, world: dict[str, Any]) -> None:
+    """The occurrences kept for a series are those of its calendar as it was compiled: after a
+    calendar edit they are computed again."""
+    calendar = world["calendar"]["id"]
+    rule = {"kind": "calendar", "calendar_id": calendar, "freq": {"level": "year"},
+            "limit": {"kind": "count", "count": "4"}}  # fmt: skip
+    event(api, world, "New Year", 0, ext={"recurrence": rule})
+    year = 365 * 86_400
+    assert [i["start_t"] for i in window(api, world, 0, 10 * year)["items"]] == [
+        str(k * year) for k in range(4)
+    ]
+    shorter = copy.deepcopy(YEARS)
+    shorter["regimes"][0]["templates"]["year"]["uniform"]["count"] = "360"
+    url = f"{api.base}/calendars/{calendar}/proposals"
+    proposal = api.client.post(url, json={"definition": shorter})
+    assert proposal.status_code == 201, proposal.json()
+    applied = api.client.post(f"{url}/{proposal.json()['id']}/apply", json={})
+    assert applied.status_code == 200, applied.json()
+    assert [i["start_t"] for i in window(api, world, 0, 10 * year)["items"]] == [
+        str(k * 360 * 86_400) for k in range(4)
+    ]
+
+
+def test_sub_event_markers_in_a_lineage(api: LinkApi, world: dict[str, Any]) -> None:
+    """``has_children`` is found the same way for a timeline with ancestors (rows resolved over
+    its lineage) as for a prime."""
+    era = event(api, world, "Era", 0, 1000)
+    event(api, world, "Battle", 10, parent_id=era["id"])
+    lone = event(api, world, "Lone", 20)
+    vault = api.client.app.state.vaults.open(api.vault)  # type: ignore[attr-defined]
+    prime = [LineageEntry(world["prime"], None, 0)]
+    branch = [LineageEntry("a-branch", None, 0), LineageEntry(world["prime"], 500, 1)]
+    with vault.sessions() as session:
+        for lineage in (prime, branch):
+            view = TimelineView(lineage)
+            found = with_children(session, view, AUTHOR, [era["id"], lone["id"]])
+            assert found == {era["id"]}
+            assert with_children(session, view, AUTHOR, []) == set()

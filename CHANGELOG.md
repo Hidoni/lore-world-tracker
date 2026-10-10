@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Large vaults** (#235–#238), measured on the `large` sample world (100k events, 500k links):
+  - Timeline windows: cold windows take 20–100 ms zoomed in and about 330 ms over the whole
+    dimension (were 250 ms to 5 s; readers were slowest). Series are looked up through their
+    index and their occurrences remembered, sub-event markers cost one probe per event, and a
+    reader's window asks what is visible once.
+  - Consistency: a full scan takes 8 s (was more than 15 minutes), enabling the duplicate-name
+    rule under a second (was 28 minutes), and a write's check no longer grows with the vault.
+    Writing a link costs 1.2 ms (was 10 ms): it only re-checks rules about its link type.
+  - Calendar proposals: preview under 5 s (was 9 s), apply 22 s (was 2 minutes). The backup
+    taken before a large apply is deflated at the fastest level.
+  - A full garbage collection no longer stalls about one request in ten for 85 ms.
+
 ## [0.1.0] - 2026-10-05
 
 The first release that writes vaults: the core platform (M2) on top of the foundations (M0) and

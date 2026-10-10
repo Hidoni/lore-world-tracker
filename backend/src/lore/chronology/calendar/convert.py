@@ -101,6 +101,16 @@ def _regime_end(calendar: CompiledCalendar, regime: CompiledRegime) -> int | Non
 
 def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
     """The date of moment ``t``: every level from the top down, plus the base remainder."""
+    return _fields(calendar, t, parallel=True)
+
+
+def level_fields(calendar: CompiledCalendar, t: int) -> DateFields:
+    """``to_fields`` without the cycles and overlays (both empty): the levels and the era, for
+    callers that may not need the rest (formatting a date whose pattern names neither)."""
+    return _fields(calendar, t, parallel=False)
+
+
+def _fields(calendar: CompiledCalendar, t: int, *, parallel: bool) -> DateFields:
     regime = active_regime(calendar, t)
     rel = t - regime.epoch
     year = regime.year_of_rel(rel)
@@ -116,8 +126,10 @@ def to_fields(calendar: CompiledCalendar, t: int) -> DateFields:
         )
         assert child.template is not None  # children of level >= 1 templates are templates
         template = regime.templates[child.template]
-    cycles = cycle_values(len(levels) - 1, regime, t)
     era = era_of(calendar, t)
+    if not parallel:
+        return DateFields(regime.id, values, offset, {}, era)
+    cycles = cycle_values(len(levels) - 1, regime, t)
     return DateFields(regime.id, values, offset, cycles, era, overlay_values(calendar, t))
 
 

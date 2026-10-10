@@ -333,6 +333,29 @@ def test_large_applies_take_a_backup(
     assert backup in [b["id"] for b in listed]
 
 
+def test_the_backup_before_an_apply_restores(
+    api: LinkApi, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pre-apply backup (deflated at the fastest level, #237) is a backup like any other:
+    restored, it is the vault as it was before the apply."""
+    monkeypatch.setattr(proposals, "BACKUP_THRESHOLD", 1)
+    thaw = event(api, world, "Thaw", date(world, 1, "thawing", 1))
+    before = start_t(api, thaw["id"])
+    result = apply(api, world, propose(api, world, two_months(frost=30)))
+    assert result.status_code == 200, result.json()
+    assert start_t(api, thaw["id"]) != before
+    download = api.client.get(f"{api.base}/backups/{result.json()['backup']}/download")
+    assert download.status_code == 200
+    restored = api.client.post(
+        "/api/v1/vaults/restore",
+        files={"file": ("backup.zip", download.content, "application/zip")},
+    )
+    assert restored.status_code == 201, restored.json()
+    old = LinkApi(api.client, restored.json()["id"])
+    assert start_t(old, thaw["id"]) == before
+    assert ext_of(old, world["calendar"]["id"])["definition"] == two_months()
+
+
 def test_proposals_expire(api: LinkApi, world: dict[str, Any]) -> None:
     event(api, world, "Thaw", date(world, 1, "thawing", 1))
     proposal = propose(api, world, two_months(frost=30))

@@ -17,7 +17,7 @@ demand with ``lore.chronology.recurrence`` and never stored in bulk (R-REC-1, AD
   slots, the rule's calendar or the dimension's duration change.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -236,7 +236,7 @@ class RuleProblem:
     message: str
 
 
-def _calendar_of(rule: Rule | None, end: EndSpec) -> tuple[str | None, str]:
+def calendar_of(rule: Rule | None, end: EndSpec) -> tuple[str | None, str]:
     """The calendar the engine needs and the path naming it."""
     if isinstance(rule, CalendarRule):
         return rule.calendar_id, "/calendar_id"
@@ -255,7 +255,7 @@ def recurrence_context(
     """The engine's context for a rule of the resolver's dimension, or why there is none (the
     rule's calendar isn't one of the dimension's, doesn't compile, or the series' calendar
     duration uses another calendar)."""
-    calendar_id, path = _calendar_of(rule, end)
+    calendar_id, path = calendar_of(rule, end)
     calendar: CompiledCalendar | None = None
     if calendar_id is not None:
         found = resolver.calendars.get(calendar_id, path)
@@ -309,11 +309,25 @@ def bounds_of(rule: Rule, ctx: RecurrenceContext) -> tuple[int | None, int | Non
 
 def row_context(resolver: Resolver, row: Event) -> tuple[Rule, RecurrenceContext] | RuleProblem:
     """A stored series' rule and context (from its stored moments)."""
-    rule = stored_rule(row)
-    if rule is None or row.start_t is None:
+    return stored_context(
+        resolver, row.recurrence, row.start_t, row.end_spec, row.recurrence_resolved
+    )
+
+
+def stored_context(
+    resolver: Resolver,
+    recurrence: Any,
+    start_t: int | None,
+    end_spec: Any,
+    resolved: Mapping[str, str] | None,
+) -> tuple[Rule, RecurrenceContext] | RuleProblem:
+    """``row_context`` from a series row's stored columns (``end_spec``: a document or a
+    model)."""
+    if recurrence is None or start_t is None:
         return RuleProblem("rule.unresolved", "", "The series has no rule or no start.")
-    resolved = {pointer: int(t) for pointer, t in (row.recurrence_resolved or {}).items()}
-    ctx = recurrence_context(resolver, rule, row.start_t, parse_end_spec(row.end_spec), resolved)
+    rule = parse_rule(recurrence)
+    moments = {pointer: int(t) for pointer, t in (resolved or {}).items()}
+    ctx = recurrence_context(resolver, rule, start_t, parse_end_spec(end_spec), moments)
     return ctx if isinstance(ctx, RuleProblem) else (rule, ctx)
 
 
@@ -380,7 +394,7 @@ def _using(session: Session, calendar_ids: set[str]) -> list[Event]:
     return [
         row
         for row in _all_series(session)
-        if _calendar_of(stored_rule(row), parse_end_spec(row.end_spec))[0] in calendar_ids
+        if calendar_of(stored_rule(row), parse_end_spec(row.end_spec))[0] in calendar_ids
     ]
 
 

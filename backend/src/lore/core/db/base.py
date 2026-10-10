@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import CheckConstraint, ColumnElement, Integer, MetaData, String, text
+from sqlalchemy import CheckConstraint, ColumnElement, Integer, MetaData, String, event, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from lore.core.db.types import UTCDateTime, utc_now
@@ -28,6 +28,20 @@ VISIBILITIES: tuple[Visibility, ...] = ("public", "spoiler", "private")
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+_KEPT = "lore_kept_rows"
+
+
+def keep_loaded(model: type) -> None:
+    """Rows of ``model`` stay in the session that loaded them, for a few rows asked for all the
+    time (a dimension, its calendars and timelines). A session only holds a row while something
+    else does: ``session.get`` read a dimension six times while writing one event."""
+
+    def keep(target: Any, context: Any) -> None:
+        context.session.info.setdefault(_KEPT, []).append(target)
+
+    event.listen(model, "load", keep)
 
 
 def new_id() -> str:

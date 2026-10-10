@@ -96,7 +96,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
 | `make test-differential` | random calendars and ops through both chronology engines, results compared (`DIFFERENTIAL_CASES`, default 200; testing.md §6) |
 | `make bench` | chronology benchmarks and perf budgets, both engines (testing.md §4.1) |
-| `make perf` | backend perf budgets (testing.md §4), incl. the `large` sample world (built once and cached in `LORE_SAMPLE_CACHE`, hours until #235) |
+| `make perf` | backend perf budgets (testing.md §4), incl. the `large` sample world (built once and cached in `LORE_SAMPLE_CACHE`, about 45 minutes) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
 | `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |
 | `make fmt` | ruff format + prettier |
@@ -145,6 +145,12 @@ squash-merge after green CI (details in `docs/plan/workflow.md`).
   slot id so "keep typed dates" survives calendar edits.
 - Recurrence windows must jump with ordinal arithmetic. A loop from the series start is a bug
   even if tests pass.
+- SQLite picks indexes from sampled statistics (`PRAGMA optimize`): next to a selective condition,
+  one nearly every row meets (`kind = 'event'`, `deleted_at IS NULL`) can win and turn a lookup
+  into a scan of the vault. Wrap such columns in `lore.core.db.unindexed` / `Unindexed`, and
+  check the plan on a large vault (`make perf`), not on a test's ten rows.
+- Consistency rules and other readers of many time points load them in sets
+  (`RuleContext.preload`, `Resolver.preload`), never one `slot` at a time.
 - Visibility leaks hide in derived data: search snippets, counts, graph edges, mentions, media.
 - Every changeset any vault session writes (API, CLI, scripts, bulk writers) runs the consistency
   engine first and may be refused with `consistency_error`. Repairs that must not be refused call

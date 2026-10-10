@@ -9,6 +9,8 @@ from urllib.parse import quote
 
 from sqlalchemy import Connection, Engine, create_engine, event
 from sqlalchemy.pool import ConnectionPoolEntry, Pool, QueuePool
+from sqlalchemy.sql import operators
+from sqlalchemy.sql.elements import UnaryExpression
 
 from lore.core.errors import LoreError
 
@@ -185,6 +187,25 @@ def snapshot(source: Path, target: Path) -> None:
         closing(sqlite3.connect(target)) as writer,
     ):
         reader.backup(writer)
+
+
+def unindexed(column: Any) -> Any:
+    """``+column``: the same value, but SQLite's planner won't pick an index for the condition
+    it is in. For conditions nearly every row meets (``kind = 'event'``, ``deleted_at IS NULL``)
+    next to a selective one: ``PRAGMA optimize`` samples the statistics, which makes such an
+    index look as selective as the one that is."""
+    return UnaryExpression(column, operator=operators.custom_op("+"), type_=column.type)
+
+
+class Unindexed:
+    """A table (a model or an alias) whose every column is ``unindexed``: for the conditions
+    helpers build from a table (a policy's, a timeline view's)."""
+
+    def __init__(self, table: Any) -> None:
+        self._table = table
+
+    def __getattr__(self, name: str) -> Any:
+        return unindexed(getattr(self._table, name))
 
 
 def vacuum(engine: Engine) -> None:

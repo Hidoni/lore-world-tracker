@@ -5,19 +5,21 @@ rules (definite, possible and no finding) and the API."""
 from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import update
+from sqlalchemy.orm import Session
 
 from lore.core.consistency import rules
 from lore.core.consistency.compare import Point, violates_order, worst
-from lore.core.consistency.engine import ConsistencyError, record_only
+from lore.core.consistency.engine import ConsistencyError, hits_of, record_only
 from lore.core.entities.models import Entity
 from lore.core.history import recorder
 from lore.core.time.models import Calendar, Event
 from lore.core.time.series import series_using as using
 from tests.entity_api import LinkApi, make_client, problem
+from tests.queries import statements
 from tests.time.test_proposals import two_months
 
 DAY = 86_400
@@ -483,3 +485,52 @@ def test_writes_outside_the_api_are_checked(api: LinkApi, world: dict[str, Any])
     # A repair session records findings without blocking.
     move_raid_out(repair=True)
     assert [f["subjects"][0]["id"] for f in of_rule(api, rule)] == [raid["id"]]
+
+
+# --- large vaults (#235) -------------------------------------------------------------------------
+
+
+def test_a_link_fires_link_type_triggers_only() -> None:
+    """A link belongs to both its ends in history, but writing it changes neither's records:
+    only rules triggered by its link type look at them."""
+    row = {"link_type": "core.causes", "source_id": "a", "target_id": "b"}
+    change = recorder.RecordedChange("links", "l", None, row, ("a", "b"))
+    hits = hits_of(cast(Session, None), [change])  # nothing to look up
+    assert hits.kinds == {}
+    assert hits.link_types == {"core.causes": {"a", "b"}}
+    by_id = {rule.id: rule for rule in rules.CORE_RULES}
+    assert hits.subjects(by_id["core.event.effect_before_cause"]) == {"a", "b"}
+    assert hits.subjects(by_id["core.event.subevent_outside_parent"]) == set()
+    assert hits.subjects(by_id["core.time.end_before_start"]) == set()
+
+
+def test_pair_rules_load_time_points_in_sets(api: LinkApi, world: dict[str, Any]) -> None:
+    """A scan over more sub-events outside their parent (dated in every way) and more effects
+    before their cause runs the same statements: points aren't loaded one by one."""
+    era = made(event(api, world, "Era", at(10 * YEAR), end=until(11 * YEAR)))
+    cause = made(event(api, world, "Cause", at(50 * YEAR)))
+    count = 0
+
+    def scan(pairs: int) -> tuple[int, int]:
+        nonlocal count
+        for _ in range(pairs):
+            count += 1
+            late = made(event(api, world, f"Late {count}", year(world, 20 + count),
+                              parent_id=era["id"]))  # fmt: skip
+            made(event(api, world, f"Later {count}", at(40 * YEAR + count),
+                       end={"kind": "duration", "duration": {"kind": "base", "units": "5"}},
+                       parent_id=era["id"]))  # fmt: skip
+            relative = {"anchor": {"kind": "relative",
+                                   "ref": {"type": "event", "id": late["id"], "slot": "start"},
+                                   "offset": {"kind": "base", "units": "-3"}},
+                        "precision": "base"}  # fmt: skip
+            effect = made(event(api, world, f"Effect {count}", relative))
+            assert api.link("core.causes", cause, effect).status_code == 201
+        with statements() as seen:
+            assert api.client.post(f"{api.base}/consistency/scan").status_code == 200
+        return len(findings(api, limit=200)), len(seen)
+
+    few, few_statements = scan(2)
+    many, many_statements = scan(10)
+    assert (few, many) == (6, 36)
+    assert many_statements == few_statements

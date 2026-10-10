@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
@@ -313,6 +313,9 @@ def dimension_spec(session: Session, dimension_id: str) -> tuple[BaseUnit, int]:
     return BaseUnit.model_validate(row.base_unit), row.duration
 
 
+_COMPILED = "lore_compiled_calendars"  # session.info: what compiled_calendar last returned
+
+
 def _digest(document: Any) -> str:
     text = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(text.encode()).hexdigest()
@@ -325,6 +328,23 @@ def compiled_calendar(context: VaultContext, calendar_id: str) -> CompiledCalend
     row = session.get(Calendar, calendar_id)
     if row is None:
         raise NotFoundError(f"No calendar {calendar_id}.")
+    dimension = session.get(Dimension, row.dimension_id)
+    if dimension is None:
+        raise ConflictError("The dimension has no time spec.")
+    # Asked for by every resolver (one per operation): the session remembers what it compiled
+    # from, so the stored definition is digested once per transaction, not once per event.
+    memo: dict[str, tuple[Any, ...]] = session.info.setdefault(_COMPILED, {})
+    inputs = (
+        row.definition_revision, row.resolved_anchors, dimension.base_unit, dimension.duration
+    )  # fmt: skip
+    known = memo.get(calendar_id)
+    if (
+        known is not None
+        and known[1] == inputs
+        and (known[0] is row.definition or known[0] == row.definition)  # reloaded: another object
+    ):
+        return cast(CompiledCalendar, known[2])
+    definition = row.definition
     base_unit, duration = dimension_spec(session, row.dimension_id)
     compile_context = CompileContext(
         calendar_id=calendar_id,
@@ -349,7 +369,9 @@ def compiled_calendar(context: VaultContext, calendar_id: str) -> CompiledCalend
             raise ConflictError("The calendar's definition doesn't compile.")
         return result
 
-    return CALENDARS.get(key, build)
+    compiled = CALENDARS.get(key, build)
+    memo[calendar_id] = (definition, inputs, compiled)
+    return compiled
 
 
 @dataclass(frozen=True)
