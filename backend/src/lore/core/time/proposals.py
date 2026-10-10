@@ -22,11 +22,14 @@ per record. Rules (decided with #54 where the spec is silent):
   ``keep_date``. Broken rules and calendars only take ``keep_date``.
 - **Apply** is stale (``409 proposal_stale``) when the calendar's definition revision or
   resolved anchors changed, or anything in the calendar's dependency closure (moments, statuses
-  and specs, fingerprinted at preview) did. A slot left broken after the strategies (any problem,
-  not only ``invalid_date``) fails the apply with ``422 proposal_unresolved`` unless its item was
-  given a strategy explicitly: an explicit ``keep_date`` accepts the problem (stored as the slot's
-  status, §7.2 step 6). More than ``BACKUP_THRESHOLD`` items take an automatic database backup
-  first (``backup_before``). The apply is one changeset, so one undo restores every moment.
+  and specs, fingerprinted at preview) did. The ends the edit breaks without moving them (left
+  before their moved starts) and what depends on them are fingerprinted too, at preview and at
+  apply, whatever their strategy: pinning one makes them part of the propagation. A slot left
+  broken after the strategies (any problem, not only ``invalid_date``) fails the apply with ``422
+  proposal_unresolved`` unless its item was given a strategy explicitly: an explicit
+  ``keep_date`` accepts the problem (stored as the slot's status, §7.2 step 6). More than
+  ``BACKUP_THRESHOLD`` items take an automatic database backup first (``backup_before``). The
+  apply is one changeset, so one undo restores every moment.
 """
 
 import hashlib
@@ -69,7 +72,7 @@ from lore.core.time.calendars import (
 )
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Dimension, Event, Proposal, Timeline
-from lore.core.time.propagate import Propagation, Violation, load_values
+from lore.core.time.propagate import Propagation, TimeWriter, Violation, load_values
 from lore.core.time.resolve import BASE, Resolver
 from lore.core.time.slots import SlotValue
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
@@ -314,7 +317,7 @@ def fingerprint(
 ) -> str:
     """What a calendar proposal was computed from: the calendar's resolved anchors and the stored
     value (moment, status, spec) of every slot the edit's propagation reaches, as the run loaded
-    them (the calendar's own anchors aside)."""
+    them (the calendar's own anchors aside), and of the slots ``around`` those it doesn't."""
     rows = [
         [node.type, node.id, node.slot, value.t, value.status,
          None if value.spec is None else value.spec.model_dump_json()]
@@ -325,6 +328,18 @@ def fingerprint(
         [dict(resolved_anchors), rows], sort_keys=True, separators=(",", ":"), default=str
     )
     return hashlib.sha256(text.encode()).hexdigest()
+
+
+def around(
+    writer: TimeWriter, unmoved: Iterable[SlotNode], known: Mapping[SlotNode, SlotValue]
+) -> dict[SlotNode, SlotValue]:
+    """The stored values of the items the edit's propagation doesn't reach (``unmoved``: ends
+    left before their moved starts) and of everything depending on them, ``known`` ones aside.
+    Pinning such an item re-resolves all of them, so they belong to the fingerprint whatever the
+    strategies are (#233)."""
+    reached = writer.closure(unmoved)
+    missing = sorted(n for n in reached if isinstance(n, SlotNode) and n not in known)
+    return load_values(writer.slots, writer.session, missing)
 
 
 # --- preview -------------------------------------------------------------------------------------
@@ -472,7 +487,6 @@ def preview_calendar_edit(
     series_before = _series_bounds(session, dimension_id)
     dry = _dry_run(context, row, compiled)
     old = dict(dry.result.before)
-    closure_print = fingerprint(entity.id, anchors, old)
     lenses = _Lenses(old_lens, dry.lens, compiled.calendar, entity.id, duration)
     violations = {_violation_node(v): v for v in dry.result.violations}
     nodes = {
@@ -480,9 +494,9 @@ def preview_calendar_edit(
         for n in {*dry.result.updated, *violations}
         if not (n.type == CALENDAR and n.id == entity.id and n.slot != DEFINITION_SLOT)
     }
-    slots = context.registry.slot_registry()
-    outside = [n for n in nodes if n not in old and (n.type, n.slot) not in PSEUDO_SLOTS]
-    old.update(load_values(slots, session, outside))
+    unmoved = sorted(n for n in nodes if n not in old and (n.type, n.slot) not in PSEUDO_SLOTS)
+    old.update(around(TimeWriter(context), unmoved, old))
+    closure_print = fingerprint(entity.id, anchors, old)
     new = dry.result.values
     items = [
         item
@@ -504,6 +518,7 @@ def preview_calendar_edit(
         "display_calendar_id": _lens_id(context, dimension_id, dry.lens),
         "definition": compiled.definition,
         "fingerprint": closure_print,
+        "unmoved": [_node_key(node) for node in unmoved],
         "items": items,
         "series": series,
         "summary": {
@@ -622,12 +637,16 @@ def apply_calendar_proposal(
     row.definition_revision += 1
     writer = store_definition(context, row, compiled)
     resolver = Resolver(context, row.dimension_id)
-    slots = context.registry.slot_registry()
     changed = [k for k, s in chosen.items() if s in (PIN_MOMENT, CONSTRAIN)]
+    unmoved: list[str] = proposal.impact.get("unmoved", [])
     nodes = {
-        k: SlotNode(items[k]["record_type"], items[k]["id"], items[k]["slot"]) for k in changed
+        k: SlotNode(items[k]["record_type"], items[k]["id"], items[k]["slot"])
+        for k in {*changed, *unmoved}
     }
-    values = load_values(slots, session, nodes.values())
+    values = load_values(writer.slots, session, (nodes[k] for k in changed))
+    # As they were: the strategies change the pinned and constrained slots, and pinning an
+    # unmoved one adds its dependents to the propagation.
+    stored = {**around(writer, (nodes[k] for k in unmoved), {}), **values}
     for key in sorted(changed):
         node, item = nodes[key], items[key]
         value = values.get(node)
@@ -645,7 +664,7 @@ def apply_calendar_proposal(
     result = writer.propagate(strict=False, path="strategies")
     # Records given a strategy explicitly may keep hard-rule problems (consistency.md §3).
     accept(session, (items[k]["entity_id"] for k in strategies if items[k]["entity_id"]))
-    before = {**result.before, **values}  # the pinned and constrained slots as they were
+    before = {**result.before, **stored}
     if fingerprint(entity.id, anchors, before) != proposal.impact["fingerprint"]:
         raise _stale(entity)
     unresolved = [
