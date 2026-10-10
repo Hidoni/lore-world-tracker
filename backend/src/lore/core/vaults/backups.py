@@ -7,6 +7,9 @@ A backup is a zip::
     lore.db         a consistent, compact copy made with ``VACUUM INTO``
     media/...       the vault's media folder, when included
 
+Entries are deflated: at the default level, or at the fastest one in the backups taken before a
+destructive operation (the request waits for them).
+
 Backups live in the vault folder: ``backups/manual/<id>.zip`` (asked for by the author) and
 ``backups/auto/<id>.zip`` (scheduled ones and those taken before destructive operations). The id
 is the file name without ``.zip``: ``<kind>-<UTC yyyymmdd-hhmmss>`` (``-2``, ``-3``, … on a
@@ -48,6 +51,7 @@ _BACKUP_ID = re.compile(BACKUP_ID_PATTERN)
 _REASON = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _STAMP = "%Y%m%d-%H%M%S"
 _CHUNK = 1 << 20
+_FAST_LEVEL = 1
 
 type BackupKind = Literal["manual", "scheduled", "pre"]
 
@@ -160,7 +164,12 @@ def create_backup(
         backup_database(vault_path / DATABASE_NAME, database)
         files = {DATABASE_NAME: _sha256(database)}
         partial = staging / "backup.zip"
-        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+        # A pre-operation backup holds up the request it protects: the fastest deflate level is
+        # three times faster on a large vault (and a sixth bigger) than the default (#237).
+        level = _FAST_LEVEL if kind == "pre" else None
+        with zipfile.ZipFile(
+            partial, "w", zipfile.ZIP_DEFLATED, allowZip64=True, compresslevel=level
+        ) as archive:
             archive.write(database, DATABASE_NAME)
             if include_media:
                 for name, path in _media_files(vault_path):

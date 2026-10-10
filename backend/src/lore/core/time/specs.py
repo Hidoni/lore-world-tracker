@@ -64,6 +64,9 @@ def dump_spec(spec: TimePoint | EndSpec) -> dict[str, Any]:
     return spec.model_dump(mode="json", by_alias=True)
 
 
+_PLAIN_ENDS: dict[str, EndSpec] = {}
+
+
 class TimePointSpec(TypeDecorator[TimePoint]):
     """A ``<slot>_spec`` column holding a time point: JSON in SQLite, ``TimePoint`` in Python.
 
@@ -89,7 +92,18 @@ class EndSpecColumn(TypeDecorator[Any]):
         return None if value is None else dump_spec(parse_end_spec(value))
 
     def process_result_value(self, value: Any, dialect: Dialect) -> Any:
-        return None if value is None else parse_end_spec(value)
+        if value is None:
+            return None
+        if len(value) == 1 and isinstance(value, dict):
+            # Ends without members (instant, unknown, end of time: half the events of a world)
+            # are parsed once: the models are immutable.
+            kind = value.get("kind")
+            if isinstance(kind, str):
+                known = _PLAIN_ENDS.get(kind)
+                if known is None:
+                    known = _PLAIN_ENDS[kind] = parse_end_spec(value)
+                return known
+        return parse_end_spec(value)
 
 
 def spec_column(

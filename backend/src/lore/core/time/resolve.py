@@ -273,7 +273,9 @@ class Resolver:
                 result = self._calendar(anchor, point.precision)
             case RelativeAnchor():
                 result = self._relative(anchor, point.precision, seen, depth)
-        return self._finish(replace(result, approximate=point.approximate))
+        if result.approximate != point.approximate:
+            result = replace(result, approximate=point.approximate)
+        return self._finish(result)
 
     def _finish(self, result: Resolution) -> Resolution:
         """Bounds check and the trash status."""
@@ -406,6 +408,8 @@ class Resolver:
             return fresh
         if fresh is None or fresh.t is None or fresh.extent is None:
             result = Resolution(t, TimeStatus.OK, (t, t + 1), BASE)
+        elif fresh.t == t and fresh.status == TimeStatus.OK and fresh.problem is None:
+            result = fresh  # the stored moment is the spec's: nothing to shift
         else:
             lo, hi = fresh.extent
             result = replace(
@@ -606,6 +610,8 @@ class Resolver:
         match end:
             case TimePointEnd():
                 result = self._resolve(end.time_point, seen, depth)
+                if result.problem is None:
+                    return result
                 return replace(result, problem=_at(result.problem, "time_point"))
             case EndOfTimeEnd():
                 d = self.duration
@@ -616,7 +622,9 @@ class Resolver:
                 if start.t is None or start.extent is None or not start.ok:
                     return start
                 result = self._offset(start, end.duration, None, "duration")
-                return self._finish(replace(result, approximate=start.approximate))
+                if result.approximate != start.approximate:
+                    result = replace(result, approximate=start.approximate)
+                return self._finish(result)
 
 
 def owner_visible(

@@ -15,7 +15,7 @@ from functools import lru_cache
 
 from lore.chronology.calendar import formats
 from lore.chronology.calendar.compiled import CompiledCalendar, DateError
-from lore.chronology.calendar.convert import DateFields, UnitValue, to_fields
+from lore.chronology.calendar.convert import DateFields, UnitValue, level_fields, to_fields
 from lore.chronology.calendar.formats import Piece, Token
 from lore.chronology.numbers import format_integer
 from lore.chronology.schema import BaseUnit, DisplayOptions
@@ -79,21 +79,33 @@ def _layout(calendar: CompiledCalendar) -> _Layout:
 # --- one date ------------------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class _Date:
     fields: DateFields
+    """The levels and the era (``level_fields``)."""
     level: int
     """Index of the precision level (0 for ``base``)."""
     base: bool
     """The precision is ``base``."""
+    t: int
+    parallel: DateFields | None = None
+    """``to_fields``: computed when a pattern names a cycle or an overlay (few do, and they
+    cost about as much as the rest of the date)."""
 
 
 def _date(calendar: CompiledCalendar, t: int, precision: str) -> _Date:
     if precision == BASE:
-        return _Date(to_fields(calendar, t), 0, True)
+        return _Date(level_fields(calendar, t), 0, True, t)
     if precision not in calendar.levels:
         raise DateError("invalid_date", f"unknown precision {precision!r}", precision)
-    return _Date(to_fields(calendar, t), calendar.levels.index(precision), False)
+    return _Date(level_fields(calendar, t), calendar.levels.index(precision), False, t)
+
+
+def _parallel(calendar: CompiledCalendar, date: _Date) -> DateFields:
+    """The date's fields with its cycles and overlays."""
+    if date.parallel is None:
+        date.parallel = to_fields(calendar, date.t)
+    return date.parallel
 
 
 def format_date(
@@ -189,7 +201,7 @@ def _value(calendar: CompiledCalendar, date: _Date, token: Token) -> str:
     if token.kind == "cycle":
         return _cycle(calendar, date, token)
     if token.kind == "overlay":
-        overlay = fields.overlays[token.id or ""]
+        overlay = _parallel(calendar, date).overlays[token.id or ""]
         # .fraction truncates, so it never shows 1.00
         return (
             f"0.{math.floor(overlay.phase * 100):02d}" if token.attr == "fraction" else overlay.name
@@ -218,7 +230,7 @@ def _level(value: UnitValue, display: DisplayOptions, token: Token) -> str:
 def _cycle(calendar: CompiledCalendar, date: _Date, token: Token) -> str:
     """A cycle's name (number without names), abbreviation or number; empty where excluded or
     in a regime without the cycle."""
-    value = date.fields.cycles.get(token.id or "")
+    value = _parallel(calendar, date).cycles.get(token.id or "")
     if value is None:
         return ""
     if token.attr == "n":

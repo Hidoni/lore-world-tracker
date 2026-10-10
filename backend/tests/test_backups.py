@@ -6,6 +6,7 @@ import io
 import json
 import sqlite3
 import stat
+import threading
 import time
 import zipfile
 from datetime import UTC, datetime, timedelta
@@ -17,12 +18,18 @@ from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
 from lore import cli
+from lore.app import create_app
+from lore.config import Settings
 from lore.core.db.migrate import Migrator
 from lore.core.vaults import VaultManager
+from lore.core.vaults import backups as backups_module
+from lore.core.vaults import manager as manager_module
 from lore.core.vaults.backups import InvalidBackupError, RestoreLimits, prune_scheduled
 from lore.core.vaults.manager import restored_name
 from lore.core.vaults.scheduler import MaintenanceScheduler
-from tests.entity_api import Api, make_client, problem
+from tests.conftest import local_client
+from tests.entity_api import HEADERS, Api, make_client, problem
+from tests.entity_modules import ENTITY_MODULES
 
 MEDIA = {"media/ab/abcdef": b"\x89PNG fake image", "media/thumbs/abcdef_64.webp": b"thumb"}
 
@@ -356,6 +363,37 @@ def test_scheduled_backups_and_retention(client: TestClient, api: Api) -> None:
 
     client.patch(f"{api.base}/settings", json={"backups": {"every_hours": 0}})
     assert manager.run_scheduled_backups(later + timedelta(days=30)) == []
+
+
+def test_requests_do_not_wait_for_scheduled_maintenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The scheduler's pass runs beside the requests (#238): while a scheduled backup is being
+    written (half a minute for a large vault), the vault is read and written, and a new app's
+    first request doesn't wait for a pass either."""
+    writing, release = threading.Event(), threading.Event()
+    create_backup = backups_module.create_backup
+
+    def slow_backup(*args: Any, **kwargs: Any) -> Path:
+        writing.set()
+        assert release.wait(30)
+        return create_backup(*args, **kwargs)
+
+    monkeypatch.setattr(manager_module, "create_backup", slow_backup)
+    app = create_app(Settings(data_dir=tmp_path), modules=ENTITY_MODULES)
+    app.state.scheduler.interval = 0.05
+    with local_client(app, headers=HEADERS) as client:
+        api = Api(client)  # the first requests: no pass has finished
+        client.patch(f"{api.base}/settings", json={"backups": {"every_hours": 1}})
+        try:
+            assert writing.wait(30), "the scheduler never started a backup"
+            started = time.perf_counter()
+            assert api.create("dimension", "Aetheria").status_code == 201
+            assert client.get(f"{api.base}/entities").status_code == 200
+            assert client.get(f"{api.base}/backups").json()["items"] == []  # still being written
+            assert time.perf_counter() - started < 10
+        finally:
+            release.set()
 
 
 def test_scheduled_backups_only_cover_open_vaults(tmp_path: Path) -> None:

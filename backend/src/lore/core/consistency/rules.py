@@ -26,7 +26,7 @@ from sqlalchemy.orm import aliased
 
 from lore.core.consistency.compare import DEFINITE, POSSIBLE, violates_order, worst
 from lore.core.consistency.engine import FindingDraft, RuleContext
-from lore.core.db import Unindexed
+from lore.core.db import Unindexed, unindexed
 from lore.core.entities.models import Entity
 from lore.core.links.models import Link
 from lore.core.registry.types import RuleDef, Trigger
@@ -402,6 +402,21 @@ def _event_columns() -> tuple[Any, Any, Any, Any]:
     return child, parent, child_entity, parent_entity
 
 
+def _plain(table: Any, column: str) -> Any:
+    """``column IS NULL`` as a condition SQLite won't pick an index for (nearly every row meets
+    it: not in the trash, not an override, not a series)."""
+    return unindexed(getattr(table, column)).is_(None)
+
+
+def _once(ctx: RuleContext, statements: Iterable[Any]) -> list[Any]:
+    """The rows of several statements about pairs (their first two columns), each pair once."""
+    found: dict[tuple[str, str], Any] = {}
+    for statement in statements:
+        for row in ctx.session.execute(statement):
+            found.setdefault((row[0], row[1]), row)
+    return list(found.values())
+
+
 type _Slot = tuple[str, str]  # event id, slot
 
 
@@ -452,25 +467,34 @@ def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iter
         )
         .join(child_entity, child_entity.id == child.entity_id)
         .join(parent_entity, parent_entity.id == child_entity.parent_id)
-        .join(parent, and_(parent.entity_id == parent_entity.id, parent.overrides_id.is_(None)))
+        .join(parent, and_(parent.entity_id == parent_entity.id, _plain(parent, "overrides_id")))
         .where(
-            child.overrides_id.is_(None),
-            child_entity.deleted_at.is_(None),
-            parent_entity.deleted_at.is_(None),
-            parent_entity.kind == EVENT,
-            parent.recurrence.is_(None),
+            # What nearly every row meets is kept from picking an index: a check must go from
+            # its subjects (ids, parent ids) to the rest.
+            _plain(child, "overrides_id"),
+            _plain(child_entity, "deleted_at"),
+            _plain(parent_entity, "deleted_at"),
+            unindexed(parent_entity.kind) == EVENT,
+            _plain(parent, "recurrence"),
             # Either violation needs a later moment (compare.py): the candidates.
             or_(child.start_t < parent.start_t, child.end_t > parent.end_t),
         )
     )
     batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
     for batch in batches:
-        query = statement
-        if batch is not None:
-            query = query.where(or_(child.entity_id.in_(batch), parent.entity_id.in_(batch)))
+        # The subjects as children, then as parents: each through its index (as one condition,
+        # SQLite reads every event to check a single one).
+        sides = (
+            [statement]
+            if batch is None
+            else [
+                statement.where(child.entity_id.in_(batch)),
+                statement.where(child_entity.parent_id.in_(batch)),
+            ]
+        )
         orders = _Orders(ctx)
         candidates = []
-        for row in ctx.session.execute(query).all():
+        for row in _once(ctx, sides):
             child_id, parent_id, _name, _parent_name, dimension_id, _timeline_id = row[:6]
             child_start, child_end, parent_start, parent_end = row[6:]
             if dimension_id is None:
@@ -532,8 +556,9 @@ def _causality_scan() -> Any:
         .where(
             Link.link_type == "core.causes",
             Link.deleted_at.is_(None),
-            cause.c.dimension_id == effect.c.dimension_id,
-            effect.c.start_t < cause.c.start_t,
+            # Only the links join the two ends (never one end to every other of its dimension).
+            unindexed(cause.c.dimension_id) == unindexed(effect.c.dimension_id),
+            unindexed(effect.c.start_t) < unindexed(cause.c.start_t),
         )
     )
 
@@ -553,24 +578,29 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
         )
         .join(cause_entity, cause_entity.id == Link.source_id)
         .join(effect_entity, effect_entity.id == Link.target_id)
-        .join(cause, and_(cause.entity_id == Link.source_id, cause.overrides_id.is_(None)))
-        .join(effect, and_(effect.entity_id == Link.target_id, effect.overrides_id.is_(None)))
+        .join(cause, and_(cause.entity_id == Link.source_id, _plain(cause, "overrides_id")))
+        .join(effect, and_(effect.entity_id == Link.target_id, _plain(effect, "overrides_id")))
         .where(
-            Link.link_type == "core.causes",
-            Link.deleted_at.is_(None),
-            cause_entity.deleted_at.is_(None),
-            effect_entity.deleted_at.is_(None),
-            cause_entity.dimension_id == effect_entity.dimension_id,
+            Link.link_type == "core.causes",  # with the subject: (source, type), (target, type)
+            _plain(Link, "deleted_at"),
+            _plain(cause_entity, "deleted_at"),
+            _plain(effect_entity, "deleted_at"),
+            unindexed(cause_entity.dimension_id) == unindexed(effect_entity.dimension_id),
             effect.start_t < cause.start_t,
         )
     )
     batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
     for batch in batches:
-        query = _causality_scan() if batch is None else statement
-        if batch is not None:
-            query = query.where(or_(Link.source_id.in_(batch), Link.target_id.in_(batch)))
+        sides = (
+            [_causality_scan()]
+            if batch is None
+            else [
+                statement.where(Link.source_id.in_(batch)),
+                statement.where(Link.target_id.in_(batch)),
+            ]
+        )
         orders = _Orders(ctx)
-        candidates = ctx.session.execute(query).all()
+        candidates = _once(ctx, sides)
         for cause_id, effect_id, *_names, dimension_id, _timeline, cause_t, effect_t in candidates:
             orders.want(dimension_id, (cause_id, "start"), cause_t, (effect_id, "start"), effect_t)
         orders.load()
