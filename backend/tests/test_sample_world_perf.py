@@ -31,6 +31,8 @@ SIZE = cast(Size, os.environ.get("LORE_PERF_SAMPLE_SIZE", "large"))
 LARGE = SIZE == "large"
 SCAN_BUDGET_S = 10.0
 PROPOSAL_BUDGET_S = 5.0
+# The apply backs the whole vault up first (1.6 GB for ``large``): its own budget there (#237).
+LARGE_APPLY_BUDGET_S = 30.0
 # The bulk's events start from t = 3,000,000 on, about 30 days apart.
 BULK_END = 3_000_000 + SIZES[SIZE].events * 30 * 86_400
 
@@ -156,4 +158,5 @@ def test_calendar_proposal_over_its_dependents(world: World) -> None:
     summary = f"{proposal['summary']}, {len(accepted)} accepted"
     print(f"\nproposal ({summary}): preview {preview:.2f} s, apply {apply_s:.2f} s")
     assert preview < PROPOSAL_BUDGET_S, f"preview took {preview:.2f} s"
-    assert apply_s < PROPOSAL_BUDGET_S, f"apply took {apply_s:.2f} s"
+    apply_budget = LARGE_APPLY_BUDGET_S if LARGE else PROPOSAL_BUDGET_S
+    assert apply_s < apply_budget, f"apply took {apply_s:.2f} s"

@@ -88,6 +88,7 @@ Measured on the `large` sample vault on a typical dev laptop:
 | Entity page API calls (entity + links + backlinks) | < 300 ms total |
 | Search (`/search`, `/search/quick`) | < 100 ms |
 | Calendar proposal over 10k dependent records (preview, and apply; `tests/time/test_proposals_perf.py`) | < 5 s each |
+| Calendar proposal apply on a large vault (the `large` sample world: 23k dependents, 1.6 GB; it backs the whole vault up first. Decided 2026-10-10; the preview stays < 5 s) | < 30 s |
 | Full consistency scan (100k events; `tests/consistency/test_consistency_perf.py`) | < 10 s |
 | Graph endpoint, 10k nodes | < 1 s |
 | Timeline pan/zoom with 1,000 visible items | 60 fps (Playwright trace) |
@@ -117,7 +118,7 @@ machine.
 | Window, cached (all of the above) | 6–37 ms | 3–23 ms | < 150 ms | met |
 | Window, first since the app started (no series cached): 1/10 / whole bulk | (the cold ones above) | 157 / 974 ms | – | see below |
 | Calendar proposal over 22,985 dependents: preview | 9.3 s | 4.7 s (5.1–5.7 s on a busy machine) | < 5 s | met, barely |
-| Calendar proposal over 22,985 dependents: apply | 123 s | 22.2 s | < 5 s | missed (#237) |
+| Calendar proposal over 22,985 dependents: apply | 123 s | 22.2 s | < 30 s (was < 5 s) | met |
 | Full consistency scan (50,358 findings) | > 15 min (stopped) | 7.9 s (9–10.7 s on a busy machine) | < 10 s | met |
 | Enabling `core.event.duplicate_name_same_time` | about 28 min | 0.6–0.9 s | – | |
 | Writing an event / a link (the generator, per write) | 18 / 9.6 ms | 14–27 / 1.2 ms | – | |
@@ -154,7 +155,10 @@ What the numbers rest on, and what is left:
   check of 23k changed events (4 s, was 115 s) and the propagation (2.5 s). A backup that is a
   whole copy of the vault can't fit a 5 s budget at this size: stored without compression it
   still takes 5–6 s (and 1.6 GB per backup, never pruned); Zstandard would take 2 s for a
-  smaller file, but most zip tools can't open such an entry. That is a product decision.
+  smaller file, but most zip tools can't open such an entry. Decided 2026-10-10 (#237): the
+  backup stays a deflated zip any tool opens, and an apply on a vault this large has its own
+  budget of 30 s. On small vaults the apply keeps the 5 s of
+  `tests/time/test_proposals_perf.py`: what grows is the backup, with the vault's size.
 - **Startup** (#238). There was no 10-minute startup: the timestamps that suggested it were
   the maintenance scheduler's first pass (`CHECK_INTERVAL_SECONDS`, ten minutes after the app
   starts), which began a scheduled backup while the window test was still running. Opening
