@@ -525,6 +525,10 @@ Decided with #48 where §7.2 is silent:
 - **Storage:** column slots are updated with one row update per record (its slots' columns
   together), one `UPDATE … executemany` per column set, and recorded with `history.record_bulk`; slots sharing a status column get the worst status of the
   record's updated slots (`ok` < `trashed_ref` < the rest).
+- **Reporting:** every run that isn't `dry` notes its `Propagation.updated` slots in the session
+  (`lore.core.time.changes`); write responses map them to their entities (the providers'
+  `entity_column`) for `affected` (`api.md` §2, #224). Moments a service stores itself (a
+  dimension's present, series bounds and rules) are noted there too.
 - **Trash:** trashing or restoring an entity re-resolves what depends on its records (or on it as
   a calendar): `trashed_ref` and back to `ok`.
 - **Undo:** after a revert, the edges of every reverted time-bearing row are rebuilt from its

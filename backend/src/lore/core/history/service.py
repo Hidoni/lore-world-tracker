@@ -48,6 +48,8 @@ from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import LinkTypeDef
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.changes import note_reverted
+from lore.core.time.changes import report as report_time
 from lore.core.time.propagate import TimeConstraintError, TimeCycleError, after_revert
 from lore.core.types import Affected
 from lore.core.vaults import OpenVault
@@ -413,14 +415,15 @@ class HistoryService:
                 Entity.id.in_(entity_ids), Entity.dimension_id.is_not(None)
             )
         )
+        note_reverted(self.session, self.registry.slot_registry(), changes)
+        affected = Affected(
+            entities=entity_ids,
+            dimensions=sorted({d for d in dimensions if d is not None}),
+            time_changed=False,
+            search_changed=True,
+        )
         return RevertResult(
-            changeset=detail,
-            affected=Affected(
-                entities=entity_ids,
-                dimensions=sorted({d for d in dimensions if d is not None}),
-                time_changed=False,
-                search_changed=True,
-            ),
+            changeset=detail, affected=report_time(self.session, self.registry, affected)
         )
 
 

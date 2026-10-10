@@ -42,6 +42,7 @@ from lore.core.links.models import Link
 from lore.core.time import series
 from lore.core.time.batch import Lens, display
 from lore.core.time.calendars import AbsoluteLens, lens
+from lore.core.time.changes import note_entities
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.models import Calendar, Event, Timeline
 from lore.core.time.propagate import TimeWriter, freeze_on_purge
@@ -457,7 +458,10 @@ def write_times(
     if end is not None:
         row.end_spec = end
     if rule_sent:
+        stored = row.recurrence
         row.recurrence = None if rule is None else series.dump_rule(rule)
+        if row.recurrence != stored:
+            note_entities(session, [row.entity_id])  # its occurrences are other moments now
         row.recurrence_resolved = None if rule is None else {p: str(t) for p, t in resolved.items()}
         if rule is None:
             row.series_start_t = row.series_end_t = None

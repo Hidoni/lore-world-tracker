@@ -47,6 +47,7 @@ from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
+from lore.core.time.changes import report as report_time
 from lore.core.time.models import Event
 from lore.core.time.propagate import after_trash
 from lore.core.time.redact import ReaderTimes
@@ -794,12 +795,14 @@ class EntityService:
     def _affected(
         self, entities: Iterable[str | None], dimensions: Iterable[str | None], search: bool
     ) -> Affected:
-        return Affected(
+        """The given entities and dimensions, plus what the transaction's time writes moved."""
+        affected = Affected(
             entities=_unique(entities),
             dimensions=_unique(dimensions),
-            time_changed=False,  # time propagation arrives with M3
+            time_changed=False,
             search_changed=search,
         )
+        return report_time(self.session, self.registry, affected)
 
 
 def _same_tree(parent_dimension: str | None, child_dimension: str | None) -> bool:

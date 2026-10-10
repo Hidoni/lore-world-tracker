@@ -26,6 +26,7 @@ from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFou
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
 from lore.core.time.calendars import CALENDAR, Preview, presets
+from lore.core.time.changes import report as report_time
 from lore.core.time.dimensions import TIMELINE, timeline_tree
 from lore.core.time.events import EVENT, EventTimes, event_tree, home_row, live_sub_events
 from lore.core.time.models import Event, Proposal
@@ -237,11 +238,15 @@ def post_calendar_apply(
         constrained=applied.constrained,
         accepted=applied.accepted,
         backup=applied.backup,
-        affected=Affected(
-            entities=applied.entity_ids,
-            dimensions=[str(entity.dimension_id)],
-            time_changed=True,
-            search_changed=False,
+        affected=report_time(
+            session,
+            registry,
+            Affected(
+                entities=applied.entity_ids,
+                dimensions=[str(entity.dimension_id)],
+                time_changed=True,
+                search_changed=False,
+            ),
         ),
     )
 
@@ -698,10 +703,14 @@ def post_recurrence_apply(
         rekeyed=applied.rekeyed,
         detached=applied.detached,
         trashed=applied.trashed,
-        affected=Affected(
-            entities=applied.entity_ids,
-            dimensions=[str(entity.dimension_id)],
-            time_changed=True,
-            search_changed=applied.trashed > 0,
+        affected=report_time(
+            session,
+            registry,
+            Affected(
+                entities=applied.entity_ids,
+                dimensions=[str(entity.dimension_id)],
+                time_changed=True,
+                search_changed=applied.trashed > 0,
+            ),
         ),
     )

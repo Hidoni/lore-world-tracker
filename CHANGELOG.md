@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Write responses report what moved** (#224): `affected.entities` lists every entity whose
+  stored moment or time status the write changed through propagation (the events anchored to a
+  moved event, the dates of an edited calendar, …), `affected.dimensions` their dimensions, and
+  `affected.time_changed` is `true` when any moment or status changed (it was always `false`).
 - **Large vaults** (#235–#238), measured on the `large` sample world (100k events, 500k links):
   - Timeline windows: cold windows take 20–100 ms zoomed in and about 330 ms over the whole
     dimension (were 250 ms to 5 s; readers were slowest). Series are looked up through their

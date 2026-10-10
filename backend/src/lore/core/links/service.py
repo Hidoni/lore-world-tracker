@@ -58,6 +58,7 @@ from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext.models import Mention
+from lore.core.time.changes import report as report_time
 from lore.core.time.models import Timeline
 from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
@@ -255,12 +256,13 @@ class LinkService:
         dimensions = self.session.scalars(
             select(Entity.dimension_id).where(Entity.id.in_(ids), Entity.dimension_id.is_not(None))
         )
-        return Affected(
+        affected = Affected(
             entities=ids,
             dimensions=sorted({d for d in dimensions if d is not None}),
-            time_changed=False,  # validity resolution arrives with #102
+            time_changed=False,  # validity bounds resolve with #102
             search_changed=False,
         )
+        return report_time(self.session, self.registry, affected)
 
     # --- reads ----------------------------------------------------------------------------------
 

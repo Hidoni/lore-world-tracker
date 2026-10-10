@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from lore.chronology.schema import AbsoluteAnchor, EndSpec, TimePoint, TimePointEnd
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
+from lore.core.time.changes import note_slots
 from lore.core.time.dependencies import (
     CalendarNode,
     DependencyIndex,
@@ -293,6 +294,8 @@ class TimeWriter:
         result = run.execute()
         if strict and result.violations:
             raise constraint_error(result.violations, path)
+        if not dry:
+            note_slots(self.session, result.updated)  # for the write's `affected`
         followers = run.followers - affected
         if followers and rounds < MAX_ROUNDS:
             self.changed.update(followers)
