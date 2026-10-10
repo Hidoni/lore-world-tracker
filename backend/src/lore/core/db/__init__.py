@@ -3,6 +3,7 @@
 from lore.core.db.engine import (
     MIN_SQLITE_VERSION,
     SQLiteCapabilityError,
+    Unindexed,
     WriteCounter,
     create_vault_engine,
     ensure_sqlite_capabilities,
@@ -10,12 +11,14 @@ from lore.core.db.engine import (
     missing_sqlite_capabilities,
     optimize,
     snapshot,
+    unindexed,
     vacuum,
 )
 
 __all__ = [
     "MIN_SQLITE_VERSION",
     "SQLiteCapabilityError",
+    "Unindexed",
     "WriteCounter",
     "create_vault_engine",
     "ensure_sqlite_capabilities",
@@ -23,5 +26,6 @@ __all__ = [
     "missing_sqlite_capabilities",
     "optimize",
     "snapshot",
+    "unindexed",
     "vacuum",
 ]

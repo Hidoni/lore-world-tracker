@@ -29,11 +29,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy.orm import Session, aliased
 
 from lore.chronology.recurrence import RecurrenceContext
 from lore.chronology.schema import EndSpec, InstantEnd, TimePoint, TimePointEnd
+from lore.core.db import Unindexed
 from lore.core.entities.errors import ParentNotAllowedError
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
@@ -776,23 +777,42 @@ def with_children(
     """The events of ``ids`` that have sub-events the timeline shows."""
     if not ids:
         return set()
-    # From the parent index: the candidate children, then those the timeline has rows of. The
-    # second query takes the first as a subquery: an era can have more children than SQLite
-    # takes bound variables.
-    children = select(Entity.id, Entity.parent_id).where(
-        Entity.parent_id.in_(ids),
-        Entity.kind == EVENT,
-        Entity.deleted_at.is_(None),
-        *policy.entities(Entity),
-        *view.entities(Entity),
+
+    def children(child: Any) -> list[Any]:
+        # Only the parent index narrows the children down: nearly every entity is a live event
+        # of the timeline, so the other conditions are kept from picking an index.
+        rest = Unindexed(child)
+        return [
+            rest.kind == EVENT,
+            rest.deleted_at.is_(None),
+            *policy.entities(rest),
+            *view.entities(rest),
+        ]
+
+    if len(view.lineage) == 1:
+        # One probe per parent, which stops at its first shown child: an era's children are
+        # never listed (#236: 1,500 important events of a large world have 40k of them).
+        child = aliased(Entity)
+        shown = view.select(Event, where=lambda e: [e.entity_id == child.id])
+        has_child = exists().where(child.parent_id == Entity.id, *children(child), shown.exists())
+        return set(session.scalars(select(Entity.id).where(Entity.id.in_(ids), has_child)))
+    # A branch's rows are resolved over its lineage in a derived table, which can't be probed
+    # per child: the candidate children, then those the timeline has rows of. The second query
+    # takes the first as a subquery: an era can have more children than SQLite takes bound
+    # variables.
+    candidates_of = select(Entity.id, Entity.parent_id).where(
+        Entity.parent_id.in_(ids), *children(Entity)
     )
-    candidates = dict(session.execute(children).all())
+    candidates = dict(session.execute(candidates_of).all())
     if not candidates:
         return set()
-    child_ids = children.with_only_columns(Entity.id)
-    shown = view.select(Event, where=lambda e: [e.entity_id.in_(child_ids)])
-    found = session.scalars(shown.with_only_columns(Event.entity_id))
-    return {parent for child in found if (parent := candidates[child]) is not None}
+    child_ids = candidates_of.with_only_columns(Entity.id)
+    rows = view.select(Event, where=lambda e: [e.entity_id.in_(child_ids)])
+    return {
+        parent
+        for child_id in session.scalars(rows.with_only_columns(Event.entity_id))
+        if (parent := candidates[child_id]) is not None
+    }
 
 
 @dataclass(frozen=True)
