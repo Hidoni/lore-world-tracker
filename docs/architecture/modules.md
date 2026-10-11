@@ -203,6 +203,28 @@ defineModule({
 - Boundaries (eslint-plugin-boundaries): `core` never imports `modules`; module `a` imports
   `core` public APIs and `modules/b/public.ts` only for declared dependencies.
 
+Implementation (`core/modules/`, `core/registry/`, #60):
+
+- `defineModule` (`core/modules/types.ts`) types every extension point above plus
+  `entityHeaderMedia` (header media per kind) and `dependsOn` (the modules whose `public.ts` it
+  imports). The module `id` is the backend module's.
+- `app/` passes `@/modules` to `ModuleDefinitionsProvider` (core never imports modules). A module
+  is **active** in a vault when it and all of its `dependsOn` are `enabled` in `GET /registry`
+  (`activeModules`); `useActiveModules()`, `useExtensionList(point)` and
+  `useExtensionRecord(point)` read the active modules' contributions. List points sort by `order`
+  (default 0), then module order; in keyed points a later module wins a key.
+- Routes: `routes(parent)` returns routes under `/v/$vault/m/<id>`; their parent renders them
+  only while the module is active (404 otherwise), and components load lazily
+  (`lazyRouteComponent`). Unknown `m/…` paths are 404s.
+- The **KindRegistry** (`buildKindRegistry`, hooks `useKindRegistry`, `useKind(kind)`,
+  `useLinkType(key)`) merges the server's kinds (label, icon name, color, fields, allowed parents,
+  capabilities) and link types with the active modules' kind configs (icon/color overrides, list
+  columns, create defaults), entity panels, header media and link-type renderers. Icons come from
+  the curated `iconMap` (`core/registry/icons.ts`); unknown names show a circle.
+- Enforcement: ESLint `no-restricted-imports` keeps modules to `@/modules/<id>/public` and
+  `@/core/<area>` (index) imports, and `frontend/src/test/architecture.test.ts` checks module →
+  module imports against `dependsOn`, like `backend/tests/test_architecture.py`.
+
 ## 4. Enabling and disabling
 
 - Settings: `vault_meta.settings.modules.<id> = {enabled, settings}`. **Every module's state is

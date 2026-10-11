@@ -131,14 +131,13 @@ describe('routes', () => {
     ['/v/v1/consistency', 'Consistency'],
     ['/v/v1/settings', 'Settings'],
     ['/v/v1/settings/backups', 'Settings'],
-    ['/v/v1/m/graph/view', 'Module: graph'],
   ])('%s renders its page', async (path, title) => {
     await renderApp(path)
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument()
   })
 
-  it('shows a 404 page for unknown paths', async () => {
-    await renderApp('/nowhere/at/all')
+  it.each(['/nowhere/at/all', '/v/v1/m/graph/view'])('shows a 404 page for %s', async (path) => {
+    await renderApp(path)
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
   })
 

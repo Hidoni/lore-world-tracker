@@ -7,14 +7,16 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 
+import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
+import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
 import { globalSearchSchema, parseSearch, stringifySearch } from './search'
 
 // Code-based route tree (frontend.md §4). Every route exists; most render placeholders until their
-// issues land. Module route factories attach under `/v/$vault/m/$module` once module activation
-// exists (#60).
+// issues land. Module route factories attach under `/v/$vault/m/<id>` (modules.md §3), reachable
+// only while the module is active in the vault.
 
 const rootRoute = createRootRoute({
   validateSearch: (search) => globalSearchSchema.parse(search),
@@ -111,20 +113,28 @@ const settingsPageRoute = createRoute({
     <PlaceholderPage title="Settings">Vault settings arrive with #69.</PlaceholderPage>
   ),
 })
-const moduleRoute = createRoute({
+// Paths of modules without routes, or that don't exist.
+const unknownModuleRoute = createRoute({
   getParentRoute: () => vaultRoute,
   path: 'm/$module/$',
-  component: function ModuleRoute() {
-    const { module } = moduleRoute.useParams()
-    return (
-      <PlaceholderPage title={`Module: ${module}`}>Module pages arrive with #60.</PlaceholderPage>
-    )
-  },
+  component: NotFoundPage,
 })
 
-export const routeTree = rootRoute.addChildren([
-  pickerRoute,
-  vaultRoute.addChildren([
+/** Each module's routes under `/v/$vault/m/<id>`, behind its activation. */
+function moduleRoutes(definitions: readonly ModuleDefinition[]) {
+  return definitions.flatMap((definition) => {
+    if (definition.routes === undefined) return []
+    const parent = createRoute({
+      getParentRoute: () => vaultRoute,
+      path: `m/${definition.id}`,
+      component: () => <ModuleGate module={definition.id} notFound={<NotFoundPage />} />,
+    })
+    return [parent.addChildren(definition.routes(parent))]
+  })
+}
+
+function buildRouteTree(definitions: readonly ModuleDefinition[]) {
+  const children = [
     vaultHomeRoute,
     dimensionRoute.addChildren([dimensionHomeRoute, timelineRoute, eventsRoute]),
     entityRoute,
@@ -134,14 +144,24 @@ export const routeTree = rootRoute.addChildren([
     trashRoute,
     consistencyRoute,
     settingsRoute.addChildren([settingsIndexRoute, settingsPageRoute]),
-    moduleRoute,
-  ]),
-])
+    unknownModuleRoute,
+  ] as const
+  // Module routes are added untyped (modules navigate by path): the registered router type is the
+  // core tree's.
+  const withModules = [...children, ...moduleRoutes(definitions)] as unknown as typeof children
+  return rootRoute.addChildren([pickerRoute, vaultRoute.addChildren(withModules)])
+}
 
-/** The app's router; tests pass a memory history (`createMemoryHistory`). */
-export function createAppRouter(history?: RouterHistory) {
+/**
+ * The app's router; tests pass a memory history (`createMemoryHistory`) and, to try a module, its
+ * definitions (default: `@/modules`).
+ */
+export function createAppRouter(
+  history?: RouterHistory,
+  definitions: readonly ModuleDefinition[] = moduleDefinitions,
+) {
   return createRouter({
-    routeTree,
+    routeTree: buildRouteTree(definitions),
     history,
     parseSearch,
     stringifySearch,

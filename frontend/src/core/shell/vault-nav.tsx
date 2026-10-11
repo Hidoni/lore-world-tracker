@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 
+import { useExtensionList } from '@/core/modules'
+
 interface NavItem {
   to:
     | '/v/$vault'
@@ -34,9 +36,20 @@ const ITEMS: NavItem[] = [
 const LINK_CLASS =
   'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[status=active]:bg-accent data-[status=active]:font-medium'
 
+/** The active modules' sidebar sections (`navSections`). */
+function ModuleSections({ vault }: { vault: string }) {
+  const sections = useExtensionList('navSections', vault)
+  return sections.map(({ id, title, component: Section }) => (
+    <section key={id} aria-label={title} className="mt-2 flex flex-col gap-0.5">
+      <h2 className="px-2 text-xs font-medium text-muted-foreground">{title}</h2>
+      <Section vault={vault} />
+    </section>
+  ))
+}
+
 /**
  * Sidebar navigation. Registry sections, trees, pinned and recent arrive with #65; until then
- * the vault's own pages.
+ * the vault's own pages and the active modules' sections.
  */
 export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
   const { vault } = useParams({ strict: false })
@@ -63,6 +76,7 @@ export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         ))
       )}
+      {vault !== undefined && <ModuleSections vault={vault} />}
     </nav>
   )
 }

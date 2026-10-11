@@ -124,6 +124,28 @@ export default tseslint.config(
     },
   },
   {
+    // Modules use core's public APIs and other modules' public.ts only (modules.md §3);
+    // frontend/src/test/architecture.test.ts checks those imports against `dependsOn`.
+    files: ['frontend/src/modules/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/modules/*/*', '!@/modules/*/public'],
+              message: "import another module through its public.ts ('@/modules/<id>/public')",
+            },
+            {
+              group: ['@/core/*/*'],
+              message: "import core through its public API ('@/core/<area>')",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Generated shadcn/ui components are owned but kept close to upstream.
     files: ['frontend/src/components/ui/**'],
     rules: {

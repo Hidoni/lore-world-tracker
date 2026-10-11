@@ -1,2 +1,28 @@
 // defineModule, module activation and extension-point registries (modules.md §3).
-export {}
+export { activeModules, collectList, collectRecord } from './activation'
+export {
+  ModuleDefinitionsProvider,
+  useActiveModules,
+  useExtensionList,
+  useExtensionRecord,
+  useModuleDefinitions,
+} from './context'
+export { ModuleGate } from './module-gate'
+export {
+  defineModule,
+  type Command,
+  type CommandContext,
+  type EditorExtension,
+  type EntityPanel,
+  type EntityViewProps,
+  type FieldRendererProps,
+  type GraphStyles,
+  type KindUiConfig,
+  type LinkRowProps,
+  type ModuleDefinition,
+  type NavSection,
+  type RouteFactory,
+  type SearchHitProps,
+  type SettingsPage,
+  type TimelineLayer,
+} from './types'
