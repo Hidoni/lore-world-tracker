@@ -634,7 +634,7 @@ def read_event(
     times = ReaderTimes(context, policy)
     return {
         "timeline_id": row.timeline_id,
-        "start": times.point(dump_spec(row.start_spec), entity.dimension_id),
+        "start": times.point(dump_spec(row.start_spec), entity.dimension_id, owner=entity.id),
         "end": reader_end(times, row, entity.dimension_id),
         "start_t": None if row.start_t is None else str(row.start_t),
         "end_t": None if row.end_t is None else str(row.end_t),
@@ -749,7 +749,7 @@ def reader_end(times: ReaderTimes, row: Event, dimension_id: str) -> dict[str, A
     if not times.policy.reader:
         return document
     if end.kind == "time_point":
-        point = times.point(document["time_point"], dimension_id)
+        point = times.point(document["time_point"], dimension_id, owner=row.entity_id)
         return None if point is None else {"kind": "time_point", "time_point": point}
     if end.kind == "duration" and end.duration.kind == "calendar":
         hidden = not times.policy.visible_ids(times.context.session, [end.duration.calendar_id])

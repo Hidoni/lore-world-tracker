@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from lore.core.history import recorder
+from lore.core.maintenance import check_vault, reindex_vault
 from lore.core.time.cache import WINDOWS
 from tests.entity_api import YEARS, LinkApi, make_client, problem
 
@@ -214,6 +215,37 @@ def test_occurrence_anchors(api: LinkApi, world: dict[str, Any]) -> None:
     missing = api.create("event", dimension_id=world["dimension"]["id"],
                          ext={"start": to_occurrence(series, "100")})  # fmt: skip
     assert problem(missing, 422, "invalid_date")["errors"][0]["code"] == "unresolved_ref"
+
+
+def test_an_occurrence_anchored_to_itself_means_the_computed_one(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """Saying "two days after occurrence 4", by occurrence 4 itself, is the computed occurrence
+    plus two days, at every resolution (#234)."""
+    series = daily(api, world)
+    day = {"kind": "duration", "duration": {"kind": "base", "units": str(DAY)}}
+    late = make_event(api, world, "Late", series_id=series["id"], occurrence_key="4",
+                      start=to_occurrence(series, "4", 2 * DAY), end=day)  # fmt: skip
+    assert ext_of(api, late["id"])["occurrence_state"] == "modified"
+    assert ext_of(api, late["id"])["start_t"] == str(6 * DAY)
+    # What is anchored to the occurrence sees the occurrence's own (modified) moment.
+    feast = make_event(api, world, "Feast", start=to_occurrence(series, "4", 60))
+    assert ext_of(api, feast["id"])["start_t"] == str(6 * DAY + 60)
+    manager = api.client.app.state.vaults  # type: ignore[attr-defined]
+    assert check_vault(manager, api.vault).problems == ()
+    # Re-resolving (a series move, a reindex) doesn't drift.
+    assert patch(api, series["id"], start=at(500)).status_code == 200
+    assert patch(api, series["id"], start=at(0)).status_code == 200
+    assert ext_of(api, late["id"])["start_t"] == str(6 * DAY)
+    assert ext_of(api, feast["id"])["start_t"] == str(6 * DAY + 60)
+    reindex_vault(manager.open(api.vault), manager.module_registry)
+    assert check_vault(manager, api.vault).problems == ()
+    assert ext_of(api, late["id"])["start_t"] == str(6 * DAY)
+    # Its end may say the same (the computed occurrence's end, plus three days).
+    end = {"kind": "time_point", "time_point": to_occurrence(series, "4", 3 * DAY, slot="end")}
+    assert patch(api, late["id"], end=end).status_code == 200
+    assert ext_of(api, late["id"])["end_t"] == str(7 * DAY + 3600)
+    assert check_vault(manager, api.vault).problems == ()
 
 
 def test_occurrence_anchors_follow_calendar_changes(api: LinkApi, world: dict[str, Any]) -> None:
