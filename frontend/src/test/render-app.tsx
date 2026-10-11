@@ -4,6 +4,7 @@ import { act, render } from '@testing-library/react'
 import { AppProviders } from '@/app/providers'
 import { createQueryClient } from '@/app/query-client'
 import { createAppRouter, createMemoryHistory } from '@/app/router'
+import { useSaveAnyway } from '@/core/consistency'
 import type { ModuleDefinition } from '@/core/modules'
 import { usePlaces } from '@/core/navigation/places'
 import { usePalette } from '@/core/palette'
@@ -21,6 +22,7 @@ export async function renderApp(
   useShell.getState().reload()
   usePlaces.getState().reload()
   usePalette.setState({ open: false, shortcutsOpen: false })
+  useSaveAnyway.setState({ pending: null })
   const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }), modules)
   const queryClient = createQueryClient()
   queryClient.setDefaultOptions({ queries: { retry: false }, mutations: { retry: false } })

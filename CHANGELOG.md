@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Consistency UI** (#85): the findings panel (filters for severity, certainty, rule, owner,
+  entity and timeline, kept in the URL; explain; suppress with a note; re-check the vault),
+  finding badges on entity headers and sidebar trees, Settings → Consistency with rule severities
+  (hard rules locked), and a "Save anyway (intentional)" dialog for every write that consistency
+  rules refuse.
 - **Time display and context** (#72): every moment can be shown in the chosen display calendar
   (`MomentDisplay`, `SpanDisplay`), with a tooltip listing it in all the dimension's calendars,
   the absolute value and its distance from the present; huge years use scientific notation. The

@@ -5,11 +5,12 @@ import { ApiError } from '@/api'
 
 /**
  * API errors become toasts, unless the query or mutation opts out with `meta: { toast: false }`.
- * `409 revision_conflict` never does: the conflict dialog (#62) handles it.
+ * `409 revision_conflict` and `422 consistency_error` never do: the conflict dialog (#62) and the
+ * save-anyway dialog (#85) handle them.
  */
 function toastApiError(error: unknown, meta: { toast?: boolean } | undefined): void {
   if (!(error instanceof ApiError) || meta?.toast === false) return
-  if (error.code === 'revision_conflict') return
+  if (error.code === 'revision_conflict' || error.code === 'consistency_error') return
   toast.error(error.title, { description: error.detail, id: `${error.code}:${error.detail}` })
 }
 

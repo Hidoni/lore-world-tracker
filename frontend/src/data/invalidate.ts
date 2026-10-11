@@ -2,7 +2,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query'
 
 import type { Affected } from './source'
 
-/** Areas every write may change: lists, trees, the change feed, findings. */
+/** Areas every write may change: lists, trees, the change feed, findings (and rule counts). */
 const VAULT_WIDE = [
   'vault',
   'entities',
@@ -14,6 +14,7 @@ const VAULT_WIDE = [
   // Changesets change too (merged saves, undone).
   'change',
   'findings',
+  'consistencyRules',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']

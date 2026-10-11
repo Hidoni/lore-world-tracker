@@ -235,6 +235,58 @@ function paged<T>(items: T[], url: URL): { items: T[]; next_cursor: string | nul
 
 const NOTHING = { dimensions: [], time_changed: false, search_changed: true }
 
+/** A consistency finding (wire format); open unless `suppression` is set. */
+export function finding(
+  fingerprint: string,
+  rule_id: string,
+  severity: 'error' | 'warning' | 'info',
+  message: string,
+  subjects: { id: string; name: string | null; kind: string | null }[],
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    fingerprint,
+    rule_id,
+    owner: rule_id.split('.')[0] ?? 'core',
+    title: rule_id,
+    severity,
+    certainty: 'definite' as 'definite' | 'possible',
+    message,
+    subjects,
+    timeline_id: null as string | null,
+    data: {},
+    suppression: null as { note: string; created_at: string } | null,
+    created_at: '2026-10-11T10:00:00.000000+00:00',
+    updated_at: '2026-10-11T10:00:00.000000+00:00',
+    ...extra,
+  }
+}
+
+/** A consistency rule (`RuleInfo`). */
+export function rule(id: string, title: string, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    owner: id.split('.')[0] ?? 'core',
+    title,
+    description: `${title}: the description.`,
+    category: 'structure',
+    default_severity: 'error' as 'off' | 'warning' | 'error',
+    severity: 'error' as 'off' | 'warning' | 'error',
+    configurable: true,
+    findings: 0,
+    ...extra,
+  }
+}
+
+/** A finding that blocks a write (`422 consistency_error` `context.findings`). */
+export interface BlockingRow {
+  fingerprint: string
+  rule_id: string
+  message: string
+  subjects: string[]
+  suppressible: boolean
+}
+
 /** The default rows: a dimension, an artifact parent chain (Treasury → Crown → Gem). */
 export function defaultRows(): Row[] {
   return [
@@ -268,6 +320,11 @@ export function serveVault(
     backups?: BackupRow[]
     /** The first restores answer `422 invalid_backup`. */
     restoreFailures?: number
+    findings?: ReturnType<typeof finding>[]
+    rules?: ReturnType<typeof rule>[]
+    /** Entity writes (create, update) without `suppress` answer `422 consistency_error` with
+     * these findings, `times` times (default: always). */
+    refusals?: { findings: BlockingRow[]; times?: number }
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
@@ -283,6 +340,31 @@ export function serveVault(
   }
   const backups = [...(options.backups ?? [])]
   let restoreFailures = options.restoreFailures ?? 0
+  const findings = [...(options.findings ?? [])]
+  const rules = [...(options.rules ?? [])]
+  let refusals = options.refusals?.times ?? Number.POSITIVE_INFINITY
+  /** `422 consistency_error` for a write that doesn't suppress the configured findings. */
+  const refuse = (body: Record<string, unknown>) => {
+    if (options.refusals === undefined || refusals <= 0 || body.suppress !== undefined) return null
+    refusals -= 1
+    const blocking = options.refusals.findings
+    return HttpResponse.json(
+      {
+        type: 'about:blank',
+        status: 422,
+        code: 'consistency_error',
+        title: 'Consistency rule violated',
+        detail: 'The change breaks consistency rules.',
+        errors: blocking.map((item) => ({
+          path: 'suppress',
+          code: item.rule_id,
+          message: item.message,
+        })),
+        context: { findings: blocking.map((item) => ({ ...item, certainty: 'definite' })) },
+      },
+      { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+    )
+  }
   const changesets = [...(options.changesets ?? [])]
   const summary = (changeset: FakeChangeset) => ({
     id: changeset.id,
@@ -356,6 +438,62 @@ export function serveVault(
         ...(moduleStates ? { modules: moduleStates } : {}),
       }),
     ),
+    http.get('*/api/v1/vaults/v1/consistency/findings', ({ request }) => {
+      const url = new URL(request.url)
+      const status = url.searchParams.get('status') ?? 'open'
+      const severities = url.searchParams.getAll('severity')
+      const certainty = url.searchParams.get('certainty')
+      const ruleIds = url.searchParams.getAll('rule')
+      const owner = url.searchParams.get('owner')
+      const entity = url.searchParams.get('entity')
+      const timeline = url.searchParams.get('timeline')
+      const rank = { error: 0, warning: 1, info: 2 }
+      const items = findings
+        .filter((item) =>
+          status === 'all' ? true : status === 'open' ? !item.suppression : !!item.suppression,
+        )
+        .filter((item) => severities.length === 0 || severities.includes(item.severity))
+        .filter((item) => certainty === null || item.certainty === certainty)
+        .filter((item) => ruleIds.length === 0 || ruleIds.includes(item.rule_id))
+        .filter((item) => owner === null || item.owner === owner)
+        .filter((item) => entity === null || item.subjects.some((subject) => subject.id === entity))
+        .filter((item) => timeline === null || item.timeline_id === timeline)
+        .sort((a, b) => rank[a.severity] - rank[b.severity])
+      return HttpResponse.json(paged(items, url))
+    }),
+    http.get('*/api/v1/vaults/v1/consistency/rules', () => HttpResponse.json({ items: rules })),
+    http.get('*/api/v1/vaults/v1/dimensions/:id/timelines', ({ params }) =>
+      HttpResponse.json({ dimension_id: params.id, items: [] }),
+    ),
+    http.patch('*/api/v1/vaults/v1/consistency/rules/:id', async ({ request, params }) => {
+      const body = await record(request)
+      const target = rules.find((item) => item.id === params.id)
+      if (!target) return problem(404, 'not_found', 'Not found', 'No such rule.')
+      const severity = body.severity as 'off' | 'warning' | 'error' | null
+      target.severity = severity ?? target.default_severity
+      return HttpResponse.json(target)
+    }),
+    http.post('*/api/v1/vaults/v1/consistency/suppressions', async ({ request }) => {
+      const body = await record(request)
+      const target = findings.find((item) => item.fingerprint === body.fingerprint)
+      if (!target) return problem(404, 'not_found', 'Not found', 'No such finding.')
+      target.suppression = { note: String(body.note), created_at: '2026-10-11T11:00:00Z' }
+      return HttpResponse.json(target, { status: 201 })
+    }),
+    http.delete(
+      '*/api/v1/vaults/v1/consistency/suppressions/:fingerprint',
+      async ({ request, params }) => {
+        await record(request)
+        const target = findings.find((item) => item.fingerprint === params.fingerprint)
+        if (!target) return problem(404, 'not_found', 'Not found', 'No such finding.')
+        target.suppression = null
+        return new HttpResponse(null, { status: 204 })
+      },
+    ),
+    http.post('*/api/v1/vaults/v1/consistency/scan', async ({ request }) => {
+      await record(request)
+      return HttpResponse.json({ rules: rules.length, findings: findings.length })
+    }),
     http.get('*/api/v1/vaults/v1/entities', ({ request }) => {
       const url = new URL(request.url)
       const kinds = url.searchParams.getAll('kind')
@@ -717,6 +855,8 @@ export function serveVault(
       const body = await record(request)
       const entity = found(params.id)
       if (!entity) return new HttpResponse(null, { status: 404 })
+      const refused = refuse(body)
+      if (refused !== null) return refused
       if (conflicts > 0 || body.revision !== entity.revision) {
         conflicts = Math.max(0, conflicts - 1)
         entity.revision += 1 // someone else saved
@@ -790,6 +930,8 @@ export function serveVault(
     }),
     http.post('*/api/v1/vaults/v1/entities', async ({ request }) => {
       const body = await record(request)
+      const refused = refuse(body)
+      if (refused !== null) return refused
       const created = row('new1', String(body.kind), String(body.name), {
         parent_id: (body.parent_id as string | null) ?? null,
         dimension_id: (body.dimension_id as string | null) ?? null,

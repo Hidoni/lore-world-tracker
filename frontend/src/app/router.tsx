@@ -7,6 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 
+import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
 import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
@@ -163,7 +164,35 @@ const kindListRoute = createRoute({
     return <EntityListPage key={kind} vault={vault} kindKey={kind} />
   },
 })
-const consistencyRoute = page('consistency', 'Consistency', 'Findings arrive with M6.')
+const consistencyRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'consistency',
+  // Filters stay strings (`uncertain`, `suppressed`: `true`); empty ones are dropped.
+  validateSearch: (search): FindingsParams => {
+    const params: FindingsParams = {}
+    for (const key of ['severity', 'rule', 'owner', 'entity', 'timeline'] as const) {
+      const value = search[key]
+      if (typeof value === 'string' && value !== '') params[key] = value
+    }
+    if (search.uncertain === true || search.uncertain === 'true') params.uncertain = true
+    if (search.suppressed === true || search.suppressed === 'true') params.suppressed = true
+    return params
+  },
+  component: function ConsistencyRoute() {
+    const { vault } = consistencyRoute.useParams()
+    const params = consistencyRoute.useSearch()
+    const navigate = consistencyRoute.useNavigate()
+    return (
+      <FindingsPage
+        vault={vault}
+        params={params}
+        onChange={(next) => {
+          void navigate({ search: next, replace: true })
+        }}
+      />
+    )
+  },
+})
 const settingsRoute = createRoute({
   getParentRoute: () => vaultRoute,
   path: 'settings',

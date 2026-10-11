@@ -43,3 +43,13 @@ export function useDimensionCalendars(
     isPending: dimension !== null && (list.isPending || full.some((result) => result.isPending)),
   }
 }
+
+/** A dimension's timelines (the prime timeline and its branches, as a tree). */
+export function useTimelines(vault: string, dimension: string | null) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.timelines(vault, dimension ?? ''),
+    queryFn: () => source.timelines(vault, dimension ?? ''),
+    enabled: dimension !== null,
+  })
+}
