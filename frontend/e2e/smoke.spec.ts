@@ -14,7 +14,7 @@ test('creates a vault, opens it and comes back to it', async ({ page }) => {
   await page.getByLabel('New vault').fill(name)
   await page.getByRole('button', { name: 'Create vault' }).click()
   await page.getByRole('link', { name }).click()
-  await expect(page.getByRole('heading', { name: 'Vault home' })).toBeVisible()
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()
   await expect(page.getByRole('banner').getByRole('link', { name })).toBeVisible()
 
   // The picker reopens the last vault.

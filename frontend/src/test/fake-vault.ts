@@ -883,6 +883,9 @@ export function serveVault(
       const aliases = body.aliases as { id?: string; alias: string }[] | undefined
       const tags = body.tags as string[] | undefined
       Object.assign(entity, {
+        ...(body.ext !== undefined && body.ext !== null
+          ? { ext: { ...(entity.ext ?? {}), ...body.ext } }
+          : {}),
         ...(typeof body.name === 'string' ? { name: body.name } : {}),
         ...(typeof body.visibility === 'string' ? { visibility: body.visibility } : {}),
         ...('parent_id' in body ? { parent_id: body.parent_id as string | null } : {}),

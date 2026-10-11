@@ -10,6 +10,8 @@ export {
 export { displayLevel, formatIn, formatSpanIn, relativeToPresent, type Moment } from './format'
 export { BigNumberError, parseBigNumber } from './big-number'
 export { BigNumberInput, type BigNumberInputProps } from './big-number-input'
+export { DimensionOverview } from './dimension-overview'
+export { DimensionWizard } from './dimension-wizard'
 export { DurationPicker } from './duration-picker'
 export { EndSpecPicker } from './end-spec-picker'
 export { MomentDisplay, SpanDisplay } from './moment-display'

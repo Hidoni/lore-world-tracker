@@ -13,7 +13,8 @@ import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
 import { SettingsPage } from '@/core/settings'
-import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
+import { PlaceholderPage, ShellLayout, VaultHome, VaultPicker, VaultScope } from '@/core/shell'
+import { DimensionOverview } from '@/core/time'
 import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
@@ -61,7 +62,14 @@ function page<TPath extends string>(path: TPath, title: string, description?: st
   })
 }
 
-const vaultHomeRoute = page('/', 'Vault home', 'Dimensions, recent changes and pinned entities.')
+const vaultHomeRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: '/',
+  component: function VaultHomeRoute() {
+    const { vault } = vaultHomeRoute.useParams()
+    return <VaultHome vault={vault} />
+  },
+})
 
 const dimensionRoute = createRoute({
   getParentRoute: () => vaultRoute,
@@ -73,11 +81,14 @@ const dimensionPage = <TPath extends string>(path: TPath, title: string, descrip
     path,
     component: () => <PlaceholderPage title={title}>{description}</PlaceholderPage>,
   })
-const dimensionHomeRoute = dimensionPage(
-  '/',
-  'Dimension',
-  'Time spec, calendars, timelines and statistics.',
-)
+const dimensionHomeRoute = createRoute({
+  getParentRoute: () => dimensionRoute,
+  path: '/',
+  component: function DimensionHomeRoute() {
+    const { vault, dimension } = dimensionHomeRoute.useParams()
+    return <DimensionOverview key={dimension} vault={vault} dimensionId={dimension} />
+  },
+})
 const timelineRoute = dimensionPage('timeline', 'Timeline', 'The timeline view arrives with M5.')
 const eventsRoute = dimensionPage('events', 'Events', 'The event outline arrives with M5.')
 

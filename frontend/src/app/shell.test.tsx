@@ -32,7 +32,7 @@ describe('shell', () => {
       'Settings',
     ])
     expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('data-status', 'active')
-    expect(screen.getByRole('heading', { name: 'Vault home' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Atlas', level: 1 })).toBeInTheDocument()
   })
 
   it('is keyboard navigable: skip link, sidebar links, panel toggles', async () => {
@@ -111,7 +111,6 @@ describe('shell', () => {
 
 describe('routes', () => {
   it.each([
-    ['/v/v1/d/d1', 'Dimension'],
     ['/v/v1/d/d1/timeline', 'Timeline'],
     ['/v/v1/d/d1/events', 'Events'],
     ['/v/v1/calendars/c1/edit', 'Calendar editor'],

@@ -375,7 +375,7 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   PATCH with the entity's revision. Without `Mutations` nothing is editable. The trash dialog
   warns when the entity has children (they stay, shown as roots); a trashed entity's page offers
   Restore and Delete permanently (`?purge=true`). The top bar's "New…" menu lists the kinds that
-  aren't system kinds (dimensions, timelines and calendars have their own flows); the create
+  aren't system kinds (dimensions, timelines and calendars have their own flows), then "Dimension…" (the wizard); the create
   dialog takes a name, the dimension (or multiversal, where the kind allows it) and a parent
   among entities of the kind's `allowed_parents`, then opens the new entity.
 - Fields (`core/fields/`, #62): zod schemas built from field definitions (`fieldSchema`,
@@ -430,6 +430,34 @@ Implementation (`core/time/`, #72):
   in the calendar that has it), like the backend's `display_level`. The Absolute calendar uses
   `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
   present" counts the display calendar's top level (the default calendar's under Absolute).
+
+Dimensions (`core/time/`, `core/shell/vault-home.tsx`, #75):
+
+- **Vault home** (`/v/$vault`): the dimensions (links to their overview), "Create dimension"
+  (for authors; a call to action when there are none), the pinned entities, and a link to
+  recent changes.
+- **`DimensionWizard`** (a dialog from the vault home and the "New…" menu), in five steps:
+  1. Name and description.
+  2. Base unit: its names and abbreviation, and how long it lasts (`num / den` seconds, which
+     presets use).
+  3. Duration `D`: a `BigNumberInput` with lifetimes to start from (10,000 years, 13.8 billion
+     years, 10^100 years of 365.25 days), converted to base units.
+  4. First calendar: a preset from `/calendars/presets`, its name, and "Year 1 begins at" (the
+     preset's `origin`). It is previewed live with `/calendars/preview`. The wizard also checks
+     that `D` reaches the preset's absolute anchors (`origin + duration_seconds` in base units),
+     which the server would otherwise report as a compile error.
+  5. Review.
+
+  Creating sends `POST /dimensions` and opens the new dimension. Server problems are listed with
+  a link back to their step.
+- **`DimensionOverview`** (`/v/$vault/d/$dimension`):
+  - Time: the base unit, and `D`, which can be changed. A `422 time_constraint` (R-DIM-3) shows
+    its reason and names the records in the way.
+  - The present: set, changed or cleared with a `TimePointPicker`.
+  - Calendars: the default first, with "Make default" and links to the editor.
+  - Timelines: the prime timeline and its branches.
+  - Statistics: the event count, shown as "500+" past one page, and the calendar count.
+  - Recent events: the five most recently updated.
 
 Time inputs (`core/time/`, #73):
 
