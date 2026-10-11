@@ -605,6 +605,20 @@ def test_count_limit_far_is_fast() -> None:
     assert elapsed < 0.1, f"{elapsed * 1000:.1f} ms"
 
 
+def test_count_limits_enumerate_only_nearby_periods() -> None:
+    """A far count limit goes to the super-period counter after a few enumerated periods, not
+    10,000 (#247); a near one still finds its occurrence among them."""
+    yearly = rule(freq={"level": "year"}, limit={"kind": "count", "count": str(10**12)})
+    fresh = compiled("gregorian-week")
+    assert series_bounds(yearly, context(g(2024, "feb", 29, 9), fresh)).count == 10**12
+    prefixes = fresh.regimes[0].cache["recurrence-prefixes"]
+    assert isinstance(prefixes, dict)
+    assert [len(prefix) for prefix in prefixes.values()] == [65]  # 64 periods, not 10,000
+    near = rule(freq={"level": "year"}, limit={"kind": "count", "count": "3000"})
+    fresh = compiled("gregorian-week")
+    assert series_bounds(near, context(g(2024, "feb", 29, 9), fresh)).count == 3000
+
+
 def test_rules_that_never_occur_are_found_at_once() -> None:
     """An interval that never meets the filter: no occurrence, and no long scan."""
     starved = rule(freq={"level": "year"}, interval="2", filters=[{"mod": "2", "eq": "1"}])

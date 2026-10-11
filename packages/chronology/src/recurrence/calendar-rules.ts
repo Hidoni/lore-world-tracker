@@ -44,6 +44,7 @@ import {
   type RecurrenceContext,
   RecurrenceError,
   type RuleValidationError,
+  SAMPLES,
   SCAN_LIMIT,
 } from './plan'
 
@@ -550,8 +551,8 @@ export class CalendarPlan extends Plan {
     if (this.perPeriod !== null) return this.perPeriod > 0n ? (i - 1n) / this.perPeriod : null
     let counter = this.counterOf(false)
     if (counter === null) {
-      // nearby positions: enumerate
-      if (this.#enumerated(ITERATE_LIMIT) >= i) return this.#firstPeriodReaching(i, ITERATE_LIMIT)
+      const nearby = this.#nearbyPeriodLimit(i)
+      if (nearby !== null) return this.#firstPeriodReaching(i, nearby) // nearby positions: enumerate
       counter = this.counterOf()
     }
     if (counter !== null) {
@@ -564,6 +565,23 @@ export class CalendarPlan extends Plan {
     }
     if (this.#enumerated(SCAN_LIMIT) >= i) return this.#firstPeriodReaching(i, SCAN_LIMIT)
     throw new RecurrenceError('rule.too_complex_to_count', 'counting needs super-periods')
+  }
+
+  /**
+   * A number of periods (at most `ITERATE_LIMIT`) whose positions reach the `i`-th, else null.
+   * Periods are enumerated in doubling steps, and the search gives up as soon as their rate puts
+   * the `i`-th position well beyond `ITERATE_LIMIT` periods: a count limit of 10^12 needs the
+   * counter, not 10,000 enumerated periods first (#247).
+   */
+  #nearbyPeriodLimit(i: bigint): bigint | null {
+    for (let periods = SAMPLES; ; periods *= 2n) {
+      if (periods > ITERATE_LIMIT) periods = ITERATE_LIMIT
+      const reached = this.#enumerated(periods)
+      if (reached >= i) return periods
+      if (periods === ITERATE_LIMIT) return null
+      // at this rate, more than twice ITERATE_LIMIT periods away
+      if (reached > 0n && i * periods > 2n * reached * ITERATE_LIMIT) return null
+    }
   }
 
   /** The period holding the `i`-th position, known to be below `limit`. */

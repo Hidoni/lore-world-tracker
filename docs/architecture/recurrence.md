@@ -322,6 +322,10 @@ next occurrences are `position(G(t) + 1)` / `position(G(t + 1))`, skipping exclu
   - **Caching.** Counters and enumerated prefixes are cached on the compiled regime per (rule,
     series start), at most 64 each (least recently used first out): a daily rule with a weekday
     filter enumerates its 146,097-day super-period once.
+  - **Nearby positions.** Finding the period of the `i`-th position without a cached counter
+    enumerates periods in doubling steps from 64, up to 10,000: it stops as soon as they reach
+    `i`, and builds the counter instead once their rate puts `i` more than twice 10,000 periods
+    away (a far count limit enumerates 64 periods, not 10,000, #247).
 - A count limit of 10^12 on a yearly rule takes milliseconds (`Q = 400` Gregorian years).
 
 ### 5.5 Series bounds cache
