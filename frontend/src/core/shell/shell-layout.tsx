@@ -1,11 +1,27 @@
+import { useParams } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
+import { BacklinksPanel } from '@/core/links'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 
 import { useShell } from './shell-store'
 import { SidebarResizer } from './sidebar-resizer'
 import { TopBar } from './top-bar'
 import { VaultNav } from './vault-nav'
+
+/** The context panel's content for the current page: an entity's backlinks and mentions. */
+function ContextPanel() {
+  const { vault, entity } = useParams({ strict: false })
+  if (vault === undefined || entity === undefined) {
+    return (
+      <>
+        <h2 className="mb-2 font-medium text-foreground">Context</h2>
+        <p>Backlinks, outline, findings and history for the current page appear here.</p>
+      </>
+    )
+  }
+  return <BacklinksPanel key={entity} vault={vault} entityId={entity} />
+}
 
 /**
  * The app shell (frontend.md §3): top bar, resizable and collapsible sidebar, main area and a
@@ -57,8 +73,7 @@ export function ShellLayout({ children }: { children: ReactNode }) {
             aria-label="Context"
             className="shrink-0 border-t p-4 text-sm text-muted-foreground md:w-72 md:overflow-y-auto md:border-t-0 md:border-l"
           >
-            <h2 className="mb-2 font-medium text-foreground">Context</h2>
-            <p>Backlinks, outline, findings and history for the current page appear here.</p>
+            <ContextPanel />
           </aside>
         )}
       </div>

@@ -121,6 +121,57 @@ function out(entity: Row) {
   }
 }
 
+export function linkType(key: string, label: string, extra: Record<string, unknown> = {}) {
+  return {
+    key,
+    module: 'core',
+    user_defined: false,
+    label,
+    inverse_label: null as string | null,
+    description: '',
+    source_kinds: '*' as string | string[],
+    target_kinds: '*' as string | string[],
+    symmetric: false,
+    temporal: 'never',
+    unique: 'none',
+    max_targets_per_source: null,
+    max_sources_per_target: null,
+    data_schema: null,
+    graph: { color: null, dashed: false, weight: 1 },
+    archived: false,
+    ...extra,
+  }
+}
+
+export interface LinkRow {
+  id: string
+  link_type: string
+  source_id: string
+  target_id: string
+  role?: string | null
+  data?: Record<string, unknown>
+  visibility?: 'public' | 'spoiler' | 'private'
+  revision?: number
+}
+
+function linkOut(link: LinkRow) {
+  return {
+    role: null,
+    data: {},
+    visibility: 'public',
+    revision: 1,
+    timeline_id: null,
+    valid_from: null,
+    valid_to: null,
+    time_status: null,
+    sort_key: null,
+    created_at: '2026-10-11T10:00:00.000000+00:00',
+    updated_at: '2026-10-11T10:00:00.000000+00:00',
+    deleted_at: null,
+    ...link,
+  }
+}
+
 /** A cursor page (`limit`, `cursor`: the offset as a string). */
 function paged<T>(items: T[], url: URL): { items: T[]; next_cursor: string | null } {
   const limit = Number(url.searchParams.get('limit') ?? '200')
@@ -151,8 +202,19 @@ export function defaultRows(): Row[] {
  * An in-memory vault `v1` behind MSW (entities, registry, writes, bodies with their mentions and
  * backlinks, the quick switcher); returns the write requests it saw. `conflicts` PATCHes answer `409 revision_conflict` first, as if someone saved meanwhile.
  */
-export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts?: number } = {}) {
+export function serveVault(
+  options: {
+    kinds?: unknown[]
+    rows?: Row[]
+    conflicts?: number
+    linkTypes?: ReturnType<typeof linkType>[]
+    links?: LinkRow[]
+  } = {},
+) {
   let conflicts = options.conflicts ?? 0
+  const types = options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]
+  const links = new Map((options.links ?? []).map((link) => [link.id, linkOut(link)]))
+  let linkSeq = 0
   const rows = new Map<string, Row>(
     (options.rows ?? defaultRows()).map((entity) => [entity.id, entity]),
   )
@@ -168,6 +230,38 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
     return text ? (JSON.parse(text) as Record<string, unknown>) : {}
   }
   const found = (id: unknown) => rows.get(String(id))
+  const existing = (id: string): Row => {
+    const entity = rows.get(id)
+    if (entity === undefined) throw new Error(`no entity ${id}`)
+    return entity
+  }
+  const linked = (entity: Row) => ({
+    id: entity.id,
+    kind: entity.kind,
+    name: entity.name,
+    icon: null,
+    color: null,
+    dimension_id: entity.dimension_id,
+    deleted_at: entity.deleted_at,
+  })
+  /** An entity's links as `GET …/links` lists them: symmetric ones once, labelled from its side. */
+  const entityLinks = (id: string) =>
+    [...links.values()]
+      .filter((link) => link.source_id === id || link.target_id === id)
+      .map((link) => {
+        const type = types.find((candidate) => candidate.key === link.link_type)
+        const out = link.source_id === id
+        const other = existing(out ? link.target_id : link.source_id)
+        return {
+          link,
+          direction: type?.symmetric ? 'both' : out ? 'out' : 'in',
+          label:
+            type?.symmetric || out
+              ? (type?.label ?? link.link_type)
+              : (type?.inverse_label ?? type?.label ?? link.link_type),
+          other: linked(other),
+        }
+      })
   server.use(
     http.get('*/api/v1/vaults/v1', () => HttpResponse.json(makeVault('v1', 'Atlas'))),
     http.get('*/api/v1/vaults/v1/registry', () =>
@@ -259,17 +353,60 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
         }))
       return HttpResponse.json({ items })
     }),
-    http.get('*/api/v1/vaults/v1/entities/:id/backlinks', ({ params }) =>
-      HttpResponse.json({
-        items: [...rows.values()]
-          .filter((source) => mentioned(source.body).has(String(params.id)))
-          .map((source) => ({
-            entity: { id: source.id, kind: source.kind, name: source.name },
-            links: [],
-            mentions: { public: 1, spoiler: 0, private: 0 },
-          })),
-      }),
+    http.get('*/api/v1/vaults/v1/entities/:id/links', ({ params }) =>
+      HttpResponse.json({ items: entityLinks(String(params.id)) }),
     ),
+    http.get('*/api/v1/vaults/v1/entities/:id/backlinks', ({ params }) => {
+      const id = String(params.id)
+      const incoming = entityLinks(id).filter((item) => item.direction !== 'out')
+      const sources = new Set([
+        ...incoming.map((item) => item.other.id),
+        ...[...rows.values()].filter((row) => mentioned(row.body).has(id)).map((row) => row.id),
+      ])
+      return HttpResponse.json({
+        items: [...sources].map((sourceId) => {
+          const source = existing(sourceId)
+          return {
+            entity: linked(source),
+            // The links as the source sees them.
+            links: entityLinks(sourceId).filter((item) => item.other.id === id),
+            mentions: { public: mentioned(source.body).has(id) ? 1 : 0, spoiler: 0, private: 0 },
+          }
+        }),
+      })
+    }),
+    http.get('*/api/v1/vaults/v1/link-types', () => HttpResponse.json({ items: types })),
+    http.post('*/api/v1/vaults/v1/links', async ({ request }) => {
+      const body = (await record(request)) as unknown as LinkRow
+      linkSeq += 1
+      const link = linkOut({ ...body, id: `l-new${linkSeq}` })
+      links.set(link.id, link)
+      return HttpResponse.json(
+        { link, affected: { entities: [link.source_id, link.target_id], ...NOTHING } },
+        { status: 201 },
+      )
+    }),
+    http.patch('*/api/v1/vaults/v1/links/:id', async ({ request, params }) => {
+      const body = await record(request)
+      const link = links.get(String(params.id))
+      if (!link) return new HttpResponse(null, { status: 404 })
+      const change = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'revision'))
+      Object.assign(link, change, { revision: link.revision + 1 })
+      return HttpResponse.json({
+        link,
+        affected: { entities: [link.source_id, link.target_id], ...NOTHING },
+      })
+    }),
+    http.delete('*/api/v1/vaults/v1/links/:id', async ({ request, params }) => {
+      await record(request)
+      const link = links.get(String(params.id))
+      if (!link) return new HttpResponse(null, { status: 404 })
+      links.delete(link.id)
+      return HttpResponse.json({
+        link: { ...link, deleted_at: '2026-10-11T12:00:00.000000+00:00' },
+        affected: { entities: [link.source_id, link.target_id], ...NOTHING },
+      })
+    }),
     http.get('*/api/v1/vaults/v1/entities/:id/children', ({ params }) =>
       HttpResponse.json({
         items: [...rows.values()].filter((entity) => entity.parent_id === params.id).map(out),

@@ -292,6 +292,16 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
      occurrences.
   6. Module panels/tabs (family tree, lexicon, map, gallery…).
   7. History (per-entity changes with undo).
+- **Links** (`core/links/`, #66): the relations panel groups the entity's links by type and
+  direction, labelled from its side (forward or inverse label; symmetric links once). Each link shows
+  its role, its `data` (the link type's `linkTypeRenderers` component, which gets role and data, or a
+  `key: value` summary) and a visibility badge, with edit and remove for authors. The add-link
+  dialog searches targets (`/search/quick`), then offers the link types whose source/target kinds
+  fit both ends, in either direction (the inverse label when the entity is the target; archived types
+  excluded). It also takes a role, `data` (a form for object schemas of simple properties, JSON
+  otherwise) and visibility. Validity fields are shown disabled until temporal links (M7). The
+  context panel shows the current entity's backlinks: linking entities with the links' labels, and
+  mention counts. It refreshes after a save that changes mentions (`affected`).
 - **Entity lists** (`/v/$vault/k/$kind`, #65): a table of the kind's entities. Filter by name prefix
   and dimension, and sort. Columns come from the kind's UI config `listColumns`, or else its first
   three short fields, plus dimension and last update. Rows are virtualized (`@tanstack/react-virtual`),

@@ -38,10 +38,13 @@ export interface EntityPanel {
   order?: number
 }
 
+/** A module's rendering of one link's details (role and `data`) in the relations panel. */
 export interface LinkRowProps {
   vault: string
   linkId: string
   linkType: string
+  role: string | null
+  data: Readonly<Record<string, unknown>>
 }
 
 export interface FieldRendererProps {
