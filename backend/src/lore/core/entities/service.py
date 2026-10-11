@@ -45,6 +45,8 @@ from lore.core.modules.spec import VaultContext
 from lore.core.richtext import SCHEMA_VERSION as RICHTEXT_SCHEMA_VERSION
 from lore.core.richtext.extract import MentionCounts
 from lore.core.richtext.mentions import count_mentions, replace_mentions
+from lore.core.richtext.models import Mention
+from lore.core.richtext.relabel import relabel_links, relabel_values
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
 from lore.core.time.changes import report as report_time
@@ -276,6 +278,7 @@ class EntityService:
             )
         sent = data.model_fields_set - {"revision", "suppress"}
         old_parent, old_dimension = entity.parent_id, entity.dimension_id
+        old_name = entity.name
         if sent:
             # First, so queries that autoflush midway don't update the row (and revision) twice;
             # also bumps the revision when only aliases, tags, ext or links change.
@@ -299,9 +302,7 @@ class EntityService:
             links += self._links().trash_for_entity(entity.id, data.links_remove)
         if "links_add" in sent:
             links += self._add_links(entity, data.links_add)
-        mentioned: set[str] = set()
-        if sent & {"body", "fields", "field_visibility"}:
-            mentioned = self.refresh_mentions(entity)
+        mentioned = self._mentions_after_update(entity, sent, old_name)
         self.session.flush()
         if sent & _SEARCH_MEMBERS:
             self.reindex(entity)
@@ -449,6 +450,58 @@ class EntityService:
         if counts is None:
             return set()  # a disabled module's entity: kept as it is until it's saved again
         return replace_mentions(self.session, entity.id, counts)
+
+    def _mentions_after_update(self, entity: Entity, sent: set[str], old_name: str) -> set[str]:
+        """The entities whose backlinks or text an update changed: mention targets gained or
+        lost, and the entities whose links were relabeled by a rename."""
+        changed: set[str] = set()
+        if sent & {"body", "fields", "field_visibility"}:
+            changed = self.refresh_mentions(entity)
+        if entity.name != old_name:
+            changed |= self._relabel_links_to(entity, old_name)
+        return changed
+
+    def _relabel_links_to(self, entity: Entity, old_name: str) -> set[str]:
+        """After a rename: link text reading the old name, in the bodies and ``rich_text`` fields
+        that mention the entity, becomes the new name (decided 2026-10-11, #70), in this changeset.
+        Returns the entities rewritten (their search documents are refreshed)."""
+        sources = self.session.scalars(
+            select(Entity).where(
+                Entity.id.in_(
+                    select(Mention.source_entity_id).where(Mention.target_entity_id == entity.id)
+                ),
+                Entity.id != entity.id,
+            )
+        ).all()
+        rewritten: set[str] = set()
+        for source in sources:
+            kind = self.kinds.get(source.kind)
+            if kind is None:
+                continue  # a disabled module's entity: left as it is
+            body, body_changed = relabel_links(source.body, entity.id, old_name, entity.name)
+            fields = dict(source.fields)
+            fields_changed = False
+            for key, field in self.kind_fields(kind).active.items():
+                value = fields.get(key)
+                if field.type != "rich_text" or value is None:
+                    continue
+                if field.multiple and isinstance(value, list):
+                    fields[key], changed = relabel_values(value, entity.id, old_name, entity.name)
+                else:
+                    fields[key], changed = relabel_links(value, entity.id, old_name, entity.name)
+                fields_changed = fields_changed or changed
+            if not (body_changed or fields_changed):
+                continue
+            source.updated_at = utc_now()
+            if body_changed:
+                source.body = body
+            if fields_changed:
+                source.fields = fields
+            rewritten.add(source.id)
+        self.session.flush()
+        for source_id in sorted(rewritten):
+            self.reindex(self.session.get_one(Entity, source_id))
+        return rewritten
 
     def mention_counts(self, entity: Entity) -> dict[str, MentionCounts] | None:
         """What the entity's body and rich-text fields mention (``None`` for an entity of a

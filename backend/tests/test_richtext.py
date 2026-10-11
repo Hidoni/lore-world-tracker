@@ -489,6 +489,52 @@ def test_writes_report_entities_whose_mentions_changed(api: LinkApi) -> None:
     assert bo["id"] not in renamed  # mentions untouched
 
 
+def test_renaming_relabels_links_reading_the_old_name(api: LinkApi) -> None:
+    # Decided 2026-10-11 (#70): link text equal to the old name follows the rename, in the same
+    # changeset; custom labels stay.
+    crown = api.make("misc", "Crown")
+    bold = {"type": "bold"}
+    writer = api.make(
+        "misc",
+        "Writer",
+        body=doc(
+            p(
+                text("Crown", mention(crown["id"])),
+                text(" and "),
+                text("the crown", mention(crown["id"])),
+            ),
+            # formatting split the link: still one run reading "Crown"
+            p(text("Cr", mention(crown["id"])), text("own", mention(crown["id"]), bold)),
+        ),
+    )
+    gadget = api.make(
+        "gadget", "Gizmo", fields={"rich_text": doc(p(text("Crown", mention(crown["id"]))))}
+    )
+    renamed = api.patch(crown, name="Diadem").json()
+    assert {writer["id"], gadget["id"]} <= set(renamed["affected"]["entities"])
+    body = api.get(writer["id"]).json()["body"]
+    assert body == doc(
+        p(
+            text("Diadem", mention(crown["id"])),
+            text(" and "),
+            text("the crown", mention(crown["id"])),
+        ),
+        p(text("Diadem", mention(crown["id"]))),
+    )
+    assert api.get(gadget["id"]).json()["fields"]["rich_text"] == doc(
+        p(text("Diadem", mention(crown["id"])))
+    )
+    # One changeset: undoing the rename restores the text too.
+    changes = api.client.get(f"{api.base}/changes").json()["items"]
+    undo = api.client.post(f"{api.base}/changes/{changes[0]['id']}/revert", headers=HEADERS)
+    assert undo.status_code == 200, undo.json()
+    assert api.get(writer["id"]).json()["body"]["content"][0]["content"][0]["text"] == "Crown"
+    assert api.get(crown["id"]).json()["name"] == "Crown"
+    # Other edits leave link text alone.
+    api.patch(api.get(crown["id"]).json(), summary="A crown")
+    assert api.get(writer["id"]).json()["body"]["content"][0]["content"][0]["text"] == "Crown"
+
+
 def test_mentions_ignore_self_and_missing_entities(api: LinkApi) -> None:
     writer = api.make("misc", "Writer")
     ghost = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"

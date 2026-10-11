@@ -273,6 +273,8 @@ Implementation (`src/editor/`, #63):
 - `RichTextView` renders the same schema without TipTap (readers and the trash). `EntityLinkView`
   shows the target's kind icon, links to it and has a hover card with its summary. Missing,
   trashed and hidden targets render as plain text.
+- Renaming an entity relabels the links reading its old name in other entities' text, on the server
+  (`api.md` §2, decided 2026-10-11).
 - Writes report the entities whose mentions changed in `affected.entities` (`api.md` §2, Entities), so
   backlinks refresh after a save.
 

@@ -122,8 +122,12 @@ Entity write semantics (`lore.core.entities.service`):
   (`context.references: {<what>: <count>}`) while the entity has children (trashed ones too) or is
   still referenced (a dimension's entities, a timeline's branch-only entities or links). Purge
   hooks run first; aliases, tag assignments and links touching the entity are deleted with it.
-- `affected.entities` lists the entity, its old/new parents, the entities whose mentions of it
-  changed (their backlinks did: a body or rich-text field gained or lost an `entityLink` to them;
+- **Renaming** an entity relabels the links to it (decided 2026-10-11, #70). In the bodies and
+  `rich_text` fields that mention it, `entityLink` text equal to the old name becomes the new
+  name. A run split by formatting counts as one, and other text (custom labels, aliases) stays.
+  This happens in the same changeset, so one undo reverts both.
+- `affected.entities` lists the entity, its old/new parents, the entities relabeled by a rename,
+  the entities whose mentions of it changed (their backlinks did: a body or rich-text field gained or lost an `entityLink` to them;
   #63) and, for a purge, the other endpoints of deleted links.
 - **Time in `affected`** (every write response, `lore.core.time.changes`; #224): time writes
   propagate (`time-model.md` §7.2), so `affected.entities` also lists every entity with a time

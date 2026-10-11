@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // Runs against an already running app at E2E_BASE_URL. `make e2e` (scripts/e2e.sh) builds the SPA,
-// starts the backend on a temp data dir and sets it; journeys arrive in M4.
+// starts the backend on a temp data dir and sets it. Journeys use ./fixtures (README.md).
 const baseURL = process.env.E2E_BASE_URL
 
 export default defineConfig({
@@ -13,7 +13,7 @@ export default defineConfig({
   outputDir: '../test-results',
   use: {
     ...(baseURL ? { baseURL } : {}),
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 })
