@@ -25,6 +25,9 @@ All notable changes to this project are documented here. The format follows
     for an apply on a vault this large is now 30 s). The backup
     taken before a large apply is deflated at the fastest level.
   - A full garbage collection no longer stalls about one request in ten for 85 ms.
+  - Series bounds of a far count limit (`count` 10^12 on a yearly rule) take about 5 ms (were
+    90 ms, close to their 100 ms budget): both engines go to the super-period counter after 64
+    enumerated periods instead of 10,000 (#247).
 
 ### Fixed
 

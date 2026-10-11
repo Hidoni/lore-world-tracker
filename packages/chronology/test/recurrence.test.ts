@@ -782,6 +782,23 @@ describe('counting', () => {
     expect(elapsed).toBeLessThan(100)
   })
 
+  test('count limits enumerate only nearby periods', () => {
+    // A far count limit goes to the super-period counter after a few enumerated periods, not
+    // 10,000 (#247); a near one still finds its occurrence among them.
+    const start = g(2024, 'feb', 29, 9)
+    const far = rule({ freq: { level: 'year' }, limit: { kind: 'count', count: '1000000000000' } })
+    let fresh = calendarOf('gregorian-week')
+    expect(seriesBounds(far, context(start, { calendar: fresh })).count).toBe(10n ** 12n)
+    const prefixes = defined(fresh.regimes[0]).cache.get('recurrence-prefixes') as Map<
+      string,
+      bigint[]
+    >
+    expect([...prefixes.values()].map((prefix) => prefix.length)).toEqual([65]) // not 10,000
+    const near = rule({ freq: { level: 'year' }, limit: { kind: 'count', count: '3000' } })
+    fresh = calendarOf('gregorian-week')
+    expect(seriesBounds(near, context(start, { calendar: fresh })).count).toBe(3000n)
+  })
+
   test('rules that never occur are found at once', () => {
     // An interval that never meets the filter: no occurrence, and no long scan.
     const starved = rule({

@@ -38,6 +38,7 @@ from lore.chronology.recurrence.plan import (
     COUNTER_CACHE,
     ITERATE_LIMIT,
     MAX_POSITIONS,
+    SAMPLES,
     SCAN_LIMIT,
     Plan,
     RecurrenceContext,
@@ -472,8 +473,9 @@ class CalendarPlan(Plan):
             return (i - 1) // self.per_period if self.per_period > 0 else None
         counter = self._counter(build=False)
         if counter is None:
-            if self._enumerated(ITERATE_LIMIT) >= i:  # nearby positions: enumerate
-                return self._first_period_reaching(i, ITERATE_LIMIT)
+            nearby = self._nearby_period_limit(i)
+            if nearby is not None:  # nearby positions: enumerate
+                return self._first_period_reaching(i, nearby)
             counter = self._counter()
         if counter is not None:
             try:
@@ -483,6 +485,23 @@ class CalendarPlan(Plan):
         if self._enumerated(SCAN_LIMIT) >= i:
             return self._first_period_reaching(i, SCAN_LIMIT)
         raise RecurrenceError("rule.too_complex_to_count", "counting needs super-periods")
+
+    def _nearby_period_limit(self, i: int) -> int | None:
+        """A number of periods (at most ``ITERATE_LIMIT``) whose positions reach the ``i``-th,
+        else ``None``. Periods are enumerated in doubling steps, and the search gives up as soon
+        as their rate puts the ``i``-th position well beyond ``ITERATE_LIMIT`` periods: a count
+        limit of 10^12 needs the counter, not 10,000 enumerated periods first (#247)."""
+        periods = SAMPLES
+        while True:
+            periods = min(periods, ITERATE_LIMIT)
+            reached = self._enumerated(periods)
+            if reached >= i:
+                return periods
+            if periods == ITERATE_LIMIT:
+                return None
+            if reached > 0 and i * periods > 2 * reached * ITERATE_LIMIT:
+                return None  # at this rate, more than twice ITERATE_LIMIT periods away
+            periods *= 2
 
     def _first_period_reaching(self, i: int, limit: int) -> int:
         """The period holding the ``i``-th position, known to be below ``limit``."""
