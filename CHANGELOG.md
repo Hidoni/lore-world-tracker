@@ -7,8 +7,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
+The time core (M3): the full time model is usable through the API, from a dimension's inception
+to its end, at cosmic scales and within the performance budgets on the `large` sample world. The
+release also carries the first piece of M4, the app shell and vault picker.
+
 ### Added
 
+- **M3 Time core** (#44–#56):
+  - Time specs on records with a slot registry and the `time_dependencies` graph; dimensions
+    and prime timelines (time spec, duration limits, present moment).
+  - Calendars: storage, compilation cache, presets, preview endpoints and the dimension wizard.
+  - Anchor resolution (absolute, calendar, relative with calendar offsets, occurrence refs) and
+    the `/time` endpoints; dependency propagation with cycle rejection, topological
+    re-resolution, hard checks and anchor freezing.
+  - `TimelineView` (lineage visibility and override resolution for time-bound tables).
+  - Events: CRUD with time specs, sub-events, causality, participants and the event tree; the
+    timeline window API (overlap queries, importance-based level of detail, density buckets).
+  - Recurring series (rule validation, cached series bounds, occurrence expansion in windows)
+    and materialized occurrences (materialize, modify, cancel, occurrence anchors, sub-events).
+  - Proposals with impact previews: calendar edits (keep dates / pin / constrain) and
+    recurrence-rule reconciliation (keep key / rekey / detach / trash).
+  - The consistency engine: findings and suppressions API, precision-aware comparisons, core
+    structural and event rules, and checks on every changeset.
+  - The sample world generator writes time data (`make sample-vault`), and `make perf` checks
+    the backend budgets on the `large` world.
+  - The golden fixture vault `v0.2.0`.
 - **App shell and vault picker** (#58): the SPA's frame (top bar, resizable and collapsible
   sidebar, context panel, mobile drawer), every route of `frontend.md` §4 (placeholders until
   their pages land), light/dark/system themes, per-route error boundaries, toasts for API errors,
@@ -47,6 +72,8 @@ All notable changes to this project are documented here. The format follows
   moved it again.
 - SQL compiled with literal binds renders moments quoted once (`'00015'`, was `'''00015'''`),
   so such statements compare against the right key (#222).
+- Pinning an item a calendar edit broke without moving it no longer makes the proposal apply
+  answer `409 proposal_stale` (#233).
 
 ## [0.1.0] - 2026-10-05
 
@@ -105,5 +132,6 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Hidoni/lore-world-tracker/releases/tag/v0.1.0
