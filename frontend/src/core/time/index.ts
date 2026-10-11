@@ -10,6 +10,7 @@ export {
 export { displayLevel, formatIn, formatSpanIn, relativeToPresent, type Moment } from './format'
 export { BigNumberError, parseBigNumber } from './big-number'
 export { BigNumberInput, type BigNumberInputProps } from './big-number-input'
+export { CalendarEditor, NewCalendar } from './calendar-editor'
 export { DimensionOverview } from './dimension-overview'
 export { DimensionWizard } from './dimension-wizard'
 export { DurationPicker } from './duration-picker'

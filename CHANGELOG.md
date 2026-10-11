@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Calendar editor I** (#76): build a calendar without JSON. You edit its levels, its templates
+  (uniform, or named and numbered units, with shared slot ids highlighted), its years (fixed,
+  cycle, or rules with a predicate builder, plus exceptions) and its alignment. A JSON tab and a
+  live preview by the TS engine sit alongside: problems focus their field, there is a year grid
+  and a converter. New calendars start blank or from a preset. A calendar that nothing depends
+  on saves directly.
 - **Dimension wizard and overview** (#75): the vault home lists dimensions with "Create dimension";
   a five-step wizard (name, base unit, duration with lifetime presets, first calendar from a
   preset with a live preview, review) creates a dimension with its prime timeline and default

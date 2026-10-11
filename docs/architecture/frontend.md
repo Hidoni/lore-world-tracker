@@ -431,6 +431,43 @@ Implementation (`core/time/`, #72):
   `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
   present" counts the display calendar's top level (the default calendar's under Absolute).
 
+Calendar editor I (`core/time/calendar-editor/`, #76):
+
+- **Routes:**
+  - `/v/$vault/calendars/$calendar/edit`.
+  - `/v/$vault/calendars/new?dimension=<id>`, which starts blank (a 360-day year) or from a preset
+    instantiated in seconds. It is opened from the dimension overview.
+- **Structure tab:** the definition is edited as a document (`edit(definition, recipe)` copies,
+  then changes the copy). Renaming a level or a template updates every reference to it. The
+  forms cover the first regime; the JSON tab covers the rest.
+  - Levels, coarse to fine: id, label, plural and abbreviation; the first number and the default
+    template (below the top); add a level below, move, remove.
+  - Templates by level: uniform (a count of a child template, or base units at level 0) or a
+    sequence of named units (slot id, name, abbreviation, template, intercalary) and numbered
+    runs. A slot id used by more than one template is highlighted, since it keeps typed dates
+    across templates.
+  - Years: the rules' id and name, then the pattern. A pattern is fixed, a cycle with its
+    starting year, or rules whose predicate builder combines `mod`/`eq` with all/any/not and
+    has a default. Exceptions per year.
+  - Alignment: fields from the year down, and its absolute moment. Other anchors are edited in
+    the JSON tab.
+- **JSON tab:** the same document as text. Each valid parse replaces the draft, and a parse
+  error blocks saving.
+- **Preview:** the TS engine (`validateCalendar`) checks every change. Absolute anchors are
+  resolved with `absoluteMoments`, others reuse the stored `resolved_anchors`. A new non-absolute
+  anchor (`anchor.unresolved`) is resolved by the server on save and doesn't block it.
+  - Problems are listed in words with their JSON pointer, and clicking one focuses its field
+    (`data-path`). The problems also appear under the fields they belong to.
+  - The year grid shows any year's units and their lengths (`options()`).
+  - The converter has a `TimePointPicker` on the draft calendar for date → moment, and a
+    `BigNumberInput` for moment → date.
+- **Saving:**
+  - An existing calendar is saved with `PATCH {ext: {definition}}`.
+  - With dependents the server answers `409` with `context.dependents`. The editor then says the
+    change needs a proposal; that flow is #77.
+  - A new calendar is created with `POST /entities` (`kind: calendar`, `dimension_id`,
+    `ext.definition`), then the editor opens.
+
 Dimensions (`core/time/`, `core/shell/vault-home.tsx`, #75):
 
 - **Vault home** (`/v/$vault`): the dimensions (links to their overview), "Create dimension"

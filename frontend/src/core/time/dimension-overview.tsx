@@ -412,6 +412,17 @@ export function DimensionOverview({ vault, dimensionId }: { vault: string; dimen
               })}
             </ul>
           )}
+          {editable && (
+            <Button variant="outline" size="sm" className="self-start" asChild>
+              <Link
+                to="/v/$vault/calendars/new"
+                params={{ vault }}
+                search={{ dimension: dimensionId }}
+              >
+                New calendar
+              </Link>
+            </Button>
+          )}
           {update.isError && <DimensionProblem vault={vault} error={update.error} />}
         </Section>
         <Section title="Timelines">
