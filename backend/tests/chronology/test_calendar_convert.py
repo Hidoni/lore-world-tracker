@@ -2,8 +2,10 @@
 
 import copy
 import json
+import math
 import random
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -228,17 +230,27 @@ def test_local_regime_start_is_a_date_of_the_previous_regime() -> None:
 # --- performance ---------------------------------------------------------------------------------
 
 
+def _best_rate(call: Callable[[], object], items: int, passes: int = 5) -> float:
+    """Calls per second of the fastest of ``passes`` timed passes, after a warm-up pass: one
+    cold pass on a shared runner can land anywhere from 60% to 100% of the steady rate (#246)."""
+    call()
+    best = math.inf
+    for _ in range(passes):
+        started = time.perf_counter()
+        call()
+        best = min(best, time.perf_counter() - started)
+    return items / best
+
+
 @pytest.mark.perf
 def test_gregorian_throughput() -> None:
     rng = random.Random(20261002)
     moments_ = [rng.randrange(0, 2 * 10**14) for _ in range(20_000)]
-    started = time.perf_counter()
     dates = [to_fields(GREGORIAN, t) for t in moments_]
-    to_rate = len(moments_) / (time.perf_counter() - started)
     inputs = [as_input(date) for date in dates]
-    started = time.perf_counter()
-    for fields in inputs:
-        from_fields(GREGORIAN, fields, "second")
-    from_rate = len(inputs) / (time.perf_counter() - started)
+    to_rate = _best_rate(lambda: [to_fields(GREGORIAN, t) for t in moments_], len(moments_))
+    from_rate = _best_rate(
+        lambda: [from_fields(GREGORIAN, fields, "second") for fields in inputs], len(inputs)
+    )
     assert to_rate >= 50_000, f"to_fields: {to_rate:.0f}/s"
     assert from_rate >= 50_000, f"from_fields: {from_rate:.0f}/s"

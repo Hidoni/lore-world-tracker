@@ -1,6 +1,7 @@
 """Recurrence I: validation, interval and simple calendar rules, keys, expansion (recurrence.md)."""
 
 import json
+import math
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -590,13 +591,17 @@ def test_counts_agree_with_expansion(found: Series, w0: int, width: int) -> None
 
 @pytest.mark.perf
 def test_count_limit_far_is_fast() -> None:
-    """Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms."""
-    fresh = compiled("gregorian-week")  # no cached counters
+    """Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms. The best
+    of five runs, each on a freshly compiled calendar: it runs at about 90 ms, and one run on a
+    shared runner can take half as long again (#246)."""
     yearly = rule(freq={"level": "year"}, limit={"kind": "count", "count": str(10**12)})
-    started = time.perf_counter()
-    bounds = series_bounds(yearly, context(g(2024, "feb", 29, 9), fresh))
-    elapsed = time.perf_counter() - started
-    assert bounds.count == 10**12
+    elapsed = math.inf
+    for _ in range(5):
+        fresh = compiled("gregorian-week")  # no cached counters
+        started = time.perf_counter()
+        bounds = series_bounds(yearly, context(g(2024, "feb", 29, 9), fresh))
+        elapsed = min(elapsed, time.perf_counter() - started)
+        assert bounds.count == 10**12
     assert elapsed < 0.1, f"{elapsed * 1000:.1f} ms"
 
 
