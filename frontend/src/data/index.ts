@@ -48,7 +48,7 @@ export {
   useUpdateLink,
 } from './links'
 export { useMeta } from './meta'
-export { useQuickSearch, useSearch } from './search'
+export { useQuickSearch, useSearch, useSearchPages } from './search'
 export type {
   Affected,
   DataSource,

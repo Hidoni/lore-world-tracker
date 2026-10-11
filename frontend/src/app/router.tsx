@@ -9,6 +9,7 @@ import {
 
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
+import { SearchPage, type SearchParams } from '@/core/search'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
 import { moduleDefinitions } from '@/modules'
 
@@ -92,7 +93,37 @@ const calendarEditRoute = page(
   'Calendar editor',
   'The calendar editor arrives with M5.',
 )
-const searchRoute = page('search', 'Search', 'Search results arrive with #67.')
+const searchRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'search',
+  // Filters stay strings; empty ones are dropped.
+  validateSearch: (search): SearchParams => {
+    const pick = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined)
+    const params: SearchParams = {}
+    const q = pick(search.q)
+    const kind = pick(search.kind)
+    const dimension = pick(search.dimension)
+    if (q !== undefined) params.q = q
+    if (kind !== undefined) params.kind = kind
+    if (dimension !== undefined) params.dimension = dimension
+    return params
+  },
+  component: function SearchRoute() {
+    const { vault } = searchRoute.useParams()
+    const params = searchRoute.useSearch()
+    const navigate = searchRoute.useNavigate()
+    return (
+      <SearchPage
+        key={params.q ?? ''}
+        vault={vault}
+        params={params}
+        onChange={(next) => {
+          void navigate({ search: next })
+        }}
+      />
+    )
+  },
+})
 const changesRoute = page('changes', 'Recent changes', 'The change feed arrives with #68.')
 const trashRoute = createRoute({
   getParentRoute: () => vaultRoute,

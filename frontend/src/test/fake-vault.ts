@@ -69,6 +69,13 @@ export interface Row {
   body: unknown
 }
 
+/** A document's text (paragraphs joined by spaces). */
+function bodyText(doc: unknown): string {
+  if (typeof doc !== 'object' || doc === null) return ''
+  const { text, content } = doc as { text?: string; content?: unknown[] }
+  return text ?? (content ?? []).map(bodyText).join(' ').replace(/\s+/g, ' ').trim()
+}
+
 /** The entity ids a document links to (`entityLink` marks). */
 function mentioned(doc: unknown): Set<string> {
   const found = new Set<string>()
@@ -340,6 +347,47 @@ export function serveVault(
     http.get('*/api/v1/vaults/v1/entities/:id', ({ params }) => {
       const entity = found(params.id)
       return entity ? HttpResponse.json(out(entity)) : new HttpResponse(null, { status: 404 })
+    }),
+    http.get('*/api/v1/vaults/v1/search', ({ request }) => {
+      // Names and body text containing the query; a body match gets a snippet.
+      const url = new URL(request.url)
+      const q = (url.searchParams.get('q') ?? '').toLowerCase()
+      const kinds = url.searchParams.getAll('kind')
+      const dimension = url.searchParams.get('dimension')
+      const items = [...rows.values()]
+        .filter((entity) => entity.deleted_at === null)
+        .filter((entity) => kinds.length === 0 || kinds.includes(entity.kind))
+        .filter((entity) => dimension === null || entity.dimension_id === dimension)
+        .flatMap((entity) => {
+          const text = bodyText(entity.body)
+          const at = text.toLowerCase().indexOf(q)
+          if (!entity.name.toLowerCase().includes(q) && at < 0) return []
+          return [
+            {
+              doc_type: 'entity',
+              doc_id: entity.id,
+              entity_id: entity.id,
+              kind: entity.kind,
+              name: entity.name,
+              icon: null,
+              color: null,
+              dimension_id: entity.dimension_id,
+              visibility: entity.visibility,
+              snippet:
+                at < 0
+                  ? null
+                  : {
+                      source: 'body',
+                      parts: [
+                        { text: text.slice(0, at), match: false },
+                        { text: text.slice(at, at + q.length), match: true },
+                        { text: text.slice(at + q.length), match: false },
+                      ],
+                    },
+            },
+          ]
+        })
+      return HttpResponse.json(paged(items, url))
     }),
     http.get('*/api/v1/vaults/v1/search/quick', ({ request }) => {
       const q = (new URL(request.url).searchParams.get('q') ?? '').toLowerCase()

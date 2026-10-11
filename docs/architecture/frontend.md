@@ -81,8 +81,14 @@ until eslint-plugin-jsx-a11y supports 10.
 Implementation (`core/shell/`, #58): the sidebar width (180–480 px, keyboard-resizable through its
 `separator` handle) and the open/closed sidebar and context panel persist in `localStorage`
 (`lore.shell`). Below `md` the sidebar is a `Sheet` drawer opened from the top bar. A skip link
-leads to `#main`. `Ctrl/Cmd+K` opens the search page until the command palette (#67) takes it
-over. The top bar's dimension switcher is a placeholder until M5. API errors become `sonner` toasts
+leads to `#main`. `Ctrl/Cmd+K` (or the top bar's Search button) opens the command palette
+(#67, `core/palette/`). With nothing typed it shows recent entities and every command. Typing
+finds entities by name or alias (`/search/quick`), filters the commands and offers "Search
+everything for …" (the search page). Core commands: new entity of each creatable kind, go to a
+dimension or its timeline, go to a vault page, toggle the theme, show shortcuts. Modules add
+commands through `commands` (run with `{vault, navigate}`). When results arrive, the first entry
+is selected, so typing a name and pressing Enter opens it. `?` (outside text fields and the
+editor) opens the keyboard shortcuts sheet. The top bar's dimension switcher is a placeholder until M5. API errors become `sonner` toasts
 through the `QueryClient` caches (`app/query-client.ts`); a query or mutation that shows its error
 itself passes `meta: { toast: false }`. Every route gets the default error boundary
 (`app/route-error.tsx`) and unknown paths a 404 page.
@@ -134,6 +140,10 @@ used values are remembered per vault/dimension in `localStorage` (wrapped in try
 - **Search serialization** (`app/search.ts`): values stay strings (TanStack Router's default
   parser would turn `?at=123` into a number and long moments into lossy floats). Only JSON arrays
   and objects (filters) are parsed; invalid global params are dropped, not errors.
+- **Search page** (`/v/$vault/search?q=&kind=&dimension=`, #67): the query (words, "phrases", OR,
+  -word) and kind/dimension filters live in the URL. Hits show the kind icon, a highlighted snippet
+  with its source (body, aliases, fields…), and module documents (`doc_type` `<module>.<type>`)
+  through the module's `searchResultRenderers`. Pages of 20 load with "Show more results".
 - **Vault picker:** `/` lists the vaults (create, rename, move to trash) and opens the last-opened
   vault (`lore.lastVault`, set by every `/v/$vault` route) when it still exists. `/?pick=true`
   always shows the picker (the top bar's vault switcher links there).
