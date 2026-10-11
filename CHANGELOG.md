@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
+The frontend foundation (M4): a generic wiki usable in the browser. Every kind has an entity page
+with fields, a rich-text body with entity links, relations, backlinks and history; the sidebar,
+command palette and search find things; settings cover modules, link types and backups. The
+editor-linking journey (E5) runs end to end.
+
 ### Added
 
 - **Frontend data layer** (#59): `DataSource` (every read, static-export ready) and `Mutations`
@@ -69,6 +76,7 @@ All notable changes to this project are documented here. The format follows
   zod schemas built from the field definitions, saved on Enter or blur, with per-field
   visibility, collapsible sections, required fields in the create dialog, module field
   renderers, and a revision-conflict dialog (reload theirs, overwrite, copy mine).
+- The golden fixture vault `v0.3.0`.
 
 ## [0.2.0] - 2026-10-11
 
@@ -195,6 +203,7 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Hidoni/lore-world-tracker/releases/tag/v0.1.0
