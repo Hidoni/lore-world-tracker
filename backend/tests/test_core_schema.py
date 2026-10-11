@@ -65,7 +65,9 @@ def test_sortable_big_int_encodes_parameters_and_results() -> None:
     assert column_type.process_bind_param(1023, dialect) == "00041023"
     assert column_type.process_bind_param(None, dialect) is None
     assert column_type.process_result_value("00041023", dialect) == 1023
-    assert column_type.process_literal_param(7, dialect) == "'00017'"
+    literal = column_type.literal_processor(dialect)
+    assert literal is not None
+    assert literal(7) == "'00017'"  # quoted once (#222)
     for bad, error in [(-1, ValueError), (10**1000, ValueError), (True, TypeError),
                        (1.0, TypeError), ("7", TypeError)]:  # fmt: skip
         with pytest.raises(error):
@@ -81,6 +83,19 @@ def test_moments_round_trip_as_sortable_text(session: Session) -> None:
     stored = session.execute(text("SELECT valid_from_t, valid_to_t FROM links")).one()
     assert stored == (sortable_key(HUGE), "00010")
     assert stored[0].startswith("1000")
+
+
+def test_literal_binds_render_the_bare_key(session: Session) -> None:
+    """Statements compiled with literal binds compare against the key itself (#222)."""
+    source, target = make_entity(session, "A"), make_entity(session, "B")
+    early = make_link(session, source, target, valid_from_t=5)
+    make_link(session, source, target, valid_from_t=HUGE)
+    session.commit()
+    query = select(Link.id).where(Link.valid_from_t < 10**30)
+    compiled = str(query.compile(session.get_bind(), compile_kwargs={"literal_binds": True}))
+    assert f"links.valid_from_t < '{sortable_key(10**30)}'" in compiled
+    assert "''" not in compiled
+    assert session.execute(text(compiled)).scalars().all() == [early.id]
 
 
 def test_negative_moments_are_rejected(session: Session) -> None:
