@@ -11,6 +11,8 @@ const VAULT_WIDE = [
   'trash',
   'fieldValues',
   'changes',
+  // Changesets change too (merged saves, undone).
+  'change',
   'findings',
 ]
 /** Areas keyed by an entity id. */

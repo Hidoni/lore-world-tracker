@@ -23,6 +23,9 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **History UI** (#68): an entity History tab and a recent changes page (filterable by origin)
+  with readable diffs and undo, showing why an undo was refused; "Undo the last change" in the
+  palette. `GET /changes` takes `origin` filters.
 - **Command palette and search** (#67): `Ctrl/Cmd+K` opens a palette with recent entities, a quick
   switcher and commands (new entity, go to a dimension, its timeline or a page, theme, shortcuts,
   module commands). The search page has kind and dimension filters, highlighted snippets and

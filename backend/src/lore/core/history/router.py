@@ -2,7 +2,7 @@
 (``docs/architecture/api.md`` §2). History is never shown to readers (a read-only server, or
 ``as_reader=true``): they get ``404``."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Path, Query
 
@@ -25,6 +25,7 @@ entity_router = APIRouter(prefix="/vaults/{vault_id}/entities", tags=["entities"
 
 ChangesetIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Changeset id.")]
 CursorQuery = Annotated[str | None, Query(pattern=ID_PATTERN)]
+ChangesetOrigin = Literal["ui", "api", "cli", "import", "migration", "system", "undo"]
 LimitQuery = Annotated[int, Query(ge=1, le=500)]
 
 
@@ -41,10 +42,14 @@ def list_changes(
     policy: PolicyDep,
     cursor: CursorQuery = None,
     limit: LimitQuery = 50,
+    origin: Annotated[
+        list[ChangesetOrigin] | None,
+        Query(description="Only changesets of these origins (repeatable)."),
+    ] = None,
 ) -> ChangesetPage:
     """Recent changesets, newest first."""
     _author_only(policy)
-    return HistoryService(session, registry, vault).feed(cursor=cursor, limit=limit)
+    return HistoryService(session, registry, vault).feed(cursor=cursor, limit=limit, origins=origin)
 
 
 @router.get("/{changeset_id}", name="get")

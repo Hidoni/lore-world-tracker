@@ -5046,6 +5046,8 @@ export interface operations {
             query?: {
                 cursor?: string | null;
                 limit?: number;
+                /** @description Only changesets of these origins (repeatable). */
+                origin?: ("ui" | "api" | "cli" | "import" | "migration" | "system" | "undo")[] | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };

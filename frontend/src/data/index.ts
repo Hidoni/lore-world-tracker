@@ -35,7 +35,14 @@ export {
   useUpdateLatest,
 } from './entities'
 export { ApiError, fieldErrors, isRevisionConflict } from './errors'
-export { useChanges, useHistory, useRevertChange } from './history'
+export {
+  useChanges,
+  useChangeset,
+  useChangesPages,
+  useHistory,
+  useHistoryPages,
+  useRevertChange,
+} from './history'
 export { createHttpDataSource, createHttpMutations } from './http'
 export { affectedKeys, invalidateAffected } from './invalidate'
 export { keys } from './keys'

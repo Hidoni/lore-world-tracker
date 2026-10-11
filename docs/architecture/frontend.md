@@ -340,6 +340,15 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   and pages of 200 load while scrolling, so 10k+ rows stay smooth.
 - **Trash** (`/v/$vault/trash`, #65): trashed entities, most recently trashed first, with restore and
   permanent deletion. Children left outside the trash are counted.
+- **History** (`core/history/`, #68): the entity page's History tab lists the changesets touching
+  the entity, and `/v/$vault/changes` lists the vault's, filterable by origin (`?origin=ui,undo`).
+  Opening a changeset loads its row changes and shows them as readable lines (`describeChanges`):
+  name, summary and visibility as old → new, field values and field visibility by field label,
+  body edits as word counts, trash and restore, parent and dimension by name, aliases, tags, and
+  links named by type label and other end; module tables get a generic line. Authors undo a
+  changeset from its row. A `409 revert_conflict` is shown in place: "changed again since"
+  (`rows`) or the broken rules (`problems`). Undone changesets are struck through, and undos are
+  badged. The palette's "Undo the last change" undoes the newest changeset not yet undone.
 - **Create flows:** a "New…" menu per kind (and in the command palette), a quick create from
   autocomplete, and "create sub-event here" / "create child" actions.
 - Implementation (`core/entities/`, #61): `EntityPage` renders the header (icon, inline rename,

@@ -176,6 +176,24 @@ def test_feed_and_detail(api: LinkApi) -> None:
     problem(api.client.get(f"{api.base}/changes/{MISSING}"), 404, "not_found")
 
 
+def test_feed_filters_by_origin(api: LinkApi) -> None:
+    api.make("misc", "First")
+    api.make("misc", "Second")
+    last = feed(api)["items"][0]
+    undo = api.client.post(f"{api.base}/changes/{last['id']}/revert", headers=HEADERS)
+    assert undo.status_code == 200, undo.json()
+    assert [i["summary"] for i in feed(api, origin="undo")["items"]] == [
+        undo.json()["changeset"]["summary"]
+    ]
+    # The test client's writes are "api" ones (X-Lore-Client: test).
+    assert {i["origin"] for i in feed(api, origin=["api", "cli"])["items"]} == {"api"}
+    assert feed(api, origin="ui")["items"] == []
+    assert len(feed(api, origin=["api", "undo"])["items"]) == 3
+    problem(
+        api.client.get(f"{api.base}/changes", params={"origin": "bogus"}), 422, "validation_error"
+    )
+
+
 def test_entity_history(api: LinkApi) -> None:
     ana, bo = api.make("misc", "Ana"), api.make("misc", "Bo")
     api.patch(ana, aliases=[{"alias": "Annie"}])
