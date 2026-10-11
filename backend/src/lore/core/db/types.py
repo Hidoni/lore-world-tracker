@@ -31,10 +31,6 @@ class SortableBigInt(TypeDecorator[int]):
         except NumberError as exc:
             raise ValueError(f"cannot store {str(value)[:40]} as a sortable key: {exc}") from exc
 
-    def process_literal_param(self, value: Any, dialect: Dialect) -> str:
-        key = self.process_bind_param(value, dialect)
-        return "NULL" if key is None else f"'{key}'"
-
     def process_result_value(self, value: Any, dialect: Dialect) -> int | None:
         return None if value is None else from_sortable_key(value)
 

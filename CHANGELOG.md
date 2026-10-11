@@ -32,6 +32,8 @@ All notable changes to this project are documented here. The format follows
   occurrence 4) resolves against the computed occurrence (#234). It used to resolve against its
   own stored moment: `lore vault check` reported `time_moment_stale` and every re-resolution
   moved it again.
+- SQL compiled with literal binds renders moments quoted once (`'00015'`, was `'''00015'''`),
+  so such statements compare against the right key (#222).
 
 ## [0.1.0] - 2026-10-05
 
