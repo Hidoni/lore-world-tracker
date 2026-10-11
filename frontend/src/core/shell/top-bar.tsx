@@ -11,6 +11,7 @@ import { useEffect } from 'react'
 
 import { ThemeMenu } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import { NewEntityMenu } from '@/core/entities'
 import { useVault } from '@/data'
 
 import { useShell } from './shell-store'
@@ -93,6 +94,7 @@ export function TopBar() {
       <div className="flex-1" />
       {vault !== undefined && (
         <>
+          <NewEntityMenu vault={vault} />
           <Button variant="outline" size="sm" asChild>
             <Link to="/v/$vault/search" params={{ vault }} aria-keyshortcuts="Control+K Meta+K">
               <SearchIcon aria-hidden />

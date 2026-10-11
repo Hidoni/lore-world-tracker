@@ -123,7 +123,6 @@ describe('routes', () => {
     ['/v/v1/d/d1', 'Dimension'],
     ['/v/v1/d/d1/timeline', 'Timeline'],
     ['/v/v1/d/d1/events', 'Events'],
-    ['/v/v1/e/e1?tab=graph', 'Entity'],
     ['/v/v1/calendars/c1/edit', 'Calendar editor'],
     ['/v/v1/search', 'Search'],
     ['/v/v1/changes', 'Recent changes'],

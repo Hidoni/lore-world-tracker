@@ -112,6 +112,9 @@ async function generate(): Promise<{ schema: string; moments: string }> {
     })
     const ast = await openapiTS(pathToFileURL(document), {
       inject: "import type { MomentString } from './moment'\n",
+      // Properties with a default are optional (as in the OpenAPI document): a PATCH body must not
+      // have to send them.
+      defaultNonNullable: false,
       transform: (schema) => (isMoment(schema as Schema) ? momentType : undefined),
     })
     const parsed = JSON.parse(readFileSync(document, 'utf8')) as OpenAPI3

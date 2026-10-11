@@ -7,6 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 
+import { EntityPage } from '@/core/entities'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
 import { moduleDefinitions } from '@/modules'
@@ -81,9 +82,10 @@ const entityRoute = createRoute({
   path: 'e/$entity',
   validateSearch: (search): { tab?: string } =>
     typeof search.tab === 'string' && search.tab ? { tab: search.tab } : {},
-  component: () => (
-    <PlaceholderPage title="Entity">The entity page arrives with #61.</PlaceholderPage>
-  ),
+  component: function EntityRoute() {
+    const { vault, entity } = entityRoute.useParams()
+    return <EntityPage key={entity} vault={vault} entityId={entity} />
+  },
 })
 const calendarEditRoute = page(
   'calendars/$calendar/edit',

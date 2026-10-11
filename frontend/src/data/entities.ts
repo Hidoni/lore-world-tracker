@@ -30,11 +30,17 @@ export function useEntities(vault: string, query: Query<'entities_list'> = {}) {
   })
 }
 
-export function useEntity(vault: string, id: string, query: Query<'entities_get'> = {}) {
+export function useEntity(
+  vault: string,
+  id: string,
+  query: Query<'entities_get'> = {},
+  options: { enabled?: boolean } = {},
+) {
   const source = useDataSource()
   return useQuery({
     queryKey: keys.entity(vault, id, query),
     queryFn: () => source.entity(vault, id, query),
+    enabled: options.enabled ?? true,
   })
 }
 

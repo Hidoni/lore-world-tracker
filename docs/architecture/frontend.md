@@ -252,6 +252,17 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   7. History (per-entity changes with undo).
 - **Create flows:** a "New…" menu per kind (and in the command palette), a quick create from
   autocomplete, and "create sub-event here" / "create child" actions.
+- Implementation (`core/entities/`, #61): `EntityPage` renders the header (icon, inline rename,
+  kind badge, dimension/multiversal and branch-only badges, breadcrumbs loaded up the parent
+  chain, aliases and tags as chip editors, a visibility select, "Move to trash") and sections for
+  fields, body, relations, time (time-bound kinds) and module `main` panels, with `side` panels in
+  a column and a History tab; sections not built yet say which issue fills them. Every edit is a
+  PATCH with the entity's revision. Without `Mutations` nothing is editable. The trash dialog
+  warns when the entity has children (they stay, shown as roots); a trashed entity's page offers
+  Restore and Delete permanently (`?purge=true`). The top bar's "New…" menu lists the kinds that
+  aren't system kinds (dimensions, timelines and calendars have their own flows); the create
+  dialog takes a name, the dimension (or multiversal, where the kind allows it) and a parent
+  among entities of the kind's `allowed_parents`, then opens the new entity.
 
 ## 8. Time components (core)
 
