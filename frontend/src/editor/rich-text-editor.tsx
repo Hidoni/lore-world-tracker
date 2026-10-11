@@ -3,13 +3,16 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import {
   BoldIcon,
   CodeIcon,
+  EyeOffIcon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
+  InfoIcon,
   ItalicIcon,
   LinkIcon,
   ListIcon,
   ListOrderedIcon,
+  LockIcon,
   MinusIcon,
   QuoteIcon,
   SquareCodeIcon,
@@ -17,14 +20,17 @@ import {
   TableIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
 import { useExtensionList } from '@/core/modules'
+import { useDataSource } from '@/data'
 import { cn } from '@/lib/utils'
 
 import { insertEntityLink } from './entity-link'
 import { editorExtensions } from './extensions'
+import type { NameResolver } from './markdown-paste'
 import { isSafeHref, type RichTextDoc } from './schema'
 import { SuggestionBridge, type SuggestionState } from './suggestion-state'
 import { SuggestionMenu } from './suggestion-menu'
@@ -72,14 +78,19 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const bridge = useMemo(() => new SuggestionBridge(), [])
   const moduleExtensions = useExtensionList('editorExtensions', vault)
+  const resolveName = useNameResolver(vault)
   const extensions = useMemo(
     () =>
       editorExtensions({
         bridge,
+        resolveName,
+        onUnresolvedNames: (names) => {
+          toast.warning(`Not linked (no single match): ${names.join(', ')}`)
+        },
         ...(placeholder !== undefined ? { placeholder } : {}),
         extra: moduleExtensions as unknown as AnyExtension[],
       }),
-    [bridge, placeholder, moduleExtensions],
+    [bridge, placeholder, moduleExtensions, resolveName],
   )
   const autosave = useAutosave(save)
   const editor = useEditor(
@@ -153,6 +164,29 @@ interface AutosaveState {
   latest: number
   /** After a conflict: the conflict dialog decides. */
   stopped: boolean
+}
+
+/**
+ * `[[Name]]` in pasted Markdown: the one entity whose name or alias is `Name` (case-insensitive),
+ * found with the quick switcher (`/search/quick`).
+ */
+function useNameResolver(vault: string): NameResolver {
+  const source = useDataSource()
+  return useCallback<NameResolver>(
+    async (name) => {
+      const wanted = name.trim().toLowerCase()
+      if (wanted === '') return null
+      const { items } = await source.quickSearch(vault, { q: name.trim() })
+      const matches = new Map(
+        items
+          .filter((hit) => hit.name.toLowerCase() === wanted || hit.alias?.toLowerCase() === wanted)
+          .map((hit) => [hit.entity_id, { id: hit.entity_id, name: hit.name }]),
+      )
+      const [only] = matches.values()
+      return matches.size === 1 && only !== undefined ? only : null
+    },
+    [source, vault],
+  )
 }
 
 /**
@@ -352,6 +386,26 @@ const ACTIONS: Action[][] = [
       label: 'Table',
       icon: TableIcon,
       run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+    },
+  ],
+  [
+    {
+      label: 'Callout',
+      icon: InfoIcon,
+      active: (e) => e.isActive('callout'),
+      run: (e) => e.chain().focus().setCallout('note').run(),
+    },
+    {
+      label: 'Spoiler block',
+      icon: EyeOffIcon,
+      active: (e) => e.isActive('visibilityBlock', { level: 'spoiler' }),
+      run: (e) => e.chain().focus().setVisibilityBlock('spoiler').run(),
+    },
+    {
+      label: 'Private block',
+      icon: LockIcon,
+      active: (e) => e.isActive('visibilityBlock', { level: 'private' }),
+      run: (e) => e.chain().focus().setVisibilityBlock('private').run(),
     },
   ],
 ]

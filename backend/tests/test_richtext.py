@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,7 @@ from lore.core.errors import InvalidInputError
 from lore.core.modules import ModuleRegistry, ModuleSpec, RegistryError
 from lore.core.richtext import SCHEMA_VERSION
 from lore.core.richtext.extract import extract, filter_for_reader
-from lore.core.richtext.schema import handler_map, validate_document
+from lore.core.richtext.schema import IGNORED_MARK_ATTRS, handler_map, validate_document
 from lore.core.richtext.upgrade import upgrade
 from tests.conftest import local_client
 from tests.entity_api import HEADERS, LinkApi, new_app, problem
@@ -294,6 +295,39 @@ def test_module_node_types_must_be_unique() -> None:
 
 
 # --- extraction and reader filtering --------------------------------------------------------
+
+
+# Documents the frontend editor produces (``frontend/src/editor/fixtures.test.ts`` keeps them in
+# step with the editor): the server must accept each one unchanged.
+EDITOR_FIXTURES = sorted(
+    (Path(__file__).resolve().parents[2] / "spec" / "richtext" / "fixtures").glob("*.json")
+)
+
+
+def _comparable(node: Any) -> Any:
+    """A document without what the server normalizes on purpose: empty ``content`` lists and the
+    link attributes it doesn't store (``IGNORED_MARK_ATTRS``)."""
+    if isinstance(node, list):
+        return [_comparable(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    result = {
+        key: _comparable(value) for key, value in node.items() if value != [] or key != "content"
+    }
+    if result.get("type") in IGNORED_MARK_ATTRS and isinstance(result.get("attrs"), dict):
+        ignored = IGNORED_MARK_ATTRS[result["type"]]
+        result["attrs"] = {k: v for k, v in result["attrs"].items() if k not in ignored}
+    return result
+
+
+@pytest.mark.parametrize("fixture", EDITOR_FIXTURES, ids=lambda path: path.stem)
+def test_editor_documents_are_accepted_without_loss(fixture: Path) -> None:
+    document = json.loads(fixture.read_text())
+    assert _comparable(validate_document(document)) == _comparable(document)
+
+
+def test_editor_fixtures_exist() -> None:
+    assert {path.stem for path in EDITOR_FIXTURES} >= {"blocks", "marks", "markdown-paste"}
 
 
 def test_extract_text_mentions_and_refs() -> None:

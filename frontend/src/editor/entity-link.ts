@@ -66,9 +66,9 @@ function suggestion(editor: Editor, bridge: SuggestionBridge, trigger: Suggestio
   }
   return Suggestion({
     editor,
-    pluginKey: new PluginKey(`entityLink${trigger}`),
+    pluginKey: new PluginKey(`suggestion${trigger}`),
     char: trigger,
-    // `[[Crown of Ages`: names have spaces. `@` stops at a space, like mentions elsewhere.
+    // `[[Crown of Ages`: names have spaces. `@` and `/` stop at a space.
     allowSpaces: trigger === '[[',
     items: () => [],
     render: () => ({
@@ -88,15 +88,22 @@ function suggestion(editor: Editor, bridge: SuggestionBridge, trigger: Suggestio
   })
 }
 
-/** The `[[` and `@` suggestions: they publish to the bridge; the menu searches and inserts. */
-export const EntityLinkSuggestions = Extension.create<{ bridge: SuggestionBridge | null }>({
-  name: 'entityLinkSuggestions',
+/**
+ * The `[[` and `@` (entity links) and `/` (slash menu) suggestions: they publish to the bridge;
+ * the menus search, insert and run.
+ */
+export const EditorSuggestions = Extension.create<{ bridge: SuggestionBridge | null }>({
+  name: 'editorSuggestions',
   addOptions() {
     return { bridge: null }
   },
   addProseMirrorPlugins() {
     const { bridge } = this.options
     if (bridge === null) return []
-    return [suggestion(this.editor, bridge, '[['), suggestion(this.editor, bridge, '@')]
+    return [
+      suggestion(this.editor, bridge, '[['),
+      suggestion(this.editor, bridge, '@'),
+      suggestion(this.editor, bridge, '/'),
+    ]
   },
 })

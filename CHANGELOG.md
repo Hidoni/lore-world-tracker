@@ -23,6 +23,11 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Rich-text editor II** (#64):
+  - Spoiler and private blocks with labels, and callouts in three tones, shown framed in the
+    editor; spoilers fold for readers.
+  - A slash menu with every block type, including module ones.
+  - Markdown paste that turns `[[Name]]` into entity links when the name is unique.
 - **Links UI** (#66):
   - Relations panel: links grouped by type with labels from the entity's side, roles, details and
     visibility, with edit and remove.

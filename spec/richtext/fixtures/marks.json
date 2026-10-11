@@ -1,0 +1,237 @@
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "heading",
+      "attrs": {
+        "level": 2
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "Lore"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "bold"
+            }
+          ],
+          "text": "b"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "italic"
+            }
+          ],
+          "text": "i"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "strike"
+            }
+          ],
+          "text": "s"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "code"
+            }
+          ],
+          "text": "c"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "link",
+              "attrs": {
+                "href": "https://example.com/x",
+                "target": "_blank",
+                "rel": "noopener noreferrer nofollow",
+                "class": null
+              }
+            }
+          ],
+          "text": "web"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "link",
+              "attrs": {
+                "href": "mailto:a@b.c",
+                "target": "_blank",
+                "rel": "noopener noreferrer nofollow",
+                "class": null
+              }
+            }
+          ],
+          "text": "mail"
+        },
+        {
+          "type": "text",
+          "text": " "
+        },
+        {
+          "type": "text",
+          "marks": [
+            {
+              "type": "entityLink",
+              "attrs": {
+                "entityId": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+              }
+            }
+          ],
+          "text": "the Crown"
+        },
+        {
+          "type": "hardBreak"
+        },
+        {
+          "type": "text",
+          "text": "next"
+        }
+      ]
+    },
+    {
+      "type": "orderedList",
+      "attrs": {
+        "start": 3
+      },
+      "content": [
+        {
+          "type": "listItem",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "three"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "codeBlock",
+      "attrs": {
+        "language": "py"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "x = 1"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "content": [
+        {
+          "type": "tableRow",
+          "content": [
+            {
+              "type": "tableHeader",
+              "attrs": {
+                "colspan": 1,
+                "rowspan": 1,
+                "colwidth": null
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "h"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableHeader",
+              "attrs": {
+                "colspan": 1,
+                "rowspan": 1,
+                "colwidth": null
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "h2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "content": [
+            {
+              "type": "tableCell",
+              "attrs": {
+                "colspan": 2,
+                "rowspan": 1,
+                "colwidth": null
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
