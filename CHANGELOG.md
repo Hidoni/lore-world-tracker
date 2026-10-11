@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **App shell and vault picker** (#58): the SPA's frame (top bar, resizable and collapsible
+  sidebar, context panel, mobile drawer), every route of `frontend.md` §4 (placeholders until
+  their pages land), light/dark/system themes, per-route error boundaries, toasts for API errors,
+  and a vault picker to create, rename and move vaults to the trash that reopens the last vault.
+
 ### Changed
 
 - **Write responses report what moved** (#224): `affected.entities` lists every entity whose
