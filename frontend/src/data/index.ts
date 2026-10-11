@@ -72,6 +72,7 @@ export {
 } from './links'
 export { useMeta } from './meta'
 export { useQuickSearch, useSearch, useSearchPages } from './search'
+export type { CalendarProposal } from './time'
 export type {
   Affected,
   DataSource,
@@ -97,8 +98,10 @@ export {
   useUpdateSettings,
 } from './settings'
 export {
+  useApplyCalendarProposal,
   useCalendarPresets,
   useCalendarPreview,
+  useProposeCalendarChange,
   useCreateDimension,
   useDimensionCalendars,
   useDimensions,

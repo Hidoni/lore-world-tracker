@@ -431,15 +431,17 @@ Implementation (`core/time/`, #72):
   `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
   present" counts the display calendar's top level (the default calendar's under Absolute).
 
-Calendar editor I (`core/time/calendar-editor/`, #76):
+Calendar editor (`core/time/calendar-editor/`, #76, #77):
 
 - **Routes:**
   - `/v/$vault/calendars/$calendar/edit`.
   - `/v/$vault/calendars/new?dimension=<id>`, which starts blank (a 360-day year) or from a preset
     instantiated in seconds. It is opened from the dimension overview.
+  - Both load the editor lazily, as its own chunk.
 - **Structure tab:** the definition is edited as a document (`edit(definition, recipe)` copies,
-  then changes the copy). Renaming a level or a template updates every reference to it. The
-  forms cover the first regime; the JSON tab covers the rest.
+  then changes the copy). Renaming a level or a template updates every reference to it (templates,
+  alignment and cycle fields, cycle levels, format keys and their tokens, the dates and
+  precisions of time points in the definition).
   - Levels, coarse to fine: id, label, plural and abbreviation; the first number and the default
     template (below the top); add a level below, move, remove.
   - Templates by level: uniform (a count of a child template, or base units at level 0) or a
@@ -449,8 +451,25 @@ Calendar editor I (`core/time/calendar-editor/`, #76):
   - Years: the rules' id and name, then the pattern. A pattern is fixed, a cycle with its
     starting year, or rules whose predicate builder combines `mod`/`eq` with all/any/not and
     has a default. Exceptions per year.
-  - Alignment: fields from the year down, and its absolute moment. Other anchors are edited in
-    the JSON tab.
+  - Rules and reforms (#77): one tab per regime. "Reform" copies the selected regime to a new
+    one starting at a date of this calendar; templates, years, alignment and cycles below edit
+    the selected regime.
+  - Alignment: fields from the year down, and the moment they begin at (a moment, or another
+    time point of the dimension through the `TimePointPicker`).
+  - Cycles (#77): id, level, length, first number, names/abbreviations/ids as comma lists,
+    continuous or restarting at a coarser level, the anchor (fields and index) or "continues
+    from the previous rules" in a reform. Exclusions are template flags ("Skips <cycle>" on a
+    template's units) and are listed per cycle.
+  - Eras (#77): an ordered list (move, remove, add) with name, abbreviation and its position,
+    counting direction and first number; every era after the first starts at a time point
+    (`DefinitionPointField`: a date of this calendar, a moment, or another time point,
+    including event anchors).
+  - Overlays (#77): period as an exact fraction of base units with an "in days" helper (from the
+    first day's length), epoch, and phases by fraction of the period.
+  - Formats (#77): a pattern per level (empty: the generated default), tokens suggested after an
+    unclosed `{` (`tokensFor`), a live sample at a chosen moment, and optional intercalary
+    patterns. Display options: circa prefix, digit grouping, scientific threshold, significant
+    digits, range separator.
 - **JSON tab:** the same document as text. Each valid parse replaces the draft, and a parse
   error blocks saving.
 - **Preview:** the TS engine (`validateCalendar`) checks every change. Absolute anchors are
@@ -461,10 +480,20 @@ Calendar editor I (`core/time/calendar-editor/`, #76):
   - The year grid shows any year's units and their lengths (`options()`).
   - The converter has a `TimePointPicker` on the draft calendar for date → moment, and a
     `BigNumberInput` for moment → date.
-- **Saving:**
-  - An existing calendar is saved with `PATCH {ext: {definition}}`.
-  - With dependents the server answers `409` with `context.dependents`. The editor then says the
-    change needs a proposal; that flow is #77.
+- **Saving** (#77, time-model.md §7.4, D1):
+  - An existing calendar is saved through a proposal (`POST /calendars/{id}/proposals`). With no
+    items and no series it is applied at once; otherwise `ImpactPreviewDialog` opens.
+  - `ImpactPreviewDialog` (`core/time/impact-preview.tsx`) shows the summary counts and a table
+    of the items: record (linked), the date now, the date after for the chosen strategy (or the
+    problem), and a strategy per row (`keep_date`, `pin_moment`, `constrain` where offered).
+    Rows without a problem default to `keep_date`. Rows with a problem start undecided, and
+    Apply waits until each has a choice: an explicit `keep_date` accepts the problem. The bulk
+    actions are "Keep all dates" (which leaves broken rows alone) and "Keep all moments". Series
+    whose bounds move are listed.
+  - Apply sends the explicit strategies. On success a toast offers Undo, which reverts the
+    newest unreverted "Edited the calendar" changeset. A `409 proposal_stale` or a `404` (the
+    proposal expired) shows "Preview again", which proposes the same definition again. A
+    `422 proposal_unresolved` shows its messages on their rows.
   - A new calendar is created with `POST /entities` (`kind: calendar`, `dimension_id`,
     `ext.definition`), then the editor opens.
 

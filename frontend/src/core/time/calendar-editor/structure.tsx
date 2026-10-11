@@ -1,4 +1,5 @@
 import type {
+  DefinitionTimePoint,
   Level,
   Predicate,
   Regime,
@@ -31,6 +32,7 @@ import {
   newTemplate,
   part,
   regimeOf,
+  regimePath,
   sharedSlotIds,
   templatesAt,
   type Definition,
@@ -40,9 +42,9 @@ export interface StructureProps {
   definition: Definition
   errors: readonly ValidationError[]
   onChange: (definition: Definition) => void
+  /** The regime the regime-scoped editors show (default: the first). */
+  regimeIndex?: number
 }
-
-const REGIME = '/regimes/0'
 
 /** A list the schema requires to be non-empty (the editors never empty them). */
 function nonEmpty<T>(list: T[]): [T, ...T[]] {
@@ -51,7 +53,7 @@ function nonEmpty<T>(list: T[]): [T, ...T[]] {
 const SMALL_INPUT = 'h-8'
 
 /** The errors at `path` (and inside it), under the field. */
-function FieldErrors({
+export function FieldErrors({
   errors,
   path,
   exact = false,
@@ -73,11 +75,11 @@ function FieldErrors({
 }
 
 /** An input bound to a JSON pointer (errors focus it). */
-function PathInput({ path, ...props }: { path: string } & ComponentProps<'input'>) {
+export function PathInput({ path, ...props }: { path: string } & ComponentProps<'input'>) {
   return <Input data-path={path} className={cn(SMALL_INPUT, props.className)} {...props} />
 }
 
-function TemplateSelect({
+export function TemplateSelect({
   path,
   label,
   value,
@@ -114,7 +116,7 @@ function TemplateSelect({
   )
 }
 
-function IconButton({
+export function IconButton({
   label,
   onClick,
   disabled,
@@ -144,19 +146,59 @@ function IconButton({
 // --- levels ------------------------------------------------------------------------------------
 
 /** Renames a level everywhere it is named: templates, alignment fields. */
+/** `fields` with the key `from` renamed `to` (or as it was). */
+function renameKey<T>(fields: Record<string, T>, from: string, to: string): Record<string, T> {
+  if (!(from in fields)) return fields
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, value]) => [key === from ? to : key, value]),
+  )
+}
+
+/**
+ * Renames a level everywhere it is named: templates, alignment fields, cycles, formats, and the
+ * dates and precisions of the time points in the definition.
+ */
 function renameLevel(definition: Definition, from: string, to: string): Definition {
+  const point = (value: DefinitionTimePoint | null | undefined) => {
+    if (value == null) return
+    if (value.precision === from) value.precision = to
+    if (value.anchor.kind === 'local')
+      value.anchor.fields = renameKey(value.anchor.fields, from, to)
+  }
   return edit(definition, (draft) => {
     for (const level of levelsOf(draft)) if (level.id === from) level.id = to
     for (const regime of draft.regimes) {
       for (const template of Object.values(regime.templates)) {
         if (template?.level === from) template.level = to
       }
-      const fields = regime.alignment.fields
-      if (from in fields) {
-        regime.alignment.fields = Object.fromEntries(
-          Object.entries(fields).map(([key, value]) => [key === from ? to : key, value]),
-        )
+      regime.alignment.fields = renameKey(regime.alignment.fields, from, to)
+      if (regime.alignment.at.precision === from) regime.alignment.at.precision = to
+      point(regime.starts_at)
+      for (const cycle of regime.cycles ?? []) {
+        if (cycle.level === from) cycle.level = to
+        if (typeof cycle.mode === 'object' && cycle.mode.reset === from) cycle.mode = { reset: to }
+        if (cycle.anchor?.fields != null) {
+          cycle.anchor.fields = renameKey(cycle.anchor.fields, from, to)
+        }
       }
+    }
+    for (const era of draft.eras ?? []) point(era.start)
+    for (const overlay of draft.overlays ?? []) point(overlay.epoch)
+    if (draft.formats != null) {
+      // `{from}`, `{from.name}`, `{from:pad2}` (not after a literal `{{`).
+      // The id may be anything while it's being typed.
+      const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const token = new RegExp(`(?<!\\{)\\{${escaped}(?=[}.:])`, 'g')
+      const patterns = (formats: Record<string, string | undefined>) =>
+        Object.fromEntries(
+          Object.entries(renameKey(formats, from, to)).map(([key, value]) => [
+            key,
+            value?.replace(token, `{${to}`),
+          ]),
+        )
+      const { intercalary, ...own } = draft.formats
+      draft.formats = patterns(own as Record<string, string | undefined>)
+      if (intercalary != null) draft.formats.intercalary = patterns(intercalary)
     }
   })
 }
@@ -165,9 +207,9 @@ function renameLevel(definition: Definition, from: string, to: string): Definiti
  * The levels, coarse to fine (the top level first): ids, names, the first regular number and
  * the default template of each, with levels added below, moved and removed.
  */
-export function LevelsEditor({ definition, errors, onChange }: StructureProps) {
+export function LevelsEditor({ definition, errors, onChange, regimeIndex = 0 }: StructureProps) {
   const levels = levelsOf(definition)
-  const regime = regimeOf(definition)
+  const regime = regimeOf(definition, regimeIndex)
   const top = levels.length - 1
   const set = (index: number, patch: Partial<Level>) => {
     onChange(
@@ -350,9 +392,14 @@ export function LevelsEditor({ definition, errors, onChange }: StructureProps) {
 // --- templates ---------------------------------------------------------------------------------
 
 /** Renames a template everywhere it is used (children, defaults, the year pattern). */
-function renameTemplate(definition: Definition, from: string, to: string): Definition {
+function renameTemplate(
+  definition: Definition,
+  regimeIndex: number,
+  from: string,
+  to: string,
+): Definition {
   return edit(definition, (draft) => {
-    const regime = regimeOf(draft)
+    const regime = regimeOf(draft, regimeIndex)
     const swap = (id: string) => (id === from ? to : id)
     regime.templates = Object.fromEntries(
       Object.entries(regime.templates).map(([id, template]) => [swap(id), template]),
@@ -391,6 +438,7 @@ function ChildRow({
   count,
   choices,
   shared,
+  cycles,
   onChange,
   onMove,
   onRemove,
@@ -401,6 +449,8 @@ function ChildRow({
   count: number
   choices: readonly string[]
   shared: ReadonlySet<string>
+  /** The regime's cycles: a named unit may be skipped by them. */
+  cycles: readonly string[]
   onChange: (child: SequenceChild) => void
   onMove: (to: number) => void
   onRemove: () => void
@@ -493,6 +543,25 @@ function ChildRow({
             />
             Intercalary
           </label>
+          {cycles.map((cycle) => {
+            const excluded = child.cycle_excluded ?? []
+            return (
+              <label key={cycle} className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={excluded.includes(cycle)}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                      ? [...excluded, cycle]
+                      : excluded.filter((other) => other !== cycle)
+                    const rest = omit(child, 'cycle_excluded')
+                    onChange(next.length === 0 ? rest : { ...rest, cycle_excluded: next })
+                  }}
+                />
+                Skips {cycle}
+              </label>
+            )
+          })}
         </>
       )}
       <IconButton
@@ -524,17 +593,18 @@ function TemplateCard({
   definition,
   errors,
   onChange,
+  regimeIndex = 0,
   id,
   template,
   shared,
 }: StructureProps & { id: string; template: Template; shared: ReadonlySet<string> }) {
-  const path = `${REGIME}/templates/${part(id)}`
+  const path = `${regimePath(regimeIndex)}/templates/${part(id)}`
   const child = childLevel(definition, template.level)
-  const choices = child === null ? [] : templatesAt(regimeOf(definition), child)
+  const choices = child === null ? [] : templatesAt(regimeOf(definition, regimeIndex), child)
   const set = (next: Template) => {
     onChange(
       edit(definition, (draft) => {
-        regimeOf(draft).templates[id] = next
+        regimeOf(draft, regimeIndex).templates[id] = next
       }),
     )
   }
@@ -548,7 +618,7 @@ function TemplateCard({
           className="w-40"
           value={id}
           onChange={(event) => {
-            onChange(renameTemplate(definition, id, event.target.value))
+            onChange(renameTemplate(definition, regimeIndex, id, event.target.value))
           }}
         />
         <Badge variant="secondary">{template.level}</Badge>
@@ -575,7 +645,7 @@ function TemplateCard({
           onClick={() => {
             onChange(
               edit(definition, (draft) => {
-                const target = regimeOf(draft)
+                const target = regimeOf(draft, regimeIndex)
                 target.templates = omitKey(target.templates, id)
               }),
             )
@@ -629,6 +699,7 @@ function TemplateCard({
                 count={sequence.length}
                 choices={choices}
                 shared={shared}
+                cycles={(regimeOf(definition, regimeIndex).cycles ?? []).map((cycle) => cycle.id)}
                 onChange={(next) => {
                   set({
                     ...template,
@@ -685,8 +756,8 @@ function TemplateCard({
  * ids shared across templates are highlighted: they keep typed dates when years differ.
  */
 export function TemplatesEditor(props: StructureProps) {
-  const { definition, errors, onChange } = props
-  const regime = regimeOf(definition)
+  const { definition, errors, onChange, regimeIndex = 0 } = props
+  const regime = regimeOf(definition, regimeIndex)
   const shared = sharedSlotIds(regime)
   const levels = [...levelsOf(definition)].reverse()
   return (
@@ -720,7 +791,7 @@ export function TemplatesEditor(props: StructureProps) {
               onClick={() => {
                 onChange(
                   edit(definition, (draft) => {
-                    const target = regimeOf(draft)
+                    const target = regimeOf(draft, regimeIndex)
                     target.templates[freshId(Object.keys(target.templates), level.id)] =
                       newTemplate(level.id)
                   }),
@@ -732,7 +803,7 @@ export function TemplatesEditor(props: StructureProps) {
           </div>
         )
       })}
-      <FieldErrors errors={errors} path={`${REGIME}/templates`} exact />
+      <FieldErrors errors={errors} path={`${regimePath(regimeIndex)}/templates`} exact />
     </section>
   )
 }
@@ -868,17 +939,17 @@ function PredicateEditor({
  * templates from a starting year, or rules (divisibility conditions combined with all/any/not,
  * the first that matches wins), plus exceptions for single years.
  */
-export function TopEditor({ definition, errors, onChange }: StructureProps) {
-  const regime = regimeOf(definition)
+export function TopEditor({ definition, errors, onChange, regimeIndex = 0 }: StructureProps) {
+  const regime = regimeOf(definition, regimeIndex)
   const levels = levelsOf(definition)
   const topLevel = levels[levels.length - 1]?.id ?? ''
   const choices = templatesAt(regime, topLevel)
   const pattern = regime.top.pattern
-  const path = `${REGIME}/top/pattern`
+  const path = `${regimePath(regimeIndex)}/top/pattern`
   const setPattern = (next: YearPattern) => {
     onChange(
       edit(definition, (draft) => {
-        regimeOf(draft).top.pattern = next
+        regimeOf(draft, regimeIndex).top.pattern = next
       }),
     )
   }
@@ -886,7 +957,7 @@ export function TopEditor({ definition, errors, onChange }: StructureProps) {
   const setExceptions = (next: typeof exceptions) => {
     onChange(
       edit(definition, (draft) => {
-        const top = regimeOf(draft).top
+        const top = regimeOf(draft, regimeIndex).top
         if (next.length === 0) delete top.exceptions
         else top.exceptions = next
       }),
@@ -898,27 +969,27 @@ export function TopEditor({ definition, errors, onChange }: StructureProps) {
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">Rules</span>
         <PathInput
-          path={`${REGIME}/id`}
+          path={`${regimePath(regimeIndex)}/id`}
           aria-label="Rules id"
           className="w-36"
           value={regime.id}
           onChange={(event) => {
             onChange(
               edit(definition, (draft) => {
-                regimeOf(draft).id = event.target.value
+                regimeOf(draft, regimeIndex).id = event.target.value
               }),
             )
           }}
         />
         <PathInput
-          path={`${REGIME}/name`}
+          path={`${regimePath(regimeIndex)}/name`}
           aria-label="Rules name"
           className="w-56"
           value={regime.name}
           onChange={(event) => {
             onChange(
               edit(definition, (draft) => {
-                regimeOf(draft).name = event.target.value
+                regimeOf(draft, regimeIndex).name = event.target.value
               }),
             )
           }}
@@ -1091,7 +1162,7 @@ export function TopEditor({ definition, errors, onChange }: StructureProps) {
             <tr key={index}>
               <td className="pr-2">
                 <PathInput
-                  path={`${REGIME}/top/exceptions/${index}/year`}
+                  path={`${regimePath(regimeIndex)}/top/exceptions/${index}/year`}
                   aria-label={`Exception ${index + 1} year`}
                   inputMode="numeric"
                   className="w-28"
@@ -1107,7 +1178,7 @@ export function TopEditor({ definition, errors, onChange }: StructureProps) {
               </td>
               <td className="pr-2">
                 <TemplateSelect
-                  path={`${REGIME}/top/exceptions/${index}/template`}
+                  path={`${regimePath(regimeIndex)}/top/exceptions/${index}/template`}
                   label={`Exception ${index + 1} template`}
                   value={exception.template}
                   choices={choices}
@@ -1143,7 +1214,7 @@ export function TopEditor({ definition, errors, onChange }: StructureProps) {
       >
         <PlusIcon aria-hidden /> Exception
       </Button>
-      <FieldErrors errors={errors} path={`${REGIME}/top/exceptions`} />
+      <FieldErrors errors={errors} path={`${regimePath(regimeIndex)}/top/exceptions`} />
     </section>
   )
 }
@@ -1158,12 +1229,13 @@ export function AlignmentEditor({
   definition,
   errors,
   onChange,
+  regimeIndex = 0,
   atEditor,
 }: StructureProps & { atEditor: ReactNode }) {
-  const regime: Regime = regimeOf(definition)
+  const regime: Regime = regimeOf(definition, regimeIndex)
   const levels = [...levelsOf(definition)].reverse()
   const fields = regime.alignment.fields
-  const path = `${REGIME}/alignment`
+  const path = `${regimePath(regimeIndex)}/alignment`
   return (
     <section aria-label="Alignment" className="flex flex-col gap-2">
       <h3 className="text-sm font-semibold">Alignment</h3>
@@ -1182,7 +1254,7 @@ export function AlignmentEditor({
               onChange={(event) => {
                 onChange(
                   edit(definition, (draft) => {
-                    const target = regimeOf(draft).alignment
+                    const target = regimeOf(draft, regimeIndex).alignment
                     const rest = omitKey(target.fields, level.id)
                     target.fields =
                       event.target.value === '' ? rest : { ...rest, [level.id]: event.target.value }
