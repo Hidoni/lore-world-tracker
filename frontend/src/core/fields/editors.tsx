@@ -3,6 +3,7 @@ import type { ComponentProps, KeyboardEvent, ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { RichTextView, isDoc } from '@/editor'
 
 import { docToText, textToDoc } from './rich-text-fallback'
 import type { FieldDef } from './schema'
@@ -95,6 +96,7 @@ export function FieldEditor(props: FieldEditorProps): ReactNode {
         />
       )
     case 'rich_text':
+      // The create dialog's plain fallback (the fields panel edits rich text in the editor).
       return (
         <Textarea
           {...common}
@@ -243,7 +245,15 @@ export function FieldEditor(props: FieldEditorProps): ReactNode {
 }
 
 /** A field value for reading. */
-export function FieldDisplay({ field, value }: { field: FieldDef; value: unknown }): ReactNode {
+export function FieldDisplay({
+  vault,
+  field,
+  value,
+}: {
+  vault: string
+  field: FieldDef
+  value: unknown
+}): ReactNode {
   if (
     value === null ||
     value === undefined ||
@@ -259,7 +269,7 @@ export function FieldDisplay({ field, value }: { field: FieldDef; value: unknown
       <ul className="flex flex-col">
         {(value as unknown[]).map((item, index) => (
           <li key={index}>
-            <FieldDisplay field={{ ...field, multiple: false }} value={item} />
+            <FieldDisplay vault={vault} field={{ ...field, multiple: false }} value={item} />
           </li>
         ))}
       </ul>
@@ -313,7 +323,13 @@ export function FieldDisplay({ field, value }: { field: FieldDef; value: unknown
     case 'long_text':
       return <span className="whitespace-pre-wrap">{text(value)}</span>
     case 'rich_text':
-      return <span className="whitespace-pre-wrap">{docToText(value)}</span>
+      return isDoc(value) && (value.content ?? []).length > 0 ? (
+        <div className="w-full">
+          <RichTextView vault={vault} doc={value} />
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      )
     case 'text':
     case 'integer':
     case 'decimal':

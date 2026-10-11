@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import type { Editor } from '@tiptap/core'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -128,7 +129,7 @@ describe('fields panel', () => {
     ])
   })
 
-  it('checks URLs and measurements, and saves long and rich text with Ctrl+Enter', async () => {
+  it('checks URLs and measurements, and saves long text with Ctrl+Enter', async () => {
     const writes = vault()
     const user = userEvent.setup()
     await renderApp('/v/v1/e/r1')
@@ -156,27 +157,86 @@ describe('fields panel', () => {
     )
     await within(fieldsRegion()).findByText(/line one/)
 
-    await user.click(within(fieldsRegion()).getByRole('button', { name: 'Edit Notes' }))
-    await user.type(
-      within(fieldsRegion()).getByLabelText('Notes'),
-      'A note{Control>}{Enter}{/Control}',
-    )
-    await within(fieldsRegion()).findByText('A note')
-
     expect(fieldBodies(writes)).toEqual([
       { fields: { source: 'https://x.y/z' }, revision: 1 },
       { fields: { size: { value: '2.5', unit: 'm' } }, revision: 2 },
       { fields: { lore: 'line one\nline two' }, revision: 3 },
-      {
-        fields: {
-          notes: {
-            type: 'doc',
-            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A note' }] }],
-          },
-        },
-        revision: 4,
-      },
     ])
+  })
+
+  it('edits rich text in the editor, keeping entity links, and shows links', async () => {
+    const link = (id: string, text: string) => ({
+      type: 'text',
+      text,
+      marks: [{ type: 'entityLink', attrs: { entityId: id } }],
+    })
+    const notes = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Forged by ' }, link('r2', 'Smith')] },
+      ],
+    }
+    const writes = serveVault({
+      kinds: [RELIC],
+      rows: [
+        row('r1', 'relic', 'Ring', { dimension_id: null, fields: { notes } }),
+        row('r2', 'relic', 'Smith', { dimension_id: null }),
+        row('r3', 'relic', 'Crown', { dimension_id: null }),
+      ],
+    })
+    const user = userEvent.setup()
+    await renderApp('/v/v1/e/r1')
+    const region = await screen.findByRole('region', { name: 'Fields' })
+    expect(await within(region).findByRole('link', { name: /Smith/ })).toHaveAttribute(
+      'href',
+      '/v/v1/e/r2',
+    )
+
+    await user.click(within(region).getByRole('button', { name: 'Edit Notes' }))
+    const textbox = await within(fieldsRegion()).findByRole(
+      'textbox',
+      { name: 'Notes' },
+      { timeout: 4000 },
+    )
+    const editor = (textbox as HTMLElement & { editor: Editor }).editor
+    act(() => {
+      editor.chain().focus('end').insertContent(' for the [[Cro').run()
+    })
+    const menu = await screen.findByRole('listbox', { name: 'Link to an entity' })
+    await user.click(await within(menu).findByRole('option', { name: /Crown/ }))
+    await waitFor(
+      () => {
+        expect(fieldBodies(writes)).toHaveLength(1)
+      },
+      { timeout: 4000 },
+    )
+    expect(fieldBodies(writes)[0]).toEqual({
+      fields: {
+        notes: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'Forged by ' },
+                link('r2', 'Smith'),
+                { type: 'text', text: ' for the ' },
+                link('r3', 'Crown'),
+                { type: 'text', text: ' ' },
+              ],
+            },
+          ],
+        },
+      },
+      revision: 1,
+    })
+
+    await user.click(within(fieldsRegion()).getByRole('button', { name: 'Done' }))
+    expect(await within(fieldsRegion()).findByRole('link', { name: /Crown/ })).toHaveAttribute(
+      'href',
+      '/v/v1/e/r3',
+    )
+    expect(within(fieldsRegion()).queryByRole('textbox', { name: 'Notes' })).not.toBeInTheDocument()
   })
 
   it('shows time fields as placeholders and module renderers for module types', async () => {
