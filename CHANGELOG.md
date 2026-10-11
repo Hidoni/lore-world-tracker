@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Renames relabel links** (#70): renaming an entity updates the link text that read its old name
+  in other entities' bodies and rich-text fields, in the same undoable change; custom labels stay.
+- **E2E harness and journey E5** (#70): a fresh vault per test with API setup helpers, traces on
+  failure, and the editor-linking journey (`[[` link, backlink, rename).
 - **Settings UI** (#69): vault name, default visibility and theme; module toggles that confirm
   the dependencies or dependents they switch too; custom link types (create, edit, archive,
   delete) next to the built-in ones; backups with the private-data notice, downloads, a schedule

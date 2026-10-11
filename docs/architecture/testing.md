@@ -67,7 +67,7 @@ the UI or the API (fast setup helper).
 | E2 | Edit a calendar → impact preview → keep dates for most, pin one → verify moments | M5 |
 | E3 | Relative anchor: move the anchor event, the dependent moves; a cycle attempt is rejected with a clear message | M5 |
 | E4 | Recurring event → materialize the 3rd occurrence → add a sub-event to it → the timeline shows the marker | M5 |
-| E5 | `[[` link in the editor → backlink appears on the target; rename the target, the link label updates | M4 |
+| E5 | `[[` link in the editor → backlink appears on the target; rename the target, the link label updates (server relabeling, decided 2026-10-11) | M4 |
 | E6 | Characters: parent/child + spouse with validity → family tree → move the time cursor → as-of state changes | M7 |
 | E7 | Branch from an event → override a spanning war → compare lanes show divergence | M9 |
 | E8 | Worldline: time traveler with two segments → personal timeline order and age | M9 |
@@ -76,6 +76,11 @@ the UI or the API (fast setup helper).
 | E11 | Custom kind with custom fields (incl. a temporal one) → create an entity of it | M11 |
 | E12 | Publish snapshot → run reader mode → no edit UI, private canaries absent, spoilers folded | M12 |
 | E13 | Backup → restore into a new vault → content identical | M12 |
+
+Harness (`frontend/e2e/`, #70): journeys import `test` from `e2e/fixtures.ts`. Its `lore` fixture
+creates a fresh vault per test through the API and offers setup helpers (entities, links,
+backlinks). A failed test keeps its trace (CI artifact `playwright-report`). See
+`frontend/e2e/README.md`.
 
 ## 4. Performance budgets
 
