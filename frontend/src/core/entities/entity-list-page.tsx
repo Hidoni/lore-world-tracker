@@ -241,7 +241,7 @@ function EntityList({ vault, kind }: { vault: string; kind: Kind }) {
                   </span>
                   {fields.map((field) => (
                     <span key={field.key} role="cell" className="truncate px-3">
-                      <FieldDisplay field={field} value={entity.fields[field.key]} />
+                      <FieldDisplay vault={vault} field={field} value={entity.fields[field.key]} />
                     </span>
                   ))}
                   {showDimension && (

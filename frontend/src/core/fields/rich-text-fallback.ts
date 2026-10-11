@@ -1,4 +1,7 @@
-/** Rich-text documents (TipTap JSON) as plain text, until fields use the editor (#259). */
+/**
+ * Rich-text documents (TipTap JSON) as plain text: the create dialog's fallback for required
+ * `rich_text` fields, and word counts in history.
+ */
 interface RichNode {
   type?: string
   text?: string

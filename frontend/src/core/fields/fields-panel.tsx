@@ -1,9 +1,10 @@
 import { ChevronDownIcon, PencilIcon } from 'lucide-react'
-import { useId, useRef, useState } from 'react'
+import { Suspense, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { useExtensionRecord } from '@/core/modules'
 import { fieldErrors, isRevisionConflict, type components, type Entity } from '@/data'
+import { LazyRichTextEditor, isDoc, type SaveOutcome } from '@/editor'
 import { readStored, writeStored } from '@/lib/storage'
 
 import { FieldDisplay, FieldEditor, PLACEHOLDER_TYPES } from './editors'
@@ -55,6 +56,54 @@ function readCollapsed(kind: string): string[] {
   }
 }
 
+/**
+ * A `rich_text` field in the TipTap editor: it autosaves through the panel's saver (marks such as
+ * entity links survive); "Done" closes it, saving what's left.
+ */
+function RichTextField({
+  vault,
+  field,
+  value,
+  save,
+  onError,
+  onDone,
+}: {
+  vault: string
+  field: FieldDef
+  value: unknown
+  save: Saver
+  onError: (message: string | null) => void
+  onDone: () => void
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="w-full">
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading the editor…</p>}>
+          <LazyRichTextEditor
+            vault={vault}
+            initial={isDoc(value) ? value : null}
+            label={field.label}
+            save={async (doc): Promise<SaveOutcome> => {
+              const problem = validateField(field, doc)
+              onError(problem)
+              if (problem !== null) return 'failed'
+              const result = await save({ fields: { [field.key]: normalizeField(field, doc) } })
+              if (result.ok) return 'saved'
+              if (isRevisionConflict(result.error)) return 'conflict'
+              const errors = fieldErrors(result.error)
+              onError(errors[`fields.${field.key}`] ?? errors.fields ?? null)
+              return 'failed'
+            }}
+          />
+        </Suspense>
+      </div>
+      <Button variant="outline" size="sm" onClick={onDone}>
+        Done
+      </Button>
+    </div>
+  )
+}
+
 function FieldRow({
   vault,
   field,
@@ -78,9 +127,12 @@ function FieldRow({
   const renderers = useExtensionRecord('fieldTypeRenderers', vault)
   const Renderer = renderers[field.type]
   // Core types have editors; time types arrive with M5 and module types bring their own (media).
-  const canEdit =
+  const canEditType =
     editable && Object.hasOwn(EDITABLE, field.type) && !PLACEHOLDER_TYPES.has(field.type)
   const immediate = IMMEDIATE.has(field.type)
+  // Lists of rich text have no editor yet: shown, not edited.
+  const rich = field.type === 'rich_text'
+  const canEdit = canEditType && !(rich && field.multiple)
 
   const commit = async (next: unknown = draft): Promise<void> => {
     if (inFlight.current) return
@@ -128,7 +180,18 @@ function FieldRow({
         {field.required && <span aria-hidden> *</span>}
       </label>
       <div className="flex min-w-0 flex-col gap-1">
-        {showEditor ? (
+        {showEditor && rich ? (
+          <RichTextField
+            vault={vault}
+            field={field}
+            value={value}
+            save={save}
+            onError={setError}
+            onDone={() => {
+              setEditing(false)
+            }}
+          />
+        ) : showEditor ? (
           <FieldEditor
             field={field}
             id={id}
@@ -148,7 +211,7 @@ function FieldRow({
             {Renderer !== undefined ? (
               <Renderer vault={vault} fieldKey={field.key} value={value} />
             ) : (
-              <FieldDisplay field={field} value={value} />
+              <FieldDisplay vault={vault} field={field} value={value} />
             )}
           </div>
         )}
@@ -192,7 +255,8 @@ function FieldRow({
 /**
  * The fields panel (frontend.md §7): the kind's fields grouped by `section` (collapsible,
  * remembered per kind), each shown by its type's renderer (or a module's `fieldTypeRenderers`)
- * and edited inline: text saves on Enter or blur, choices at once. Values are checked against
+ * and edited inline: text saves on Enter or blur, choices at once, rich text in the editor
+ * (autosaved). Values are checked against
  * the field definitions before saving; the per-field visibility select sets an override.
  */
 export function FieldsPanel({
