@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ComponentType } from 'react'
 
+import { ConsistencySettings } from '@/core/consistency'
 import { useExtensionList } from '@/core/modules'
 import { cn } from '@/lib/utils'
 
@@ -13,11 +14,13 @@ const CORE_PAGES: { id: string; title: string; component: ComponentType<{ vault:
   { id: '', title: 'General', component: GeneralSettings },
   { id: 'modules', title: 'Modules', component: ModulesSettings },
   { id: 'link-types', title: 'Link types', component: LinkTypesSettings },
+  { id: 'consistency', title: 'Consistency', component: ConsistencySettings },
   { id: 'backups', title: 'Backups', component: BackupsSettings },
 ]
 
 /**
- * Vault settings (`/v/$vault/settings/*`, frontend.md §4): general, modules, link types, backups,
+ * Vault settings (`/v/$vault/settings/*`, frontend.md §4): general, modules, link types,
+ * consistency rules, backups,
  * then the active modules' pages (`settingsPages`, at `settings/<id>`).
  */
 export function SettingsPage({ vault, page }: { vault: string; page: string }) {

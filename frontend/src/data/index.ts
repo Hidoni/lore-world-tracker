@@ -36,6 +36,22 @@ export {
 } from './entities'
 export { ApiError, fieldErrors, isRevisionConflict } from './errors'
 export {
+  useConsistencyRules,
+  useFindingPages,
+  useFindings,
+  useScanConsistency,
+  useSuppressFinding,
+  useUnsuppressFinding,
+  useUpdateConsistencyRule,
+} from './consistency'
+export {
+  blockingFindings,
+  isConsistencyError,
+  withSaveAnyway,
+  type BlockingFinding,
+  type SaveAnywayPrompt,
+} from './save-anyway'
+export {
   useChanges,
   useChangeset,
   useChangesPages,
@@ -80,5 +96,5 @@ export {
   useUpdateLinkType,
   useUpdateSettings,
 } from './settings'
-export { useDimensionCalendars, useDimensions } from './time'
+export { useDimensionCalendars, useDimensions, useTimelines } from './time'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'

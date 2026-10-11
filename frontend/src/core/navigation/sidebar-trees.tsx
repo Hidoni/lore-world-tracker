@@ -27,6 +27,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { FindingsBadge } from '@/core/consistency'
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
 import { useKindRegistry, type Kind, type KindRegistry } from '@/core/registry'
 import {
@@ -494,6 +495,7 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
                 ∞
               </Badge>
             )}
+            <FindingsBadge vault={vault} entityId={node.id} compact />
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>

@@ -138,6 +138,30 @@ most recently found first (decided with #55).
 - **Save-anyway dialog:** lists blocking findings, requires a note, and resends with
   suppressions.
 
+Implementation (`frontend/src/core/consistency/`, #85):
+
+- **Findings panel:** the filters live in the URL (`severity` as a comma list, `rule`, `owner`,
+  `entity`, `timeline`, `uncertain=true`, `suppressed=true`). Without "show uncertain" only
+  definite findings are listed, and without "show suppressed" only open ones. "Explain" opens a
+  sheet with the rule's description, certainty, subjects and suppression note. "Suppress…" asks
+  for a note (`POST /suppressions`), and suppressed findings offer "Unsuppress". "Check the
+  whole vault" runs `POST /scan`. Rules define no quick fixes yet (`RuleDef.quick_fixes` is
+  empty and nothing applies one), so the panel shows none.
+- **Badges:** authors only, since readers can't read findings. One shared query of the first 500
+  open findings (worst first) is counted per subject entity. The badge shows the count and the
+  worst severity, and links to the panel filtered to the entity. It appears in the entity header
+  and on sidebar tree rows. Timeline items get it with the timeline view (#81).
+- **Rule settings** (Settings → Consistency): rules grouped by owner (core first), each with its
+  description, open-findings count and a severity select. Picking the default again sends
+  `null`. Hard rules (`configurable: false`) are locked.
+- **Save anyway:** the app's `Mutations` are wrapped (`withSaveAnyway`, `data/save-anyway.ts`) so
+  entity create/update/trash/restore and link create/update/delete handle `422
+  consistency_error` the same way everywhere. The dialog lists the blocking findings with their
+  subjects and asks for a note. The write is then resent with one `suppress` item per rule
+  (`{rule_id, note}`, which stays valid for creates, whose fingerprints change on every attempt).
+  When a finding is a hard rule, the dialog only explains the refusal. Cancelling gives the
+  error to the caller. The error is never toasted.
+
 ## 6. Rule catalog (initial)
 
 Core's rules as implemented (#55): the hard rules below except the M9 ones (time statuses come

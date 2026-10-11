@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { FindingsBadge } from '@/core/consistency'
 import { togglePin, usePlaceList } from '@/core/navigation/places'
 import type { Kind } from '@/core/registry'
 import { useDeleteEntity, useEntity, useMutations, type components, type Entity } from '@/data'
@@ -191,6 +192,7 @@ export function EntityHeader({
         <DimensionBadge vault={vault} entity={entity} kind={kind} />
         {entity.origin_timeline_id !== null && <Badge variant="outline">Branch-only</Badge>}
         {entity.deleted_at !== null && <Badge variant="destructive">In the trash</Badge>}
+        <FindingsBadge vault={vault} entityId={entity.id} />
         <div className="flex-1" />
         {editable && (
           <Select
