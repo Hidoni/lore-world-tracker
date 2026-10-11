@@ -87,6 +87,25 @@ through the `QueryClient` caches (`app/query-client.ts`); a query or mutation th
 itself passes `meta: { toast: false }`. Every route gets the default error boundary
 (`app/route-error.tsx`) and unknown paths a 404 page.
 
+Sidebar navigation (`core/navigation/`, #65):
+
+- **Sections:** one per kind, for dimensions and every non-system kind except events (their
+  hierarchy arrives in M5). Each is a tree by `parent_id`, loaded one level at a time from `/tree`
+  (`kind=<key>`, then `parent=<id>` when a node opens, with "Show more" past 200). Roots are
+  entities whose parent isn't of the same kind. Multiversal entities carry a ∞ badge. Collapsed
+  sections are remembered (`lore.sidebar.collapsed`). Each heading links to the kind's list and
+  has a "New …" button.
+- **Drag and drop** (dnd-kit; pointer, or Space then arrow keys from a focused row): drop on an
+  entity to move inside it, or on a section heading to move to the top. `canReparent` mirrors the
+  server's parent rules (`data-model.md` §3.4): allowed parent kinds, no cycles, same dimension
+  unless one side is multiversal. A refused drop says why in a toast, and the screen-reader
+  announcements use entity names.
+- **Context menu** on every row: new child (create dialog with the parent and its dimension
+  filled in), rename, pin/unpin, move to trash (with undo). Readers only get pin.
+- **Pinned and recent** per vault in `localStorage` (`lore.pinned.<vault>`, `lore.recent.<vault>`,
+  last 10). The entity header has a pin button; visiting an entity records it, and a purge
+  forgets it.
+
 ## 4. Routing
 
 Code-based TanStack Router tree assembled in `app/` from core routes plus module route factories.
@@ -98,6 +117,7 @@ Code-based TanStack Router tree assembled in `app/` from core routes plus module
 /v/$vault/d/$dimension/timeline         timeline view
 /v/$vault/d/$dimension/events           event outline (tree table)
 /v/$vault/e/$entity                     entity page (any kind; `?tab=` for module tabs)
+/v/$vault/k/$kind                       entity list of a kind
 /v/$vault/calendars/$calendar/edit      calendar editor
 /v/$vault/search                        search results
 /v/$vault/changes                       recent changes
@@ -272,6 +292,12 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
      occurrences.
   6. Module panels/tabs (family tree, lexicon, map, gallery…).
   7. History (per-entity changes with undo).
+- **Entity lists** (`/v/$vault/k/$kind`, #65): a table of the kind's entities. Filter by name prefix
+  and dimension, and sort. Columns come from the kind's UI config `listColumns`, or else its first
+  three short fields, plus dimension and last update. Rows are virtualized (`@tanstack/react-virtual`),
+  and pages of 200 load while scrolling, so 10k+ rows stay smooth.
+- **Trash** (`/v/$vault/trash`, #65): trashed entities, most recently trashed first, with restore and
+  permanent deletion. Children left outside the trash are counted.
 - **Create flows:** a "New…" menu per kind (and in the command palette), a quick create from
   autocomplete, and "create sub-event here" / "create child" actions.
 - Implementation (`core/entities/`, #61): `EntityPage` renders the header (icon, inline rename,

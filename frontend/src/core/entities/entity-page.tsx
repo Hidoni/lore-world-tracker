@@ -1,9 +1,10 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Suspense, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
+import { forget, visit } from '@/core/navigation/places'
 import { useKind, type Kind } from '@/core/registry'
 import { isRevisionConflict } from '@/data'
 import { LazyRichTextEditor, RichTextView, isDoc, type SaveOutcome } from '@/editor'
@@ -72,6 +73,7 @@ function TrashBanner({ vault, id, name }: { vault: string; id: string; name: str
               { id, purge: true },
               {
                 onSuccess: () => {
+                  forget(vault, id)
                   void navigate({ to: '/v/$vault', params: { vault }, replace: true })
                 },
               },
@@ -125,6 +127,9 @@ function EntityView({
   kind: Kind | undefined
 }) {
   const saver = useEntitySaver(vault, data)
+  useEffect(() => {
+    visit(vault, { id: data.id, name: data.name, kind: data.kind })
+  }, [vault, data.id, data.name, data.kind])
   const editable = useMutations() !== null && data.deleted_at === null
   const main = kind?.panels.filter((panel) => panel.placement === 'main') ?? []
   const side = kind?.panels.filter((panel) => panel.placement === 'side') ?? []

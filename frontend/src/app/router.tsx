@@ -7,7 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router'
 
-import { EntityPage } from '@/core/entities'
+import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
 import { moduleDefinitions } from '@/modules'
@@ -94,7 +94,22 @@ const calendarEditRoute = page(
 )
 const searchRoute = page('search', 'Search', 'Search results arrive with #67.')
 const changesRoute = page('changes', 'Recent changes', 'The change feed arrives with #68.')
-const trashRoute = page('trash', 'Trash', 'The trash arrives with #65.')
+const trashRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'trash',
+  component: function TrashRoute() {
+    const { vault } = trashRoute.useParams()
+    return <TrashPage vault={vault} />
+  },
+})
+const kindListRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'k/$kind',
+  component: function KindListRoute() {
+    const { vault, kind } = kindListRoute.useParams()
+    return <EntityListPage key={kind} vault={vault} kindKey={kind} />
+  },
+})
 const consistencyRoute = page('consistency', 'Consistency', 'Findings arrive with M6.')
 const settingsRoute = createRoute({
   getParentRoute: () => vaultRoute,
@@ -140,6 +155,7 @@ function buildRouteTree(definitions: readonly ModuleDefinition[]) {
     vaultHomeRoute,
     dimensionRoute.addChildren([dimensionHomeRoute, timelineRoute, eventsRoute]),
     entityRoute,
+    kindListRoute,
     calendarEditRoute,
     searchRoute,
     changesRoute,

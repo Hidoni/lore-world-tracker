@@ -24,11 +24,15 @@ export {
   useDeleteEntity,
   useEntities,
   useEntity,
+  useEntityList,
   useRegistry,
   useRestoreEntity,
   useTrash,
+  useTrashList,
   useTree,
+  useTreeLevel,
   useUpdateEntity,
+  useUpdateLatest,
 } from './entities'
 export { ApiError, fieldErrors, isRevisionConflict } from './errors'
 export { useChanges, useHistory, useRevertChange } from './history'

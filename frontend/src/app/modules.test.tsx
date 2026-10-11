@@ -42,7 +42,7 @@ describe('module activation', () => {
     serve(true)
     await renderApp('/v/v1', [fixtureModule])
     const sidebar = screen.getByRole('complementary', { name: 'Sidebar' })
-    const section = await within(sidebar).findByRole('region', { name: 'Relics' })
+    const section = await within(sidebar).findByRole('region', { name: 'Relic shelf' })
     const kind = within(section).getByTestId('fixture-kind')
     expect(kind).toHaveTextContent('Relics (fixture.first,fixture.later)')
     expect(kind).toHaveAttribute('data-icon', 'gem') // the module's icon over the server's
@@ -52,7 +52,7 @@ describe('module activation', () => {
     serve(false)
     await renderApp('/v/v1/m/fixture/view', [fixtureModule])
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Relics' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Relic shelf' })).not.toBeInTheDocument()
   })
 
   it('loads a module route lazily', async () => {
@@ -69,7 +69,7 @@ describe('module activation', () => {
     serve(true)
     const before = fixtureViewLoads()
     await renderApp('/v/v1', [fixtureModule])
-    expect(await screen.findByRole('region', { name: 'Relics' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Relic shelf' })).toBeInTheDocument()
     expect(fixtureViewLoads()).toBe(before)
   })
 })

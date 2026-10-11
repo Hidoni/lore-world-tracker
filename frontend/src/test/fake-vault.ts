@@ -121,6 +121,17 @@ function out(entity: Row) {
   }
 }
 
+/** A cursor page (`limit`, `cursor`: the offset as a string). */
+function paged<T>(items: T[], url: URL): { items: T[]; next_cursor: string | null } {
+  const limit = Number(url.searchParams.get('limit') ?? '200')
+  const offset = Number(url.searchParams.get('cursor') ?? '0')
+  const next = offset + limit
+  return {
+    items: items.slice(offset, next),
+    next_cursor: next < items.length ? String(next) : null,
+  }
+}
+
 const NOTHING = { dimensions: [], time_changed: false, search_changed: true }
 
 /** The default rows: a dimension, an artifact parent chain (Treasury → Crown → Gem). */
@@ -166,12 +177,65 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
       const url = new URL(request.url)
       const kinds = url.searchParams.getAll('kind')
       const q = url.searchParams.get('q')?.toLowerCase()
+      const dimension = url.searchParams.get('dimension')
+      const sort = url.searchParams.get('sort') ?? 'name'
       const items = [...rows.values()]
         .filter((entity) => entity.deleted_at === null)
         .filter((entity) => kinds.length === 0 || kinds.includes(entity.kind))
         .filter((entity) => q === undefined || entity.name.toLowerCase().startsWith(q))
-        .map(out)
-      return HttpResponse.json({ items, next_cursor: null })
+        .filter(
+          (entity) =>
+            dimension === null || entity.dimension_id === dimension || entity.dimension_id === null,
+        )
+      if (sort.endsWith('name')) items.sort((a, b) => a.name.localeCompare(b.name))
+      if (sort.startsWith('-')) items.reverse()
+      return HttpResponse.json(paged(items.map(out), url))
+    }),
+    http.get('*/api/v1/vaults/v1/tree', ({ request }) => {
+      const url = new URL(request.url)
+      const kinds = url.searchParams.getAll('kind')
+      const parent = url.searchParams.get('parent')
+      const inTree = (entity: Row | undefined): entity is Row =>
+        entity?.deleted_at === null && (kinds.length === 0 || kinds.includes(entity.kind))
+      const items = [...rows.values()]
+        .filter(inTree)
+        .filter((entity) =>
+          parent === null
+            ? entity.parent_id === null || !inTree(found(entity.parent_id))
+            : entity.parent_id === parent,
+        )
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((entity) => {
+          const children = [...rows.values()].filter(
+            (child) => child.parent_id === entity.id && inTree(child),
+          )
+          return {
+            id: entity.id,
+            kind: entity.kind,
+            name: entity.name,
+            icon: null,
+            color: null,
+            dimension_id: entity.dimension_id,
+            parent_id: entity.parent_id,
+            multiversal: entity.dimension_id === null,
+            visibility: entity.visibility,
+            sort_key: null,
+            has_children: children.length > 0,
+            child_counts: children.length > 0 ? { [entity.kind]: children.length } : {},
+          }
+        })
+      return HttpResponse.json(paged(items, url))
+    }),
+    http.get('*/api/v1/vaults/v1/trash', ({ request }) => {
+      const items = [...rows.values()]
+        .filter((entity) => entity.deleted_at !== null)
+        .map((entity) => ({
+          ...out(entity),
+          orphan_count: [...rows.values()].filter(
+            (child) => child.parent_id === entity.id && child.deleted_at === null,
+          ).length,
+        }))
+      return HttpResponse.json(paged(items, new URL(request.url)))
     }),
     http.get('*/api/v1/vaults/v1/entities/:id', ({ params }) => {
       const entity = found(params.id)
@@ -244,6 +308,7 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
       Object.assign(entity, {
         ...(typeof body.name === 'string' ? { name: body.name } : {}),
         ...(typeof body.visibility === 'string' ? { visibility: body.visibility } : {}),
+        ...('parent_id' in body ? { parent_id: body.parent_id as string | null } : {}),
         ...(aliases
           ? {
               aliases: aliases.map((alias, i) => ({

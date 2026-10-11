@@ -33,6 +33,10 @@ export function makeRegistry(
 /** Test API server (MSW). Tests add handlers with `server.use(...)`; unhandled requests fail. */
 export const server = setupServer(
   http.get('*/api/v1/vaults/:vault/registry', () => HttpResponse.json(makeRegistry())),
+  // The sidebar's kind trees: empty unless a test serves a vault (`serveVault`).
+  http.get('*/api/v1/vaults/:vault/tree', () =>
+    HttpResponse.json({ items: [], next_cursor: null }),
+  ),
   http.get('*/api/v1/meta', () =>
     HttpResponse.json({
       app_version: '1.2.3',
