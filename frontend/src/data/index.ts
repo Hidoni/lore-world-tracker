@@ -1,12 +1,57 @@
 // Data layer: DataSource & Mutations, query keys, mappers and hooks (frontend.md §5).
 import './query-meta'
-export { useMeta, type Meta } from './meta'
+
+export { DataProvider, useDataSource, useMutations } from './context'
 export {
-  useCreateVault,
-  useDeleteVault,
-  useRenameVault,
-  useVault,
-  useVaults,
-  type Vault,
-  type VaultList,
-} from './vaults'
+  bigintReplacer,
+  bigintReviver,
+  entityToDomain,
+  EXT_MOMENTS,
+  momentString,
+  parseDomain,
+  stringifyDomain,
+  toDomain,
+  toDomainAs,
+  toWire,
+  type Domain,
+} from './domain'
+export {
+  useChildren,
+  useCreateEntity,
+  useDeleteEntity,
+  useEntities,
+  useEntity,
+  useRegistry,
+  useRestoreEntity,
+  useTrash,
+  useTree,
+  useUpdateEntity,
+} from './entities'
+export { ApiError, fieldErrors, isRevisionConflict } from './errors'
+export { useChanges, useHistory, useRevertChange } from './history'
+export { createHttpDataSource, createHttpMutations } from './http'
+export { affectedKeys, invalidateAffected } from './invalidate'
+export { keys } from './keys'
+export {
+  useBacklinks,
+  useCreateLink,
+  useDeleteLink,
+  useLinks,
+  useLinkTypes,
+  useUpdateLink,
+} from './links'
+export { useMeta } from './meta'
+export { useQuickSearch, useSearch } from './search'
+export type {
+  Affected,
+  DataSource,
+  Entity,
+  EntityPage,
+  EntityWriteResult,
+  Meta,
+  Mutations,
+  Query,
+  Vault,
+  VaultList,
+} from './source'
+export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'

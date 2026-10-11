@@ -1,59 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { api, unwrap, type components } from '@/api'
+import { useDataSource, useRequiredMutations } from './context'
+import { keys } from './keys'
 
-/** A vault as listed by `GET /api/v1/vaults` (api.md §2 "Vaults & settings"). */
-export type Vault = components['schemas']['Vault']
-export type VaultList = components['schemas']['VaultList']
-
-// Calls the typed client directly until the DataSource/Mutations layer lands (#59).
-const VAULTS_KEY = ['vaults'] as const
+export type { Vault, VaultList } from './source'
 
 export function useVaults() {
+  const source = useDataSource()
   return useQuery({
-    queryKey: VAULTS_KEY,
-    queryFn: () => unwrap(api.GET('/api/v1/vaults')),
+    queryKey: keys.vaults(),
+    queryFn: () => source.vaults(),
     meta: { toast: false }, // the picker shows the error itself
   })
 }
 
-export function useVault(vaultId: string) {
-  return useQuery({
-    queryKey: [...VAULTS_KEY, vaultId],
-    queryFn: () =>
-      unwrap(api.GET('/api/v1/vaults/{vault_id}', { params: { path: { vault_id: vaultId } } })),
-  })
+export function useVault(vault: string) {
+  const source = useDataSource()
+  return useQuery({ queryKey: keys.vault(vault), queryFn: () => source.vault(vault) })
+}
+
+function useVaultListChange() {
+  const client = useQueryClient()
+  return () => client.invalidateQueries({ queryKey: keys.vaults() })
 }
 
 export function useCreateVault() {
-  const client = useQueryClient()
+  const mutations = useRequiredMutations()
+  const changed = useVaultListChange()
   return useMutation({
-    mutationFn: (name: string) => unwrap(api.POST('/api/v1/vaults', { body: { name } })),
-    onSuccess: () => client.invalidateQueries({ queryKey: VAULTS_KEY }),
+    mutationFn: (name: string) => mutations.createVault(name),
+    onSuccess: changed,
   })
 }
 
 export function useRenameVault() {
+  const mutations = useRequiredMutations()
   const client = useQueryClient()
+  const changed = useVaultListChange()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      unwrap(
-        api.PATCH('/api/v1/vaults/{vault_id}', {
-          params: { path: { vault_id: id } },
-          body: { name },
-        }),
-      ),
-    onSuccess: () => client.invalidateQueries({ queryKey: VAULTS_KEY }),
+    mutationFn: ({ id, name }: { id: string; name: string }) => mutations.renameVault(id, name),
+    onSuccess: async (_vault, { id }) => {
+      await Promise.all([changed(), client.invalidateQueries({ queryKey: keys.vault(id) })])
+    },
   })
 }
 
-/** Moves the vault to the data directory's trash (`DELETE`; the folder is never deleted). */
+/** Moves the vault to the data directory's trash (the folder is never deleted). */
 export function useDeleteVault() {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await api.DELETE('/api/v1/vaults/{vault_id}', { params: { path: { vault_id: id } } })
-    },
-    onSuccess: () => client.invalidateQueries({ queryKey: VAULTS_KEY }),
-  })
+  const mutations = useRequiredMutations()
+  const changed = useVaultListChange()
+  return useMutation({ mutationFn: (id: string) => mutations.deleteVault(id), onSuccess: changed })
 }

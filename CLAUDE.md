@@ -98,7 +98,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make bench` | chronology benchmarks and perf budgets, both engines (testing.md §4.1) |
 | `make perf` | backend perf budgets (testing.md §4), incl. the `large` sample world (built once and cached in `LORE_SAMPLE_CACHE`, about 45 minutes) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
-| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |
+| `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`, with `moments.gen.ts`: where moments sit per schema), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |
 | `make fmt` | ruff format + prettier |
 | `make docker` | build the image `lore-world-tracker:local` (the tag `docker-compose.yml` uses) |
 | `make docker-smoke` | start the built image via docker compose (host port 8080) and smoke-test it (`scripts/docker-smoke.sh`, CI `docker` job) |
@@ -115,7 +115,8 @@ Pydantic v2, sync FastAPI path operations, services own transactions, routers st
 place. Tests use builders that call services (never raw inserts).
 
 **TypeScript:** strict mode (+ `noUncheckedIndexedAccess`). Components use data hooks backed by
-the `DataSource` (never `fetch`). Moments are `bigint` after the data layer. Use
+the `DataSource` (never `fetch`; only `data/` and `app/` import `api/`). Moments are `bigint` after
+the data layer (`toDomain`), and `lore/no-number-moment` rejects `Number()`/`parseInt()` on them. Use
 `floorDiv`/`floorMod` from `@lore/chronology` (bigint `%` truncates). `JSON.stringify` can't
 serialize `bigint`, so use the data-layer serializers. shadcn components live in `components/ui`.
 Don't edit generated code.
