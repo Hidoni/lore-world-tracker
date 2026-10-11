@@ -764,16 +764,21 @@ describe('counting', () => {
   })
 
   test('a count limit far away is fast', () => {
-    // Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms.
-    const fresh = calendarOf('gregorian-week') // no cached counters
+    // Acceptance: count = 10^12 on a yearly rule computes series bounds in < 100 ms. The best of
+    // five runs, each on a freshly compiled calendar: one run on a shared runner (or next to
+    // other test files) can take half as long again (#246).
     const yearly = rule({
       freq: { level: 'year' },
       limit: { kind: 'count', count: '1000000000000' },
     })
-    const begun = performance.now()
-    const bounds = seriesBounds(yearly, context(g(2024, 'feb', 29, 9), { calendar: fresh }))
-    const elapsed = performance.now() - begun
-    expect(bounds.count).toBe(10n ** 12n)
+    let elapsed = Infinity
+    for (let run = 0; run < 5; run++) {
+      const fresh = calendarOf('gregorian-week') // no cached counters
+      const begun = performance.now()
+      const bounds = seriesBounds(yearly, context(g(2024, 'feb', 29, 9), { calendar: fresh }))
+      elapsed = Math.min(elapsed, performance.now() - begun)
+      expect(bounds.count).toBe(10n ** 12n)
+    }
     expect(elapsed).toBeLessThan(100)
   })
 

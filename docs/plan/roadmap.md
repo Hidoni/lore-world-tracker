@@ -182,6 +182,8 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #236 | M3-21 | Timeline window: cold windows miss their budgets on the large sample world (0.25–5 s; as reader slowest) | M | P1 | #56 |
 | #237 | M3-22 | Calendar proposals over the large sample world: preview 9.3 s and apply 123 s (budget < 5 s each) | M | P1 | #56, #235 |
 | #238 | M3-23 | App startup on the large sample world takes 10 minutes before serving requests | S | P1 | #56 |
+| #246 | M3-24 | Plain-timer perf tests time one cold run and flake around their budgets (bug) | S | P2 | – |
+| #247 | M3-25 | series_bounds far count runs at ~90% of its 100 ms budget (Python) (bug) | S | P2 | – |
 
 ### M4: Frontend foundation
 

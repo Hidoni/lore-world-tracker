@@ -177,7 +177,8 @@ Both engines, on the conformance calendar `gregorian-seconds` (one-second base u
 noted. `make bench` runs the benchmarks (`backend/tests/chronology/test_benchmarks.py` with
 pytest-benchmark, `packages/chronology/test/*.bench.ts` with Vitest bench), which assert each
 budget on the median; the `perf` tests next to each feature's unit tests check the same budgets
-with plain timers. CI runs them nightly.
+with plain timers, on the best of a few runs after a warm-up (one cold run on a shared runner
+lands anywhere from 60% to 100% of the steady rate, #246). CI runs them nightly.
 
 | Operation | Budget | Set by |
 |-----------|--------|--------|
