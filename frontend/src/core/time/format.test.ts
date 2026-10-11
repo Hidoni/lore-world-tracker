@@ -1,37 +1,12 @@
-import { absoluteMoments, instantiatePreset, PRESETS } from '@lore/chronology/presets'
 import { describe, expect, it } from 'vitest'
 
-import type { Entity } from '@/data'
+import { presetCalendar, testDimension } from '@/test/calendars'
 
-import { ABSOLUTE, compiledCalendar, lenses, type DimensionTime } from './calendars'
+import { ABSOLUTE, compiledCalendar, lenses } from './calendars'
 import { displayLevel, formatIn, relativeToPresent } from './format'
 
-const DIMENSION: DimensionTime = {
-  id: 'd1',
-  name: 'Aetheria',
-  baseUnit: { singular: 'second', plural: 'seconds', abbr: 's' },
-  duration: 10n ** 40n,
-  defaultCalendarId: 'c-greg',
-  primeTimelineId: null,
-  present: null,
-}
-
-function calendarEntity(id: string, presetId: string, revision = 1): Entity {
-  const preset = PRESETS.get(presetId)
-  if (preset === undefined) throw new Error(presetId)
-  const definition = instantiatePreset(preset, { num: 1n, den: 1n })
-  return {
-    id,
-    name: preset.name,
-    kind: 'calendar',
-    deleted_at: null,
-    ext: {
-      definition,
-      definition_revision: revision,
-      resolved_anchors: absoluteMoments(definition),
-    },
-  } as unknown as Entity
-}
+const DIMENSION = testDimension('c-greg')
+const calendarEntity = presetCalendar
 
 const DEC_2023 = 63_839_000_000n
 

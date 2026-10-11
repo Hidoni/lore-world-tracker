@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Time inputs** (#73): `BigNumberInput` (grouping, `1e100`, powers, a unit calculator like
+  `10^100 years × 31,557,600 s`), `TimePointPicker` (Date tab driven by the calendar's valid
+  units per parent, eras, precision, circa, live preview; Absolute tab bounded by the dimension)
+  and `DurationPicker` (base units or calendar amounts, with a sign).
 - **Consistency UI** (#85): the findings panel (filters for severity, certainty, rule, owner,
   entity and timeline, kept in the URL; explain; suppress with a note; re-check the vault),
   finding badges on entity headers and sidebar trees, Settings → Consistency with rule severities

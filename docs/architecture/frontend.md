@@ -431,6 +431,31 @@ Implementation (`core/time/`, #72):
   `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
   present" counts the display calendar's top level (the default calendar's under Absolute).
 
+Time inputs (`core/time/`, #73):
+
+- **`BigNumberInput`:** reads digits with any grouping (`,`, spaces, `'`, `_`), exponents
+  (`1e100`, `3.17e99`), powers (`10^100`) and products of factors with unit labels as a calculator
+  (`10^100 years × 31,557,600 s`, `parseBigNumber`). The result must be whole and at most 1000
+  digits, and non-negative unless `signed`. Optional `min`/`max` bounds are checked too. Below
+  the input it shows the parsed value (scientific notation and the digit count when long) or the
+  problem. On blur, plain numbers are rewritten grouped. Enter calls `onConfirm`.
+- **`TimePointPicker`:**
+  - **Date tab:** pick a calendar, an era (or none: astronomical years) and a precision. Levels
+    finer than the precision are hidden. The top level is typed (any size). Each lower level
+    offers `options()` for its chosen parents: named units are listed by slot id, so an odd
+    year offers its own months, and ranges become choices, or a number input past 1000 units.
+    A unit the parents no longer allow falls back to the first valid one.
+  - **Reform dates:** an ambiguous date across a reform shows a "Calendar rules" (regime)
+    select.
+  - **Absolute tab:** base units, bounded by the dimension's duration.
+  - **Both tabs:** a circa toggle, and a preview of the date in the display calendar and the
+    moment.
+  - **Output:** the picker reports a `TimePoint` only when the engine accepts it (`fromFields`
+    with `overflow: 'reject'`), else `null`. Era dates keep the era-relative year with `era`.
+    Enter on a field confirms. Relative anchors come with #74.
+- **`DurationPicker`:** a sign, then base units or amounts per level of one of the dimension's
+  calendars. It reports `{kind: 'base', units}` (signed) or `{kind: 'calendar', amounts, sign}`.
+
 ## 9. Timeline view (core)
 
 ### 9.1 Layers
