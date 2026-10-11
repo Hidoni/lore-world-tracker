@@ -96,15 +96,6 @@ describe('shell', () => {
     expect(screen.getByRole('complementary', { name: 'Context' })).toBeInTheDocument()
   })
 
-  it('opens search with Ctrl+K', async () => {
-    const user = userEvent.setup()
-    const { router } = await renderApp('/v/v1')
-    await user.keyboard('{Control>}k{/Control}')
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/v/v1/search')
-    })
-  })
-
   it('opens the navigation drawer from the menu button and closes it on navigation', async () => {
     const user = userEvent.setup()
     const { router } = await renderApp('/v/v1')

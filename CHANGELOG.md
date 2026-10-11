@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Command palette and search** (#67): `Ctrl/Cmd+K` opens a palette with recent entities, a quick
+  switcher and commands (new entity, go to a dimension, its timeline or a page, theme, shortcuts,
+  module commands). The search page has kind and dimension filters, highlighted snippets and
+  module result renderers. `?` lists the keyboard shortcuts.
 - **Rich-text editor II** (#64):
   - Spoiler and private blocks with labels, and callouts in three tones, shown framed in the
     editor; spoilers fold for readers.

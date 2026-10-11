@@ -2,6 +2,7 @@ import { useParams } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import { BacklinksPanel } from '@/core/links'
+import { CommandPalette, ShortcutsDialog } from '@/core/palette'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 
 import { useShell } from './shell-store'
@@ -77,6 +78,8 @@ export function ShellLayout({ children }: { children: ReactNode }) {
           </aside>
         )}
       </div>
+      <CommandPalette />
+      <ShortcutsDialog />
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" className="w-72">
           <SheetTitle className="px-4 pt-4">Navigation</SheetTitle>

@@ -1,2 +1,2 @@
-// Search page and quick switcher.
-export {}
+// The search page (frontend.md §4).
+export { SearchPage, type SearchParams } from './search-page'
