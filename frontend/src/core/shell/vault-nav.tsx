@@ -11,6 +11,7 @@ import {
 import type { ComponentType } from 'react'
 
 import { useExtensionList } from '@/core/modules'
+import { SidebarTrees } from '@/core/navigation'
 
 interface NavItem {
   to:
@@ -48,8 +49,8 @@ function ModuleSections({ vault }: { vault: string }) {
 }
 
 /**
- * Sidebar navigation. Registry sections, trees, pinned and recent arrive with #65; until then
- * the vault's own pages and the active modules' sections.
+ * Sidebar navigation (frontend.md §3): the vault's pages, pinned entities, a tree per kind,
+ * recent entities and the active modules' sections.
  */
 export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
   const { vault } = useParams({ strict: false })
@@ -76,6 +77,7 @@ export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         ))
       )}
+      {vault !== undefined && <SidebarTrees vault={vault} onNavigate={onNavigate} />}
       {vault !== undefined && <ModuleSections vault={vault} />}
     </nav>
   )

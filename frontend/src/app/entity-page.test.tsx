@@ -20,7 +20,7 @@ describe('entity page', () => {
       '/v/v1/e/a2',
     )
     expect(screen.getByText('Artifact')).toBeInTheDocument()
-    expect(await screen.findByText('Aetheria')).toBeInTheDocument() // its dimension
+    expect(await within(screen.getByRole('main')).findByText('Aetheria')).toBeInTheDocument() // its dimension
     const fields = screen.getByRole('region', { name: 'Fields' })
     expect(within(fields).getByText('Era')).toBeInTheDocument()
     expect(within(fields).getByText('Origin')).toBeInTheDocument()

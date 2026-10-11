@@ -5,6 +5,7 @@ import { AppProviders } from '@/app/providers'
 import { createQueryClient } from '@/app/query-client'
 import { createAppRouter, createMemoryHistory } from '@/app/router'
 import type { ModuleDefinition } from '@/core/modules'
+import { usePlaces } from '@/core/navigation/places'
 import { useShell } from '@/core/shell'
 
 /**
@@ -17,6 +18,7 @@ export async function renderApp(
   options: { readOnly?: boolean } = {},
 ) {
   useShell.getState().reload()
+  usePlaces.getState().reload()
   const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }), modules)
   const queryClient = createQueryClient()
   queryClient.setDefaultOptions({ queries: { retry: false }, mutations: { retry: false } })

@@ -23,6 +23,13 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Navigation** (#65):
+  - Sidebar: a lazily loaded tree per kind, with multiversal badges. Drag and drop moves an entity
+    to an allowed parent, by mouse or keyboard. A context menu offers new child, rename, pin and
+    move to trash. Pinned and recently visited entities are kept per vault.
+  - Entity lists per kind: virtualized, with name and dimension filters, sorting, and columns from
+    the kind's UI config.
+  - Trash page: restore, or delete permanently.
 - **Rich-text editor** (#63): the body editor (TipTap, loaded lazily) with headings, lists,
   quotes, code, tables, links, markdown shortcuts and a word count. Typing `[[` or `@` links an
   entity, or creates it first. It autosaves after a pause, on blur and when you leave the page,

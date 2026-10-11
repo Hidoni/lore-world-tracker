@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
@@ -62,6 +62,51 @@ export function useTrash(vault: string, query: Query<'trash_list'> = {}) {
   return useQuery({ queryKey: keys.trash(vault, query), queryFn: () => source.trash(vault, query) })
 }
 
+/** Every page of a cursor-paged list, fetched as needed (`fetchNextPage`): long lists, trees. */
+function usePaged<P extends { next_cursor: string | null }>(
+  queryKey: readonly unknown[],
+  fetchPage: (cursor: string | null) => Promise<P>,
+  enabled = true,
+) {
+  return useInfiniteQuery({
+    queryKey: [...queryKey, 'paged'],
+    queryFn: ({ pageParam }) => fetchPage(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    enabled,
+  })
+}
+
+/** All entities matching `query`, page by page (entity lists). */
+export function useEntityList(vault: string, query: Query<'entities_list'> = {}) {
+  const source = useDataSource()
+  return usePaged(keys.entities(vault, query), (cursor) =>
+    source.entities(vault, { ...query, ...(cursor === null ? {} : { cursor }) }),
+  )
+}
+
+/** One level of the navigation tree (roots, or `parent`'s children), page by page. */
+export function useTreeLevel(
+  vault: string,
+  query: Query<'tree_get'> = {},
+  options: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  return usePaged(
+    keys.tree(vault, query),
+    (cursor) => source.tree(vault, { ...query, ...(cursor === null ? {} : { cursor }) }),
+    options.enabled ?? true,
+  )
+}
+
+/** The trash, page by page. */
+export function useTrashList(vault: string, query: Query<'trash_list'> = {}) {
+  const source = useDataSource()
+  return usePaged(keys.trash(vault, query), (cursor) =>
+    source.trash(vault, { ...query, ...(cursor === null ? {} : { cursor }) }),
+  )
+}
+
 /** After a write: invalidate what its `affected` names. */
 function useAfterWrite(vault: string) {
   const client = useQueryClient()
@@ -106,6 +151,29 @@ export function useRestoreEntity(vault: string) {
   const after = useAfterWrite(vault)
   return useMutation({
     mutationFn: (id: string) => mutations.restoreEntity(vault, id),
+    onSuccess: after,
+  })
+}
+
+/**
+ * Changes an entity at its current revision, read first: for places that don't hold the entity
+ * (tree nodes, list rows: rename, reparent). Last write wins, like a fresh page.
+ */
+export function useUpdateLatest(vault: string) {
+  const mutations = useRequiredMutations()
+  const source = useDataSource()
+  const after = useAfterWrite(vault)
+  return useMutation({
+    mutationFn: async ({
+      id,
+      change,
+    }: {
+      id: string
+      change: Omit<Schemas['EntityUpdate'], 'revision'>
+    }) => {
+      const entity = await source.entity(vault, id)
+      return mutations.updateEntity(vault, id, { ...change, revision: entity.revision })
+    },
     onSuccess: after,
   })
 }

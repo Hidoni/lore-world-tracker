@@ -108,6 +108,8 @@ function KindForm({
   kind,
   dimensions,
   initialName,
+  initialParent,
+  initialDimension,
   onCreated,
   onCancel,
 }: {
@@ -115,6 +117,8 @@ function KindForm({
   kind: Kind
   dimensions: readonly { id: string; name: string }[]
   initialName: string
+  initialParent: { id: string; name: string } | null
+  initialDimension: string | null | undefined
   onCreated: (entity: { id: string; name: string }) => void
   onCancel: () => void
 }) {
@@ -132,8 +136,11 @@ function KindForm({
     resolver: zodResolver(schema) as never,
     defaultValues: { name: initialName, fields: { ...kind.createDefaults } },
   })
-  const [dimension, setDimension] = useState<string | null>(null)
-  const [parent, setParent] = useState<{ id: string; name: string } | null>(null)
+  // A multiversal parent leaves the child's placement to its kind's default.
+  const [dimension, setDimension] = useState<string | null>(initialDimension ?? null)
+  const [parent, setParent] = useState<{ id: string; name: string } | null>(
+    initialParent !== null && kind.allowedParents.length > 0 ? initialParent : null,
+  )
   const placement =
     dimension ??
     (kind.capabilities.can_be_multiversal ? MULTIVERSAL : (dimensions[0]?.id ?? MULTIVERSAL))
@@ -246,12 +253,15 @@ export function CreateEntityDialog({
   vault,
   initialKind,
   initialName = '',
+  initialParent = null,
   onClose,
   onCreated,
 }: {
   vault: string
   initialKind?: string
   initialName?: string
+  /** A parent to start with (new child), with its dimension (`null`: multiversal). */
+  initialParent?: { id: string; name: string; dimension_id: string | null } | null
   onClose: () => void
   /** Called with the new entity instead of opening it (e.g. to link to it). */
   onCreated?: (entity: { id: string; name: string }) => void
@@ -303,6 +313,8 @@ export function CreateEntityDialog({
             kind={kind}
             dimensions={dimensions.data?.items ?? []}
             initialName={initialName}
+            initialParent={initialParent}
+            initialDimension={initialParent?.dimension_id}
             onCancel={onClose}
             onCreated={(entity) => {
               if (onCreated) {

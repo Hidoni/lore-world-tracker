@@ -45,7 +45,7 @@ export const fixtureModule = defineModule({
       }),
     }),
   ],
-  navSections: [{ id: 'fixture.relics', title: 'Relics', component: FixtureSection }],
+  navSections: [{ id: 'fixture.relics', title: 'Relic shelf', component: FixtureSection }],
   entityPanels: [
     {
       id: 'fixture.later',

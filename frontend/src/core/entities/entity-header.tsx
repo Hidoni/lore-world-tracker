@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { MoreHorizontalIcon, PencilIcon } from 'lucide-react'
+import { MoreHorizontalIcon, PencilIcon, PinIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ComponentProps } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { togglePin, usePlaceList } from '@/core/navigation/places'
 import type { Kind } from '@/core/registry'
 import { useDeleteEntity, useEntity, useMutations, type components, type Entity } from '@/data'
 
@@ -123,6 +124,25 @@ function DimensionBadge({
   return <Badge variant="outline">{dimension.data?.name ?? 'Dimension'}</Badge>
 }
 
+/** Pins the entity to the sidebar (per vault, this browser). */
+function PinButton({ vault, entity }: { vault: string; entity: Entity }) {
+  const pinned = usePlaceList('pinned', vault).some((place) => place.id === entity.id)
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={pinned ? 'Unpin' : 'Pin to the sidebar'}
+      aria-pressed={pinned}
+      title={pinned ? 'Unpin' : 'Pin to the sidebar'}
+      onClick={() => {
+        togglePin(vault, { id: entity.id, name: entity.name, kind: entity.kind })
+      }}
+    >
+      <PinIcon className={pinned ? 'fill-current' : undefined} />
+    </Button>
+  )
+}
+
 /**
  * The entity header (frontend.md §7): icon, inline-editable name, kind badge, dimension or
  * multiversal badge, branch-only badge, breadcrumbs, aliases, tags and visibility. Editing needs
@@ -196,6 +216,7 @@ export function EntityHeader({
             {VISIBILITIES.find((v) => v.value === entity.visibility)?.label}
           </Badge>
         )}
+        <PinButton vault={vault} entity={entity} />
         {editable && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

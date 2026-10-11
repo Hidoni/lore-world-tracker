@@ -26,7 +26,8 @@ function vault(extra: Parameters<typeof row>[3] = {}, conflicts = 0) {
 
 /** The TipTap editor behind the "Body" textbox (ProseMirror keeps it on its DOM node). */
 async function bodyEditor(): Promise<Editor> {
-  const textbox = await screen.findByRole('textbox', { name: 'Body' })
+  // The editor is a lazy chunk: the first import can be slow under a full test run.
+  const textbox = await screen.findByRole('textbox', { name: 'Body' }, SAVE_WAIT)
   return (textbox as HTMLElement & { editor: Editor }).editor
 }
 
@@ -65,7 +66,7 @@ describe('body editor', () => {
       ),
     )
     await waitFor(() => {
-      expect(screen.getByRole('status', { name: '' })).toHaveTextContent('Saved')
+      expect(screen.getByText('Saved')).toBeInTheDocument()
     })
     // The save reported Crown as affected: its backlinks are stale.
     expect(queryClient.getQueryState(keys.backlinks('v1', 'a1', {}))?.isInvalidated).toBe(true)
