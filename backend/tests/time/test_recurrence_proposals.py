@@ -153,9 +153,32 @@ def test_defaults_keep_keys_and_detach_orphans(api: LinkApi, world: dict[str, An
     assert (body["kept"], body["rekeyed"], body["detached"], body["trashed"]) == (2, 0, 2, 0)
     moved = ext_of(api, ids["4"])
     assert (moved["occurrence_key"], moved["start_t"]) == ("4", str(8 * DAY))  # moved with the rule
-    assert moved["original_start_t"] == str(4 * DAY)
+    assert moved["original_start_t"] == str(8 * DAY)  # the new baseline (#230)
     assert ext_of(api, ids["60"])["series_id"] is None
     assert ext_of(api, ids["60"])["start_t"] == str(60 * DAY)
+
+
+def test_kept_occurrences_are_compared_with_their_new_start(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """After ``keep_key``, a later change that doesn't move the occurrence reports it unchanged;
+    the same after a direct edit that moves it (#230)."""
+    series = daily(api, world)
+    kept = materialize(api, series, "4")["entity"]
+    first = propose(api, series)
+    assert by_key(first)["4"]["status"] == "moved"
+    assert apply(api, series, first, **{kept["id"]: "keep_key"}).status_code == 200
+    assert ext_of(api, kept["id"])["original_start_t"] == str(8 * DAY)
+    # Shorter, but key 4 still starts at day 8.
+    shorter = {"kind": "interval", "every": str(2 * DAY), "limit": {"kind": "count", "count": "20"}}
+    second = by_key(propose(api, series, rule=shorter))["4"]
+    assert (second["status"], second["original_start_t"]) == ("unchanged", str(8 * DAY))
+    # A direct edit that moves it rebases it too.
+    every_third = {"kind": "interval", "every": str(3 * DAY), "limit": {"kind": "never"}}
+    assert patch(api, series["id"], recurrence=every_third).status_code == 200
+    moved = ext_of(api, kept["id"])
+    assert (moved["start_t"], moved["original_start_t"]) == (str(12 * DAY), str(12 * DAY))
+    assert by_key(propose(api, series, rule=every_third))["4"]["status"] == "unchanged"
 
 
 def test_modified_and_cancelled_occurrences(api: LinkApi, world: dict[str, Any]) -> None:
@@ -262,6 +285,7 @@ def test_direct_edits_may_not_orphan_occurrences(api: LinkApi, world: dict[str, 
     never = {"kind": "interval", "every": str(2 * DAY), "limit": {"kind": "never"}}
     assert patch(api, series["id"], recurrence=never).status_code == 200
     assert ext_of(api, ids["4"])["start_t"] == str(8 * DAY)
+    assert ext_of(api, ids["4"])["original_start_t"] == str(8 * DAY)  # rebased (#230)
 
 
 def test_undo_restores_the_series_and_its_occurrences(api: LinkApi, world: dict[str, Any]) -> None:

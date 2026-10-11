@@ -396,7 +396,7 @@ A materialized occurrence is an **event entity** with:
 | `series_entity_id` | the series event |
 | `occurrence_key` | `k` or `k.j` |
 | `occurrence_state` | `referenced` (unchanged time; has sub-events/links/notes), `modified` (time or duration changed), `cancelled` (did not happen) |
-| `original_start_t` | the computed start when materialized (used for reconciliation) |
+| `original_start_t` | the computed start when materialized, then the key's start after each rule change it keeps its key through (the baseline reconciliation compares with) |
 | `start_spec` | `referenced`: `relative(ref = {event: series, slot: start, occurrence: key}, 0)`; `modified`: any user anchor |
 | `end_spec` | `referenced`: `relative(ref = {series, end, occurrence: key}, 0)`; `modified`: any end spec |
 
@@ -477,8 +477,8 @@ above is silent):
   Stored for an hour like calendar proposals.
 - Apply takes `strategies` by occurrence entity id (others their default). `rekey` moves the
   occurrence's anchors to the new key and sets `original_start_t` to that occurrence's start;
-  `keep_key` leaves `original_start_t` alone (it stays the computed start when materialized, so
-  the occurrence shows as `moved` in later proposals). `detach` and `trash` first pin anchors to
+  `keep_key` sets `original_start_t` to the key's start under the new rule (product decision
+  #230, 2026-10-11), so a later proposal reports only what that change moves. `detach` and `trash` first pin anchors to
   occurrences of the series at their current moments (`time-model.md` §7.4 pinning), since an
   orphaned key can't resolve; `detach` then clears the series, key, state and original start;
   `trash` moves it to the trash (`409 occurrence_has_sub_events` for one with sub-events: detach
@@ -488,8 +488,10 @@ above is silent):
   again differ from the preview. The series' rule, start and end, and the reconciliation are one
   changeset (one undo).
 - **Direct edits** (PATCH of `recurrence`, `start` or `end`) may move materialized occurrences
-  (`keep_key`, the default) but not orphan them: that answers `409 conflict` with
-  `context.orphaned` (entity ids) and `context.proposals`.
+  (`keep_key`, the default, which resets their `original_start_t` the same way) but not orphan
+  them: that answers `409 conflict` with `context.orphaned` (entity ids) and `context.proposals`.
+  Occurrences moved by propagation (the series' start anchored to something that moved) keep
+  their `original_start_t`.
 
 ## 9. Validation
 

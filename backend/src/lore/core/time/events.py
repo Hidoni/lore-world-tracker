@@ -410,16 +410,13 @@ class OccurrencesOrphanedError(ConflictError):
 
 def _check_orphans(context: VaultContext, row: Event, plan: SeriesPlan) -> None:
     """Direct edits of a series' rule, start or end may move its materialized occurrences (they
-    keep their keys, the default) but not orphan them: that goes through a recurrence proposal
-    (decided with #54)."""
+    keep their keys, the default, and their ``original_start_t`` follows like ``keep_key``'s,
+    #230) but not orphan them: that goes through a recurrence proposal (decided with #54)."""
     if row.series_entity_id is not None or (row.recurrence is None and plan.rule is None):
         return
     live = series.materialized(context.session, [row.entity_id])
-    orphaned = [
-        r.row.entity_id
-        for r in series.reconcile(plan.rule, plan.context, live)
-        if r.status == series.ORPHANED
-    ]
+    found = series.reconcile(plan.rule, plan.context, live)
+    orphaned = [r.row.entity_id for r in found if r.status == series.ORPHANED]
     if orphaned:
         raise OccurrencesOrphanedError(
             f"{len(orphaned)} materialized occurrence(s) would lose their occurrence: reconcile "
@@ -429,6 +426,8 @@ def _check_orphans(context: VaultContext, row: Event, plan: SeriesPlan) -> None:
                 "proposals": f"/events/{row.entity_id}/recurrence/proposals",
             },
         )
+    for reconciliation in found:
+        series.rebase(reconciliation)
 
 
 def write_times(
