@@ -23,6 +23,12 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Links UI** (#66):
+  - Relations panel: links grouped by type with labels from the entity's side, roles, details and
+    visibility, with edit and remove.
+  - Add-link dialog: target search, the link types that fit both kinds (either direction), role,
+    details from the type's schema, and visibility.
+  - Backlinks and mentions in the context panel.
 - **Navigation** (#65):
   - Sidebar: a lazily loaded tree per kind, with multiversal badges. Drag and drop moves an entity
     to an allowed parent, by mouse or keyboard. A context menu offers new child, rename, pin and

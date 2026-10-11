@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
+import { RelationsPanel } from '@/core/links'
 import { forget, visit } from '@/core/navigation/places'
 import { useKind, type Kind } from '@/core/registry'
 import { isRevisionConflict } from '@/data'
@@ -176,7 +177,7 @@ function EntityView({
                 </Section>
               )}
               <Section title="Relations">
-                <Pending>Links and backlinks arrive with #66.</Pending>
+                <RelationsPanel vault={vault} entity={data} editable={editable} />
               </Section>
               {kind?.capabilities.is_time_bound === true && (
                 <Section title="Time">
