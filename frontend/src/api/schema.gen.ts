@@ -1120,9 +1120,9 @@ export interface components {
             id?: components["schemas"]["EntityId"] | null;
             alias: components["schemas"]["EntityName"];
             /** @default alias */
-            alias_kind: components["schemas"]["AliasKind"];
+            alias_kind?: components["schemas"]["AliasKind"];
             /** @default public */
-            visibility: components["schemas"]["Visibility"];
+            visibility?: components["schemas"]["Visibility"];
         };
         /** @enum {string} */
         AliasKind: "alias" | "title" | "former_name" | "translation" | "nickname";
@@ -1183,7 +1183,7 @@ export interface components {
              * Include Media
              * @default true
              */
-            include_media: boolean;
+            include_media?: boolean;
         };
         /**
          * BackupList
@@ -1203,17 +1203,17 @@ export interface components {
              * Every Hours
              * @default 24
              */
-            every_hours: number;
+            every_hours?: number;
             /**
              * Keep
              * @default 7
              */
-            keep: number;
+            keep?: number;
             /**
              * Include Media
              * @default true
              */
-            include_media: boolean;
+            include_media?: boolean;
         };
         /** BackupScheduleUpdate */
         BackupScheduleUpdate: {
@@ -1285,7 +1285,7 @@ export interface components {
              * @description For items without a strategy, where it applies (else `keep_date`).
              * @default keep_date
              */
-            default_strategy: components["schemas"]["CalendarStrategy"];
+            default_strategy?: components["schemas"]["CalendarStrategy"];
             /**
              * Suppress
              * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
@@ -1676,7 +1676,7 @@ export interface components {
              * Summary
              * @default
              */
-            summary: string;
+            summary?: string;
             visibility?: components["schemas"]["Visibility"] | null;
             /**
              * Ext
@@ -1712,7 +1712,7 @@ export interface components {
              * Summary
              * @default
              */
-            summary: string;
+            summary?: string;
             body?: components["schemas"]["JsonObject"] | null;
             /**
              * Fields
@@ -1798,7 +1798,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @default public */
-            visibility: components["schemas"]["Visibility"];
+            visibility?: components["schemas"]["Visibility"];
             /** @description Required when the link has validity bounds; null = timeless. */
             timeline_id?: components["schemas"]["Id"] | null;
             valid_from?: components["schemas"]["TimePoint"] | null;
@@ -1941,7 +1941,7 @@ export interface components {
              * Summary
              * @default
              */
-            summary: string;
+            summary?: string;
             body?: components["schemas"]["JsonObject"] | null;
             /**
              * Fields
@@ -2199,12 +2199,12 @@ export interface components {
              * Dashed
              * @default false
              */
-            dashed: boolean;
+            dashed?: boolean;
             /**
              * Weight
              * @default 1
              */
-            weight: number;
+            weight?: number;
         };
         /** GraphStyleOut */
         GraphStyleOut: {
@@ -2284,7 +2284,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @default public */
-            visibility: components["schemas"]["Visibility"];
+            visibility?: components["schemas"]["Visibility"];
             /** @description Required when the link has validity bounds; null = timeless. */
             timeline_id?: components["schemas"]["Id"] | null;
             valid_from?: components["schemas"]["TimePoint"] | null;
@@ -2365,15 +2365,15 @@ export interface components {
              * Description
              * @default
              */
-            description: string;
+            description?: string;
             /** @default * */
-            source_kinds: components["schemas"]["KindList"];
+            source_kinds?: components["schemas"]["KindList"];
             /** @default * */
-            target_kinds: components["schemas"]["KindList"];
+            target_kinds?: components["schemas"]["KindList"];
             /** @default optional */
-            temporal: components["schemas"]["Temporal"];
+            temporal?: components["schemas"]["Temporal"];
             /** @default none */
-            unique: components["schemas"]["UniquePolicy"];
+            unique?: components["schemas"]["UniquePolicy"];
             /** Max Targets Per Source */
             max_targets_per_source?: number | null;
             /** Max Sources Per Target */
@@ -2396,7 +2396,7 @@ export interface components {
              * Symmetric
              * @default false
              */
-            symmetric: boolean;
+            symmetric?: boolean;
         };
         /** LinkTypeDeleted */
         LinkTypeDeleted: {
@@ -2462,15 +2462,15 @@ export interface components {
              * Description
              * @default
              */
-            description: string;
+            description?: string;
             /** @default * */
-            source_kinds: components["schemas"]["KindList"];
+            source_kinds?: components["schemas"]["KindList"];
             /** @default * */
-            target_kinds: components["schemas"]["KindList"];
+            target_kinds?: components["schemas"]["KindList"];
             /** @default optional */
-            temporal: components["schemas"]["Temporal"];
+            temporal?: components["schemas"]["Temporal"];
             /** @default none */
-            unique: components["schemas"]["UniquePolicy"];
+            unique?: components["schemas"]["UniquePolicy"];
             /** Max Targets Per Source */
             max_targets_per_source?: number | null;
             /** Max Sources Per Target */
@@ -2598,7 +2598,7 @@ export interface components {
              * Cascade
              * @default false
              */
-            cascade: boolean;
+            cascade?: boolean;
         };
         /** ModuleUpdateResponse */
         ModuleUpdateResponse: {
@@ -2678,13 +2678,13 @@ export interface components {
              *       "den": "1"
              *     }
              */
-            seconds_per_base_unit: components["schemas"]["Rational"];
+            seconds_per_base_unit?: components["schemas"]["Rational"];
             /**
              * Origin
              * @description The moment at which the preset's alignment unit starts.
              * @default 0
              */
-            origin: string;
+            origin?: string;
         };
         /** PresetList */
         PresetList: {
@@ -3336,7 +3336,7 @@ export interface components {
              * Approximate
              * @default false
              */
-            approximate: boolean;
+            approximate?: boolean;
             /**
              * Frozen From
              * @description The spec this point was frozen from when a record it depended on was purged (an
@@ -3606,7 +3606,7 @@ export interface components {
              * @description Of new content.
              * @default public
              */
-            visibility: components["schemas"]["Visibility"];
+            visibility?: components["schemas"]["Visibility"];
         };
         /** VaultDefaultsUpdate */
         VaultDefaultsUpdate: {
@@ -3771,7 +3771,7 @@ export interface components {
              * Summary
              * @default
              */
-            summary: string;
+            summary?: string;
             source: components["schemas"]["CalendarSource"];
         };
     };

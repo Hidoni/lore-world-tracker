@@ -19,6 +19,10 @@ All notable changes to this project are documented here. The format follows
   extensions, commands, settings pages, header media), activation per vault from `GET /registry`
   (dependencies included), lazily loaded module routes, and the KindRegistry merging server kinds
   and link types with module UI configs (`useKind`, `useLinkType`, curated `iconMap`).
+- **Entity page and create/trash flows** (#61): one page for every kind (header with inline rename,
+  badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
+  module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
+  and move to trash, restore and permanent deletion.
 
 ## [0.2.0] - 2026-10-11
 
