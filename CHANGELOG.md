@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Frontend data layer** (#59): `DataSource` (every read, static-export ready) and `Mutations`
+  (author-only) over the HTTP API, with hooks for vaults, entities, trees, links, search and
+  history, query keys and `invalidateAffected`. Resolved moments are `bigint` in the UI: `make
+  gen` brands them `MomentString` and records where they sit (`moments.gen.ts`), and the
+  `lore/no-number-moment` lint rule keeps them out of JS numbers.
+
 ## [0.2.0] - 2026-10-11
 
 The time core (M3): the full time model is usable through the API, from a dimension's inception

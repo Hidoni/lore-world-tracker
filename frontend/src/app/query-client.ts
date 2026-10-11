@@ -3,9 +3,13 @@ import { toast } from 'sonner'
 
 import { ApiError } from '@/api'
 
-/** API errors become toasts, unless the query or mutation opts out with `meta: { toast: false }`. */
+/**
+ * API errors become toasts, unless the query or mutation opts out with `meta: { toast: false }`.
+ * `409 revision_conflict` never does: the conflict dialog (#62) handles it.
+ */
 function toastApiError(error: unknown, meta: { toast?: boolean } | undefined): void {
   if (!(error instanceof ApiError) || meta?.toast === false) return
+  if (error.code === 'revision_conflict') return
   toast.error(error.title, { description: error.detail, id: `${error.code}:${error.detail}` })
 }
 

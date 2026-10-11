@@ -8,6 +8,8 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
+import noNumberMoment from './eslint-rules/no-number-moment.js'
+
 /**
  * Frontend source areas (docs/architecture/frontend.md §2). Each element is one top-level folder of
  * `frontend/src`; boundaries are documented in modules.md §3.
@@ -48,7 +50,7 @@ export default tseslint.config(
     extends: [tseslint.configs.disableTypeChecked],
   },
   {
-    files: ['eslint.config.js', '**/*.config.{js,ts}'],
+    files: ['eslint.config.js', 'eslint-rules/**', '**/*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
 
@@ -56,7 +58,11 @@ export default tseslint.config(
   {
     files: ['frontend/**/*.{ts,tsx}'],
     extends: [jsxA11y.flatConfigs.recommended],
-    plugins: { 'react-hooks': reactHooks, boundaries },
+    plugins: {
+      'react-hooks': reactHooks,
+      boundaries,
+      lore: { rules: { 'no-number-moment': noNumberMoment } },
+    },
     languageOptions: {
       globals: globals.browser,
     },
@@ -74,6 +80,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'lore/no-number-moment': 'error',
       'boundaries/dependencies': [
         'error',
         {
@@ -94,6 +101,16 @@ export default tseslint.config(
               },
               message:
                 'lib and components are shared building blocks and must not import app/domain code',
+            },
+            {
+              // Components read and write through the data layer (DataSource/Mutations), never the
+              // API client (frontend.md §5.1).
+              from: {
+                element: { types: { anyOf: ['core', 'modules', 'editor', 'components', 'lib'] } },
+              },
+              disallow: { to: { element: { type: 'api' } } },
+              message:
+                'use the data layer (@/data), not the API client: only data/ and app/ import api/',
             },
             {
               // Only the app shell assembles everything.

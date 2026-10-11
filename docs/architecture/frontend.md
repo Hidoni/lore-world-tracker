@@ -145,15 +145,33 @@ interface Mutations { /* author-only writes; absent in read-only/static contexts
   `X-Lore-Client: web` and converts problem+json into `ApiError {status, code, errors, context}`.
 - **Domain mapping:** data-layer mappers convert every **resolved moment** (`*_t`, window items,
   bounds) from string to `bigint`. Time **specs** stay JSON (strings) and are consumed by
-  `@lore/chronology`. ESLint forbids `Number(` and `parseInt(` on fields typed as moment strings
-  via a custom lint rule or code review checklist (see CLAUDE.md).
+  `@lore/chronology`. Implementation (#59): `make gen` types every `format: bigint` field of the
+  OpenAPI document as the branded `MomentString` (`api/moment.ts`) and writes
+  `api/moments.gen.ts`, which says where moments sit in each schema. `toDomain(value, schema)`
+  converts a response along it and `Domain<T>` is its type (moments → `bigint`). Moments inside
+  an entity's `ext` (kind-specific JSON) are listed per kind in `data/domain.ts` (`EXT_MOMENTS`;
+  module kinds add theirs with the KindRegistry, #60). Requests take `bigint` (`toWire`,
+  `momentString`). `stringifyDomain`/`parseDomain` keep bigints through JSON (`{"$bigint": "…"}`).
+  The ESLint rule `lore/no-number-moment` (`eslint-rules/`) rejects `Number()`, `parseInt()`,
+  `parseFloat()` and unary `+` on `bigint` or `MomentString` values in the frontend.
+- **Boundaries:** only `data/` and `app/` import `api/` (eslint-plugin-boundaries); components use
+  hooks. `DataProvider` (in `AppProviders`) supplies `createHttpDataSource()` and
+  `createHttpMutations()`; reader and static contexts pass `mutations={null}`, and mutation hooks
+  then reject with "This view is read-only".
 - **Invalidation:** every write response includes
   `affected: {entities: id[], dimensions: id[], time_changed: bool, search_changed: bool}`. A
   central `invalidateAffected()` maps that to query keys (entity, lists, tree, backlinks, windows
   of affected dimensions…). `entities` includes the records the write moved through time
   propagation (the dependents of a moved event, …), and `time_changed` says that some stored
   moment or status changed, so timeline windows of `dimensions` are stale (`api.md` §2).
-- **Query keys:** `[vault, area, id?, params?]`, defined in `data/keys.ts` only.
+- **Query keys:** `[vault, area, id?, params?]`, defined in `data/keys.ts` only (`meta` and the
+  vault list sit outside any vault). `invalidateAffected` (`data/invalidate.ts`) marks the vault's
+  lists, trees, change feed and findings stale on every write, plus each affected entity's own
+  queries; `time_changed` refreshes the vault's windows, event trees, occurrences and timelines
+  (windows are keyed by timeline, not dimension), and `search_changed` the search queries.
+- **Errors:** `ApiError`s become toasts (`app/query-client.ts`) except `409 revision_conflict`
+  (`isRevisionConflict(error)`: the conflict dialog) and calls with `meta: { toast: false }`.
+  `fieldErrors(error)` maps a problem's `errors[]` to form fields.
 - **Autosave:** field edits save on blur/enter. Rich text autosaves 1.5 s after the last
   keystroke and on navigation. `409 revision_conflict` opens a conflict dialog (reload theirs /
   overwrite / copy mine to clipboard).

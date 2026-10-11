@@ -1,0 +1,163 @@
+import type { components, operations } from '@/api'
+
+import type { Domain } from './domain'
+
+type Schemas = components['schemas']
+/** An operation's query parameters (`as_reader` included: the "preview as reader" mode). */
+export type Query<Op extends keyof operations> = NonNullable<operations[Op]['parameters']['query']>
+type D<Name extends keyof Schemas> = Domain<Schemas[Name]>
+
+export type Meta = Schemas['MetaResponse']
+export type Vault = Schemas['Vault']
+export type VaultList = Schemas['VaultList']
+export type Entity = D<'EntityOut'>
+export type EntityPage = D<'EntityPage'>
+export type EntityWriteResult = D<'EntityWriteResult'>
+export type Affected = Schemas['Affected']
+
+/**
+ * Every read the UI makes (frontend.md §5.1, ADR-0012). Implementable from a static snapshot
+ * (post-MVP `StaticDataSource`, visibility-and-sharing.md §6), so it holds reads only; resolved
+ * moments come back as `bigint`. Later issues add methods as endpoints land.
+ */
+export interface DataSource {
+  meta(): Promise<Meta>
+  vaults(): Promise<VaultList>
+  vault(vault: string): Promise<Vault>
+  settings(vault: string): Promise<Schemas['VaultSettings']>
+  registry(vault: string): Promise<Schemas['Registry']>
+  backups(vault: string): Promise<Schemas['BackupList']>
+  entities(vault: string, query?: Query<'entities_list'>): Promise<EntityPage>
+  entity(vault: string, id: string, query?: Query<'entities_get'>): Promise<Entity>
+  children(vault: string, id: string, query?: Query<'entities_children'>): Promise<D<'TreePage'>>
+  tree(vault: string, query?: Query<'tree_get'>): Promise<D<'TreePage'>>
+  trash(vault: string, query?: Query<'trash_list'>): Promise<D<'TrashPage'>>
+  fieldValues(vault: string, query: Query<'entities_field_values'>): Promise<D<'FieldValueList'>>
+  links(vault: string, id: string, query?: Query<'entities_links'>): Promise<D<'EntityLinks'>>
+  backlinks(vault: string, id: string, query?: Query<'entities_backlinks'>): Promise<D<'Backlinks'>>
+  linkTypes(vault: string): Promise<D<'LinkTypeList'>>
+  changes(vault: string, query?: Query<'changes_list'>): Promise<D<'ChangesetPage'>>
+  change(vault: string, id: string, query?: Query<'changes_get'>): Promise<D<'ChangesetDetail'>>
+  history(vault: string, id: string, query?: Query<'entities_history'>): Promise<D<'ChangesetPage'>>
+  search(vault: string, query: Query<'search_search'>): Promise<D<'SearchPage'>>
+  quickSearch(vault: string, query: Query<'search_quick'>): Promise<D<'QuickResults'>>
+  findings(vault: string, query?: Query<'consistency_findings'>): Promise<D<'FindingPage'>>
+  consistencyRules(vault: string, query?: Query<'consistency_rules'>): Promise<D<'RuleList'>>
+  timelines(
+    vault: string,
+    dimension: string,
+    query?: Query<'dimensions_timelines'>,
+  ): Promise<D<'TimelineTree'>>
+  calendarPresets(vault: string): Promise<D<'PresetList'>>
+  eventTree(
+    vault: string,
+    timeline: string,
+    query?: Query<'timelines_event_tree'>,
+  ): Promise<D<'EventTreePage'>>
+  timelineWindow(
+    vault: string,
+    timeline: string,
+    query: Query<'timelines_window'>,
+  ): Promise<D<'TimelineWindow'>>
+  occurrences(
+    vault: string,
+    event: string,
+    query: Query<'events_occurrences'>,
+  ): Promise<D<'OccurrencePage'>>
+}
+
+/**
+ * Author-only requests (frontend.md §13): writes, and the `POST` helpers a read-only server
+ * refuses (time resolution, calendar previews). Absent in reader and static contexts, so editing
+ * UI checks `useMutations()` for `null`. Request bodies take time specs as JSON and moments as
+ * `bigint` or strings (`toWire`).
+ */
+export interface Mutations {
+  createVault(name: string): Promise<Vault>
+  renameVault(vault: string, name: string): Promise<Vault>
+  deleteVault(vault: string): Promise<void>
+  migrateVault(vault: string): Promise<Schemas['MigrationResponse']>
+  restoreBackup(file: Blob): Promise<Vault>
+  createBackup(vault: string, body: Schemas['BackupCreate']): Promise<Schemas['Backup']>
+  updateSettings(
+    vault: string,
+    body: Schemas['VaultSettingsUpdate'],
+  ): Promise<Schemas['VaultSettings']>
+  setModule(
+    vault: string,
+    module: string,
+    body: Schemas['ModuleUpdate'],
+  ): Promise<Schemas['ModuleUpdateResponse']>
+  createEntity(vault: string, body: Schemas['EntityCreate']): Promise<EntityWriteResult>
+  updateEntity(vault: string, id: string, body: Schemas['EntityUpdate']): Promise<EntityWriteResult>
+  deleteEntity(
+    vault: string,
+    id: string,
+    options?: { purge?: boolean; suppress?: Schemas['SuppressIn'] },
+  ): Promise<D<'EntityDeleteResult'>>
+  restoreEntity(
+    vault: string,
+    id: string,
+    suppress?: Schemas['SuppressIn'],
+  ): Promise<EntityWriteResult>
+  createLink(vault: string, body: Schemas['LinkCreate']): Promise<D<'LinkWriteResult'>>
+  updateLink(vault: string, id: string, body: Schemas['LinkUpdate']): Promise<D<'LinkWriteResult'>>
+  deleteLink(
+    vault: string,
+    id: string,
+    suppress?: Schemas['SuppressIn'],
+  ): Promise<D<'LinkDeleteResult'>>
+  createLinkType(vault: string, body: Schemas['LinkTypeCreate']): Promise<D<'LinkTypeOut'>>
+  updateLinkType(
+    vault: string,
+    key: string,
+    body: Schemas['LinkTypeUpdate'],
+  ): Promise<D<'LinkTypeOut'>>
+  deleteLinkType(vault: string, key: string): Promise<D<'LinkTypeDeleted'>>
+  revertChange(
+    vault: string,
+    id: string,
+    suppress?: Schemas['SuppressIn'],
+  ): Promise<D<'RevertResult'>>
+  scanConsistency(vault: string): Promise<D<'ScanResult'>>
+  updateConsistencyRule(
+    vault: string,
+    rule: string,
+    body: Schemas['RuleUpdate'],
+  ): Promise<D<'RuleInfo'>>
+  suppressFinding(vault: string, body: Schemas['SuppressionIn']): Promise<D<'FindingOut'>>
+  unsuppressFinding(vault: string, fingerprint: string): Promise<void>
+  createDimension(vault: string, body: Schemas['DimensionWizardIn']): Promise<D<'DimensionCreated'>>
+  previewCalendar(vault: string, body: Schemas['CalendarPreviewIn']): Promise<D<'Preview'>>
+  proposeCalendarChange(
+    vault: string,
+    calendar: string,
+    body: Schemas['CalendarProposalIn'],
+  ): Promise<D<'CalendarProposalOut'>>
+  applyCalendarProposal(
+    vault: string,
+    calendar: string,
+    proposal: string,
+    body: Schemas['CalendarApplyIn'],
+  ): Promise<D<'CalendarApplyOut'>>
+  resolveTime(vault: string, body: Schemas['ResolveIn']): Promise<D<'ResolveOut'>>
+  convertTime(vault: string, body: Domain<Schemas['ConvertIn']>): Promise<D<'ConvertOut'>>
+  materializeOccurrence(vault: string, event: string, key: string): Promise<EntityWriteResult>
+  deleteOccurrence(
+    vault: string,
+    event: string,
+    key: string,
+    options?: { trashSubEvents?: boolean },
+  ): Promise<D<'EntityDeleteResult'>>
+  proposeRecurrenceChange(
+    vault: string,
+    event: string,
+    body: Schemas['RecurrenceProposalIn'],
+  ): Promise<D<'RecurrenceProposalOut'>>
+  applyRecurrenceProposal(
+    vault: string,
+    event: string,
+    proposal: string,
+    body: Schemas['RecurrenceApplyIn'],
+  ): Promise<D<'RecurrenceApplyOut'>>
+}
