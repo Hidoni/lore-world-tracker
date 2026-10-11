@@ -113,7 +113,6 @@ describe('routes', () => {
   it.each([
     ['/v/v1/d/d1/timeline', 'Timeline'],
     ['/v/v1/d/d1/events', 'Events'],
-    ['/v/v1/calendars/c1/edit', 'Calendar editor'],
     ['/v/v1/search', 'Search'],
     ['/v/v1/changes', 'Recent changes'],
     ['/v/v1/trash', 'Trash'],

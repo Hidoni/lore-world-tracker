@@ -14,7 +14,7 @@ import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
 import { SettingsPage } from '@/core/settings'
 import { PlaceholderPage, ShellLayout, VaultHome, VaultPicker, VaultScope } from '@/core/shell'
-import { DimensionOverview } from '@/core/time'
+import { CalendarEditor, DimensionOverview, NewCalendar } from '@/core/time'
 import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
@@ -53,14 +53,6 @@ const vaultRoute = createRoute({
     return <VaultScope vault={vault} />
   },
 })
-
-function page<TPath extends string>(path: TPath, title: string, description?: string) {
-  return createRoute({
-    getParentRoute: () => vaultRoute,
-    path,
-    component: () => <PlaceholderPage title={title}>{description}</PlaceholderPage>,
-  })
-}
 
 const vaultHomeRoute = createRoute({
   getParentRoute: () => vaultRoute,
@@ -102,11 +94,32 @@ const entityRoute = createRoute({
     return <EntityPage key={entity} vault={vault} entityId={entity} />
   },
 })
-const calendarEditRoute = page(
-  'calendars/$calendar/edit',
-  'Calendar editor',
-  'The calendar editor arrives with M5.',
-)
+const calendarEditRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'calendars/$calendar/edit',
+  component: function CalendarEditRoute() {
+    const { vault, calendar } = calendarEditRoute.useParams()
+    return <CalendarEditor key={calendar} vault={vault} calendarId={calendar} />
+  },
+})
+const calendarNewRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'calendars/new',
+  // `?dimension=<id>`: the dimension the calendar belongs to.
+  validateSearch: (search): { dimension?: string } =>
+    typeof search.dimension === 'string' && search.dimension !== ''
+      ? { dimension: search.dimension }
+      : {},
+  component: function CalendarNewRoute() {
+    const { vault } = calendarNewRoute.useParams()
+    const { dimension } = calendarNewRoute.useSearch()
+    return dimension === undefined ? (
+      <PlaceholderPage title="New calendar">Open it from a dimension’s overview.</PlaceholderPage>
+    ) : (
+      <NewCalendar key={dimension} vault={vault} dimensionId={dimension} />
+    )
+  },
+})
 const searchRoute = createRoute({
   getParentRoute: () => vaultRoute,
   path: 'search',
@@ -252,6 +265,7 @@ function buildRouteTree(definitions: readonly ModuleDefinition[]) {
     entityRoute,
     kindListRoute,
     calendarEditRoute,
+    calendarNewRoute,
     searchRoute,
     changesRoute,
     trashRoute,
