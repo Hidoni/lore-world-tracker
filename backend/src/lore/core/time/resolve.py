@@ -117,6 +117,9 @@ class Resolution:
     problem: Problem | None = None
     calendar_id: str | None = None
     """The precision calendar (``None``: none, e.g. precision ``base`` without calendars)."""
+    default_precision: str | None = None
+    """Relative anchors: the precision they take by default (the coarser of the target's and
+    the offset's finest unit); an anchor whose precision equals it keeps the target's extent."""
 
     @property
     def ok(self) -> bool:
@@ -566,9 +569,16 @@ class Resolver:
             except DateError:
                 lo, hi = t, t + 1
             calendar_id = target.calendar_id if default == target.precision else offset_calendar
-            return Resolution(t, status, (lo, max(hi, lo + 1)), default, calendar_id=calendar_id)
+            return Resolution(
+                t,
+                status,
+                (lo, max(hi, lo + 1)),
+                default,
+                calendar_id=calendar_id,
+                default_precision=default,
+            )
         result = self._unit_extent(t, precision, offset_calendar, "precision")
-        return replace(result, status=status) if result.ok else result
+        return replace(result, status=status, default_precision=default) if result.ok else result
 
     def _mover(self, offset: Duration, path: str) -> Callable[[int], int] | Resolution:
         if isinstance(offset, BaseDuration):

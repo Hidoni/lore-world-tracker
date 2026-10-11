@@ -105,6 +105,7 @@ def _point(resolution: Resolution, lens_: Lens | None) -> ResolvedPoint:
         error=None
         if problem is None
         else TimeProblem(code=problem.code, message=problem.message, path=problem.path),
+        default_precision=resolution.default_precision,
     )
 
 

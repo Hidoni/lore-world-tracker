@@ -19,7 +19,7 @@ const VAULT_WIDE = [
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']
 /** Areas that show resolved moments. */
-const TIME = ['window', 'eventTree', 'occurrences', 'timelines']
+const TIME = ['window', 'eventTree', 'occurrences', 'timelines', 'resolve']
 const SEARCH = ['search', 'quickSearch']
 
 /**

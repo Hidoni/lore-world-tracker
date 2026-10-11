@@ -172,6 +172,17 @@ class ModuleRegistry:
             rules.extend(CORE_RULES if module is None else module.consistency_rules)
         return rules
 
+    def referenceable_slots_for(self, enabled: Iterable[str]) -> list[tuple[str, str, list[str]]]:
+        """Record types whose slots relative anchors may target (``time-model.md`` §6), from core
+        and the enabled modules: ``(record type, owner, slot names)``."""
+        found: list[tuple[str, str, list[str]]] = []
+        for owner, module in self._owners(enabled):
+            for provider in CORE_SLOT_PROVIDERS if module is None else module.slot_providers:
+                names = [s.name for s in provider.slots if s.referenceable and not s.is_family]
+                if names:
+                    found.append((provider.record_type, owner, names))
+        return found
+
     def kind_extensions_for(self, enabled: Iterable[str]) -> dict[str, KindExtension]:
         """The ``ext`` handler of each kind, from core and the enabled modules."""
         return {

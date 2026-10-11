@@ -1,6 +1,8 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 
-import { useDataSource } from './context'
+import type { components } from '@/api'
+
+import { useDataSource, useMutations } from './context'
 import { keys } from './keys'
 import type { Entity } from './source'
 
@@ -51,5 +53,23 @@ export function useTimelines(vault: string, dimension: string | null) {
     queryKey: keys.timelines(vault, dimension ?? ''),
     queryFn: () => source.timelines(vault, dimension ?? ''),
     enabled: dimension !== null,
+  })
+}
+
+/**
+ * Time points (and ends) resolved by the server (`POST /time/resolve`): previews for relative
+ * anchors and end checks. Authors only (it's a `Mutations` call); `null` skips the request.
+ */
+export function useTimeResolution(vault: string, body: components['schemas']['ResolveIn'] | null) {
+  const mutations = useMutations()
+  return useQuery({
+    queryKey: [vault, 'resolve', JSON.stringify(body)],
+    queryFn: () => {
+      if (mutations === null || body === null) throw new Error('Nothing to resolve.')
+      return mutations.resolveTime(vault, body)
+    },
+    enabled: mutations !== null && body !== null,
+    meta: { toast: false },
+    placeholderData: (previous) => previous,
   })
 }

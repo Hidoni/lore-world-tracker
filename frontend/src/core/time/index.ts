@@ -11,9 +11,11 @@ export { displayLevel, formatIn, formatSpanIn, relativeToPresent, type Moment } 
 export { BigNumberError, parseBigNumber } from './big-number'
 export { BigNumberInput, type BigNumberInputProps } from './big-number-input'
 export { DurationPicker } from './duration-picker'
+export { EndSpecPicker } from './end-spec-picker'
 export { MomentDisplay, SpanDisplay } from './moment-display'
 export { CalendarSelector, DimensionSwitcher } from './switchers'
 export { TimePointPicker } from './time-point-picker'
+export { timeProblemMessage, timeWriteProblem } from './time-problems'
 export {
   useDimensionLenses,
   useDisplayLens,

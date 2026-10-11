@@ -452,7 +452,22 @@ Time inputs (`core/time/`, #73):
     moment.
   - **Output:** the picker reports a `TimePoint` only when the engine accepts it (`fromFields`
     with `overflow: 'reject'`), else `null`. Era dates keep the era-relative year with `era`.
-    Enter on a field confirms. Relative anchors come with #74.
+    Enter on a field confirms.
+  - **Relative tab** (with `vault`, authors only, #74):
+    - Finds the target by name (quick search in the dimension) among the record types in the
+      registry's `referenceable_slots` that are entity kinds (events and timelines today).
+    - Picks the edge (slot), an occurrence key for a recurring event (empty means the series),
+      an offset (`DurationPicker`, zero by default) and a precision. The precision defaults to
+      **Default**: the picker resolves once at an explicit precision to learn
+      `default_precision`, then stores that and resolves the final point for the preview.
+    - Problems from `/time/resolve` (an unset, purged or hidden target, a cycle, out of bounds)
+      show inline, and a reference to the picker's own slot (`owner`) is refused. Only a
+      resolvable anchor is reported.
+- **`EndSpecPicker`:** an end date (a nested `TimePointPicker`), a duration after the start,
+  instant, end of time or unknown. With a `start`, the server resolves both, and an end before
+  the start is refused with the reason (`/time/resolve` doesn't flag it). `timeWriteProblem`
+  turns a save's `409 time_cycle` (its path) and `422 time_constraint` into plain words for
+  forms.
 - **`DurationPicker`:** a sign, then base units or amounts per level of one of the dimension's
   calendars. It reports `{kind: 'base', units}` (signed) or `{kind: 'calendar', amounts, sign}`.
 

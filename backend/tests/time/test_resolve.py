@@ -712,6 +712,7 @@ def test_resolve_route(api: Api, world: dict[str, Any]) -> None:
         "approximate": False,
         "display": "12 March AD 2024",
         "error": None,
+        "default_precision": None,
     }
     assert first["end"] is None
     assert month["end"]["t"] == str(gregorian_t(2024, 2, 29))
@@ -740,6 +741,24 @@ def test_resolve_route(api: Api, world: dict[str, Any]) -> None:
     )
     malformed = _resolve(api, dimension_id=world["dimension"], items=[{"time_point": {}}])
     problem(malformed, 422, "validation_error")
+
+
+def test_resolve_route_reports_the_default_precision_of_relative_anchors(
+    api: Api, world: dict[str, Any]
+) -> None:
+    g = world["gregorian"]
+    start = gregorian_t(2024, 3, 12)
+    pin("p1", cal(g, "day", year="2024", month="mar", day="12"), start)
+    items = [
+        {"time_point": dump(relative("p1", base(3600), precision))} for precision in ("base", "day")
+    ]
+    body = _resolve(api, dimension_id=world["dimension"], items=items).json()
+    explicit, default = (item["start"] for item in body["items"])
+    # An explicit precision: its own unit; the default one keeps the target's extent, shifted.
+    assert (explicit["precision"], explicit["default_precision"]) == ("base", "day")
+    assert explicit["extent"] == {"lo": str(start + 3600), "hi": str(start + 3601)}
+    assert (default["precision"], default["default_precision"]) == ("day", "day")
+    assert default["extent"] == {"lo": str(start + 3600), "hi": str(start + DAY + 3600)}
 
 
 def test_resolve_route_for_readers(api: Api, world: dict[str, Any]) -> None:

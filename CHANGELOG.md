@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Relative anchors and end specs** (#74): the time point picker's Relative tab (target search,
+  edge, occurrence key, offset, live server resolution with the resulting precision, problems
+  inline) and `EndSpecPicker` (end date, duration, instant, end of time, unknown; an end before
+  the start is refused). `GET /registry` lists `referenceable_slots`, and `/time/resolve` items
+  carry `default_precision`.
 - **Time inputs** (#73): `BigNumberInput` (grouping, `1e100`, powers, a unit calculator like
   `10^100 years × 31,557,600 s`), `TimePointPicker` (Date tab driven by the calendar's valid
   units per parent, eras, precision, circa, live preview; Absolute tab bounded by the dimension)
