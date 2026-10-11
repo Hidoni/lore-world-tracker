@@ -78,6 +78,15 @@ until eslint-plugin-jsx-a11y supports 10.
 - Mobile/reader: the sidebar becomes a drawer, the right panel moves below content, and editing UI
   is absent.
 
+Implementation (`core/shell/`, #58): the sidebar width (180–480 px, keyboard-resizable through its
+`separator` handle) and the open/closed sidebar and context panel persist in `localStorage`
+(`lore.shell`). Below `md` the sidebar is a `Sheet` drawer opened from the top bar. A skip link
+leads to `#main`. `Ctrl/Cmd+K` opens the search page until the command palette (#67) takes it
+over. The top bar's dimension switcher is a placeholder until M5. API errors become `sonner` toasts
+through the `QueryClient` caches (`app/query-client.ts`); a query or mutation that shows its error
+itself passes `meta: { toast: false }`. Every route gets the default error boundary
+(`app/route-error.tsx`) and unknown paths a 404 page.
+
 ## 4. Routing
 
 Code-based TanStack Router tree assembled in `app/` from core routes plus module route factories.
@@ -101,6 +110,13 @@ Code-based TanStack Router tree assembled in `app/` from core routes plus module
 Global search params (validated with zod): `tl` (timeline id), `at` (moment string, `present` or
 `all`), `cal` (display calendar id). Timeline view adds `from`, `to` and filter params. The last
 used values are remembered per vault/dimension in `localStorage` (wrapped in try/catch).
+
+- **Search serialization** (`app/search.ts`): values stay strings (TanStack Router's default
+  parser would turn `?at=123` into a number and long moments into lossy floats). Only JSON arrays
+  and objects (filters) are parsed; invalid global params are dropped, not errors.
+- **Vault picker:** `/` lists the vaults (create, rename, move to trash) and opens the last-opened
+  vault (`lore.lastVault`, set by every `/v/$vault` route) when it still exists. `/?pick=true`
+  always shows the picker (the top bar's vault switcher links there).
 
 ## 5. Data layer
 
