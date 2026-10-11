@@ -43,9 +43,15 @@ export function omitKey<V>(record: Record<string, V>, key: string): Record<strin
   return Object.fromEntries(Object.entries(record).filter(([name]) => name !== key))
 }
 
-/** The first regime (the one the structure editors show). */
-export function regimeOf(definition: Definition): Regime {
-  return definition.regimes[0]
+/** A regime by index (the first by default). */
+export function regimeOf(definition: Definition, index = 0): Regime {
+  const regime = definition.regimes[index] ?? definition.regimes[0]
+  return regime
+}
+
+/** The JSON pointer of a regime. */
+export function regimePath(index: number): string {
+  return `/regimes/${index}`
 }
 
 /** The ids of the templates of `regime` at `level`, in the document's order. */
@@ -165,6 +171,29 @@ const MESSAGES: Record<string, string> = {
   'top.bad_predicate': 'The remainder must be smaller than the divisor.',
   'alignment.invalid_fields': 'Not a date of this calendar.',
   'alignment.self_reference': 'The alignment can’t use this calendar.',
+  'regime.duplicate_id': 'Another set of rules has this id.',
+  'regime.first_has_start': 'The first rules apply from the beginning: they have no start.',
+  'regime.missing_start': 'A reform needs the date it starts.',
+  'regime.start_not_increasing': 'A reform must start after the previous one.',
+  'cycle.duplicate_id': 'Another cycle has this id.',
+  'cycle.unknown_level': 'Unknown level.',
+  'cycle.bad_reset_level': 'The cycle can only restart at a coarser level.',
+  'cycle.duplicate_value_id': 'Two values of the cycle have the same id.',
+  'cycle.names_length_mismatch': 'Give a name for each value of the cycle (as many as its length).',
+  'cycle.anchor_invalid': 'Not a valid anchor for this cycle.',
+  'era.duplicate_id': 'Another era has this id.',
+  'era.first_has_start': 'The first era has no start: it covers everything before the second.',
+  'era.missing_start': 'Every era after the first needs a start.',
+  'era.start_not_increasing': 'An era must start after the previous one.',
+  'era.forward_without_start': 'The first era can’t count forward: it has no start to count from.',
+  'era.backward_without_end': 'The last era can’t count backward: it has no end to count to.',
+  'era.local_anchor_uses_era': 'A date in the definition can’t use an era.',
+  'overlay.duplicate_id': 'Another overlay has this id.',
+  'overlay.bad_period': 'The period must be positive.',
+  'overlay.phases_unsorted': 'List the phases in order of their start.',
+  'format.unknown_level': 'Unknown level.',
+  'format.unknown_token': 'Unknown token: type { to see the tokens.',
+  'anchor.invalid_local': 'Not a date of this calendar.',
   'anchor.unresolved': 'Resolved when saved.',
   'anchor.out_of_bounds': 'Outside the dimension.',
 }

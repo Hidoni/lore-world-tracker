@@ -6,6 +6,7 @@ import {
   Outlet,
   type RouterHistory,
 } from '@tanstack/react-router'
+import { Suspense } from 'react'
 
 import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
@@ -99,7 +100,11 @@ const calendarEditRoute = createRoute({
   path: 'calendars/$calendar/edit',
   component: function CalendarEditRoute() {
     const { vault, calendar } = calendarEditRoute.useParams()
-    return <CalendarEditor key={calendar} vault={vault} calendarId={calendar} />
+    return (
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+        <CalendarEditor key={calendar} vault={vault} calendarId={calendar} />
+      </Suspense>
+    )
   },
 })
 const calendarNewRoute = createRoute({
@@ -116,7 +121,9 @@ const calendarNewRoute = createRoute({
     return dimension === undefined ? (
       <PlaceholderPage title="New calendar">Open it from a dimension’s overview.</PlaceholderPage>
     ) : (
-      <NewCalendar key={dimension} vault={vault} dimensionId={dimension} />
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+        <NewCalendar key={dimension} vault={vault} dimensionId={dimension} />
+      </Suspense>
     )
   },
 })

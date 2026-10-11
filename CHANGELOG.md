@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Calendar editor II and the impact preview** (#77): the editor now covers reforms (one tab
+  per set of rules, each with its start), cycles, eras (starts at any time point, including
+  event anchors), overlays (a period with an "in days" helper), formats per precision (token
+  suggestions and live samples) and display options. Saving an existing calendar previews the
+  change first: when something depends on it, a dialog lists every time point that moves or
+  breaks, with a strategy per record and bulk actions. The change is applied as one changeset,
+  undoable from the toast, and a stale preview can be run again.
 - **Calendar editor I** (#76): build a calendar without JSON. You edit its levels, its templates
   (uniform, or named and numbered units, with shared slot ids highlighted), its years (fixed,
   cycle, or rules with a predicate builder, plus exceptions) and its alignment. A JSON tab and a

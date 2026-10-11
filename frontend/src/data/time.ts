@@ -3,6 +3,8 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import type { components } from '@/api'
 
 import { useDataSource, useMutations, useRequiredMutations } from './context'
+import type { Domain } from './domain'
+import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
 import type { Entity } from './source'
 
@@ -120,5 +122,44 @@ export function useCreateDimension(vault: string) {
           client.invalidateQueries({ queryKey: [vault, area] }),
         ),
       ),
+  })
+}
+
+type Schemas = components['schemas']
+
+/** A calendar edit's impact preview, moments as `bigint`. */
+export type CalendarProposal = Domain<Schemas['CalendarProposalOut']>
+
+/**
+ * Previews a calendar edit (`POST /calendars/{id}/proposals`, time-model.md §7.4): what moves or
+ * breaks, with the strategies each item offers. Errors are the caller's to show.
+ */
+export function useProposeCalendarChange(vault: string) {
+  const mutations = useRequiredMutations()
+  return useMutation({
+    mutationFn: ({ calendar, definition }: { calendar: string; definition: object }) =>
+      mutations.proposeCalendarChange(vault, calendar, {
+        definition: definition as Schemas['CalendarProposalIn']['definition'],
+      }),
+    meta: { toast: false },
+  })
+}
+
+/** Applies a proposal with the chosen strategies; the change is one undoable changeset. */
+export function useApplyCalendarProposal(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      calendar,
+      proposal,
+      body,
+    }: {
+      calendar: string
+      proposal: string
+      body: Schemas['CalendarApplyIn']
+    }) => mutations.applyCalendarProposal(vault, calendar, proposal, body),
+    meta: { toast: false },
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
   })
 }
