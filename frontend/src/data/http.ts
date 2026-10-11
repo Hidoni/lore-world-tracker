@@ -1,4 +1,11 @@
-import { api as defaultClient, unwrap, type ApiClient, type components } from '@/api'
+import {
+  api as defaultClient,
+  CLIENT_HEADER,
+  toApiError,
+  unwrap,
+  type ApiClient,
+  type components,
+} from '@/api'
 
 import { entityToDomain, toDomain, toWire, type Domain } from './domain'
 import type { DataSource, EntityWriteResult, Mutations } from './source'
@@ -9,6 +16,43 @@ const V = '/api/v1/vaults/{vault_id}' as const
 
 function withEntity(result: Schemas['EntityWriteResult']): EntityWriteResult {
   return { ...result, entity: entityToDomain(toDomain(result.entity, 'EntityOut')) }
+}
+
+/**
+ * A multipart POST with upload progress (`fetch` has none): XHR, same origin, the SPA's client
+ * header; failures become `ApiError`s like every other request.
+ */
+function uploadWithProgress<T>(
+  path: string,
+  form: FormData,
+  onProgress: (fraction: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', path)
+    xhr.setRequestHeader(CLIENT_HEADER, 'web')
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total)
+    }
+    xhr.onerror = () => {
+      reject(new Error('The upload failed: the server could not be reached.'))
+    }
+    xhr.onload = () => {
+      const response = new Response(xhr.responseText, {
+        status: xhr.status,
+        headers: { 'Content-Type': xhr.getResponseHeader('Content-Type') ?? 'application/json' },
+      })
+      if (!response.ok) {
+        void toApiError(response).then(reject)
+        return
+      }
+      onProgress(1)
+      response.json().then((body) => {
+        resolve(body as T)
+      }, reject)
+    }
+    xhr.send(form)
+  })
 }
 
 /** The `DataSource` over the backend's HTTP API (the generated `openapi-fetch` client). */
@@ -186,9 +230,10 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
       await client.DELETE(V, { params: path(vault) })
     },
     migrateVault: (vault) => unwrap(client.POST(`${V}/migrate`, { params: path(vault) })),
-    restoreBackup: (file) => {
+    restoreBackup: (file, onProgress) => {
       const form = new FormData()
       form.append('file', file)
+      if (onProgress) return uploadWithProgress('/api/v1/vaults/restore', form, onProgress)
       return unwrap(
         client.POST('/api/v1/vaults/restore', {
           body: form as unknown as { file: string },

@@ -77,7 +77,8 @@ export interface Mutations {
   renameVault(vault: string, name: string): Promise<Vault>
   deleteVault(vault: string): Promise<void>
   migrateVault(vault: string): Promise<Schemas['MigrationResponse']>
-  restoreBackup(file: Blob): Promise<Vault>
+  /** Restores a backup zip into a new vault; `onProgress` gets the upload's fraction (0..1). */
+  restoreBackup(file: Blob, onProgress?: (fraction: number) => void): Promise<Vault>
   createBackup(vault: string, body: Schemas['BackupCreate']): Promise<Schemas['Backup']>
   updateSettings(
     vault: string,

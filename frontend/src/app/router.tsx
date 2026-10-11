@@ -11,6 +11,7 @@ import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
 import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
+import { SettingsPage } from '@/core/settings'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
 import { moduleDefinitions } from '@/modules'
 
@@ -171,16 +172,18 @@ const settingsRoute = createRoute({
 const settingsIndexRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: '/',
-  component: () => (
-    <PlaceholderPage title="Settings">Vault settings arrive with #69.</PlaceholderPage>
-  ),
+  component: function SettingsIndexRoute() {
+    const { vault } = settingsIndexRoute.useParams()
+    return <SettingsPage vault={vault} page="" />
+  },
 })
 const settingsPageRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: '$',
-  component: () => (
-    <PlaceholderPage title="Settings">Vault settings arrive with #69.</PlaceholderPage>
-  ),
+  component: function SettingsPageRoute() {
+    const { vault, _splat } = settingsPageRoute.useParams()
+    return <SettingsPage vault={vault} page={_splat ?? ''} />
+  },
 })
 // Paths of modules without routes, or that don't exist.
 const unknownModuleRoute = createRoute({

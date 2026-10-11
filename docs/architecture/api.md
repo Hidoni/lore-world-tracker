@@ -47,7 +47,7 @@
 | POST | `/vaults/{v}/migrate` | run pending migrations (when auto-migrate is off) → `{vault, from_revision, to_revision, backup}`; vaults carry `schema_status {state, revision, head}` (`persistence-and-migrations.md` §3.3) |
 | GET | `/vaults/{v}/registry` | `{kinds (with module, capabilities, allowed parents, fields incl. enabled contributions), field_types, link_types (code-registered + user-defined, hidden when their kinds are unavailable), modules (enabled flags, deps), consistency_rules}` for the vault's enabled modules (drives the generic UI) |
 | PATCH | `/vaults/{v}/modules/{module_id}` | enable/disable (`{enabled, cascade?}`) → `{enabled, disabled, modules}` (`modules.md` §4) |
-| GET/PATCH | `/vaults/{v}/settings` | `{defaults: {visibility}, backups: {every_hours, keep, include_media}}`; PATCH merges the members sent (not recorded in history). Display prefs arrive with the settings UI |
+| GET/PATCH | `/vaults/{v}/settings` | `{defaults: {visibility}, backups: {every_hours, keep, include_media}}`; PATCH merges the members sent (not recorded in history). Display preferences (theme) are per browser, not vault settings |
 | GET/POST | `/vaults/{v}/backups` | list (newest first; author-only: readers get `404`) / create (`{include_media}`, default true) → `201 {id, kind, reason, created_at, size, includes_media, app_version, schema_revision}` |
 | GET | `/vaults/{v}/backups/{id}/download` | download the zip (author-only; `404 backup_not_found`) |
 | POST | `/vaults/restore` | restore a backup zip (multipart `file`) into a new vault → `201 Vault`; `422 invalid_backup`, `409 vault_newer_than_app` |
