@@ -130,6 +130,12 @@ class ResolvedPoint(BaseModel):
     approximate: bool
     display: str | None = Field(description="Formatted in the response's calendar.")
     error: TimeProblem | None
+    default_precision: str | None = Field(
+        default=None,
+        description="Relative anchors: the precision they take by default (the coarser of the "
+        "target's and the offset's finest unit). An anchor stored with it keeps the target's "
+        "extent shifted by the offset; null for other anchors.",
+    )
 
 
 class ResolveRequestItem(BaseModel):

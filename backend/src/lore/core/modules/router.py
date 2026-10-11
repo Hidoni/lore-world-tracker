@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep
 from lore.core.errors import ReadOnlyError
@@ -102,6 +102,14 @@ class RuleOut(BaseModel):
     quick_fixes: list[QuickFixOut]
 
 
+class TimeSlotsOut(BaseModel):
+    """A record type's slots that relative anchors may reference (``time-model.md`` §6)."""
+
+    record_type: str = Field(description="`event`, `timeline`, or a module's `<module>.<type>`.")
+    module: str  # "core" or the owning module id
+    slots: list[str]
+
+
 class Registry(BaseModel):
     """Everything the generic UI is generated from, for this vault's enabled modules."""
 
@@ -110,6 +118,7 @@ class Registry(BaseModel):
     link_types: list[LinkTypeOut]
     modules: list[ModuleState]
     consistency_rules: list[RuleOut]
+    referenceable_slots: list[TimeSlotsOut]
 
 
 class ModuleUpdate(BaseModel):
@@ -159,6 +168,10 @@ def get_registry(session: SessionDep, registry: ModuleRegistryDep) -> Registry:
         ],
         modules=_module_states(registry, enabled),
         consistency_rules=[RuleOut.model_validate(asdict(r)) for r in registry.rules_for(enabled)],
+        referenceable_slots=[
+            TimeSlotsOut(record_type=record_type, module=owner, slots=slots)
+            for record_type, owner, slots in registry.referenceable_slots_for(enabled)
+        ],
     )
 
 

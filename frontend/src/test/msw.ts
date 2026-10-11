@@ -18,6 +18,10 @@ export function makeRegistry(
     field_types: [],
     link_types: [],
     consistency_rules: [],
+    referenceable_slots: [
+      { record_type: 'timeline', module: 'core', slots: ['branch_point'] },
+      { record_type: 'event', module: 'core', slots: ['start', 'end'] },
+    ],
     modules: ['core', ...modules].map((id) => ({
       id,
       name: id,

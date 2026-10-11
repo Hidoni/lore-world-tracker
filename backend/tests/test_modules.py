@@ -286,7 +286,14 @@ def patch(client: TestClient, vault_id: str, module_id: str, **body: Any) -> Any
 def test_registry_endpoint(client: TestClient) -> None:
     vault = new_vault(client)
     registry = client.get(f"/api/v1/vaults/{vault}/registry").json()
-    assert set(registry) == {"kinds", "field_types", "link_types", "modules", "consistency_rules"}
+    assert set(registry) == {
+        "kinds", "field_types", "link_types", "modules", "consistency_rules", "referenceable_slots"
+    }  # fmt: skip
+    assert registry["referenceable_slots"] == [
+        {"record_type": "timeline", "module": "core", "slots": ["branch_point"]},
+        {"record_type": "event", "module": "core", "slots": ["start", "end"]},
+        {"record_type": "sample.note", "module": "sample", "slots": ["noted"]},
+    ]
     assert registry["modules"][1] == {
         "id": "sample",
         "name": "Sample",

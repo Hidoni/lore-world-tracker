@@ -5,6 +5,7 @@ import {
   formatMoment,
   fromFields,
   options as unitOptions,
+  type SlotRef,
   type TimePoint,
 } from '@lore/chronology'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
@@ -14,13 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BigNumberInput } from './big-number-input'
 import type { DimensionTime, Lens } from './calendars'
 import { formatIn } from './format'
+import { RelativeTab, relativeDraftOf, type RelativeDraft } from './relative-tab'
 import { SELECT_CLASS } from './select'
 
 /** Ranges up to this many units become a select; longer ones a number input. */
 const MAX_LISTED = 1000
 
 interface Draft {
-  tab: 'date' | 'absolute'
+  tab: 'date' | 'absolute' | 'relative'
   calendarId: string | null
   era: string | null
   regime: string | null
@@ -29,6 +31,9 @@ interface Draft {
   fields: Record<string, string>
   approximate: boolean
   absolute: bigint | null
+  relative: RelativeDraft
+  /** The relative tab's resolved point (reported by `RelativeTab`). */
+  relativePoint: TimePoint | null
 }
 
 /** One level's input: a list of choices, or a free number. */
@@ -190,11 +195,13 @@ function draftOf(value: TimePoint | null, lenses: readonly Lens[], fallback: str
     fields: {},
     approximate: value?.approximate === true,
     absolute: null,
+    relative: relativeDraftOf(value),
+    relativePoint: value?.anchor.kind === 'relative' ? value : null,
   }
   if (value === null) return firstCalendar === undefined ? { ...base, tab: 'absolute' } : base
   const anchor = value.anchor
   if (anchor.kind === 'absolute') return { ...base, tab: 'absolute', absolute: BigInt(anchor.t) }
-  if (anchor.kind !== 'calendar') return base
+  if (anchor.kind === 'relative') return { ...base, tab: 'relative' }
   const fields: Record<string, string> = {}
   for (const [level, field] of Object.entries(anchor.fields)) {
     if (field !== undefined) fields[level] = field
@@ -233,7 +240,8 @@ function Row({
  * from the top down to the precision, each offering what its parents allow, with era and circa)
  * and **Absolute** (base units within the dimension). Reports a time point only when it is a
  * valid date (`null` otherwise); calendar fields keep named units as slot ids. The preview shows
- * the moment and the date in the display calendar. Relative anchors arrive with #74.
+ * the moment and the date in the display calendar. With `vault` (authors), **Relative** anchors
+ * a moment to another record's slot (`RelativeTab`).
  */
 export function TimePointPicker({
   dimension,
@@ -242,6 +250,8 @@ export function TimePointPicker({
   onChange,
   onConfirm,
   displayLens,
+  vault,
+  owner,
   label = 'Time',
 }: {
   dimension: DimensionTime
@@ -253,8 +263,13 @@ export function TimePointPicker({
   onConfirm?: (value: TimePoint) => void
   /** Where the preview shows the date (default: the picked calendar). */
   displayLens?: Lens | null
+  /** Enables the Relative tab (authors: it searches targets and resolves on the server). */
+  vault?: string
+  /** The slot this time point belongs to (a relative anchor to it would be a cycle). */
+  owner?: SlotRef
   label?: string
 }) {
+  const relativeAllowed = vault !== undefined
   const [draft, setDraft] = useState(() => draftOf(value, lenses, dimension.defaultCalendarId))
   const id = useId()
   const calendars = lenses.filter((lens) => lens.calendar !== null)
@@ -263,21 +278,36 @@ export function TimePointPicker({
   const resolved = resolve(draft, calendar)
   const absoluteOk = draft.absolute !== null && draft.absolute <= dimension.duration
   const current: TimePoint | null =
-    draft.tab === 'date'
-      ? resolved.point
-      : absoluteOk && draft.absolute !== null
-        ? {
-            anchor: { kind: 'absolute', t: formatMoment(draft.absolute) },
-            precision: 'base',
-            approximate: draft.approximate,
-          }
-        : null
-  const t = draft.tab === 'date' ? resolved.t : absoluteOk ? draft.absolute : null
+    draft.tab === 'relative'
+      ? draft.relativePoint
+      : draft.tab === 'date'
+        ? resolved.point
+        : absoluteOk && draft.absolute !== null
+          ? {
+              anchor: { kind: 'absolute', t: formatMoment(draft.absolute) },
+              precision: 'base',
+              approximate: draft.approximate,
+            }
+          : null
+  const t =
+    draft.tab === 'relative'
+      ? null
+      : draft.tab === 'date'
+        ? resolved.t
+        : absoluteOk
+          ? draft.absolute
+          : null
 
   const update = (patch: Partial<Draft>) => {
     const next = { ...draft, ...patch }
     setDraft(next)
-    if (next.tab === 'date') {
+    if (next.tab === 'relative') {
+      onChange(
+        next.relativePoint === null
+          ? null
+          : { ...next.relativePoint, approximate: next.approximate },
+      )
+    } else if (next.tab === 'date') {
       const nextLens = calendars.find((candidate) => candidate.id === next.calendarId) ?? null
       onChange(resolve(next, nextLens?.calendar ?? null).point)
     } else {
@@ -323,13 +353,14 @@ export function TimePointPicker({
       <Tabs
         value={draft.tab}
         onValueChange={(tab) => {
-          update({ tab: tab === 'absolute' ? 'absolute' : 'date' })
+          update({ tab: tab === 'absolute' || tab === 'relative' ? tab : 'date' })
         }}
       >
         <TabsList>
           <TabsTrigger value="date" disabled={calendars.length === 0}>
             Date
           </TabsTrigger>
+          {relativeAllowed && <TabsTrigger value="relative">Relative</TabsTrigger>}
           <TabsTrigger value="absolute">Absolute</TabsTrigger>
         </TabsList>
         <TabsContent value="date">
@@ -457,6 +488,25 @@ export function TimePointPicker({
             </p>
           )}
         </TabsContent>
+        {vault !== undefined && (
+          <TabsContent value="relative">
+            <RelativeTab
+              vault={vault}
+              dimension={dimension}
+              lenses={lenses}
+              draft={draft.relative}
+              approximate={draft.approximate}
+              owner={owner}
+              onDraft={(relative) => {
+                setDraft((previous) => ({ ...previous, relative }))
+              }}
+              onPoint={(relativePoint) => {
+                setDraft((previous) => ({ ...previous, relativePoint }))
+                if (draft.tab === 'relative') onChange(relativePoint)
+              }}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="absolute">
           <div className="grid grid-cols-[8rem_1fr] items-start gap-x-3 gap-y-2">
             <Row label={`Moment (${dimension.baseUnit.plural})`} htmlFor={`${id}-absolute`}>

@@ -42,6 +42,8 @@ export interface LinkType extends Readonly<Schemas['LinkTypeOut']> {
 export interface KindRegistry {
   kinds: readonly Kind[]
   linkTypes: readonly LinkType[]
+  /** Record types whose slots relative anchors may reference (time-model.md §6). */
+  referenceableSlots: readonly Schemas['TimeSlotsOut'][]
   kind(key: string): Kind | undefined
   linkType(key: string): LinkType | undefined
 }
@@ -90,6 +92,7 @@ export function buildKindRegistry(
   return {
     kinds,
     linkTypes,
+    referenceableSlots: registry.referenceable_slots,
     kind: (key) => kindsByKey.get(key),
     linkType: (key) => linkTypesByKey.get(key),
   }

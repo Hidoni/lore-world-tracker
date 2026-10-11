@@ -2969,6 +2969,8 @@ export interface components {
             modules: components["schemas"]["ModuleState"][];
             /** Consistency Rules */
             consistency_rules: components["schemas"]["RuleOut"][];
+            /** Referenceable Slots */
+            referenceable_slots: components["schemas"]["TimeSlotsOut"][];
         };
         /**
          * RelativeAnchor
@@ -3038,6 +3040,11 @@ export interface components {
              */
             display: string | null;
             error: components["schemas"]["TimeProblem"] | null;
+            /**
+             * Default Precision
+             * @description Relative anchors: the precision they take by default (the coarser of the target's and the offset's finest unit). An anchor stored with it keeps the target's extent shifted by the offset; null for other anchors.
+             */
+            default_precision?: string | null;
         };
         /**
          * RevertResult
@@ -3370,6 +3377,21 @@ export interface components {
              * @description Where in the item (dotted, e.g. `anchor.fields.month`).
              */
             path: string;
+        };
+        /**
+         * TimeSlotsOut
+         * @description A record type's slots that relative anchors may reference (``time-model.md`` §6).
+         */
+        TimeSlotsOut: {
+            /**
+             * Record Type
+             * @description `event`, `timeline`, or a module's `<module>.<type>`.
+             */
+            record_type: string;
+            /** Module */
+            module: string;
+            /** Slots */
+            slots: string[];
         };
         /** TimeSpecIn */
         TimeSpecIn: {

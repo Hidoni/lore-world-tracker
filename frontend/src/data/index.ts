@@ -96,5 +96,5 @@ export {
   useUpdateLinkType,
   useUpdateSettings,
 } from './settings'
-export { useDimensionCalendars, useDimensions, useTimelines } from './time'
+export { useDimensionCalendars, useDimensions, useTimeResolution, useTimelines } from './time'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'
