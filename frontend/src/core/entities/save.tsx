@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -47,10 +47,21 @@ export function useEntitySaver(
   const [conflict, setConflict] = useState<EntityChange | null>(null)
   const [busy, setBusy] = useState(false)
   const [generation, setGeneration] = useState(0)
+  // The revision of our last save: autosaves can follow each other before the entity is re-read.
+  const saved = useRef({ id: entity.id, revision: entity.revision })
+  useEffect(() => {
+    if (saved.current.id !== entity.id || saved.current.revision < entity.revision) {
+      saved.current = { id: entity.id, revision: entity.revision }
+    }
+  }, [entity.id, entity.revision])
 
   const save = async (change: EntityChange): Promise<SaveResult> => {
     try {
-      await update.mutateAsync({ id: entity.id, body: { ...change, revision: entity.revision } })
+      const result = await update.mutateAsync({
+        id: entity.id,
+        body: { ...change, revision: saved.current.revision },
+      })
+      saved.current = { id: entity.id, revision: result.entity.revision }
       return { ok: true }
     } catch (error) {
       if (isRevisionConflict(error)) setConflict(change)
@@ -68,7 +79,11 @@ export function useEntitySaver(
     setBusy(true)
     try {
       const fresh = await source.entity(vault, entity.id)
-      await update.mutateAsync({ id: entity.id, body: { ...change, revision: fresh.revision } })
+      const result = await update.mutateAsync({
+        id: entity.id,
+        body: { ...change, revision: fresh.revision },
+      })
+      saved.current = { id: entity.id, revision: result.entity.revision }
       setConflict(null)
       setGeneration((value) => value + 1)
     } catch (error) {

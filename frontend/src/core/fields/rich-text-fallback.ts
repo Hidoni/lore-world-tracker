@@ -1,4 +1,4 @@
-/** Rich-text documents (TipTap JSON) as plain text, until the editor lands (#63). */
+/** Rich-text documents (TipTap JSON) as plain text, until fields use the editor (#259). */
 interface RichNode {
   type?: string
   text?: string

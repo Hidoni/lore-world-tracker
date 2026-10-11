@@ -65,6 +65,24 @@ export interface Row {
   tags: { id: string; name: string; color: null }[]
   fields: Record<string, unknown>
   field_visibility: Record<string, string>
+  summary: string
+  body: unknown
+}
+
+/** The entity ids a document links to (`entityLink` marks). */
+function mentioned(doc: unknown): Set<string> {
+  const found = new Set<string>()
+  const walk = (node: unknown) => {
+    if (typeof node !== 'object' || node === null) return
+    const { marks, content } = node as { marks?: unknown[]; content?: unknown[] }
+    for (const mark of marks ?? []) {
+      const { type, attrs } = mark as { type: string; attrs?: { entityId?: string } }
+      if (type === 'entityLink' && attrs?.entityId) found.add(attrs.entityId)
+    }
+    for (const child of content ?? []) walk(child)
+  }
+  walk(doc)
+  return found
 }
 
 export function row(id: string, kindKey: string, name: string, extra: Partial<Row> = {}): Row {
@@ -81,6 +99,8 @@ export function row(id: string, kindKey: string, name: string, extra: Partial<Ro
     tags: [],
     fields: {},
     field_visibility: {},
+    summary: '',
+    body: null,
     ...extra,
   }
 }
@@ -90,9 +110,7 @@ function out(entity: Row) {
     ...entity,
     origin_timeline_id: null,
     slug: entity.name.toLowerCase(),
-    summary: '',
-    body: null,
-    body_schema_version: null,
+    body_schema_version: entity.body === null ? null : 1,
     icon: null,
     color: null,
     cover_media_id: null,
@@ -119,8 +137,8 @@ export function defaultRows(): Row[] {
 }
 
 /**
- * An in-memory vault `v1` behind MSW (entities, registry, writes); returns the write requests it
- * saw. `conflicts` PATCHes answer `409 revision_conflict` first, as if someone saved meanwhile.
+ * An in-memory vault `v1` behind MSW (entities, registry, writes, bodies with their mentions and
+ * backlinks, the quick switcher); returns the write requests it saw. `conflicts` PATCHes answer `409 revision_conflict` first, as if someone saved meanwhile.
  */
 export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts?: number } = {}) {
   let conflicts = options.conflicts ?? 0
@@ -159,6 +177,35 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
       const entity = found(params.id)
       return entity ? HttpResponse.json(out(entity)) : new HttpResponse(null, { status: 404 })
     }),
+    http.get('*/api/v1/vaults/v1/search/quick', ({ request }) => {
+      const q = (new URL(request.url).searchParams.get('q') ?? '').toLowerCase()
+      const items = [...rows.values()]
+        .filter((entity) => entity.deleted_at === null && entity.name.toLowerCase().startsWith(q))
+        .map((entity) => ({
+          doc_type: 'entity',
+          doc_id: entity.id,
+          entity_id: entity.id,
+          kind: entity.kind,
+          name: entity.name,
+          alias: null,
+          icon: null,
+          color: null,
+          dimension_id: entity.dimension_id,
+          visibility: entity.visibility,
+        }))
+      return HttpResponse.json({ items })
+    }),
+    http.get('*/api/v1/vaults/v1/entities/:id/backlinks', ({ params }) =>
+      HttpResponse.json({
+        items: [...rows.values()]
+          .filter((source) => mentioned(source.body).has(String(params.id)))
+          .map((source) => ({
+            entity: { id: source.id, kind: source.kind, name: source.name },
+            links: [],
+            mentions: { public: 1, spoiler: 0, private: 0 },
+          })),
+      }),
+    ),
     http.get('*/api/v1/vaults/v1/entities/:id/children', ({ params }) =>
       HttpResponse.json({
         items: [...rows.values()].filter((entity) => entity.parent_id === params.id).map(out),
@@ -187,6 +234,11 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
         string,
         string
       >
+      // Saving a body changes the backlinks of what it (no longer) mentions.
+      const before = mentioned(entity.body)
+      if ('body' in body) entity.body = body.body
+      const after = mentioned(entity.body)
+      const changed = [...before, ...after].filter((id) => before.has(id) !== after.has(id))
       const aliases = body.aliases as { id?: string; alias: string }[] | undefined
       const tags = body.tags as string[] | undefined
       Object.assign(entity, {
@@ -207,7 +259,7 @@ export function serveVault(options: { kinds?: unknown[]; rows?: Row[]; conflicts
       })
       return HttpResponse.json({
         entity: out(entity),
-        affected: { entities: [entity.id], ...NOTHING },
+        affected: { entities: [entity.id, ...changed], ...NOTHING },
       })
     }),
     http.delete('*/api/v1/vaults/v1/entities/:id', async ({ request, params }) => {

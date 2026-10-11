@@ -107,13 +107,15 @@ function KindForm({
   vault,
   kind,
   dimensions,
+  initialName,
   onCreated,
   onCancel,
 }: {
   vault: string
   kind: Kind
   dimensions: readonly { id: string; name: string }[]
-  onCreated: (id: string) => void
+  initialName: string
+  onCreated: (entity: { id: string; name: string }) => void
   onCancel: () => void
 }) {
   const create = useCreateEntity(vault)
@@ -128,7 +130,7 @@ function KindForm({
   )
   const form = useForm<Values>({
     resolver: zodResolver(schema) as never,
-    defaultValues: { name: '', fields: { ...kind.createDefaults } },
+    defaultValues: { name: initialName, fields: { ...kind.createDefaults } },
   })
   const [dimension, setDimension] = useState<string | null>(null)
   const [parent, setParent] = useState<{ id: string; name: string } | null>(null)
@@ -149,7 +151,7 @@ function KindForm({
       },
       {
         onSuccess: (result) => {
-          onCreated(result.entity.id)
+          onCreated({ id: result.entity.id, name: result.entity.name })
         },
       },
     )
@@ -243,11 +245,16 @@ function KindForm({
 export function CreateEntityDialog({
   vault,
   initialKind,
+  initialName = '',
   onClose,
+  onCreated,
 }: {
   vault: string
   initialKind?: string
+  initialName?: string
   onClose: () => void
+  /** Called with the new entity instead of opening it (e.g. to link to it). */
+  onCreated?: (entity: { id: string; name: string }) => void
 }) {
   const registry = useKindRegistry(vault)
   const kinds = creatableKinds(registry?.kinds ?? [])
@@ -295,10 +302,15 @@ export function CreateEntityDialog({
             vault={vault}
             kind={kind}
             dimensions={dimensions.data?.items ?? []}
+            initialName={initialName}
             onCancel={onClose}
-            onCreated={(id) => {
+            onCreated={(entity) => {
+              if (onCreated) {
+                onCreated(entity)
+                return
+              }
               onClose()
-              void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: id } })
+              void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: entity.id } })
             }}
           />
         )}

@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 
 import { server } from './msw'
 
-// jsdom lacks these browser APIs; sonner and Radix use them. (Some suites run in node.)
+// jsdom lacks these browser APIs; sonner, Radix and ProseMirror use them. (Some suites run in node.)
 function stub(target: object, name: string, value: unknown): void {
   if ((target as Record<string, unknown>)[name] === undefined) {
     Object.defineProperty(target, name, { value, configurable: true, writable: true })
@@ -27,6 +27,11 @@ if (typeof window !== 'undefined') {
   stub(Element.prototype, 'setPointerCapture', () => undefined)
   stub(Element.prototype, 'releasePointerCapture', () => undefined)
   stub(Element.prototype, 'scrollIntoView', () => undefined)
+  // ProseMirror measures ranges (scrolling the selection into view, suggestion menus).
+  const rect = () => new DOMRect(0, 0, 0, 0)
+  stub(Range.prototype, 'getClientRects', () => [])
+  stub(Range.prototype, 'getBoundingClientRect', rect)
+  stub(document, 'elementFromPoint', () => null)
   stub(
     globalThis,
     'ResizeObserver',

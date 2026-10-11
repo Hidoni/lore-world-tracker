@@ -211,6 +211,28 @@ Behaviors: a slash menu (`/`), markdown shortcuts, paste-from-Markdown (`[[Name]
 `entityLink` when the name resolves uniquely), and a word count. The backend validates allowed node
 types and extracts mentions, time refs, media refs and plain text (`lore.core.richtext`).
 
+Implementation (`src/editor/`, #63):
+
+- `RichTextEditor` (lazy-loaded as `LazyRichTextEditor`, its own chunk) configures StarterKit and
+  the table kit to the stored schema. Attributes TipTap adds but the server doesn't store
+  (`orderedList.type`, `link.title`, table cell `align`) are removed, and underline is off. A test
+  checks every node, mark and attribute the editor produces against the server schema, and that
+  `RICH_TEXT_SCHEMA_VERSION` equals the backend's. `callout`, `visibilityBlock` and `timeRef`
+  are kept as they are until #64/#86 give them a UI.
+- `[[` (names may contain spaces; a closing `]]` is ignored) and `@` open a menu fed by
+  `/search/quick`: arrow keys, Enter/Tab and Escape work, and the last entry, "Create “…” as…",
+  opens the create dialog with the name filled in, then links to the new entity.
+- Autosave: 1.5 s after the last change, on blur and when the editor unmounts (navigation); one
+  save at a time. A status shows "Unsaved changes", "Saving…" and "Saved", and the page warns
+  before closing with unsaved changes. Saves go through `useEntitySaver`, which keeps the revision
+  of its last save, so successive autosaves don't conflict with themselves. A conflict stops
+  autosaving, and the conflict dialog decides.
+- `RichTextView` renders the same schema without TipTap (readers and the trash). `EntityLinkView`
+  shows the target's kind icon, links to it and has a hover card with its summary. Missing,
+  trashed and hidden targets render as plain text.
+- Writes report the entities whose mentions changed in `affected.entities` (`api.md` §2, Entities), so
+  backlinks refresh after a save.
+
 Server rules for saved documents (bodies and `rich_text` fields; `lore.core.richtext.schema`):
 
 - Node and mark types, where each may appear (blocks vs inline content, list items in lists,
@@ -266,7 +288,7 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
 - Fields (`core/fields/`, #62): zod schemas built from field definitions (`fieldSchema`,
   `fieldsSchema`) mirror `lore.core.fields.values`, so values are checked (and colors lowercased,
   units trimmed) before saving; integers and decimals stay strings. Every core type has a display
-  and an editor; `rich_text` edits as plain paragraphs until the editor lands (#63), `duration` and
+  and an editor; `rich_text` edits as plain paragraphs until it uses the editor (#259), `duration` and
   `time_point` are shown but not editable until M5, and a module's `fieldTypeRenderers` replaces a
   type's display. The fields panel groups by `section` (collapsed sections are remembered per
   kind in `localStorage`), saves text on Enter or blur (multi-line: Ctrl/Cmd+Enter), choices at
