@@ -80,4 +80,5 @@ export {
   useUpdateLinkType,
   useUpdateSettings,
 } from './settings'
+export { useDimensionCalendars, useDimensions } from './time'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'

@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Time display and context** (#72): every moment can be shown in the chosen display calendar
+  (`MomentDisplay`, `SpanDisplay`), with a tooltip listing it in all the dimension's calendars,
+  the absolute value and its distance from the present; huge years use scientific notation. The
+  top bar has a dimension switcher and a display-calendar selector (with Absolute); the
+  dimension, timeline, cursor and calendar live in the URL (`tl`, `at`, `cal`) and are
+  remembered per vault and dimension. Calendars compile client-side with `@lore/chronology` and
+  are cached by id, revision and resolved anchors.
+
 ## [0.3.0] - 2026-10-11
 
 The frontend foundation (M4): a generic wiki usable in the browser. Every kind has an entity page
