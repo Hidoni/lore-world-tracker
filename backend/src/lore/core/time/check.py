@@ -64,7 +64,8 @@ def _fresh(
     if resolver is None:
         resolver = resolvers[value.dimension_id] = Resolver(context, value.dimension_id)
     if isinstance(value.spec, TimePoint):
-        return resolver.resolve(resolvable(value.spec) if node.type == CALENDAR else value.spec)
+        point = resolvable(value.spec) if node.type == CALENDAR else value.spec
+        return resolver.resolve(point, owner=node.id)
     assert value.spec is not None
     registry: SlotRegistry = context.registry.slot_registry()
     _provider, definition = registry.slot(node.type, node.slot)
@@ -74,7 +75,7 @@ def _fresh(
         if needs_start
         else Resolution(None, TimeStatus.OK)
     )
-    return resolver.resolve_end(value.spec, start)
+    return resolver.resolve_end(value.spec, start, owner=node.id)
 
 
 def verify_time(context: VaultContext) -> Iterator[Problem]:

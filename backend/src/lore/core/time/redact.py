@@ -35,8 +35,9 @@ class ReaderTimes:
         self._visible_ids: dict[str, bool] = {}
         self._dimensions: dict[str, str | None] = {}
 
-    def point(self, document: Any, dimension_id: str | None) -> Any:
-        """A stored time point (a document or a ``TimePoint``) as the policy may see it."""
+    def point(self, document: Any, dimension_id: str | None, *, owner: str | None = None) -> Any:
+        """A stored time point (a document or a ``TimePoint``) as the policy may see it
+        (``owner``: the id of the record it belongs to, see ``Resolver.resolve``)."""
         if document is None or not self.policy.reader:
             return document
         if self._plainly_visible(document):
@@ -47,7 +48,7 @@ class ReaderTimes:
             return None  # never stored like this; nothing to show
         if self._visible(point):
             return document
-        t, precision = self._moment(point, self._dimension(point) or dimension_id)
+        t, precision = self._moment(point, self._dimension(point) or dimension_id, owner)
         if t is None:
             return None
         anchor = {"kind": "absolute", "t": str(t)}
@@ -79,10 +80,12 @@ class ReaderTimes:
             if provider.entity_column is not None and provider.entity_column == provider.id_column
         )
 
-    def _moment(self, point: TimePoint, dimension_id: str | None) -> tuple[int | None, str]:
+    def _moment(
+        self, point: TimePoint, dimension_id: str | None, owner: str | None
+    ) -> tuple[int | None, str]:
         """The point's resolved moment and the precision to show it with."""
         author = None if dimension_id is None else self._resolver(dimension_id)
-        result = None if author is None else author.resolve(point)
+        result = None if author is None else author.resolve(point, owner=owner)
         if author is None or result is None or result.t is None or result.t < 0:
             return None, BASE
         keep = point.precision == BASE or author.has_default_level(point.precision)

@@ -26,6 +26,13 @@ All notable changes to this project are documented here. The format follows
     taken before a large apply is deflated at the fastest level.
   - A full garbage collection no longer stalls about one request in ten for 85 ms.
 
+### Fixed
+
+- A modified occurrence anchored to its own occurrence ("two days after occurrence 4", said by
+  occurrence 4) resolves against the computed occurrence (#234). It used to resolve against its
+  own stored moment: `lore vault check` reported `time_moment_stale` and every re-resolution
+  moved it again.
+
 ## [0.1.0] - 2026-10-05
 
 The first release that writes vaults: the core platform (M2) on top of the foundations (M0) and

@@ -584,10 +584,10 @@ def _items(
         for point in (row[7], row[8].get("time_point") if row[8]["kind"] == "time_point" else None)
     )
 
-    def shown(point: dict[str, Any], dimension_id: str | None) -> dict[str, Any]:
+    def shown(point: dict[str, Any], dimension_id: str | None, owner: str) -> dict[str, Any]:
         if not policy.reader or point["anchor"]["kind"] == "absolute":
             return point
-        return times.point(point, dimension_id) or {}
+        return times.point(point, dimension_id, owner=owner) or {}
 
     by_id = {row.id: row for row in rows}
     items = []
@@ -595,10 +595,10 @@ def _items(
         occurrence = computed.get(kept_id)
         row = by_id[occurrence.row_id if occurrence is not None else kept_id]
         start_spec, end_spec = row[7], row[8]
-        start = shown(start_spec, row.dimension_id)
+        start = shown(start_spec, row.dimension_id, row.entity_id)
         end_point: dict[str, Any] = {}
         if end_spec["kind"] == "time_point":
-            end_point = shown(end_spec["time_point"], row.dimension_id)
+            end_point = shown(end_spec["time_point"], row.dimension_id, row.entity_id)
         items.append(
             WindowItem(
                 entity_id=row.entity_id,

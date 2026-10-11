@@ -461,14 +461,14 @@ class _Run:
                 from lore.core.time.calendars import resolvable  # noqa: PLC0415 (import cycle)
 
                 spec = resolvable(spec)
-            resolution = resolver.resolve(spec)
+            resolution = resolver.resolve(spec, owner=node.id)
         else:
             start = (
                 resolver.slot(node.type, node.id, definition.start)
                 if value.spec.kind in ("duration", "instant", "unknown")
                 else Resolution(None, TimeStatus.OK)  # the end doesn't use its start
             )
-            resolution = resolver.resolve_end(value.spec, start)
+            resolution = resolver.resolve_end(value.spec, start, owner=node.id)
         if resolution.status in GOOD and resolution.t is not None:
             self._store(node, resolution.t, resolution.status, resolution)
             return

@@ -426,7 +426,9 @@ above is silent):
   kept), `false` takes it back to `referenced`/`modified`.
 - **Occurrence refs** (`time-model.md` §5.2) resolve to a `modified` materialized occurrence's
   own moment (not in the trash, not cancelled), else to the computed occurrence, with the
-  width of the series slot's extent. Their edges point at the series' `start`/`end` slot; when a
+  width of the series slot's extent. A ref **from the materialized occurrence's own** start or
+  end to its own series and key (e.g. "two days after occurrence 4", said by occurrence 4: held
+  two days late) means the **computed** occurrence, never a cycle (#234). Their edges point at the series' `start`/`end` slot; when a
   materialized occurrence changes state or time, is trashed or restored, or a series is
   refreshed without its start moving (its rule's calendar, `until` or exclusions changed),
   whatever is anchored to the series resolves again (`TimeWriter.touch_series`, follow-up

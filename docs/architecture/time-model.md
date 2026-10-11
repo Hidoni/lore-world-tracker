@@ -327,7 +327,8 @@ defines what is valid (`chronology-engine.md` §6).
 - A calendar anchor must specify every level from the top level down to `precision`. Levels
   below `precision` must be absent. The resolved moment is the start of that unit.
 - A relative anchor's `ref.occurrence` targets one occurrence of a recurring event: the
-  occurrence's computed (or materialized) start/end.
+  occurrence's computed (or materialized) start/end (always the computed one for refs from that
+  materialized occurrence's own slots, `recurrence.md` §7).
 - Relative anchors may point at any **referenceable slot** (§6), in the same dimension or, with
   care, another dimension. Cross-dimension refs are allowed only through a correspondence (M9)
   and are resolved by mapping the moment. They are rarely needed.

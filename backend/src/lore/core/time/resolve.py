@@ -19,7 +19,8 @@ Rules (technical choices documented in ``time-model.md`` §5.3 and §6):
   precision and the offset's finest unit (the longer unit at the resolved moment; ties keep the
   target's). An occurrence ref (``ref.occurrence``) uses the occurrence's moment: a
   ``modified`` materialized occurrence's own, else the one computed from the series' rule (with
-  the series slot's extent width); a key without an occurrence is ``unresolved_ref``. With that
+  the series slot's extent width; always the computed one for the occurrence's own specs, given
+  as ``owner``); a key without an occurrence is ``unresolved_ref``. With that
   precision the extent is the target's extent shifted by the offset; with
   another (explicit) precision it is ``[t, end of the precision unit containing t)``.
 - **Precision calendar:** the level named by a precision belongs to the anchor's calendar, the
@@ -258,9 +259,10 @@ class Resolver:
 
     # --- time points --------------------------------------------------------------------------
 
-    def resolve(self, point: TimePoint) -> Resolution:
-        """Resolve a time point (§5.2-§5.4)."""
-        return self._resolve(point, frozenset(), 0)
+    def resolve(self, point: TimePoint, *, owner: str | None = None) -> Resolution:
+        """Resolve a time point (§5.2-§5.4). ``owner`` is the id of the record the point
+        belongs to, when it is a stored slot's spec (see ``_occurrence``)."""
+        return self._resolve(point, _owned(owner), 0)
 
     def _resolve(
         self, point: TimePoint, seen: frozenset[tuple[str, str, str]], depth: int
@@ -477,7 +479,9 @@ class Resolver:
     ) -> Resolution:
         """Slot ``slot`` of occurrence ``key`` of a series (``recurrence.md`` §7): a
         ``modified`` materialized occurrence's own moment, else the computed one, with the width
-        of the series slot's extent."""
+        of the series slot's extent. A ref from the materialized occurrence's own specs (the
+        occurrence owns a slot being resolved, ``seen``) means the computed occurrence: "two days
+        after this occurrence" would otherwise move by two days on every resolution (#234)."""
         from lore.core.time import series  # noqa: PLC0415 (import cycle)
 
         row = self.session.scalar(
@@ -488,7 +492,11 @@ class Resolver:
                            "The anchor's target isn't a recurring event.",
                            "anchor.ref.occurrence")  # fmt: skip
         own = series.materialized_row(self.session, series_id, key, row.timeline_id)
-        if own is not None and own.occurrence_state == series.MODIFIED:
+        if (
+            own is not None
+            and own.occurrence_state == series.MODIFIED
+            and all(node[1] != own.entity_id for node in seen)
+        ):
             entity = self.session.get(Entity, own.entity_id)
             if entity is not None and entity.deleted_at is None:
                 found = self.slot(EVENT, own.entity_id, slot, seen, depth + 1)
@@ -596,9 +604,12 @@ class Resolver:
 
     # --- ends ---------------------------------------------------------------------------------
 
-    def resolve_end(self, end: EndSpec, start: Resolution) -> Resolution:
-        """Resolve an end spec (§5.5) given its record's resolved start."""
-        return self._end(end, start, frozenset(), 0)
+    def resolve_end(
+        self, end: EndSpec, start: Resolution, *, owner: str | None = None
+    ) -> Resolution:
+        """Resolve an end spec (§5.5) given its record's resolved start (``owner``: as for
+        ``resolve``)."""
+        return self._end(end, start, _owned(owner), 0)
 
     def _end(
         self,
@@ -646,6 +657,13 @@ def owner_visible(
             )
         )
     return bool(policy.visible_ids(session, [entity_id]))
+
+
+def _owned(owner: str | None) -> frozenset[tuple[str, str, str]]:
+    """The ``seen`` set a stored slot's spec resolves with: its record, as a node with no slot
+    (it marks the owner for ``_occurrence``; no slot is named ``""``, so it never reads as a
+    cycle)."""
+    return frozenset() if owner is None else frozenset({("", owner, "")})
 
 
 def _at(problem: Problem | None, prefix: str) -> Problem | None:
