@@ -3,10 +3,12 @@ import { useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useKind } from '@/core/registry'
-import { useDeleteEntity, useEntity, useMutations, useRestoreEntity } from '@/data'
+import { FieldsPanel } from '@/core/fields'
+import { useKind, type Kind } from '@/core/registry'
+import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity } from '@/data'
 
 import { EntityHeader } from './entity-header'
+import { useEntitySaver } from './save'
 import { PurgeDialog } from './trash-dialogs'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -79,24 +81,17 @@ function TrashBanner({ vault, id, name }: { vault: string; id: string; name: str
   )
 }
 
-/**
- * The entity page for any kind (frontend.md §7): the registry decides its icon, label and
- * badges; module panels (`entityPanels`) slot in. Fields, body, relations, time and history fill
- * their sections with #62, #63, #66, M5 and #68.
- */
-export function EntityPage({ vault, entityId }: { vault: string; entityId: string }) {
-  const entity = useEntity(vault, entityId)
-  const kind = useKind(entity.data?.kind ?? '', vault)
-
-  if (entity.isPending) return <p className="p-8 text-muted-foreground">Loading…</p>
-  if (entity.isError) {
-    return (
-      <p role="alert" className="p-8 text-destructive">
-        Couldn’t load this entity: {entity.error.message}
-      </p>
-    )
-  }
-  const data = entity.data
+function EntityView({
+  vault,
+  entity: data,
+  kind,
+}: {
+  vault: string
+  entity: Entity
+  kind: Kind | undefined
+}) {
+  const saver = useEntitySaver(vault, data)
+  const editable = useMutations() !== null && data.deleted_at === null
   const main = kind?.panels.filter((panel) => panel.placement === 'main') ?? []
   const side = kind?.panels.filter((panel) => panel.placement === 'side') ?? []
   const Media = kind?.headerMedia ?? null
@@ -108,7 +103,7 @@ export function EntityPage({ vault, entityId }: { vault: string; entityId: strin
       <div className="flex gap-4">
         {Media !== null && <Media {...props} />}
         <div className="flex-1">
-          <EntityHeader vault={vault} entity={data} kind={kind} />
+          <EntityHeader vault={vault} entity={data} kind={kind} saver={saver} />
         </div>
       </div>
       <Tabs defaultValue="overview">
@@ -121,11 +116,14 @@ export function EntityPage({ vault, entityId }: { vault: string; entityId: strin
             <div className="flex flex-col gap-4">
               {data.summary && <p className="text-muted-foreground">{data.summary}</p>}
               <Section title="Fields">
-                <Pending>
-                  {kind === undefined || kind.fields.length === 0
-                    ? 'This kind has no fields.'
-                    : `${kind.fields.length} field${kind.fields.length === 1 ? '' : 's'}: editors arrive with #62.`}
-                </Pending>
+                <FieldsPanel
+                  key={saver.generation}
+                  vault={vault}
+                  entity={data}
+                  fields={kind?.fields ?? []}
+                  editable={editable}
+                  save={saver.save}
+                />
               </Section>
               {kind?.capabilities.has_body !== false && (
                 <Section title="Body">
@@ -161,6 +159,27 @@ export function EntityPage({ vault, entityId }: { vault: string; entityId: strin
           <Pending>The entity’s history arrives with #68.</Pending>
         </TabsContent>
       </Tabs>
+      {saver.dialog}
     </article>
   )
+}
+
+/**
+ * The entity page for any kind (frontend.md §7): the registry decides its icon, label, badges
+ * and fields; module panels (`entityPanels`) slot in. Body, relations, time and history fill
+ * their sections with #63, #66, M5 and #68.
+ */
+export function EntityPage({ vault, entityId }: { vault: string; entityId: string }) {
+  const entity = useEntity(vault, entityId)
+  const kind = useKind(entity.data?.kind ?? '', vault)
+
+  if (entity.isPending) return <p className="p-8 text-muted-foreground">Loading…</p>
+  if (entity.isError) {
+    return (
+      <p role="alert" className="p-8 text-destructive">
+        Couldn’t load this entity: {entity.error.message}
+      </p>
+    )
+  }
+  return <EntityView vault={vault} entity={entity.data} kind={kind} />
 }

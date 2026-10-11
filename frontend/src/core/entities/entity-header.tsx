@@ -19,20 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Kind } from '@/core/registry'
-import {
-  useDeleteEntity,
-  useEntity,
-  useMutations,
-  useUpdateEntity,
-  type components,
-  type Entity,
-} from '@/data'
+import { useDeleteEntity, useEntity, useMutations, type components, type Entity } from '@/data'
 
 import { Breadcrumbs } from './breadcrumbs'
 import { ListEditor } from './list-editor'
+import type { EntityChange, SaveResult } from './save'
 import { TrashDialog } from './trash-dialogs'
 
-type EntityUpdate = components['schemas']['EntityUpdate']
 type Visibility = components['schemas']['Visibility']
 
 const VISIBILITIES: { value: Visibility; label: string }[] = [
@@ -139,18 +132,19 @@ export function EntityHeader({
   vault,
   entity,
   kind,
+  saver,
 }: {
   vault: string
   entity: Entity
   kind: Kind | undefined
+  saver: { save: (change: EntityChange) => Promise<SaveResult>; saving: boolean }
 }) {
   const editable = useMutations() !== null && entity.deleted_at === null
-  const update = useUpdateEntity(vault)
   const trash = useDeleteEntity(vault)
   const navigate = useNavigate()
   const [trashing, setTrashing] = useState(false)
-  const save = (body: Omit<EntityUpdate, 'revision'>): void => {
-    update.mutate({ id: entity.id, body: { ...body, revision: entity.revision } })
+  const save = (change: EntityChange): void => {
+    void saver.save(change)
   }
   const Icon = kind?.icon
   const aliases = entity.aliases.map((alias) => alias.alias)
@@ -165,7 +159,7 @@ export function EntityHeader({
         {editable ? (
           <NameEditor
             name={entity.name}
-            busy={update.isPending}
+            busy={saver.saving}
             onSave={(name) => {
               save({ name })
             }}
@@ -227,7 +221,7 @@ export function EntityHeader({
           <ListEditor
             label="Aliases"
             values={aliases}
-            disabled={update.isPending}
+            disabled={saver.saving}
             {...(editable
               ? {
                   onChange: (next: string[]) => {
@@ -254,7 +248,7 @@ export function EntityHeader({
           <ListEditor
             label="Tags"
             values={entity.tags.map((tag) => tag.name)}
-            disabled={update.isPending}
+            disabled={saver.saving}
             {...(editable
               ? {
                   onChange: (tags: string[]) => {

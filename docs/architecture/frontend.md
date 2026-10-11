@@ -263,6 +263,19 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   aren't system kinds (dimensions, timelines and calendars have their own flows); the create
   dialog takes a name, the dimension (or multiversal, where the kind allows it) and a parent
   among entities of the kind's `allowed_parents`, then opens the new entity.
+- Fields (`core/fields/`, #62): zod schemas built from field definitions (`fieldSchema`,
+  `fieldsSchema`) mirror `lore.core.fields.values`, so values are checked (and colors lowercased,
+  units trimmed) before saving; integers and decimals stay strings. Every core type has a display
+  and an editor; `rich_text` edits as plain paragraphs until the editor lands (#63), `duration` and
+  `time_point` are shown but not editable until M5, and a module's `fieldTypeRenderers` replaces a
+  type's display. The fields panel groups by `section` (collapsed sections are remembered per
+  kind in `localStorage`), saves text on Enter or blur (multi-line: Ctrl/Cmd+Enter), choices at
+  once, clears with an empty value (`null`), shows server field errors under the field, and sets
+  per-field visibility overrides. The create dialog (react-hook-form) also asks for the kind's
+  required fields.
+- Saving and conflicts: `useEntitySaver` sends every change at the entity's revision; `409
+  revision_conflict` opens a dialog: **Reload theirs** (drop mine), **Overwrite** (re-read the
+  revision and save mine on top) or **Copy mine** (JSON on the clipboard).
 
 ## 8. Time components (core)
 
