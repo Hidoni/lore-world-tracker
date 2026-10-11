@@ -14,6 +14,11 @@ All notable changes to this project are documented here. The format follows
   history, query keys and `invalidateAffected`. Resolved moments are `bigint` in the UI: `make
   gen` brands them `MomentString` and records where they sit (`moments.gen.ts`), and the
   `lore/no-number-moment` lint rule keeps them out of JS numbers.
+- **Frontend module framework and KindRegistry** (#60): `defineModule` with typed extension points
+  (kinds, routes, nav sections, entity panels, renderers, timeline layers, graph styles, editor
+  extensions, commands, settings pages, header media), activation per vault from `GET /registry`
+  (dependencies included), lazily loaded module routes, and the KindRegistry merging server kinds
+  and link types with module UI configs (`useKind`, `useLinkType`, curated `iconMap`).
 
 ## [0.2.0] - 2026-10-11
 

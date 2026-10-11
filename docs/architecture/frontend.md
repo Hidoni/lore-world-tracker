@@ -234,7 +234,8 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
 ## 7. Registry-driven entity UI
 
 - On vault open, `GET /registry` is merged with module UI configs into the **KindRegistry**
-  (labels, icons, colors, fields, allowed parents, link types, panels).
+  (labels, icons, colors, fields, allowed parents, link types, panels). Implementation:
+  `modules.md` §3 (#60).
 - **Entity page** (generic for every kind):
   1. Header: icon, name (inline edit), kind badge, aliases, tags, visibility toggle, home
      dimension or multiversal badge, branch-only badge, breadcrumbs (parent chain).

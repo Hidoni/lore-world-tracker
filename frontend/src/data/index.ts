@@ -1,6 +1,9 @@
 // Data layer: DataSource & Mutations, query keys, mappers and hooks (frontend.md §5).
 import './query-meta'
 
+/** API schema types, for code outside the data layer (which can't import `api/`). */
+export type { components } from '@/api'
+
 export { DataProvider, useDataSource, useMutations } from './context'
 export {
   bigintReplacer,

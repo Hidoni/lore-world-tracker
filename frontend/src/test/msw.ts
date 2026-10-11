@@ -5,8 +5,34 @@ import type { components } from '@/api'
 
 type Vault = components['schemas']['Vault']
 
+type Registry = components['schemas']['Registry']
+
+/** A vault registry: the core module and `modules` (enabled unless listed in `disabled`). */
+export function makeRegistry(
+  modules: readonly string[] = [],
+  disabled: readonly string[] = [],
+  extra: Partial<Registry> = {},
+): Registry {
+  return {
+    kinds: [],
+    field_types: [],
+    link_types: [],
+    consistency_rules: [],
+    modules: ['core', ...modules].map((id) => ({
+      id,
+      name: id,
+      description: '',
+      depends_on: [],
+      default_enabled: true,
+      enabled: !disabled.includes(id),
+    })),
+    ...extra,
+  }
+}
+
 /** Test API server (MSW). Tests add handlers with `server.use(...)`; unhandled requests fail. */
 export const server = setupServer(
+  http.get('*/api/v1/vaults/:vault/registry', () => HttpResponse.json(makeRegistry())),
   http.get('*/api/v1/meta', () =>
     HttpResponse.json({
       app_version: '1.2.3',

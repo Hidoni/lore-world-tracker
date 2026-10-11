@@ -85,3 +85,23 @@ describe('lore/no-number-moment', { timeout: 60_000 }, () => {
     expect(errors).toEqual([])
   })
 })
+
+describe('module imports', { timeout: 60_000 }, () => {
+  it('go through other modules’ public.ts and core’s public APIs', async () => {
+    const errors = await ruleErrors(
+      'no-restricted-imports',
+      'frontend/src/modules/index.ts',
+      [
+        "import { a } from '@/modules/characters/panels/x'",
+        "import { b } from '@/modules/characters/public'",
+        "import { c } from '@/core/shell/vault-nav'",
+        "import { d } from '@/core/shell'",
+        'export const all = [a, b, c, d]',
+        '',
+      ].join('\n'),
+    )
+    expect(errors).toHaveLength(2)
+    expect(errors[0]).toContain('through its public.ts')
+    expect(errors[1]).toContain('through its public API')
+  })
+})

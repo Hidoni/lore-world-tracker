@@ -11,9 +11,15 @@ type Schemas = components['schemas']
 
 export type { Entity, EntityPage, EntityWriteResult } from './source'
 
-export function useRegistry(vault: string) {
+/** The vault's registry (kinds, fields, link types, modules); `enabled: false` skips the fetch. */
+export function useRegistry(vault: string, options: { enabled?: boolean } = {}) {
   const source = useDataSource()
-  return useQuery({ queryKey: keys.registry(vault), queryFn: () => source.registry(vault) })
+  return useQuery({
+    queryKey: keys.registry(vault),
+    queryFn: () => source.registry(vault),
+    enabled: options.enabled ?? true,
+    staleTime: 60_000,
+  })
 }
 
 export function useEntities(vault: string, query: Query<'entities_list'> = {}) {
