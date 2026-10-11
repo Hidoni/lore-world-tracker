@@ -8,7 +8,8 @@ in the trash a status: ``unchanged`` (its key still starts at ``original_start_t
 strategy per occurrence (decided with #54 where the spec is silent):
 
 - ``keep_key`` (default when moved): it keeps its key and moves with the rule (a ``modified``
-  occurrence keeps its own time).
+  occurrence keeps its own time). Its ``original_start_t`` becomes the key's new start, so later
+  proposals report only what they move (#230).
 - ``rekey``: it takes the key of ``occurrence_at(original_start_t)`` (moved) or of the first
   occurrence at or after it (orphaned); its occurrence anchors follow the new key and
   ``original_start_t`` becomes that occurrence's start. Two occurrences ending up with one key
@@ -30,6 +31,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from lore.chronology.schema import (
     EndSpec,
@@ -325,6 +327,16 @@ def _respec(
         writer.set_spec(EVENT, row.entity_id, slot, new, dimension_id=dimension_id)
 
 
+def _rebase_kept(
+    session: Session, rows: Mapping[str, series.Reconciliation], chosen: Mapping[str, str]
+) -> None:
+    """``keep_key`` occurrences take the key's new start as their baseline (#230); then the
+    reconciled rows are flushed."""
+    for entity_id in sorted(i for i, s in chosen.items() if s == KEEP_KEY):
+        series.rebase(rows[entity_id])
+    session.flush()
+
+
 def apply_rule_change(
     context: VaultContext, entity: Entity, proposal_id: str, strategies: Mapping[str, str]
 ) -> AppliedRule:
@@ -383,7 +395,7 @@ def apply_rule_change(
         occurrence_row.revision += 1
         _respec(writer, occurrence_row, entity.id, dimension_id,
                 rekey=(old_key, reconciliation.rekey.key))  # fmt: skip
-    session.flush()
+    _rebase_kept(session, rows, chosen)
     entity.updated_at = utc_now()
     row.revision += 1
     write_times(

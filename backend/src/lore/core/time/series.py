@@ -566,6 +566,15 @@ def reconcile(
     return found
 
 
+def rebase(reconciliation: Reconciliation) -> None:
+    """A moved occurrence that keeps its key: its ``original_start_t`` becomes the key's start
+    under the new rule, the baseline later rule changes are compared with (#230)."""
+    if reconciliation.status != MOVED or reconciliation.new_start is None:
+        return
+    reconciliation.row.original_start_t = reconciliation.new_start
+    reconciliation.row.revision += 1
+
+
 def _rekey_target(
     rule: Rule, ctx: RecurrenceContext, original: int, *, moved: bool
 ) -> Occurrence | None:
@@ -742,6 +751,7 @@ __all__ = [
     "occurrences",
     "overlaps",
     "parse_rule",
+    "rebase",
     "reconcile",
     "recurrence_context",
     "refresh_series",
