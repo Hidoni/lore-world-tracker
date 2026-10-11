@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Dimension wizard and overview** (#75): the vault home lists dimensions with "Create dimension";
+  a five-step wizard (name, base unit, duration with lifetime presets, first calendar from a
+  preset with a live preview, review) creates a dimension with its prime timeline and default
+  calendar; the dimension overview shows and edits its duration (explaining what blocks a
+  shrink), present moment and default calendar, with timelines, counts and recent events.
 - **Relative anchors and end specs** (#74): the time point picker's Relative tab (target search,
   edge, occurrence key, offset, live server resolution with the resulting precision, problems
   inline) and `EndSpecPicker` (end date, duration, instant, end of time, unknown; an end before

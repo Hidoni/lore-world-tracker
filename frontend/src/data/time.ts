@@ -1,8 +1,8 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
-import { useDataSource, useMutations } from './context'
+import { useDataSource, useMutations, useRequiredMutations } from './context'
 import { keys } from './keys'
 import type { Entity } from './source'
 
@@ -71,5 +71,54 @@ export function useTimeResolution(vault: string, body: components['schemas']['Re
     enabled: mutations !== null && body !== null,
     meta: { toast: false },
     placeholderData: (previous) => previous,
+  })
+}
+
+/** The preset calendars (`GET /calendars/presets`), for the dimension wizard. */
+export function useCalendarPresets(vault: string) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.calendarPresets(vault),
+    queryFn: () => source.calendarPresets(vault),
+    staleTime: Infinity,
+  })
+}
+
+/**
+ * A calendar compiled by the server without saving it (`POST /calendars/preview`): sample dates,
+ * or the definition's problems. Authors only; `null` skips the request.
+ */
+export function useCalendarPreview(
+  vault: string,
+  body: components['schemas']['CalendarPreviewIn'] | null,
+) {
+  const mutations = useMutations()
+  return useQuery({
+    queryKey: [vault, 'calendarPreview', JSON.stringify(body)],
+    queryFn: () => {
+      if (mutations === null || body === null) throw new Error('Nothing to preview.')
+      return mutations.previewCalendar(vault, body)
+    },
+    enabled: mutations !== null && body !== null,
+    meta: { toast: false },
+    retry: false,
+    placeholderData: (previous) => previous,
+  })
+}
+
+/** Creates a dimension with its prime timeline and first calendar (the wizard). */
+export function useCreateDimension(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: components['schemas']['DimensionWizardIn']) =>
+      mutations.createDimension(vault, body),
+    meta: { toast: false },
+    onSuccess: () =>
+      Promise.all(
+        ['vault', 'entities', 'tree', 'children', 'changes', 'registry'].map((area) =>
+          client.invalidateQueries({ queryKey: [vault, area] }),
+        ),
+      ),
   })
 }

@@ -157,13 +157,15 @@ export function useRestoreEntity(vault: string) {
 
 /**
  * Changes an entity at its current revision, read first: for places that don't hold the entity
- * (tree nodes, list rows: rename, reparent). Last write wins, like a fresh page.
+ * (tree nodes, list rows: rename, reparent). Last write wins, like a fresh page. `toast: false`
+ * when the caller shows the error itself.
  */
-export function useUpdateLatest(vault: string) {
+export function useUpdateLatest(vault: string, options: { toast?: boolean } = {}) {
   const mutations = useRequiredMutations()
   const source = useDataSource()
   const after = useAfterWrite(vault)
   return useMutation({
+    meta: { toast: options.toast ?? true },
     mutationFn: async ({
       id,
       change,
