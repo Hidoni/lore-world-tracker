@@ -209,6 +209,8 @@ export function serveVault(
     conflicts?: number
     linkTypes?: ReturnType<typeof linkType>[]
     links?: LinkRow[]
+    /** Enabled modules besides core (their frontend definitions are passed to `renderApp`). */
+    modules?: string[]
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
@@ -265,7 +267,11 @@ export function serveVault(
   server.use(
     http.get('*/api/v1/vaults/v1', () => HttpResponse.json(makeVault('v1', 'Atlas'))),
     http.get('*/api/v1/vaults/v1/registry', () =>
-      HttpResponse.json(makeRegistry([], [], { kinds: (options.kinds ?? KINDS) as typeof KINDS })),
+      HttpResponse.json(
+        makeRegistry(options.modules ?? [], [], {
+          kinds: (options.kinds ?? KINDS) as typeof KINDS,
+        }),
+      ),
     ),
     http.get('*/api/v1/vaults/v1/entities', ({ request }) => {
       const url = new URL(request.url)

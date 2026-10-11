@@ -127,21 +127,37 @@ function renderNode(vault: string, node: RichTextDoc, key: string): ReactNode {
     }
     case 'callout':
       return (
-        <aside key={key} className="callout" data-callout={text(attr(node, 'tone'), 'note')}>
+        <aside
+          key={key}
+          className="callout rounded-md border p-3"
+          data-callout={text(attr(node, 'tone'), 'note')}
+        >
           {inner()}
         </aside>
       )
-    case 'visibilityBlock':
-      // Private blocks never reach readers (filtered by the server); #64 folds spoilers.
+    case 'visibilityBlock': {
+      // Private blocks never reach readers (the server removes them): authors see them framed, as
+      // in the trash. Spoilers fold until unfolded.
+      const label = text(attr(node, 'label'), '')
+      if (attr(node, 'level') === 'private') {
+        return (
+          <section key={key} className="visibility-block" data-visibility="private">
+            <p className="text-xs font-medium text-muted-foreground">
+              Private{label && `: ${label}`}
+            </p>
+            {inner()}
+          </section>
+        )
+      }
       return (
-        <section
-          key={key}
-          className="visibility-block"
-          data-visibility={text(attr(node, 'level'), 'spoiler')}
-        >
+        <details key={key} className="visibility-block" data-visibility="spoiler">
+          <summary className="cursor-pointer text-sm font-medium">
+            Spoiler{label && `: ${label}`}
+          </summary>
           {inner()}
-        </section>
+        </details>
       )
+    }
     case 'timeRef':
       // Calendar-aware rendering arrives with #86.
       return (

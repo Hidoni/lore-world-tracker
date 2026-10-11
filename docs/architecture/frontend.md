@@ -253,6 +253,28 @@ Implementation (`src/editor/`, #63):
 - Writes report the entities whose mentions changed in `affected.entities` (`api.md` §2, Entities), so
   backlinks refresh after a save.
 
+Editor II (#64):
+
+- `visibilityBlock` and `callout` are React node views (`blocks.tsx`). Authors see a dashed frame
+  with its level (spoiler / private, changeable) and an optional label; a callout shows its tone.
+  Both can be removed while keeping their content. The renderer folds spoilers (`<details>`, labelled)
+  and frames private blocks for authors (readers never receive them).
+- The slash menu (`/` at a word start) lists the core block types: text, headings 1–4, lists,
+  quote, code, divider, table, the three callout tones, and spoiler and private blocks. Module
+  extensions add theirs through the option `slashItems: SlashItem[]` of an `editorExtensions`
+  entry. Typing filters by title words and keywords; arrow keys, Enter and Tab work. The toolbar
+  also has callout, spoiler and private buttons.
+- Pasting plain text that looks like Markdown (headings, lists, quotes, code, emphasis, links) or
+  holds `[[Name]]` converts it (`marked`). Raw HTML stays text, images become their alt text, and a
+  code block keeps its language only if the server accepts it. A single line is pasted inline.
+  `[[Name]]` and `[[Name|label]]` become entity links when the quick switcher finds exactly one
+  entity with that name or alias (case-insensitive); otherwise the text stays plain and a warning
+  toast lists the names. Pastes that carry HTML are left to the editor.
+- Contract: `spec/richtext/fixtures/*.json` are documents the editor produces (every slash item,
+  marks and tables, a Markdown paste). `frontend/src/editor/fixtures.test.ts` keeps them equal to
+  the editor's output (`UPDATE_FIXTURES=1` rewrites them), and `backend/tests/test_richtext.py`
+  checks that the server accepts each without loss.
+
 Server rules for saved documents (bodies and `rich_text` fields; `lore.core.richtext.schema`):
 
 - Node and mark types, where each may appear (blocks vs inline content, list items in lists,

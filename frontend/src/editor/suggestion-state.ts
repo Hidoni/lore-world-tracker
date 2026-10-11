@@ -1,8 +1,8 @@
 import type { Range } from '@tiptap/core'
 
-/** An open `[[` or `@` suggestion: what was typed and where (to replace it). */
+/** An open `[[`, `@` (entity links) or `/` (slash menu) suggestion: what was typed and where. */
 export interface SuggestionState {
-  trigger: '[[' | '@'
+  trigger: '[[' | '@' | '/'
   query: string
   range: Range
   /** Where to place the menu (viewport coordinates). */

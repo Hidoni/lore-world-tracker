@@ -6,7 +6,9 @@ import { TableCell, TableHeader, TableKit } from '@tiptap/extension-table'
 import { CharacterCount, Placeholder } from '@tiptap/extensions'
 import StarterKit from '@tiptap/starter-kit'
 
-import { EntityLinkMark, EntityLinkSuggestions } from './entity-link'
+import { Callout, VisibilityBlock } from './blocks'
+import { EntityLinkMark, EditorSuggestions } from './entity-link'
+import { MarkdownPaste, type NameResolver } from './markdown-paste'
 import { isSafeHref } from './schema'
 import type { SuggestionBridge } from './suggestion-state'
 
@@ -39,36 +41,7 @@ const ServerLink = Link.extend({
   },
 })
 
-/**
- * Nodes later editor issues give a UI (`callout`, `visibilityBlock`: #64; `timeRef`: #86). Until
- * then they're kept as they are, so editing a body that has them doesn't lose them.
- */
-const Callout = Node.create({
-  name: 'callout',
-  group: 'block',
-  content: 'block+',
-  defining: true,
-  addAttributes: () => ({ tone: { default: 'note' } }),
-  parseHTML: () => [{ tag: 'aside[data-callout]' }],
-  renderHTML: ({ node }) => [
-    'aside',
-    { 'data-callout': node.attrs.tone as string, class: 'callout' },
-    0,
-  ],
-})
-const VisibilityBlock = Node.create({
-  name: 'visibilityBlock',
-  group: 'block',
-  content: 'block+',
-  defining: true,
-  addAttributes: () => ({ level: { default: 'spoiler' }, label: { default: null } }),
-  parseHTML: () => [{ tag: 'section[data-visibility]' }],
-  renderHTML: ({ node }) => [
-    'section',
-    { 'data-visibility': node.attrs.level as string, class: 'visibility-block' },
-    0,
-  ],
-})
+/** A node a later editor issue gives a UI (`timeRef`: #86); until then it's kept as it is. */
 const TimeRef = Node.create({
   name: 'timeRef',
   group: 'inline',
@@ -84,6 +57,9 @@ export function editorExtensions(
   options: {
     placeholder?: string
     bridge?: SuggestionBridge | null
+    /** Resolves `[[Name]]` in pasted Markdown (no resolver: no Markdown paste). */
+    resolveName?: NameResolver | null
+    onUnresolvedNames?: (names: string[]) => void
     extra?: readonly AnyExtension[]
   } = {},
 ): AnyExtension[] {
@@ -109,7 +85,11 @@ export function editorExtensions(
     VisibilityBlock,
     TimeRef,
     EntityLinkMark,
-    EntityLinkSuggestions.configure({ bridge: options.bridge ?? null }),
+    EditorSuggestions.configure({ bridge: options.bridge ?? null }),
+    MarkdownPaste.configure({
+      resolve: options.resolveName ?? null,
+      onUnresolved: options.onUnresolvedNames ?? (() => undefined),
+    }),
     Placeholder.configure({ placeholder: options.placeholder ?? 'Write…' }),
     CharacterCount,
     ...(options.extra ?? []),

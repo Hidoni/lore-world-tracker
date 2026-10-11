@@ -84,10 +84,13 @@ export interface SettingsPage {
 }
 
 /**
- * A TipTap extension (the editor arrives with #63; typed loosely until then so modules can
- * register one without core depending on TipTap).
+ * A TipTap extension (`Extension`, `Node` or `Mark`), typed loosely so core doesn't depend on
+ * TipTap's types. The editor adds it; it can list slash-menu entries in its option `slashItems`
+ * (`SlashItem[]` from `@/editor`).
  */
-export type EditorExtension = { readonly name: string } & Readonly<Record<string, unknown>>
+export interface EditorExtension {
+  readonly name: string
+}
 
 export interface SearchHitProps {
   vault: string
