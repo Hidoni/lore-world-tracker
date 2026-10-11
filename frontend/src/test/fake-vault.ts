@@ -146,6 +146,7 @@ export function linkType(key: string, label: string, extra: Record<string, unkno
     data_schema: null,
     graph: { color: null, dashed: false, weight: 1 },
     archived: false,
+    revision: null as number | null,
     ...extra,
   }
 }
@@ -177,6 +178,26 @@ function linkOut(link: LinkRow) {
     deleted_at: null,
     ...link,
   }
+}
+
+export interface ModuleStateRow {
+  id: string
+  name: string
+  description: string
+  depends_on: string[]
+  default_enabled: boolean
+  enabled: boolean
+}
+
+export interface BackupRow {
+  id: string
+  kind: string
+  reason: string | null
+  created_at: string
+  size: number
+  includes_media: boolean
+  app_version: string
+  schema_revision: string | null
 }
 
 /** A recorded changeset (data-model.md §7) with what its undo answers. */
@@ -240,12 +261,26 @@ export function serveVault(
     modules?: string[]
     /** History, newest first. */
     changesets?: FakeChangeset[]
+    /** Module states (`depends_on`, `enabled`) instead of `modules`' defaults. */
+    moduleStates?: ModuleStateRow[]
+    backups?: BackupRow[]
+    /** The first restores answer `422 invalid_backup`. */
+    restoreFailures?: number
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
-  const types = options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]
+  const types = [
+    ...(options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]),
+  ]
   const links = new Map((options.links ?? []).map((link) => [link.id, linkOut(link)]))
   let linkSeq = 0
+  const moduleStates = options.moduleStates?.map((state) => ({ ...state }))
+  let settings = {
+    defaults: { visibility: 'public' },
+    backups: { every_hours: 24, keep: 7, include_media: true },
+  }
+  const backups = [...(options.backups ?? [])]
+  let restoreFailures = options.restoreFailures ?? 0
   const changesets = [...(options.changesets ?? [])]
   const summary = (changeset: FakeChangeset) => ({
     id: changeset.id,
@@ -312,11 +347,12 @@ export function serveVault(
   server.use(
     http.get('*/api/v1/vaults/v1', () => HttpResponse.json(makeVault('v1', 'Atlas'))),
     http.get('*/api/v1/vaults/v1/registry', () =>
-      HttpResponse.json(
-        makeRegistry(options.modules ?? [], [], {
+      HttpResponse.json({
+        ...makeRegistry(options.modules ?? [], [], {
           kinds: (options.kinds ?? KINDS) as typeof KINDS,
         }),
-      ),
+        ...(moduleStates ? { modules: moduleStates } : {}),
+      }),
     ),
     http.get('*/api/v1/vaults/v1/entities', ({ request }) => {
       const url = new URL(request.url)
@@ -468,6 +504,124 @@ export function serveVault(
       })
     }),
     http.get('*/api/v1/vaults/v1/link-types', () => HttpResponse.json({ items: types })),
+    http.get('*/api/v1/vaults/v1/settings', () => HttpResponse.json(settings)),
+    http.patch('*/api/v1/vaults/v1/settings', async ({ request }) => {
+      const body = (await record(request)) as Partial<typeof settings>
+      settings = {
+        defaults: { ...settings.defaults, ...body.defaults },
+        backups: { ...settings.backups, ...body.backups },
+      }
+      return HttpResponse.json(settings)
+    }),
+    http.get('*/api/v1/vaults/v1/backups', () => HttpResponse.json({ items: backups })),
+    http.post('*/api/v1/vaults/v1/backups', async ({ request }) => {
+      const body = (await record(request)) as { include_media?: boolean }
+      const backup: BackupRow = {
+        id: `b${String(backups.length + 1)}`,
+        kind: 'manual',
+        reason: null,
+        created_at: '2026-10-11T12:00:00.000000+00:00',
+        size: 2048,
+        includes_media: body.include_media ?? true,
+        app_version: '0.2.0',
+        schema_revision: 'abc',
+      }
+      backups.unshift(backup)
+      return HttpResponse.json(backup, { status: 201 })
+    }),
+    http.post('*/api/v1/vaults/restore', () => {
+      // (jsdom's XHR uploads reach MSW without their multipart body: failures are counted.)
+      writes.push({ method: 'POST', path: '/vaults/restore', body: null })
+      if (restoreFailures > 0) {
+        restoreFailures -= 1
+        return problem(422, 'invalid_backup', 'Invalid backup', 'This file isn’t a Lore backup.')
+      }
+      return HttpResponse.json(makeVault('v9', 'Atlas (restored)'), { status: 201 })
+    }),
+    http.patch('*/api/v1/vaults/v1/modules/:id', async ({ request, params }) => {
+      const body = (await record(request)) as { enabled: boolean; cascade?: boolean }
+      const states = moduleStates ?? []
+      const target = states.find((state) => state.id === params.id)
+      if (!target) return problem(404, 'module_not_found', 'Not found', 'No such module.')
+      const enabled: string[] = []
+      const disabled: string[] = []
+      if (body.enabled) {
+        const on = (state: ModuleStateRow) => {
+          for (const dependency of state.depends_on) {
+            const found = states.find((candidate) => candidate.id === dependency)
+            if (found) on(found)
+          }
+          if (!state.enabled) {
+            state.enabled = true
+            enabled.push(state.id)
+          }
+        }
+        on(target)
+      } else {
+        const dependents = states.filter(
+          (state) => state.enabled && state.depends_on.includes(target.id),
+        )
+        if (dependents.length > 0 && body.cascade !== true) {
+          return HttpResponse.json(
+            {
+              type: 'about:blank',
+              status: 409,
+              code: 'module_has_dependents',
+              title: 'Module has dependents',
+              detail: 'Other modules need it.',
+              context: { dependents: dependents.map((state) => state.id) },
+            },
+            { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+          )
+        }
+        for (const state of [target, ...dependents]) {
+          state.enabled = false
+          disabled.push(state.id)
+        }
+      }
+      return HttpResponse.json({ enabled, disabled, modules: states })
+    }),
+    http.post('*/api/v1/vaults/v1/link-types', async ({ request }) => {
+      const body = await record(request)
+      const label = String(body.label)
+      const key =
+        typeof body.key === 'string'
+          ? body.key
+          : `custom.${label.toLowerCase().replaceAll(' ', '_')}`
+      const created = { ...linkType(key, label, body), user_defined: true, revision: 1 }
+      types.push(created)
+      return HttpResponse.json(created, { status: 201 })
+    }),
+    http.patch('*/api/v1/vaults/v1/link-types/:key', async ({ request, params }) => {
+      const body = await record(request)
+      const type = types.find((candidate) => candidate.key === params.key)
+      if (!type) return new HttpResponse(null, { status: 404 })
+      const change = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'revision'))
+      Object.assign(type, change, { revision: (type.revision ?? 1) + 1 })
+      return HttpResponse.json(type)
+    }),
+    http.delete('*/api/v1/vaults/v1/link-types/:key', async ({ request, params }) => {
+      await record(request)
+      const used = [...links.values()].filter((link) => link.link_type === params.key).length
+      if (used > 0) {
+        return HttpResponse.json(
+          {
+            type: 'about:blank',
+            status: 409,
+            code: 'conflict',
+            title: 'Conflict',
+            detail: `${String(used)} links use this link type.`,
+            context: { links: used },
+          },
+          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+        )
+      }
+      types.splice(
+        types.findIndex((candidate) => candidate.key === params.key),
+        1,
+      )
+      return HttpResponse.json({ key: params.key })
+    }),
     http.get('*/api/v1/vaults/v1/changes', ({ request }) => {
       const url = new URL(request.url)
       const origins = url.searchParams.getAll('origin')

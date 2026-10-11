@@ -144,6 +144,19 @@ used values are remembered per vault/dimension in `localStorage` (wrapped in try
   -word) and kind/dimension filters live in the URL. Hits show the kind icon, a highlighted snippet
   with its source (body, aliases, fields…), and module documents (`doc_type` `<module>.<type>`)
   through the module's `searchResultRenderers`. Pages of 20 load with "Show more results".
+- **Settings** (`/v/$vault/settings/*`, `core/settings/`, #69): General (the vault's name, the
+  default visibility of new entities, and the theme, kept in this browser), Modules, Link types,
+  Backups, then the active modules' `settingsPages` (at `settings/<id>`), in a side navigation.
+  Modules: switches with the module's description and needs. Enabling one whose dependencies are
+  off, or disabling one that enabled modules need, first lists what else will switch, then sends
+  `{enabled}` or `{enabled: false, cascade: true}`. A `409 module_has_dependents` (state changed
+  meanwhile) asks again with the server's list. Every query of the vault refreshes after a toggle.
+  Link types: built-in ones read-only. Custom ones are created and edited (label, inverse label,
+  description, source/target kinds or any, symmetric (fixed after creation), dates, repeats),
+  archived and deleted; a `409` explains itself ("archive it instead"). Backups: the private-data
+  notice, the list with downloads (`backupDownloadUrl`), "Back up now" (with or without media),
+  the schedule, and restoring a zip into a new vault. The restore upload uses XHR for its
+  progress bar (`restoreBackup(file, onProgress)`), and the page links to the restored vault.
 - **Vault picker:** `/` lists the vaults (create, rename, move to trash) and opens the last-opened
   vault (`lore.lastVault`, set by every `/v/$vault` route) when it still exists. `/?pick=true`
   always shows the picker (the top bar's vault switcher links there).

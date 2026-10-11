@@ -68,4 +68,16 @@ export type {
   Vault,
   VaultList,
 } from './source'
+export {
+  backupDownloadUrl,
+  useBackups,
+  useCreateBackup,
+  useCreateLinkType,
+  useDeleteLinkType,
+  useRestoreBackup,
+  useSetModule,
+  useSettings,
+  useUpdateLinkType,
+  useUpdateSettings,
+} from './settings'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'
