@@ -88,7 +88,8 @@ everything for …" (the search page). Core commands: new entity of each creatab
 dimension or its timeline, go to a vault page, toggle the theme, show shortcuts. Modules add
 commands through `commands` (run with `{vault, navigate}`). When results arrive, the first entry
 is selected, so typing a name and pressing Enter opens it. `?` (outside text fields and the
-editor) opens the keyboard shortcuts sheet. The top bar's dimension switcher is a placeholder until M5. API errors become `sonner` toasts
+editor) opens the keyboard shortcuts sheet. The top bar's dimension switcher and display-calendar
+selector are described in §8. API errors become `sonner` toasts
 through the `QueryClient` caches (`app/query-client.ts`); a query or mutation that shows its error
 itself passes `meta: { toast: false }`. Every route gets the default error boundary
 (`app/route-error.tsx`) and unknown paths a 404 page.
@@ -397,7 +398,7 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
 
 | Component | Behavior |
 |-----------|----------|
-| `MomentDisplay` | Formats a moment at a precision in the display calendar (with circa). Tooltip: all calendars of the dimension, absolute value, and "N years before present". |
+| `MomentDisplay` | Formats a moment at a precision in the display calendar (with circa). Tooltip: all calendars of the dimension, absolute value, and "N years before present". `SpanDisplay` formats a start/end pair (`formatSpan`). |
 | `TimePointPicker` | Tabs **Date** (calendar + level-by-level selects from `options()`, precision selector, circa toggle, era selector), **Relative** (target search → event/fact/link/segment slot, edge, offset via `DurationPicker`), **Absolute** (`BigNumberInput`). Calendar and absolute inputs are validated live client-side by the TS engine. Relative previews call `/time/resolve`. |
 | `DurationPicker` | Base units, or calendar amounts per level. |
 | `EndSpecPicker` | end date / duration / instant / end of time / unknown. |
@@ -406,6 +407,29 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
 | `BigNumberInput` | Arbitrary-size integer input with grouping, `1e100` notation and a unit calculator ("10^100 years × 31,557,600 s"). |
 | `TimeCursorControl` | Present / all time / pick / step. Updates `at` in the URL. |
 | `ImpactPreviewDialog` | Table of affected records (old/new display, status) with per-row and bulk strategies. Used for calendar proposals and recurrence reconciliation. |
+
+Implementation (`core/time/`, #72):
+
+- **Time context** (`useTimeContext(vault)`, time-model.md §10.6): the dimension is the route's
+  (`$dimension`), else the last chosen one (`lore.dimension.<vault>`), else the first. Its
+  timeline, cursor and display calendar come from `tl`, `at` and `cal`, else the last used values
+  for that vault and dimension (`lore.time.<vault>.<dimension>`, a Zustand store over
+  `localStorage`), else the prime timeline, `present` and the default calendar. The cursor is
+  `present`, `all` or a moment (`bigint`); `moment` is the present moment for `present` and
+  `null` for all time. Setters write the URL (replacing the entry) and remember the value.
+- **Top bar:** the dimension switcher lists the dimensions (switching on a dimension route opens
+  the new dimension's page; elsewhere it only changes the context) and the display-calendar
+  selector lists the dimension's calendars (default first, then by name) and Absolute.
+- **Calendars:** `useDimensionCalendars` loads the dimension's calendar entities (their `ext`:
+  definition, `definition_revision`, `resolved_anchors`). `compiledCalendar` compiles one with
+  `@lore/chronology` (`resolved_anchors` is `CompileContext.resolved`) and caches it by id,
+  definition revision, resolved anchors and the dimension's base unit and duration (§12). A
+  calendar that doesn't compile is left out of the selector.
+- **Formatting:** a moment shows at its precision when the display calendar has that level, else
+  at the coarsest level whose unit fits in its extent (the extent given, or the precision's unit
+  in the calendar that has it), like the backend's `display_level`. The Absolute calendar uses
+  `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
+  present" counts the display calendar's top level (the default calendar's under Absolute).
 
 ## 9. Timeline view (core)
 

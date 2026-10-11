@@ -13,6 +13,7 @@ import { ThemeMenu } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { isTyping, usePalette } from '@/core/palette'
 import { NewEntityMenu } from '@/core/entities'
+import { CalendarSelector, DimensionSwitcher } from '@/core/time'
 import { useVault } from '@/data'
 
 import { useShell } from './shell-store'
@@ -93,9 +94,8 @@ export function TopBar() {
       {vault !== undefined && (
         <>
           <VaultSwitcher vault={vault} />
-          <Button variant="ghost" size="sm" disabled title="Dimensions arrive with M5">
-            Dimension
-          </Button>
+          <DimensionSwitcher vault={vault} />
+          <CalendarSelector vault={vault} />
         </>
       )}
       <div className="flex-1" />

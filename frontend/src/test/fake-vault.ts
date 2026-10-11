@@ -67,6 +67,8 @@ export interface Row {
   field_visibility: Record<string, string>
   summary: string
   body: unknown
+  /** Kind-specific data (dimensions, calendars, …); wire format. */
+  ext?: unknown
 }
 
 /** A document's text (paragraphs joined by spaces). */
@@ -122,7 +124,7 @@ function out(entity: Row) {
     color: null,
     cover_media_id: null,
     sort_key: null,
-    ext: null,
+    ext: entity.ext ?? null,
     created_at: '2026-10-11T10:00:00.000000+00:00',
     updated_at: '2026-10-11T10:00:00.000000+00:00',
   }
