@@ -31,7 +31,7 @@ FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:1] == ["v0.1.0"]
+    assert [path.name for path in FIXTURE_DIRS][:2] == ["v0.1.0", "v0.2.0"]
 
 
 @pytest.fixture(params=FIXTURE_DIRS, ids=[path.name for path in FIXTURE_DIRS])
