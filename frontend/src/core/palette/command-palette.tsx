@@ -2,6 +2,7 @@ import { useNavigate, useParams, useRouter } from '@tanstack/react-router'
 import { Command as Cmdk } from 'cmdk'
 import { ClockIcon, SearchIcon, TerminalIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 
 import {
   CommandEmpty,
@@ -12,10 +13,11 @@ import {
 } from '@/components/ui/command'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { CreateEntityDialog, creatableKinds } from '@/core/entities'
+import { revertProblem } from '@/core/history'
 import { useExtensionList } from '@/core/modules'
 import { usePlaceList } from '@/core/navigation'
 import { useKindRegistry } from '@/core/registry'
-import { useEntities, useMutations, useQuickSearch } from '@/data'
+import { useDataSource, useEntities, useMutations, useQuickSearch, useRevertChange } from '@/data'
 import { useTheme } from '@/lib/theme'
 
 import { usePalette } from './palette-store'
@@ -109,6 +111,8 @@ function Palette({
   const quick = useQuickSearch(vault, { q: query.trim() })
   const moduleCommands = useExtensionList('commands', vault)
   const theme = useTheme()
+  const source = useDataSource()
+  const revert = useRevertChange(vault)
   const q = query.trim()
 
   const go = (run: () => Promise<void>) => () => {
@@ -120,6 +124,26 @@ function Palette({
   const kindIcon = (kind: string) => {
     const Icon = registry?.kind(kind)?.icon
     return Icon ? <Icon aria-hidden /> : undefined
+  }
+
+  /** Undoes the newest changeset not undone yet (an undo's undo is a redo). */
+  const undoLast = async () => {
+    const { items } = await source.changes(vault, { limit: 20 })
+    const last = items.find((item) => item.reverted_by_changeset_id === null)
+    if (last === undefined) {
+      toast('Nothing to undo')
+      return
+    }
+    // The palette is closed by now: `mutate` callbacks wouldn't run once it unmounted.
+    try {
+      await revert.mutateAsync(last.id)
+      toast.success(`Undone: ${last.summary}`)
+    } catch (error) {
+      const problem = revertProblem(error)
+      toast.error(`Couldn’t undo “${last.summary}”`, {
+        description: [problem.message, ...problem.details].join(' '),
+      })
+    }
   }
 
   const pages: Entry[] = (
@@ -173,6 +197,19 @@ function Palette({
       },
     ]),
     ...pages,
+    ...(editable
+      ? [
+          {
+            id: 'undo-last',
+            title: 'Undo the last change',
+            keywords: ['revert', 'history', 'undo'],
+            run: () => {
+              close()
+              void undoLast()
+            },
+          },
+        ]
+      : []),
     {
       id: 'theme',
       title: theme.resolved === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme',

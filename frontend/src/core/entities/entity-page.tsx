@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
+import { EntityHistory } from '@/core/history'
 import { RelationsPanel } from '@/core/links'
 import { forget, visit } from '@/core/navigation/places'
 import { useKind, type Kind } from '@/core/registry'
@@ -202,7 +203,7 @@ function EntityView({
           </div>
         </TabsContent>
         <TabsContent value="history">
-          <Pending>The entity’s history arrives with #68.</Pending>
+          <EntityHistory vault={vault} entityId={data.id} />
         </TabsContent>
       </Tabs>
       {saver.dialog}
@@ -212,8 +213,7 @@ function EntityView({
 
 /**
  * The entity page for any kind (frontend.md §7): the registry decides its icon, label, badges
- * and fields; module panels (`entityPanels`) slot in. Body, relations, time and history fill
- * their sections with #63, #66, M5 and #68.
+ * and fields; module panels (`entityPanels`) slot in; the time section fills in with M5.
  */
 export function EntityPage({ vault, entityId }: { vault: string; entityId: string }) {
   const entity = useEntity(vault, entityId)

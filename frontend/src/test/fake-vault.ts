@@ -179,6 +179,26 @@ function linkOut(link: LinkRow) {
   }
 }
 
+/** A recorded changeset (data-model.md §7) with what its undo answers. */
+export interface FakeChangeset {
+  id: string
+  summary: string
+  origin?: string
+  entities: { id: string; name: string | null; kind: string | null; exists: boolean }[]
+  changes: {
+    table_name: string
+    row_id: string
+    op: 'insert' | 'update' | 'delete'
+    before: Record<string, unknown> | null
+    after: Record<string, unknown> | null
+    entity_ids: string[]
+  }[]
+  reverted_by_changeset_id?: string | null
+  reverts_changeset_id?: string | null
+  /** The undo answers `409 revert_conflict` with this context. */
+  conflict?: { rows?: unknown[]; problems?: { message: string }[] }
+}
+
 /** A cursor page (`limit`, `cursor`: the offset as a string). */
 function paged<T>(items: T[], url: URL): { items: T[]; next_cursor: string | null } {
   const limit = Number(url.searchParams.get('limit') ?? '200')
@@ -218,12 +238,30 @@ export function serveVault(
     links?: LinkRow[]
     /** Enabled modules besides core (their frontend definitions are passed to `renderApp`). */
     modules?: string[]
+    /** History, newest first. */
+    changesets?: FakeChangeset[]
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
   const types = options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]
   const links = new Map((options.links ?? []).map((link) => [link.id, linkOut(link)]))
   let linkSeq = 0
+  const changesets = [...(options.changesets ?? [])]
+  const summary = (changeset: FakeChangeset) => ({
+    id: changeset.id,
+    created_at: '2026-10-11T10:00:00.000000+00:00',
+    updated_at: '2026-10-11T10:00:00.000000+00:00',
+    origin: changeset.origin ?? 'ui',
+    summary: changeset.summary,
+    reverts_changeset_id: changeset.reverts_changeset_id ?? null,
+    reverted_by_changeset_id: changeset.reverted_by_changeset_id ?? null,
+    change_count: changeset.changes.length,
+    entities: changeset.entities,
+  })
+  const detail = (changeset: FakeChangeset) => ({
+    ...summary(changeset),
+    changes: changeset.changes.map((change, index) => ({ id: index + 1, ...change })),
+  })
   const rows = new Map<string, Row>(
     (options.rows ?? defaultRows()).map((entity) => [entity.id, entity]),
   )
@@ -430,6 +468,58 @@ export function serveVault(
       })
     }),
     http.get('*/api/v1/vaults/v1/link-types', () => HttpResponse.json({ items: types })),
+    http.get('*/api/v1/vaults/v1/changes', ({ request }) => {
+      const url = new URL(request.url)
+      const origins = url.searchParams.getAll('origin')
+      const items = changesets
+        .filter((changeset) => origins.length === 0 || origins.includes(changeset.origin ?? 'ui'))
+        .map(summary)
+      return HttpResponse.json(paged(items, url))
+    }),
+    http.get('*/api/v1/vaults/v1/changes/:id', ({ params }) => {
+      const changeset = changesets.find((candidate) => candidate.id === params.id)
+      return changeset
+        ? HttpResponse.json(detail(changeset))
+        : new HttpResponse(null, { status: 404 })
+    }),
+    http.get('*/api/v1/vaults/v1/entities/:id/history', ({ request, params }) => {
+      const items = changesets
+        .filter((changeset) => changeset.entities.some((entity) => entity.id === params.id))
+        .map(summary)
+      return HttpResponse.json(paged(items, new URL(request.url)))
+    }),
+    http.post('*/api/v1/vaults/v1/changes/:id/revert', async ({ request, params }) => {
+      await record(request)
+      const changeset = changesets.find((candidate) => candidate.id === params.id)
+      if (!changeset) return new HttpResponse(null, { status: 404 })
+      if (changeset.conflict) {
+        return HttpResponse.json(
+          {
+            type: 'urn:lore:problem:revert_conflict',
+            title: 'Revert conflict',
+            status: 409,
+            code: 'revert_conflict',
+            detail: 'The undo was refused.',
+            context: { rows: [], problems: [], ...changeset.conflict },
+          },
+          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+        )
+      }
+      const undo: FakeChangeset = {
+        id: `undo-${changeset.id}`,
+        summary: `Undid “${changeset.summary}”`,
+        origin: 'undo',
+        entities: changeset.entities,
+        changes: [],
+        reverts_changeset_id: changeset.id,
+      }
+      changeset.reverted_by_changeset_id = undo.id
+      changesets.unshift(undo)
+      return HttpResponse.json({
+        changeset: detail(undo),
+        affected: { entities: changeset.entities.map((entity) => entity.id), ...NOTHING },
+      })
+    }),
     http.post('*/api/v1/vaults/v1/links', async ({ request }) => {
       const body = (await record(request)) as unknown as LinkRow
       linkSeq += 1

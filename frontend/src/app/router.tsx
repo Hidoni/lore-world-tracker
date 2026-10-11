@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
+import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
 import { PlaceholderPage, ShellLayout, VaultPicker, VaultScope } from '@/core/shell'
@@ -124,7 +125,27 @@ const searchRoute = createRoute({
     )
   },
 })
-const changesRoute = page('changes', 'Recent changes', 'The change feed arrives with #68.')
+const changesRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'changes',
+  // `?origin=ui,undo`: the origins shown (all when absent).
+  validateSearch: (search): { origin?: string } =>
+    typeof search.origin === 'string' && search.origin !== '' ? { origin: search.origin } : {},
+  component: function ChangesRoute() {
+    const { vault } = changesRoute.useParams()
+    const { origin } = changesRoute.useSearch()
+    const navigate = changesRoute.useNavigate()
+    return (
+      <ChangesPage
+        vault={vault}
+        origins={origin?.split(',') ?? []}
+        onOriginsChange={(origins) => {
+          void navigate({ search: origins.length > 0 ? { origin: origins.join(',') } : {} })
+        }}
+      />
+    )
+  },
+})
 const trashRoute = createRoute({
   getParentRoute: () => vaultRoute,
   path: 'trash',

@@ -78,9 +78,18 @@ class HistoryService:
 
     # --- reads ----------------------------------------------------------------------------------
 
-    def feed(self, *, cursor: str | None = None, limit: int = 50) -> ChangesetPage:
-        """Recent changesets, newest first."""
-        return self._page(select(Changeset), cursor, limit)
+    def feed(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 50,
+        origins: Sequence[str] | None = None,
+    ) -> ChangesetPage:
+        """Recent changesets, newest first; ``origins`` keeps those of the given origins."""
+        statement = select(Changeset)
+        if origins:
+            statement = statement.where(Changeset.origin.in_(origins))
+        return self._page(statement, cursor, limit)
 
     def entity_history(
         self, entity_id: str, *, cursor: str | None = None, limit: int = 50
