@@ -442,6 +442,19 @@ def test_mentions_follow_body_edits(api: LinkApi) -> None:
     assert backlinks(api, bo) == []
 
 
+def test_writes_report_entities_whose_mentions_changed(api: LinkApi) -> None:
+    # Their backlinks changed, so clients refresh them (``affected.entities``).
+    ana, bo = api.make("misc", "Ana"), api.make("misc", "Bo")
+    created = api.create("misc", "Writer", body=doc(p(text("Ana", mention(ana["id"])))))
+    assert ana["id"] in created.json()["affected"]["entities"]
+    writer = created.json()["entity"]
+    moved = api.patch(writer, body=doc(p(text("Bo", mention(bo["id"])))))
+    assert {ana["id"], bo["id"]} <= set(moved.json()["affected"]["entities"])
+    writer = moved.json()["entity"]
+    renamed = api.patch(writer, name="Author").json()["affected"]["entities"]
+    assert bo["id"] not in renamed  # mentions untouched
+
+
 def test_mentions_ignore_self_and_missing_entities(api: LinkApi) -> None:
     writer = api.make("misc", "Writer")
     ghost = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"

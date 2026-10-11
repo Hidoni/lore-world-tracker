@@ -252,10 +252,12 @@ class EntityService:
         if extension is not None:
             extension.write(self.context, entity, data.ext, True)
         links = self._add_links(entity, data.links_add)
-        self.refresh_mentions(entity)
+        mentioned = self.refresh_mentions(entity)
         self.session.flush()
         self.reindex(entity)
-        affected = self._affected([entity.id, entity.parent_id], [entity.dimension_id], True)
+        affected = self._affected(
+            [entity.id, entity.parent_id, *sorted(mentioned)], [entity.dimension_id], True
+        )
         return EntityWriteResult(
             entity=self.to_out(entity), affected=self._with_links(affected, links)
         )
@@ -297,13 +299,14 @@ class EntityService:
             links += self._links().trash_for_entity(entity.id, data.links_remove)
         if "links_add" in sent:
             links += self._add_links(entity, data.links_add)
+        mentioned: set[str] = set()
         if sent & {"body", "fields", "field_visibility"}:
-            self.refresh_mentions(entity)
+            mentioned = self.refresh_mentions(entity)
         self.session.flush()
         if sent & _SEARCH_MEMBERS:
             self.reindex(entity)
         affected = self._affected(
-            [entity.id, old_parent, entity.parent_id],
+            [entity.id, old_parent, entity.parent_id, *sorted(mentioned)],
             [old_dimension, entity.dimension_id],
             bool(sent & _SEARCH_MEMBERS),
         )
@@ -438,13 +441,14 @@ class EntityService:
                 values[key] = validate_document(values[key], self.richtext, path=f"fields.{key}")
         return values
 
-    def refresh_mentions(self, entity: Entity) -> None:
+    def refresh_mentions(self, entity: Entity) -> set[str]:
         """Rebuild the entity's mentions from its body (public base) and its active ``rich_text``
-        fields (base: the field's effective visibility)."""
+        fields (base: the field's effective visibility). Returns the targets whose mentions
+        changed."""
         counts = self.mention_counts(entity)
         if counts is None:
-            return  # a disabled module's entity: kept as it is until it's saved again
-        replace_mentions(self.session, entity.id, counts)
+            return set()  # a disabled module's entity: kept as it is until it's saved again
+        return replace_mentions(self.session, entity.id, counts)
 
     def mention_counts(self, entity: Entity) -> dict[str, MentionCounts] | None:
         """What the entity's body and rich-text fields mention (``None`` for an entity of a

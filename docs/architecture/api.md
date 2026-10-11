@@ -122,8 +122,9 @@ Entity write semantics (`lore.core.entities.service`):
   (`context.references: {<what>: <count>}`) while the entity has children (trashed ones too) or is
   still referenced (a dimension's entities, a timeline's branch-only entities or links). Purge
   hooks run first; aliases, tag assignments and links touching the entity are deleted with it.
-- `affected.entities` lists the entity, its old/new parents and, for a purge, the other endpoints
-  of deleted links.
+- `affected.entities` lists the entity, its old/new parents, the entities whose mentions of it
+  changed (their backlinks did: a body or rich-text field gained or lost an `entityLink` to them;
+  #63) and, for a purge, the other endpoints of deleted links.
 - **Time in `affected`** (every write response, `lore.core.time.changes`; #224): time writes
   propagate (`time-model.md` §7.2), so `affected.entities` also lists every entity with a time
   slot whose stored moment or status the request's transaction changed (the events anchored to a

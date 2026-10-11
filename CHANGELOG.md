@@ -23,6 +23,12 @@ All notable changes to this project are documented here. The format follows
   badges, breadcrumbs, aliases, tags and visibility; slots for fields, body, relations, time and
   module panels), a "New…" menu with a create dialog (dimension or multiversal, allowed parents),
   and move to trash, restore and permanent deletion.
+- **Rich-text editor** (#63): the body editor (TipTap, loaded lazily) with headings, lists,
+  quotes, code, tables, links, markdown shortcuts and a word count. Typing `[[` or `@` links an
+  entity, or creates it first. It autosaves after a pause, on blur and when you leave the page,
+  and shows its save status. Readers see the read-only renderer: links carry their kind icon and a
+  hover card, and missing targets render as plain text. Writes now report the entities whose
+  mentions changed, so their backlinks refresh.
 - **Field editors** (#62): display and inline editors for every core field type, checked against
   zod schemas built from the field definitions, saved on Enter or blur, with per-field
   visibility, collapsible sections, required fields in the create dialog, module field

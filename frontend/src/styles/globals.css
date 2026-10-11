@@ -79,3 +79,66 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Rich text: the editor and the renderer share these (frontend.md §6). */
+@layer components {
+  .rich-text {
+    @apply flex flex-col gap-2 leading-relaxed;
+  }
+  .rich-text h1 {
+    @apply text-2xl font-semibold;
+  }
+  .rich-text h2 {
+    @apply text-xl font-semibold;
+  }
+  .rich-text h3 {
+    @apply text-lg font-semibold;
+  }
+  .rich-text h4 {
+    @apply font-semibold;
+  }
+  .rich-text ul {
+    @apply list-disc pl-6;
+  }
+  .rich-text ol {
+    @apply list-decimal pl-6;
+  }
+  .rich-text blockquote {
+    @apply border-l-2 pl-3 text-muted-foreground;
+  }
+  .rich-text pre {
+    @apply overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm;
+  }
+  .rich-text :not(pre) > code {
+    @apply rounded bg-muted px-1 font-mono text-[0.9em];
+  }
+  .rich-text a[href] {
+    @apply text-primary underline underline-offset-2;
+  }
+  .rich-text table {
+    @apply w-full border-collapse text-sm;
+  }
+  .rich-text th,
+  .rich-text td {
+    @apply border px-2 py-1 text-left align-top;
+  }
+  .rich-text th {
+    @apply bg-muted font-medium;
+  }
+  .rich-text hr {
+    @apply my-2;
+  }
+  .rich-text .entity-link {
+    @apply rounded-sm bg-primary/10 px-0.5 text-primary;
+  }
+  .rich-text .callout,
+  .rich-text .visibility-block {
+    @apply rounded-md border p-3;
+  }
+  .rich-text .time-ref {
+    @apply rounded-sm bg-muted px-1 text-muted-foreground;
+  }
+  .rich-text p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-muted-foreground content-[attr(data-placeholder)];
+  }
+}

@@ -1,14 +1,16 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useState, type ReactNode } from 'react'
+import { Suspense, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
 import { useKind, type Kind } from '@/core/registry'
+import { isRevisionConflict } from '@/data'
+import { LazyRichTextEditor, RichTextView, isDoc, type SaveOutcome } from '@/editor'
 import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity } from '@/data'
 
 import { EntityHeader } from './entity-header'
-import { useEntitySaver } from './save'
+import { useEntitySaver, type EntityChange, type SaveResult } from './save'
 import { PurgeDialog } from './trash-dialogs'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -81,6 +83,38 @@ function TrashBanner({ vault, id, name }: { vault: string; id: string; name: str
   )
 }
 
+/** The body (frontend.md §6): the editor for authors, the renderer for readers and the trash. */
+function Body({
+  vault,
+  entity,
+  editable,
+  save,
+}: {
+  vault: string
+  entity: Entity
+  editable: boolean
+  save: (change: EntityChange) => Promise<SaveResult>
+}) {
+  const doc = isDoc(entity.body) ? entity.body : null
+  if (!editable) {
+    return doc ? <RichTextView vault={vault} doc={doc} /> : <Pending>Nothing written yet.</Pending>
+  }
+  return (
+    <Suspense fallback={<Pending>Loading the editor…</Pending>}>
+      <LazyRichTextEditor
+        vault={vault}
+        initial={doc}
+        defaultKind={entity.kind}
+        save={async (body): Promise<SaveOutcome> => {
+          const result = await save({ body })
+          if (result.ok) return 'saved'
+          return isRevisionConflict(result.error) ? 'conflict' : 'failed'
+        }}
+      />
+    </Suspense>
+  )
+}
+
 function EntityView({
   vault,
   entity: data,
@@ -127,7 +161,13 @@ function EntityView({
               </Section>
               {kind?.capabilities.has_body !== false && (
                 <Section title="Body">
-                  <Pending>The rich-text body arrives with #63.</Pending>
+                  <Body
+                    key={saver.generation}
+                    vault={vault}
+                    entity={data}
+                    editable={editable}
+                    save={saver.save}
+                  />
                 </Section>
               )}
               <Section title="Relations">

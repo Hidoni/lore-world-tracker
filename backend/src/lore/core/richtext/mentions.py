@@ -37,9 +37,19 @@ def mention_rows(
     return {target: counts[target] for target in sorted(existing)}
 
 
-def replace_mentions(session: Session, source_id: str, counts: Mapping[str, MentionCounts]) -> None:
+def replace_mentions(
+    session: Session, source_id: str, counts: Mapping[str, MentionCounts]
+) -> set[str]:
+    """Rewrite the source's mentions; returns the targets whose mentions changed (their backlinks
+    did, so clients refresh them through ``affected``)."""
+    before = {
+        row.target_entity_id: (row.count_public, row.count_spoiler, row.count_private)
+        for row in session.scalars(select(Mention).where(Mention.source_entity_id == source_id))
+    }
     session.execute(delete(Mention).where(Mention.source_entity_id == source_id))
+    after: dict[str, tuple[int, int, int]] = {}
     for target, c in mention_rows(session, source_id, counts).items():
+        after[target] = (c.public, c.spoiler, c.private)
         session.add(
             Mention(
                 source_entity_id=source_id,
@@ -50,3 +60,6 @@ def replace_mentions(session: Session, source_id: str, counts: Mapping[str, Ment
             )
         )
     session.flush()
+    return {
+        target for target in before.keys() | after.keys() if before.get(target) != after.get(target)
+    }
