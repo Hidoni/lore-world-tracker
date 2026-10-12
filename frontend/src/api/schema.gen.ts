@@ -1455,6 +1455,11 @@ export interface components {
              */
             new_display: string | null;
             /**
+             * Pinned Display
+             * @description `old_t` in the display calendar after the edit (keeping the moment).
+             */
+            pinned_display: string | null;
+            /**
              * Constrained T
              * @description `constrain`: the moment of the nearest valid date (invalid dates only).
              */

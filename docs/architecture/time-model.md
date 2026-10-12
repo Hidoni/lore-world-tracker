@@ -579,7 +579,8 @@ Implementation (`lore.core.time.proposals`, #54; decided there where the above i
   `<record type>/<id>/<slot>`, its entity and name, `old_t`, `old_status`, `new_t` (may lie
   outside `[0, D]`; null when it doesn't resolve), the new `status` and `problem`, `old_display`
   and `new_display` (the dimension's default calendar before and after the edit, at the spec's
-  precision when the calendar has that level), the constrained date (`constrained_t`,
+  precision when the calendar has that level), `pinned_display` (`old_t` read after the edit:
+  what keeping the moment shows), the constrained date (`constrained_t`,
   `constrained_display`) for `invalid_date` dates in this calendar, and the `strategies` it takes.
   `series` lists the series whose bounds move; `summary` counts items and problems. Proposals
   live in `proposals` (`data-model.md` §5.9) for an hour; expired ones answer `404` and are

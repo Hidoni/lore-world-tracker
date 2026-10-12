@@ -263,7 +263,11 @@ describe('calendar editor', () => {
   it('reviews the impact of a change: a choice per broken date, bulk actions, undo', async () => {
     const calls = proposals({
       items: [
-        item('aria', 'Aria', 'start', { old: '30 Feb 1000', after: '2 Mar 1000' }),
+        item('aria', 'Aria', 'start', {
+          old: '30 Feb 1000',
+          after: '2 Mar 1000',
+          pinned: '1 Mar 1000',
+        }),
         item('bram', 'Bram', 'start', {
           old: '31 Apr 1001',
           after: null,
@@ -314,8 +318,9 @@ describe('calendar editor', () => {
     )
     expect(within(dialog).getByRole('row', { name: 'Bram start' })).toHaveTextContent('30 Apr 1001')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Keep all moments' }))
+    // Keeping the moment shows the date it reads as once the calendar changes.
     expect(within(dialog).getByRole('row', { name: 'Aria start' })).toHaveTextContent(
-      '30 Feb 100030 Feb 1000',
+      '30 Feb 10001 Mar 1000',
     )
     await userEvent.selectOptions(
       within(dialog).getByRole('combobox', { name: 'Choice for Aria start' }),
@@ -464,7 +469,14 @@ function item(
   id: string,
   name: string,
   slot: string,
-  shown: { old: string; after: string | null; problem?: string; constrained?: string },
+  shown: {
+    old: string
+    after: string | null
+    /** The old moment in the edited calendar (keeping the moment). */
+    pinned?: string
+    problem?: string
+    constrained?: string
+  },
 ) {
   return {
     key: `time_point/${id}/${slot}`,
@@ -480,6 +492,7 @@ function item(
     problem: shown.problem === undefined ? null : { code: 'invalid_date', message: shown.problem },
     old_display: shown.old,
     new_display: shown.after,
+    pinned_display: shown.pinned ?? shown.old,
     constrained_t: shown.constrained === undefined ? null : '150',
     constrained_display: shown.constrained ?? null,
     strategies:

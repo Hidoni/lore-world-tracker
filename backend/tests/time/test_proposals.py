@@ -167,6 +167,8 @@ def test_month_length_change_keep_or_pin(api: LinkApi, world: dict[str, Any]) ->
     assert (item["old_t"], item["new_t"]) == (str(31 * DAY), str(30 * DAY))
     assert (item["status"], item["problem"], item["name"]) == ("ok", None, "Thaw")
     assert item["old_display"] == item["new_display"] == "1 Thawing 1"  # the typed date is kept
+    # Keeping the moment instead: day 31 is the second of Thawing once Frostfall has 30 days.
+    assert item["pinned_display"] == "2 Thawing 1"
     assert item["strategies"] == ["keep_date", "pin_moment"]
     assert found[(later["id"], "start")]["new_t"] == str(YEAR - DAY + 30 * DAY + 4 * DAY)
     assert proposal["summary"]["changed"] == 6

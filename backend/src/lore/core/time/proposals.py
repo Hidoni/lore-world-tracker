@@ -11,7 +11,8 @@ per record. Rules (decided with #54 where the spec is silent):
   moment or status changed (the calendar's own anchors aside), plus the slots, series rules
   (slot ``recurrence``) and calendars (slot ``definition``) the change breaks. Each item has
   ``old_t``/``new_t``, its new ``status`` and ``problem``, displays in the dimension's default
-  calendar (``old_display`` before the edit, ``new_display`` after) and, for ``invalid_date``
+  calendar (``old_display`` before the edit, ``new_display`` after, ``pinned_display``: the old
+  moment after the edit) and, for ``invalid_date``
   calendar dates in this calendar, the constrained date. ``series`` lists the series whose
   bounds move. Stored for one hour.
 - **Strategies** per item key ``<record type>/<id>/<slot>``: ``keep_date`` (keep the spec),
@@ -444,6 +445,8 @@ def _item(
         else {"code": violation.code, "message": violation.message},
         "old_display": _display(lenses.old, old_t, precision),
         "new_display": _display(lenses.new, new_t, precision),
+        # Keeping the moment: the same moment read through the edited calendar (#87).
+        "pinned_display": _display(lenses.new, old_t, precision),
         "constrained_t": None if found is None else str(found[0]),
         "constrained_display": None if found is None else _display(lenses.new, found[0], precision),
         "strategies": strategies,
