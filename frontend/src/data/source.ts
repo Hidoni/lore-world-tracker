@@ -54,6 +54,11 @@ export interface DataSource {
     timeline: string,
     query?: Query<'timelines_event_tree'>,
   ): Promise<D<'EventTreePage'>>
+  causality(
+    vault: string,
+    timeline: string,
+    query: Query<'timelines_causality'>,
+  ): Promise<D<'CausalityGraphOut'>>
   timelineWindow(
     vault: string,
     timeline: string,

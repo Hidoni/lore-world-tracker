@@ -462,6 +462,33 @@ export function serveVault(
       return HttpResponse.json(paged(items, url))
     }),
     http.get('*/api/v1/vaults/v1/consistency/rules', () => HttpResponse.json({ items: rules })),
+    http.get('*/api/v1/vaults/v1/timelines/:id/event-tree', () =>
+      HttpResponse.json({ items: [], next_cursor: null }),
+    ),
+    http.get('*/api/v1/vaults/v1/timelines/:id/causality', ({ request }) => {
+      const event = new URL(request.url).searchParams.get('event') ?? ''
+      const focus = rows.get(event)
+      if (focus === undefined) return problem(404, 'not_found', 'Not found', 'No such event.')
+      return HttpResponse.json({
+        focus: event,
+        nodes: [
+          {
+            id: event,
+            name: focus.name,
+            visibility: 'public',
+            start_t: null,
+            end_t: null,
+            time_status: null,
+            importance: 3,
+            category: null,
+            display: { calendar_id: 'absolute', start: null, end: null },
+            distance: 0,
+          },
+        ],
+        edges: [],
+        truncated: false,
+      })
+    }),
     http.get('*/api/v1/vaults/v1/timelines/:id/window', () =>
       HttpResponse.json({ items: [], buckets: [], series_bands: [], total: 0, culled: 0 }),
     ),

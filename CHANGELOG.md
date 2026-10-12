@@ -9,6 +9,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Causality view and event hierarchy** (#84):
+  - Event pages show a compact cause → effect graph (React Flow, laid out by ELK in time order,
+    left → right), with a full-page view that has a depth control, focus, timeline choice and a
+    list alternative.
+  - The sidebar has an Events section: the timeline's top-level events by time, which expand
+    lazily into sub-events and materialized occurrences.
+  - API: `GET /timelines/{id}/causality`.
+  - The event tree now lists a series' materialized occurrences under the series.
+
 - **Timeline view III** (#82): the display calendar's eras as named, coloured bands; astronomical
   overlays (moon phases, seasons…) as phase glyphs once zoomed in enough to tell them apart; the
   time cursor as a line you can drag (snapping to the axis' minor unit) or move with ←/→ on its

@@ -74,6 +74,7 @@ export { useMeta } from './meta'
 export { useQuickSearch, useSearch, useSearchPages } from './search'
 export type {
   CalendarProposal,
+  CausalityGraph,
   EventTreeNode,
   RecurrenceProposal,
   TimelineWindow,
@@ -107,6 +108,7 @@ export {
 export {
   useApplyCalendarProposal,
   useApplyRecurrenceProposal,
+  useCausality,
   useDeleteOccurrence,
   useMaterializeOccurrence,
   useOccurrences,

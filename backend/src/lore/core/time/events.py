@@ -57,6 +57,7 @@ if TYPE_CHECKING:
 
 EVENT = "event"
 PARTICIPANT = "core.participant"
+CAUSES = "core.causes"
 INSTANT: EndSpec = InstantEnd(kind="instant")
 
 # Series start at series_start_t (recurrence, #52); until then every row starts at start_t.
@@ -818,6 +819,19 @@ def with_children(
     }
 
 
+def with_occurrences(
+    session: Session, view: TimelineView, policy: VisibilityPolicy, ids: list[str]
+) -> set[str]:
+    """The series of ``ids`` with materialized occurrences the timeline shows (without a parent
+    of their own: the tree shows them under the series)."""
+    if not ids:
+        return set()
+    rows = shown_events(
+        view.select(Event, where=lambda e: [e.series_entity_id.in_(ids)]), view, policy
+    ).where(Entity.parent_id.is_(None))
+    return set(session.scalars(rows.with_only_columns(Event.series_entity_id).distinct()))
+
+
 def participant_counts(
     session: Session, policy: VisibilityPolicy, kinds: set[str], ids: list[str]
 ) -> dict[str, int]:
@@ -856,6 +870,13 @@ def _cursor(row: Event, entity: Entity) -> str:
     return base64.urlsafe_b64encode(json.dumps(values).encode()).decode().rstrip("=")
 
 
+def _order(row: Event, entity: Entity) -> tuple[int, int, str, str]:
+    """The tree's order: start, the later end first, then name and id."""
+    assert row.start_t is not None
+    assert row.end_t is not None
+    return row.start_t, -row.end_t, entity.sort_name, entity.id
+
+
 def _decode(cursor: str) -> tuple[int, int, str, str]:
     try:
         raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
@@ -886,13 +907,6 @@ def event_tree(
         return shown_events(statement, view, policy)
 
     statement = shown(view.select(Event)).add_columns(Entity)
-    if parent_id is not None:
-        statement = statement.where(Entity.parent_id == parent_id)
-    else:
-        ids = shown(view.select(Event)).with_only_columns(Event.entity_id)
-        statement = statement.where(
-            or_(Entity.parent_id.is_(None), Entity.parent_id.not_in(ids.scalar_subquery()))
-        )
     if cursor is not None:
         start, end, name, entity_id = _decode(cursor)
         statement = statement.where(
@@ -913,11 +927,120 @@ def event_tree(
                 ),
             )
         )
-    statement = statement.order_by(
-        Event.start_t, Event.end_t.desc(), Entity.sort_name, Entity.id
-    ).limit(limit + 1)
-    found = [(row, entity) for row, entity in session.execute(statement)]
+
+    def page_of(statement: Any) -> list[tuple[Event, Entity]]:
+        ordered = statement.order_by(
+            Event.start_t, Event.end_t.desc(), Entity.sort_name, Entity.id
+        ).limit(limit + 1)
+        return [(row, entity) for row, entity in session.execute(ordered)]
+
+    if parent_id is not None:
+        # Sub-events, and the series' materialized occurrences without a parent of their own:
+        # two queries, each on its own index, merged.
+        found = page_of(statement.where(Entity.parent_id == parent_id)) + page_of(
+            statement.where(Event.series_entity_id == parent_id, Entity.parent_id.is_(None))
+        )
+        found.sort(key=lambda pair: _order(pair[0], pair[1]))
+        found = found[: limit + 1]
+    else:
+        ids = shown(view.select(Event)).with_only_columns(Event.entity_id).scalar_subquery()
+        found = page_of(
+            statement.where(
+                or_(Entity.parent_id.is_(None), Entity.parent_id.not_in(ids)),
+                or_(
+                    Entity.parent_id.is_not(None),
+                    Event.series_entity_id.is_(None),
+                    Event.series_entity_id.not_in(ids),
+                ),
+            )
+        )
     page = found[:limit]
-    parents = with_children(session, view, policy, [entity.id for _row, entity in page])
+    page_ids = [entity.id for _row, entity in page]
+    parents = with_children(session, view, policy, page_ids) | with_occurrences(
+        session, view, policy, page_ids
+    )
     next_cursor = _cursor(*page[-1]) if len(found) > limit else None
     return [EventTreeRow(e, r, e.id in parents) for r, e in page], next_cursor
+
+
+@dataclass(frozen=True)
+class CausalityNode:
+    entity: Entity
+    row: Event
+    distance: int
+    """Links from the focus event (0: the focus itself)."""
+
+
+@dataclass(frozen=True)
+class CausalityGraph:
+    nodes: list[CausalityNode]
+    edges: list[Link]
+    truncated: bool
+    """Whether events within ``depth`` were left out past the node limit."""
+
+
+def causality(
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    timeline_id: str,
+    event_id: str,
+    *,
+    depth: int,
+    limit: int,
+) -> CausalityGraph | None:
+    """The cause → effect graph around an event on a timeline (``frontend.md`` §10): the events
+    up to ``depth`` ``core.causes`` links away, either direction, that the timeline shows (not in
+    the trash, visible to the policy), nearest first and at most ``limit`` of them, with the live
+    links the policy sees between them. Cycles are fine: each event comes once. ``None`` when the
+    timeline doesn't show the event."""
+    session = context.session
+    view = TimelineView.for_timeline(session, timeline_id)
+
+    def shown(ids: set[str]) -> list[tuple[Event, Entity]]:
+        if not ids:
+            return []
+        statement = shown_events(view.select(Event), view, policy).add_columns(Entity)
+        statement = statement.where(Entity.id.in_(sorted(ids))).order_by(
+            Event.start_t, Entity.sort_name, Entity.id
+        )
+        return [(row, entity) for row, entity in session.execute(statement)]
+
+    def links_between(sources: list[str], targets: list[str] | None) -> list[Link]:
+        """Live ``core.causes`` links the policy sees: touching ``sources`` (either end), or
+        from ``sources`` to ``targets``."""
+        ends = (
+            or_(Link.source_id.in_(sources), Link.target_id.in_(sources))
+            if targets is None
+            else and_(Link.source_id.in_(sources), Link.target_id.in_(targets))
+        )
+        statement = (
+            select(Link)
+            .where(Link.link_type == CAUSES, Link.deleted_at.is_(None), ends, *policy.links(Link))
+            .order_by(Link.id)
+        )
+        return list(session.scalars(statement))
+
+    focus = shown({event_id})
+    if not focus:
+        return None
+    nodes = {event_id: CausalityNode(focus[0][1], focus[0][0], 0)}
+    frontier = [event_id]
+    truncated = False
+    for distance in range(1, depth + 1):
+        if not frontier or truncated:
+            break
+        others = {
+            end
+            for link in links_between(frontier, None)
+            for end in (link.source_id, link.target_id)
+            if end not in nodes
+        }
+        frontier = []
+        for row, entity in shown(others):
+            if len(nodes) >= limit:
+                truncated = True
+                break
+            nodes[entity.id] = CausalityNode(entity, row, distance)
+            frontier.append(entity.id)
+    ids = sorted(nodes)
+    return CausalityGraph(list(nodes.values()), links_between(ids, ids), truncated)

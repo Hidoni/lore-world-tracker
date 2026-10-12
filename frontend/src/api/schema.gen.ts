@@ -959,6 +959,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/timelines/{timeline_id}/causality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Causality
+         * @description The cause → effect graph around ``event`` on the timeline: the events the timeline shows
+         *     up to ``depth`` ``core.causes`` links away (either direction), nearest first, and the links
+         *     between them. ``404`` for a timeline or event the request may not see, or an event the
+         *     timeline doesn't show.
+         */
+        get: operations["timelines_causality"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/timelines/{timeline_id}/window": {
         parameters: {
             query?: never;
@@ -1505,6 +1528,70 @@ export interface components {
         };
         /** @enum {string} */
         CalendarStrategy: "keep_date" | "pin_moment" | "constrain";
+        /** CausalityEdgeOut */
+        CausalityEdgeOut: {
+            /**
+             * Id
+             * @description The link's id.
+             */
+            id: string;
+            /**
+             * Source Id
+             * @description The cause.
+             */
+            source_id: string;
+            /**
+             * Target Id
+             * @description The effect.
+             */
+            target_id: string;
+            /** Description */
+            description: string | null;
+        };
+        /** CausalityGraphOut */
+        CausalityGraphOut: {
+            /** Focus */
+            focus: string;
+            /**
+             * Nodes
+             * @description Nearest first, then by start.
+             */
+            nodes: components["schemas"]["CausalityNodeOut"][];
+            /**
+             * Edges
+             * @description The links between the nodes.
+             */
+            edges: components["schemas"]["CausalityEdgeOut"][];
+            /**
+             * Truncated
+             * @description Whether events within `depth` were left out (`limit`).
+             */
+            truncated: boolean;
+        };
+        /** CausalityNodeOut */
+        CausalityNodeOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Importance */
+            importance: number;
+            /** Category */
+            category: string | null;
+            display: components["schemas"]["EventDisplay"];
+            /**
+             * Distance
+             * @description `core.causes` links from the focus event (0: itself).
+             */
+            distance: number;
+        };
         /**
          * ChangeOut
          * @description A row-level change. ``before``/``after`` are the full rows (JSON columns decoded).
@@ -5852,6 +5939,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventTreePage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    timelines_causality: {
+        parameters: {
+            query: {
+                /** @description The focus event. */
+                event: string;
+                /** @description Links away from the focus event. */
+                depth?: number;
+                /** @description Events at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Timeline id. */
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CausalityGraphOut"];
                 };
             };
             /** @description Problem */

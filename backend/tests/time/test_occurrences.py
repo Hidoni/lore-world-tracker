@@ -296,3 +296,31 @@ def test_series_participants_are_shown(api: LinkApi, world: dict[str, Any]) -> N
     assert occurrence["ext"]["series_participants"] == [{"entity_id": hero["id"], "role": "host"}]
     plain = make_event(api, world, "Plain")
     assert ext_of(api, plain["id"])["series_participants"] == []
+
+
+def test_the_event_tree_lists_materialized_occurrences_under_their_series(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """Materialized occurrences have no parent: the outline shows them under their series,
+    merged with its sub-events by start (`frontend.md` §3, sidebar event hierarchy)."""
+    series = daily(api, world)
+    second = materialize(api, series, "2")["entity"]
+    first = materialize(api, series, "0")["entity"]
+    make_event(api, world, "Prelude", start=at(DAY), parent_id=series["id"])
+    filed = make_event(api, world, "Filed", start=at(5))
+    own = materialize(api, series, "4")["entity"]
+    assert api.patch(own, parent_id=filed["id"]).status_code == 200  # a parent of its own wins
+    url = f"{api.base}/timelines/{world['prime']}/event-tree"
+
+    def level(**params: Any) -> list[tuple[str, bool]]:
+        items = api.client.get(url, params=params).json()["items"]
+        return [(item["name"], item["has_children"]) for item in items]
+
+    assert level() == [("Dawn", True), ("Filed", True)]
+    children = level(parent=series["id"])
+    assert children == [(first["name"], False), ("Prelude", False), (second["name"], False)]
+    assert [name for name, _ in level(parent=filed["id"])] == [own["name"]]
+    # Pages merge the two lists in order.
+    head = api.client.get(url, params={"parent": series["id"], "limit": 2}).json()
+    rest = api.client.get(url, params={"parent": series["id"], "cursor": head["next_cursor"]})
+    assert [i["name"] for i in head["items"] + rest.json()["items"]] == [n for n, _ in children]

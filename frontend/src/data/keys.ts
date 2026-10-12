@@ -35,6 +35,8 @@ export const keys = {
   calendarPresets: (vault: string) => [vault, 'calendarPresets'] as const,
   eventTree: (vault: string, timeline: string, params?: object) =>
     [vault, 'eventTree', timeline, params ?? {}] as const,
+  causality: (vault: string, timeline: string, params: object) =>
+    [vault, 'causality', timeline, params] as const,
   window: (vault: string, timeline: string, params: object) =>
     [vault, 'window', timeline, params] as const,
   occurrences: (vault: string, event: string, params: object) =>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
 import {
+  CausalityPanel,
   CausesSection,
   EventTimeSection,
   eventTime,
@@ -206,6 +207,7 @@ function EntityView({
                   </Section>
                   <Section title="Causes and effects">
                     <CausesSection vault={vault} entity={data} editable={editable} />
+                    <CausalityPanel vault={vault} eventId={data.id} compact />
                   </Section>
                   <Section title="Participants">
                     <ParticipantsSection vault={vault} entity={data} editable={editable} />

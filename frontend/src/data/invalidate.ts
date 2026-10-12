@@ -17,13 +17,15 @@ const VAULT_WIDE = [
   'consistencyRules',
   // Outline rows carry names and participant counts.
   'eventTree',
+  // Causality graphs carry names and the links between events.
+  'causality',
   // A series' list changes with its occurrences' writes (cancel, materialize), keyed by the series.
   'occurrences',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']
 /** Areas that show resolved moments. */
-const TIME = ['window', 'eventTree', 'occurrences', 'timelines', 'resolve']
+const TIME = ['window', 'eventTree', 'causality', 'occurrences', 'timelines', 'resolve']
 const SEARCH = ['search', 'quickSearch']
 
 /**

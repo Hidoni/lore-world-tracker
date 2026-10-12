@@ -126,7 +126,7 @@ The reader UI may only use these read operations (DataSource methods). The post-
 `StaticDataSource` must implement all of them from a snapshot:
 
 `meta`, `registry`, `entities` (list/filter), `entity` (+ `state` as-of), `tree`, `children`,
-`links`, `backlinks`, `timelineWindow`, `eventTree`, `occurrences`, `search`, `quickSearch`,
+`links`, `backlinks`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
 `graph`, `characterRelationships`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
 `orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
 `speciesDescentTree`, `lexicon`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaFile`,
