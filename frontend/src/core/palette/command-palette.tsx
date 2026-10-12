@@ -195,6 +195,17 @@ function Palette({
           }),
         ),
       },
+      {
+        id: `events:${dimension.id}`,
+        title: `Open the event outline of ${dimension.name}`,
+        keywords: ['events', 'outline'],
+        run: go(() =>
+          navigate({
+            to: '/v/$vault/d/$dimension/events',
+            params: { vault, dimension: dimension.id },
+          }),
+        ),
+      },
     ]),
     ...pages,
     ...(editable

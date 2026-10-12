@@ -10,6 +10,7 @@ import { Suspense } from 'react'
 
 import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
+import { EventOutline } from '@/core/events'
 import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
@@ -83,7 +84,14 @@ const dimensionHomeRoute = createRoute({
   },
 })
 const timelineRoute = dimensionPage('timeline', 'Timeline', 'The timeline view arrives with M5.')
-const eventsRoute = dimensionPage('events', 'Events', 'The event outline arrives with M5.')
+const eventsRoute = createRoute({
+  getParentRoute: () => dimensionRoute,
+  path: 'events',
+  component: function EventsRoute() {
+    const { vault, dimension } = eventsRoute.useParams()
+    return <EventOutline key={dimension} vault={vault} dimensionId={dimension} />
+  },
+})
 
 const entityRoute = createRoute({
   getParentRoute: () => vaultRoute,

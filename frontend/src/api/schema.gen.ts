@@ -2036,6 +2036,11 @@ export interface components {
              * @description Whether the tree shows sub-events under it.
              */
             has_children: boolean;
+            /**
+             * Participants
+             * @description Participants the request sees.
+             */
+            participants: number;
         };
         /** EventTreePage */
         EventTreePage: {

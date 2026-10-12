@@ -4,6 +4,12 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FieldsPanel } from '@/core/fields'
+import {
+  CausesSection,
+  EventTimeSection,
+  ParticipantsSection,
+  SubEventsSection,
+} from '@/core/events'
 import { EntityHistory } from '@/core/history'
 import { RelationsPanel } from '@/core/links'
 import { forget, visit } from '@/core/navigation/places'
@@ -15,6 +21,10 @@ import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity
 import { EntityHeader } from './entity-header'
 import { useEntitySaver, type EntityChange, type SaveResult } from './save'
 import { PurgeDialog } from './trash-dialogs'
+
+const EVENT = 'event'
+/** Link types the event sections show instead of the relations panel. */
+const EVENT_LINK_TYPES = ['core.causes', 'core.participant']
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -177,14 +187,30 @@ function EntityView({
                   />
                 </Section>
               )}
-              <Section title="Relations">
-                <RelationsPanel vault={vault} entity={data} editable={editable} />
-              </Section>
-              {kind?.capabilities.is_time_bound === true && (
-                <Section title="Time">
-                  <Pending>Dates in every calendar arrive with M5.</Pending>
-                </Section>
+              {data.kind === EVENT && (
+                <>
+                  <Section title="Time">
+                    <EventTimeSection vault={vault} entity={data} editable={editable} />
+                  </Section>
+                  <Section title="Sub-events">
+                    <SubEventsSection vault={vault} entity={data} editable={editable} />
+                  </Section>
+                  <Section title="Causes and effects">
+                    <CausesSection vault={vault} entity={data} editable={editable} />
+                  </Section>
+                  <Section title="Participants">
+                    <ParticipantsSection vault={vault} entity={data} editable={editable} />
+                  </Section>
+                </>
               )}
+              <Section title="Relations">
+                <RelationsPanel
+                  vault={vault}
+                  entity={data}
+                  editable={editable}
+                  exclude={data.kind === EVENT ? EVENT_LINK_TYPES : []}
+                />
+              </Section>
               {main.map(({ id, title, component: Panel }) => (
                 <Section key={id} title={title}>
                   <Panel {...props} />
@@ -213,7 +239,8 @@ function EntityView({
 
 /**
  * The entity page for any kind (frontend.md §7): the registry decides its icon, label, badges
- * and fields; module panels (`entityPanels`) slot in; the time section fills in with M5.
+ * and fields; module panels (`entityPanels`) slot in; events get their time, sub-events, causes and
+ * participants sections (#78).
  */
 export function EntityPage({ vault, entityId }: { vault: string; entityId: string }) {
   const entity = useEntity(vault, entityId)

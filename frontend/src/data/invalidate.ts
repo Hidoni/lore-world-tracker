@@ -15,6 +15,8 @@ const VAULT_WIDE = [
   'change',
   'findings',
   'consistencyRules',
+  // Outline rows carry names and participant counts.
+  'eventTree',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']

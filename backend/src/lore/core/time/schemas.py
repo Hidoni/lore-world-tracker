@@ -218,6 +218,7 @@ class EventTreeNode(BaseModel):
     category: str | None
     display: EventDisplay
     has_children: bool = Field(description="Whether the tree shows sub-events under it.")
+    participants: int = Field(description="Participants the request sees.")
 
 
 class EventTreePage(BaseModel):

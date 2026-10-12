@@ -818,6 +818,30 @@ def with_children(
     }
 
 
+def participant_counts(
+    session: Session, policy: VisibilityPolicy, kinds: set[str], ids: list[str]
+) -> dict[str, int]:
+    """Per event of ``ids``: its participants the request sees (live ``core.participant`` links
+    to entities of enabled kinds, not in the trash), as the participants panel lists them."""
+    if not ids:
+        return {}
+    target = aliased(Entity)
+    rows = session.execute(
+        select(Link.source_id, func.count())
+        .join(target, target.id == Link.target_id)
+        .where(
+            Link.source_id.in_(ids),
+            Link.link_type == PARTICIPANT,
+            Link.deleted_at.is_(None),
+            target.deleted_at.is_(None),
+            target.kind.in_(kinds),
+            *policy.links(Link),
+        )
+        .group_by(Link.source_id)
+    )
+    return {source_id: int(count) for source_id, count in rows}
+
+
 @dataclass(frozen=True)
 class EventTreeRow:
     entity: Entity

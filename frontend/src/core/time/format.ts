@@ -1,6 +1,8 @@
 import {
   BASE,
+  type CompiledCalendar,
   type DisplayPoint,
+  type Duration,
   diff,
   formatAbsolute,
   formatDate,
@@ -124,4 +126,86 @@ export function relativeToPresent(lens: Lens, t: bigint, present: bigint | null)
   } catch {
     return null
   }
+}
+
+function unitWord(count: bigint, singular: string, plural: string): string {
+  return `${formatInteger(count)} ${(count === 1n ? singular : plural).toLowerCase()}`
+}
+
+/** `n` base units in words (`3 seconds`). */
+function baseUnits(units: bigint, dimension: DimensionTime): string {
+  return unitWord(units, dimension.baseUnit.singular, dimension.baseUnit.plural)
+}
+
+/** Amounts per level in words, coarse to fine, zeros left out (`1 year, 3 days`). */
+function amountsText(calendar: CompiledCalendar, get: (level: string) => bigint): string {
+  return calendar.definition.levels
+    .toReversed()
+    .flatMap((level) => {
+      const count = get(level.id)
+      return count === 0n ? [] : [unitWord(count, level.label, level.plural)]
+    })
+    .join(', ')
+}
+
+/**
+ * The time from `start` to `end` in a display calendar, from its top level down to `precision`
+ * (or its display level there): `2 years, 3 months`. Absolute counts base units. `null` when the
+ * calendar can't measure it.
+ */
+export function formatDurationIn(
+  lens: Lens,
+  start: Moment,
+  end: bigint,
+  dimension: DimensionTime,
+  all: readonly Lens[],
+): string | null {
+  if (end === start.t) return 'Instant'
+  const calendar = lens.calendar
+  if (calendar === null) return baseUnits(end - start.t, dimension)
+  const top = calendar.levels[calendar.levels.length - 1]
+  const level = displayLevel(lens, start, all)
+  if (top === undefined) return null
+  try {
+    if (level === BASE) return baseUnits(end - start.t, dimension)
+    const found = diff(calendar, start.t, end, top, level)
+    const text = amountsText(calendar, (id) => found.amounts.get(id) ?? 0n)
+    if (text === '') return found.base === 0n ? 'Instant' : `less than 1 ${level}`
+    return found.sign === 1 ? text : `−${text}`
+  } catch {
+    return null
+  }
+}
+
+/** `-1` for a negative duration (an offset before its target), else `1`. */
+export function durationSign(duration: Duration): 1 | -1 {
+  if (duration.kind === 'calendar') return duration.sign
+  return duration.units.startsWith('-') ? -1 : 1
+}
+
+/**
+ * A duration's size in words (its sign aside, `durationSign`): base units, or amounts of a
+ * calendar's levels (`3 days`; empty for zero).
+ */
+export function formatDuration(
+  duration: Duration,
+  dimension: DimensionTime,
+  all: readonly Lens[],
+): string {
+  if (duration.kind === 'base') {
+    const units = BigInt(duration.units)
+    return units === 0n ? '' : baseUnits(units < 0n ? -units : units, dimension)
+  }
+  const calendar = all.find((lens) => lens.id === duration.calendar_id)?.calendar ?? null
+  if (calendar === null) {
+    return Object.entries(duration.amounts)
+      .filter((entry): entry is [string, string] => entry[1] !== undefined && entry[1] !== '0')
+      .map(([level, count]) => `${count} ${level}`)
+      .join(', ')
+  }
+  const amounts = duration.amounts
+  return amountsText(calendar, (id) => {
+    const value = amounts[id]
+    return value === undefined ? 0n : BigInt(value)
+  })
 }

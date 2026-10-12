@@ -621,9 +621,19 @@ export function serveVault(
         }))
       return HttpResponse.json({ items })
     }),
-    http.get('*/api/v1/vaults/v1/entities/:id/links', ({ params }) =>
-      HttpResponse.json({ items: entityLinks(String(params.id)) }),
-    ),
+    http.get('*/api/v1/vaults/v1/entities/:id/links', ({ request, params }) => {
+      // `type` and `direction` filter like the server's (symmetric links match both ways).
+      const url = new URL(request.url)
+      const only = url.searchParams.getAll('type')
+      const direction = url.searchParams.get('direction') ?? 'both'
+      const items = entityLinks(String(params.id))
+        .filter((item) => only.length === 0 || only.includes(item.link.link_type))
+        .filter(
+          (item) =>
+            direction === 'both' || item.direction === 'both' || item.direction === direction,
+        )
+      return HttpResponse.json({ items })
+    }),
     http.get('*/api/v1/vaults/v1/entities/:id/backlinks', ({ params }) => {
       const id = String(params.id)
       const incoming = entityLinks(id).filter((item) => item.direction !== 'out')

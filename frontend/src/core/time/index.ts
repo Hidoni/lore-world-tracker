@@ -7,7 +7,16 @@ export {
   type DimensionTime,
   type Lens,
 } from './calendars'
-export { displayLevel, formatIn, formatSpanIn, relativeToPresent, type Moment } from './format'
+export {
+  displayLevel,
+  durationSign,
+  formatDuration,
+  formatDurationIn,
+  formatIn,
+  formatSpanIn,
+  relativeToPresent,
+  type Moment,
+} from './format'
 export { BigNumberError, parseBigNumber } from './big-number'
 export { BigNumberInput, type BigNumberInputProps } from './big-number-input'
 export { CalendarEditor, NewCalendar } from './calendar-editor'

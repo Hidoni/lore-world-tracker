@@ -157,6 +157,9 @@ def test_reader_counts_exclude_hidden_items(reader: TestClient, canary: Canary) 
     values = _get(reader, f"{base}/entities/field-values", kind="gadget", field="text")
     assert values["items"] == [{"value": "brass", "count": 1}]
 
+    events = _get(reader, f"{base}/timelines/{canary.public['Prime']}/event-tree")["items"]
+    assert {e["name"]: e["participants"] for e in events}["Coronation"] == 1
+
 
 def test_the_author_sees_the_hidden_items(canary: Canary) -> None:
     """The same counts in author mode, to show the reader tests filter something."""
@@ -168,5 +171,8 @@ def test_the_author_sees_the_hidden_items(canary: Canary) -> None:
         assert len(backlinks["items"]) == 4
         values = _get(author, f"{base}/entities/field-values", kind="gadget", field="text")
         assert len(values["items"]) == 3
+        tree = f"{base}/timelines/{canary.public['Prime']}/event-tree"
+        events = _get(author, tree)["items"]
+        assert {e["name"]: e["participants"] for e in events}["Coronation"] == 3
         compass = _get(author, f"{base}/entities/{canary.public['Compass']}")
         assert compass["fields"]["time_point"]["anchor"]["kind"] == "calendar"

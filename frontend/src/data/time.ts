@@ -1,4 +1,10 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
@@ -55,6 +61,31 @@ export function useTimelines(vault: string, dimension: string | null) {
     queryKey: keys.timelines(vault, dimension ?? ''),
     queryFn: () => source.timelines(vault, dimension ?? ''),
     enabled: dimension !== null,
+  })
+}
+
+/**
+ * One level of a timeline's event outline (`GET /timelines/{id}/event-tree`): the roots, or the
+ * sub-events of `parent`, ordered by start, page by page.
+ */
+export function useEventTreeLevel(
+  vault: string,
+  timeline: string | null,
+  parent: string | null,
+  options: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  const query = parent === null ? {} : { parent }
+  return useInfiniteQuery({
+    queryKey: [...keys.eventTree(vault, timeline ?? '', query), 'paged'],
+    queryFn: ({ pageParam }) =>
+      source.eventTree(vault, timeline ?? '', {
+        ...query,
+        ...(pageParam === null ? {} : { cursor: pageParam }),
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    enabled: timeline !== null && (options.enabled ?? true),
   })
 }
 
@@ -129,6 +160,9 @@ type Schemas = components['schemas']
 
 /** A calendar edit's impact preview, moments as `bigint`. */
 export type CalendarProposal = Domain<Schemas['CalendarProposalOut']>
+
+/** A row of the event outline, moments as `bigint`. */
+export type EventTreeNode = Domain<Schemas['EventTreeNode']>
 
 /**
  * Previews a calendar edit (`POST /calendars/{id}/proposals`, time-model.md §7.4): what moves or

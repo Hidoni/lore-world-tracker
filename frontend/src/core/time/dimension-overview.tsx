@@ -322,6 +322,11 @@ export function DimensionOverview({ vault, dimensionId }: { vault: string; dimen
             Open the timeline
           </Link>
         </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/v/$vault/d/$dimension/events" params={{ vault, dimension: dimensionId }}>
+            Event outline
+          </Link>
+        </Button>
         <Button variant="ghost" size="sm" asChild>
           <Link to="/v/$vault/e/$entity" params={{ vault, entity: dimensionId }}>
             Details

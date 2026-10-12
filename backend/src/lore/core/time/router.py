@@ -23,12 +23,20 @@ from lore.core.entities.schemas import (
     EntityWriteResult,
 )
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
+from lore.core.modules.service import enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.time.batch import convert_batch, resolve_batch
 from lore.core.time.calendars import CALENDAR, Preview, presets
 from lore.core.time.changes import report as report_time
 from lore.core.time.dimensions import TIMELINE, timeline_tree
-from lore.core.time.events import EVENT, EventTimes, event_tree, home_row, live_sub_events
+from lore.core.time.events import (
+    EVENT,
+    EventTimes,
+    event_tree,
+    home_row,
+    live_sub_events,
+    participant_counts,
+)
 from lore.core.time.models import Event, Proposal
 from lore.core.time.proposals import BACKUP_REASON, apply_calendar_proposal, preview_calendar_edit
 from lore.core.time.reconcile import apply_rule_change, preview_rule_change
@@ -309,6 +317,8 @@ def get_event_tree(
         context, policy, timeline_id, parent_id=parent, cursor=cursor, limit=limit
     )
     times = EventTimes(context, policy)
+    kinds = {kind.key for kind in registry.kinds_for(enabled_modules(session, registry))}
+    counts = participant_counts(session, policy, kinds, [item.entity.id for item in rows])
     return EventTreePage(
         items=[
             EventTreeNode(
@@ -325,6 +335,7 @@ def get_event_tree(
                     times.displays(str(item.entity.dimension_id), item.row)
                 ),
                 has_children=item.has_children,
+                participants=counts.get(item.entity.id, 0),
             )
             for item in rows
         ],

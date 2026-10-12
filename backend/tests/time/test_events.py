@@ -357,6 +357,27 @@ def test_event_tree_for_readers_hides_private_events(api: LinkApi, world: dict[s
     assert names(tree(api, world["prime"])) == ["Plot"]
 
 
+def test_event_tree_counts_the_participants_shown(api: LinkApi, world: dict[str, Any]) -> None:
+    home = {"dimension_id": world["dimension"]["id"]}
+    battle = event(api, world, "Battle", start=at(1))
+    event(api, world, "Quiet", start=at(2))
+    hero, spy, gone = (api.make("misc", **home) for _ in range(3))
+    secret = api.make("misc", visibility="private", **home)
+    api.made_link("core.participant", battle, hero, role="leader")
+    api.made_link("core.participant", battle, spy, visibility="private")
+    api.made_link("core.participant", battle, secret)
+    api.made_link("core.participant", battle, gone)
+    api.made_link("core.related", battle, hero)
+    api.delete(gone["id"])  # in the trash: not counted
+
+    def counts(**params: Any) -> list[tuple[str, int]]:
+        page = tree(api, world["prime"], **params)
+        return [(item["name"], item["participants"]) for item in page["items"]]
+
+    assert counts() == [("Battle", 3), ("Quiet", 0)]
+    assert counts(as_reader="true") == [("Battle", 1), ("Quiet", 0)]
+
+
 # --- history ---------------------------------------------------------------------------------
 
 

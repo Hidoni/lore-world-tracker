@@ -9,6 +9,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Event pages and the event outline** (#78): an event's page shows its start and end with
+  how each was given (typed dates, moments, or "3 days after the end of <Coronation>" with the
+  target linked), its duration, its dates in every calendar, and its timeline, importance and
+  category. It also lists its sub-events, its causes and effects (an effect that starts before
+  its cause is flagged) and its participants with their roles, each with add, create and remove.
+  A dialog creates and edits events (start, end, parent, importance, category, timeline). The
+  event outline (`/d/<dimension>/events`) is a lazily expanded tree table of a timeline's events
+  with keyboard navigation. Event-tree rows count their `participants`.
 - **Calendar editor II and the impact preview** (#77): the editor now covers reforms (one tab
   per set of rules, each with its start), cycles, eras (starts at any time point, including
   event anchors), overlays (a period with an "in days" helper), formats per precision (token
