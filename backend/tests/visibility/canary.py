@@ -245,8 +245,8 @@ def _events(
 ) -> None:
     """Events: dated in the private default calendar (readers get moments and absolute
     displays), a private parent with a public sub-event (a root for readers), a private
-    sub-event, an anchor on a private event, a private cause, and an event in the private
-    dimension."""
+    sub-event, an anchor on a private event, a private cause, participants (one public, one by a
+    private link, one private entity), and an event in the private dimension."""
     secret_span = {
         "kind": "duration",
         "duration": {
@@ -260,6 +260,9 @@ def _events(
         "event", "Coronation", ext={"start": secret_year, "end": secret_span}, **home
     )
     b.public("event", "Feast", parent_id=coronation["id"], **home)
+    herald = b.public("misc", "Herald", **home)
+    b.api.made_link("core.participant", coronation, herald, role="herald")
+    b.hidden_link("core.participant", coronation, herald, visibility="private")
     b.hidden("event", visibility="private", parent_id=coronation["id"], **home)
     plot = b.hidden("event", visibility="private", **home)
     after_plot = {
@@ -270,6 +273,7 @@ def _events(
         },
         "precision": "base",
     }
+    b.api.made_link("core.participant", coronation, plot)  # a private participant
     aftermath = b.public(
         "event", "Aftermath", parent_id=plot["id"], ext={"start": after_plot}, **home
     )

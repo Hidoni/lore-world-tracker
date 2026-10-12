@@ -72,7 +72,7 @@ export {
 } from './links'
 export { useMeta } from './meta'
 export { useQuickSearch, useSearch, useSearchPages } from './search'
-export type { CalendarProposal } from './time'
+export type { CalendarProposal, EventTreeNode } from './time'
 export type {
   Affected,
   DataSource,
@@ -105,6 +105,7 @@ export {
   useCreateDimension,
   useDimensionCalendars,
   useDimensions,
+  useEventTreeLevel,
   useTimeResolution,
   useTimelines,
 } from './time'

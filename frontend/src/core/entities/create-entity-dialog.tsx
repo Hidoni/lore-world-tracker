@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { EventForm } from '@/core/events'
 import { FieldEditor, fieldsSchema, PLACEHOLDER_TYPES, type FieldDef } from '@/core/fields'
 import { useKindRegistry, type Kind } from '@/core/registry'
 import { fieldErrors, useCreateEntity, useEntities } from '@/data'
@@ -306,25 +307,43 @@ export function CreateEntityDialog({
             ))}
           </select>
         </div>
-        {kind !== undefined && (
-          <KindForm
-            key={kind.key}
+        {kind?.key === 'event' ? (
+          // Events need a start (and take an end, timeline, importance…): their own form.
+          <EventForm
+            mode="create"
             vault={vault}
-            kind={kind}
-            dimensions={dimensions.data?.items ?? []}
             initialName={initialName}
-            initialParent={initialParent}
-            initialDimension={initialParent?.dimension_id}
-            onCancel={onClose}
-            onCreated={(entity) => {
+            parent={initialParent?.dimension_id == null ? null : initialParent}
+            onClose={onClose}
+            onSaved={(entity) => {
               if (onCreated) {
-                onCreated(entity)
+                onCreated({ id: entity.id, name: entity.name })
                 return
               }
-              onClose()
               void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: entity.id } })
             }}
           />
+        ) : (
+          kind !== undefined && (
+            <KindForm
+              key={kind.key}
+              vault={vault}
+              kind={kind}
+              dimensions={dimensions.data?.items ?? []}
+              initialName={initialName}
+              initialParent={initialParent}
+              initialDimension={initialParent?.dimension_id}
+              onCancel={onClose}
+              onCreated={(entity) => {
+                if (onCreated) {
+                  onCreated(entity)
+                  return
+                }
+                onClose()
+                void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: entity.id } })
+              }}
+            />
+          )
         )}
       </DialogContent>
     </Dialog>

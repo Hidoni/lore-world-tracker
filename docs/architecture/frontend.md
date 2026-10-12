@@ -367,6 +367,28 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   badged. The palette's "Undo the last change" undoes the newest changeset not yet undone.
 - **Create flows:** a "New…" menu per kind (and in the command palette), a quick create from
   autocomplete, and "create sub-event here" / "create child" actions.
+- **Events** (`core/events/`, #78): the entity page of an event shows four sections, and its
+  relations panel leaves `core.causes` and `core.participant` links to them.
+  - **Time:** start and end in the display calendar, each with how it was given ("Typed in
+    Gregorian.", a fixed moment, or "3 days after the end of <Coronation>." with the target
+    linked; the end as a date, "Lasts 2 months.", an instant, the end of time or unknown).
+    The duration comes from the calendar's `diff`, down to the start's display level. A table
+    gives start and end in **every** calendar of the dimension. Badges show the timeline (a
+    branch is marked), importance, category and recurrence, and a problem status is spelled out.
+    "Edit time" opens the event dialog.
+  - **Sub-events:** the event's level of the outline (`/event-tree?parent=`), and "Create
+    sub-event".
+  - **Causes and effects:** causes (links into the event) and effects (out of it) with their
+    descriptions, add and remove. "Add a cause/an effect" searches events, then asks for an
+    optional description; "Create “…”" opens the event dialog and links the new event. A pair
+    named by an open `core.event.effect_before_cause` finding is badged.
+  - **Participants:** entities of any kind with their roles; add from search with role
+    suggestions (attacker, defender, victim, witness, leader, …), and remove.
+  - **Event dialog / form** (`EventForm`): name, dimension and timeline on creation (the
+    timeline can't change later), start (`TimePointPicker` with relative anchors), end
+    (`EndSpecPicker`), parent event (search), importance 1–5 and category. Server problems with
+    the dates show under the fields, or as a cycle or constraint message. The "New…" dialog uses
+    the same form for the event kind, since an event needs a start.
 - Implementation (`core/entities/`, #61): `EntityPage` renders the header (icon, inline rename,
   kind badge, dimension/multiversal and branch-only badges, breadcrumbs loaded up the parent
   chain, aliases and tags as chip editors, a visibility select, "Move to trash") and sections for
@@ -631,6 +653,14 @@ supports keyboard navigation between items (arrow keys) and announces focused it
 
 - **Event outline:** tree table (name, start, end, duration, importance, participants), lazily
   expanded; sortable by time.
+  - Implementation (`EventOutline`, `/v/$vault/d/$dimension/events`, #78): the time context's
+    timeline (a select when the dimension has branches), one `event-tree` level per expanded row,
+    page by page ("Show more"), ordered by start (the server's order). Start and end are the
+    server's displays (the dimension's default calendar). The duration is measured in the display
+    calendar down to days (or its finest level), and the participant count is the server's
+    (participants the request sees). It is an ARIA `treegrid`: ↑/↓ move, → expands or enters,
+    ← collapses or goes to the parent, Home/End jump, Enter opens the event. "New event" opens the
+    event dialog. The dimension overview and the command palette link to it.
 - **Causality view:** React Flow + elkjs layered layout of cause → effect chains around an event
   (depth control, time-ordered left → right).
 - **Graph view (module):** see `docs/modules/graph.md`.

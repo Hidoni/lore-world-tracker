@@ -60,16 +60,21 @@ export function RelationsPanel({
   vault,
   entity,
   editable,
+  exclude = [],
 }: {
   vault: string
   entity: { id: string; name: string; kind: string }
   editable: boolean
+  /** Link types another section of the page shows (an event's causes and participants). */
+  exclude?: readonly string[]
 }) {
   const links = useLinks(vault, entity.id)
   const registry = useKindRegistry(vault)
   const remove = useDeleteLink(vault)
   const [dialog, setDialog] = useState<LinkDialogMode | null>(null)
-  const groups = groupLinks(links.data?.items ?? [])
+  const groups = groupLinks(
+    (links.data?.items ?? []).filter((item) => !exclude.includes(item.link.link_type)),
+  )
 
   return (
     <div className="flex flex-col gap-3">
