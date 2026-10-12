@@ -5,7 +5,7 @@ import type { components } from '@/api'
 import { useDataSource, useRequiredMutations } from './context'
 import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
-import type { EntityWriteResult, Query } from './source'
+import type { Entity, EntityWriteResult, Query } from './source'
 
 type Schemas = components['schemas']
 
@@ -55,6 +55,15 @@ export function useChildren(vault: string, id: string, query: Query<'entities_ch
 export function useTree(vault: string, query: Query<'tree_get'> = {}) {
   const source = useDataSource()
   return useQuery({ queryKey: keys.tree(vault, query), queryFn: () => source.tree(vault, query) })
+}
+
+/** Tags in use on the entities the request sees, by name, with counts (`GET /tags`). */
+export function useTags(vault: string, query: Query<'tags_list'> = {}) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.tags(vault, query),
+    queryFn: () => source.tags(vault, query),
+  })
 }
 
 export function useTrash(vault: string, query: Query<'trash_list'> = {}) {
@@ -171,10 +180,14 @@ export function useUpdateLatest(vault: string, options: { toast?: boolean } = {}
       change,
     }: {
       id: string
-      change: Omit<Schemas['EntityUpdate'], 'revision'>
+      /** The change, or a function computing it from the latest entity (throwing refuses). */
+      change:
+        | Omit<Schemas['EntityUpdate'], 'revision'>
+        | ((entity: Entity) => Omit<Schemas['EntityUpdate'], 'revision'>)
     }) => {
       const entity = await source.entity(vault, id)
-      return mutations.updateEntity(vault, id, { ...change, revision: entity.revision })
+      const body = typeof change === 'function' ? change(entity) : change
+      return mutations.updateEntity(vault, id, { ...body, revision: entity.revision })
     },
     onSuccess: after,
   })

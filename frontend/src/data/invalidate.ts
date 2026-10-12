@@ -10,6 +10,7 @@ const VAULT_WIDE = [
   'children',
   'trash',
   'fieldValues',
+  'tags',
   'changes',
   // Changesets change too (merged saves, undone).
   'change',

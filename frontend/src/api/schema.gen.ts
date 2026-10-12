@@ -382,6 +382,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description Tags in use on the entities the request sees (not in the trash), by name, with how many
+         *     use each (for filters).
+         */
+        get: operations["tags_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/links": {
         parameters: {
             query?: never;
@@ -3409,6 +3430,25 @@ export interface components {
              */
             created_at: string;
         };
+        /** TagCount */
+        TagCount: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string | null;
+            /**
+             * Count
+             * @description Entities the request sees using it (not in the trash).
+             */
+            count: number;
+        };
+        /** TagList */
+        TagList: {
+            /** Items */
+            items: components["schemas"]["TagCount"][];
+        };
         TagName: string;
         /** TagOut */
         TagOut: {
@@ -4822,6 +4862,44 @@ export interface operations {
             };
         };
     };
+    tags_list: {
+        parameters: {
+            query?: {
+                /** @description A name prefix. */
+                q?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     links_create: {
         parameters: {
             query?: never;
@@ -6011,6 +6089,8 @@ export interface operations {
                 tag?: string[] | null;
                 /** @description Entity ids (any of them takes part; repeatable). */
                 participant?: string[] | null;
+                /** @description Kind keys (any of them takes part, visible and not trashed; repeatable). */
+                participant_kind?: string[] | null;
                 /** @description An event: only its sub-events (any depth). */
                 parent?: string | null;
                 /** @description Expand recurring series into occurrences (or bands when too many). */

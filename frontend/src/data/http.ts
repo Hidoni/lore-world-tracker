@@ -100,6 +100,11 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         await unwrap(client.GET(`${V}/trash`, { params: { ...path(vault), query } })),
         'TrashPage',
       ),
+    tags: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/tags`, { params: { ...path(vault), query } })),
+        'TagList',
+      ),
     fieldValues: async (vault, query) =>
       toDomain(
         await unwrap(

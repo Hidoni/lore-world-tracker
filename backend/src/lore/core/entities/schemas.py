@@ -228,3 +228,14 @@ class FieldValue(BaseModel):
 
 class FieldValueList(BaseModel):
     items: list[FieldValue]
+
+
+class TagCount(BaseModel):
+    id: str
+    name: str
+    color: str | None
+    count: int = Field(description="Entities the request sees using it (not in the trash).")
+
+
+class TagList(BaseModel):
+    items: list[TagCount]

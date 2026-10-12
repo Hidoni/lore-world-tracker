@@ -448,6 +448,13 @@ def get_window(
         list[str] | None,
         Query(alias="participant", description="Entity ids (any of them takes part; repeatable)."),
     ] = None,
+    participant_kinds: Annotated[
+        list[str] | None,
+        Query(
+            alias="participant_kind",
+            description="Kind keys (any of them takes part, visible and not trashed; repeatable).",
+        ),
+    ] = None,
     parent: Annotated[
         str | None,
         Query(pattern=ID_PATTERN, description="An event: only its sub-events (any depth)."),
@@ -484,6 +491,7 @@ def get_window(
             categories=tuple(categories or ()),
             tags=tuple(tags or ()),
             participants=tuple(participants or ()),
+            participant_kinds=tuple(participant_kinds or ()),
             parent=parent,
             include_series=include_series,
             include_cancelled=include_cancelled,

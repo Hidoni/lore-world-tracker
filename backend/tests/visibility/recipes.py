@@ -164,6 +164,12 @@ def tree(c: Canary) -> Iterator[Call]:
         yield Call(path, {"dimension": entity_id})
 
 
+@recipe(f"{V}/tags")
+def tags(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/tags")
+    yield Call(f"{_v(c)}/tags", {"q": "CANARY"})  # the hidden tag's name prefix
+
+
 @recipe(f"{V}/trash")
 def trash(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/trash", status=404)
@@ -267,6 +273,8 @@ def timeline_window(c: Canary) -> Iterator[Call]:
     yield Call(url, {**whole, "px": 1500})
     yield Call(url, {**whole, "px": 1})  # culled into buckets
     yield Call(url, {**whole, "px": 1500, "parent": c.public["Coronation"]})
+    # Coronation's private participants (an event, a private link) are of these kinds.
+    yield Call(url, {**whole, "px": 1500, "participant_kind": ["misc", "event"]})
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/timelines/{hidden_id}/window", {**whole, "px": 10}, status=404)
         yield Call(url, {**whole, "px": 10, "parent": hidden_id}, status=404)

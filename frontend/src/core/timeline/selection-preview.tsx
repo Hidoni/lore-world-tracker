@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { XIcon } from 'lucide-react'
+import { LockIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +26,7 @@ export function SelectionPreview({
   lens,
   lenses,
   onOpen,
+  relative = false,
   onClose,
 }: {
   vault: string
@@ -34,6 +35,8 @@ export function SelectionPreview({
   lens: Lens
   lenses: readonly Lens[]
   onOpen: (item: WindowItem) => void
+  /** Its start is relative to another record: it isn't dragged; its offset is edited instead. */
+  relative?: boolean
   onClose: () => void
 }) {
   const computed = isComputedOccurrence(item)
@@ -95,6 +98,12 @@ export function SelectionPreview({
             : `A customized occurrence (${item.occurrence_state ?? ''})`}
         </p>
       )}
+      {relative && (
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <LockIcon aria-hidden className="size-3" /> Relative to another record: edit its offset
+          rather than dragging it.
+        </p>
+      )}
       <dl className="grid grid-cols-[3.5rem_1fr] gap-x-2 gap-y-1">
         <dt className="text-muted-foreground">Start</dt>
         <dd>{at(item.start_t, item.start_precision, item.start_approximate)}</dd>
@@ -152,7 +161,7 @@ export function SelectionPreview({
               setEditing(true)
             }}
           >
-            Edit time
+            {relative ? 'Edit offset' : 'Edit time'}
           </Button>
         )}
       </div>

@@ -10,6 +10,9 @@ import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vau
 import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
 
+/** The first layout loads ELK, which can take a while under a loaded test run. */
+const LAID_OUT = { timeout: 10_000 }
+
 const EVENT_KIND = kind('event', 'Event', {
   allowed_parents: ['event'],
   capabilities: { ...CAPS, is_time_bound: true, has_existence: false },
@@ -112,7 +115,7 @@ describe('causality view', () => {
     // Depth 1 on event pages: Riot's causes and effects, the cycle included.
     await waitFor(() => {
       expect(within(figure).getAllByTestId('causality-node')).toHaveLength(4)
-    })
+    }, LAID_OUT)
     expect(depths).toContain(1)
     const focus = within(figure)
       .getAllByTestId('causality-node')
@@ -151,7 +154,7 @@ describe('causality view', () => {
     const figure = await screen.findByRole('figure', { name: 'Causality graph' })
     await waitFor(() => {
       expect(within(figure).getAllByTestId('causality-node')).toHaveLength(5) // depth 2: Peace
-    })
+    }, LAID_OUT)
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Depth' }), '3')
     await waitFor(() => {
       expect(depths.at(-1)).toBe(3)

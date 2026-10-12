@@ -82,8 +82,8 @@ const timelineRoute = createRoute({
   getParentRoute: () => dimensionRoute,
   path: 'timeline',
   // `from`/`to`: the viewport (moments as decimal strings; it may extend outside the dimension).
-  // `perf=1` shows the performance overlay.
-  validateSearch: (search): { from?: string; to?: string; perf?: '1' } => {
+  // `perf=1` shows the performance overlay. `in`: the events drilled into, comma-separated ids.
+  validateSearch: (search): { from?: string; to?: string; perf?: '1'; in?: string } => {
     const moment = (value: unknown) =>
       typeof value === 'string' && /^-?(0|[1-9][0-9]*)$/.test(value) ? value : undefined
     const from = moment(search.from)
@@ -91,6 +91,9 @@ const timelineRoute = createRoute({
     return {
       ...(from !== undefined && to !== undefined ? { from, to } : {}),
       ...(search.perf === '1' || search.perf === 1 ? { perf: '1' as const } : {}),
+      ...(typeof search.in === 'string' && /^[\w-]+(,[\w-]+)*$/.test(search.in)
+        ? { in: search.in }
+        : {}),
     }
   },
   component: function TimelineRoute() {

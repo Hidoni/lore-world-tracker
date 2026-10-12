@@ -1,7 +1,14 @@
 import { DateError, fromFields, unitBounds, type TimePoint } from '@lore/chronology'
-import { toPx, type Viewport } from '@lore/chronology/viewport'
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import { LocateIcon, MaximizeIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react'
+import { fromPx, toPx, type Viewport } from '@lore/chronology/viewport'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import {
+  ChevronRightIcon,
+  ListIcon,
+  LocateIcon,
+  MaximizeIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from 'lucide-react'
 import {
   startTransition,
   useCallback,
@@ -31,17 +38,46 @@ import {
   type DimensionTime,
   type Lens,
 } from '@/core/time'
-import { useMaterializeOccurrence } from '@/data'
+import { toast } from 'sonner'
+
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { eventTime } from '@/core/events'
+import { useEntity, useMaterializeOccurrence, useMutations, useUpdateLatest } from '@/data'
 
 import { CursorLine, TickSnap } from './cursor-line'
+import { dragTime, pointAt, type DragMode } from './drag-edit'
 import { EraBands } from './era-bands'
-import { DensityStrip, EventLanes } from './event-lanes'
+import { DensityStrip, type DragPreview, type Drawn, type PressHandler } from './event-lanes'
+import {
+  FiltersPanel,
+  GROUP_MODES,
+  NO_FILTERS,
+  windowFilters,
+  type GroupMode,
+  type Named,
+  type TimelineFilters,
+} from './filters-panel'
+import {
+  groupItems,
+  LaneGroupView,
+  ParticipantLane,
+  SubEventGroup,
+  type LaneGroup,
+  type LaneProps,
+} from './lane-groups'
 import { Minimap } from './minimap'
 import { OverlayStrip } from './overlay-strip'
 import { PerfOverlay, perfEnabled } from './perf-overlay'
 import { capture, release } from './pointer'
 import { isComputedOccurrence, SelectionPreview } from './selection-preview'
 import { axisTicks, TimeAxis } from './time-axis'
+import { TimelineDialogs, type TimelineAction } from './timeline-dialogs'
 import { itemKey, useTimelineWindow, type WindowItem } from './use-timeline-window'
 import { useViewport, zoomFactor, type ViewportControls } from './use-viewport'
 
@@ -87,6 +123,81 @@ class HeldItems {
     return this.items
   }
 }
+
+/** Whether any of a group's items or bands overlaps the view. */
+function inView(group: LaneGroup, v: Viewport): boolean {
+  const end = v.start + v.span
+  return (
+    group.items.some(
+      (item) =>
+        item.start_t !== null && item.start_t < end && (item.end_t ?? item.start_t) >= v.start,
+    ) || group.bands.some((band) => band.from < end && band.to >= v.start)
+  )
+}
+
+/** A drilled-in event's name, for the breadcrumb. */
+function DrillName({ vault, id }: { vault: string; id: string }) {
+  const entity = useEntity(vault, id)
+  return <>{entity.data?.name ?? '…'}</>
+}
+
+type ItemAction = 'edit' | 'sub-event' | 'participants' | 'causes'
+
+/** The context menu of an item (frontend.md §9.4). */
+function ItemMenu({
+  item,
+  editable,
+  expanded,
+  onOpen,
+  onAction,
+  onToggleExpanded,
+  onDrillIn,
+  onMaterialize,
+}: {
+  item: WindowItem
+  editable: boolean
+  expanded: boolean
+  onOpen: () => void
+  onAction: (action: ItemAction) => void
+  onToggleExpanded: () => void
+  onDrillIn: () => void
+  onMaterialize: () => void
+}) {
+  const computed = isComputedOccurrence(item)
+  const act = (action: ItemAction) => () => {
+    onAction(action)
+  }
+  return (
+    <>
+      <ContextMenuItem onSelect={onOpen}>Open {item.name}</ContextMenuItem>
+      {editable && !computed && (
+        <>
+          <ContextMenuItem onSelect={act('edit')}>Edit time…</ContextMenuItem>
+          <ContextMenuItem onSelect={act('sub-event')}>New sub-event…</ContextMenuItem>
+          <ContextMenuItem onSelect={act('participants')}>Add a participant…</ContextMenuItem>
+          <ContextMenuItem onSelect={act('causes')}>Link a cause or effect…</ContextMenuItem>
+        </>
+      )}
+      {editable && computed && (
+        <ContextMenuItem onSelect={onMaterialize}>Materialize this occurrence</ContextMenuItem>
+      )}
+      {!computed && (
+        <>
+          <ContextMenuSeparator />
+          {item.has_children && (
+            <ContextMenuItem onSelect={onToggleExpanded}>
+              {expanded ? 'Collapse its sub-events' : 'Expand its sub-events'}
+            </ContextMenuItem>
+          )}
+          <ContextMenuItem onSelect={onDrillIn}>Drill in</ContextMenuItem>
+        </>
+      )}
+    </>
+  )
+}
+
+/** A drag the event's time can't follow (a relative anchor, a calendar duration…). */
+class LockedError extends Error {}
 
 /** When the wheel zooms: always, or with Ctrl/⌘ held (the wheel then pans). */
 export type ZoomModifier = 'none' | 'ctrl'
@@ -256,6 +367,7 @@ export function TimelineView({ vault, dimensionId }: { vault: string; dimensionI
       lenses={context.lenses}
       cursor={context.moment}
       onCursor={context.setCursor}
+      dimensionId={dimensionId}
     />
   )
 }
@@ -268,8 +380,10 @@ function Timeline({
   lenses,
   cursor,
   onCursor,
+  dimensionId,
 }: {
   vault: string
+  dimensionId: string
   timelineId: string | null
   dimension: DimensionTime
   lens: Lens
@@ -281,7 +395,22 @@ function Timeline({
   const [ref, width] = useWidth()
   const controls: ViewportControls = useViewport(dimension.duration, width)
   const v = controls.viewport
-  const search: { perf?: unknown } = useSearch({ strict: false })
+  const search: { perf?: unknown; in?: string } = useSearch({ strict: false })
+  const editable = useMutations() !== null
+  const [filters, setFilters] = useState<TimelineFilters>(NO_FILTERS)
+  const [grouping, setGrouping] = useState<GroupMode>('auto')
+  const [expanded, setExpanded] = useState<Named[]>([])
+  const [action, setAction] = useState<TimelineAction | null>(null)
+  /** Drilled-in events, outermost first (`in` in the URL). */
+  const drill = useMemo(() => (search.in ?? '').split(',').filter((id) => id !== ''), [search.in])
+  const drillParent = drill.at(-1) ?? null
+  const query = useMemo(
+    () => ({
+      ...windowFilters(filters),
+      ...(drillParent === null ? {} : { parent: drillParent }),
+    }),
+    [filters, drillParent],
+  )
   const renders = useRef(0)
   useEffect(() => {
     renders.current += 1
@@ -293,7 +422,13 @@ function Timeline({
   const lanes = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const materialize = useMaterializeOccurrence(vault)
-  const { window: data, loading } = useTimelineWindow(vault, timelineId, v, dimension.duration)
+  const { window: data, loading } = useTimelineWindow(
+    vault,
+    timelineId,
+    v,
+    dimension.duration,
+    query,
+  )
   const [selected, setSelected] = useState<string | null>(null)
   // While a zoom goes on, the lanes keep their layout (scaled to the view) and lay out again once
   // it pauses or the scale passes ×4 or ¼: zooming stays smooth with many items.
@@ -395,6 +530,187 @@ function Timeline({
   const formatAt = (t: bigint) =>
     formatIn(lens, { t, precision: minor?.level ?? 'base' }, dimension, lenses) ?? t.toString()
 
+  // --- direct editing (frontend.md §9.4) -------------------------------------------------------
+  const update = useUpdateLatest(vault, { toast: false })
+  const [itemDrag, setItemDrag] = useState<DragPreview | null>(null)
+  const pressed = useRef<{ drawn: Drawn; mode: DragMode; x0: number; dx: number } | null>(null)
+  const editing = useRef({ v, snap, lenses })
+  useLayoutEffect(() => {
+    editing.current = { v, snap, lenses }
+  })
+  const updateEvent = update.mutate
+  /** Saves a drag: the edge's moment snapped to the axis' minor unit, typed in its calendar. */
+  const commitDrag = useCallback(
+    (drawn: Drawn, mode: DragMode, dx: number) => {
+      const { v: view, snap: snapper, lenses: all } = editing.current
+      const item = drawn.item
+      const edge = mode === 'end' ? item.end_t : item.start_t
+      if (edge === null) return
+      const delta = snapper.snap(edge + (fromPx(view, dx) - fromPx(view, 0))) - edge
+      if (delta === 0n) return
+      updateEvent(
+        {
+          id: item.entity_id,
+          change: (entity) => {
+            const time = eventTime(entity)
+            if (time.start === null || time.end === null) throw new Error('It has no time to move.')
+            const result = dragTime(time.start, time.end, mode, delta, all)
+            if (result.kind === 'locked') throw new LockedError(result.reason)
+            return { ext: { start: result.start, end: result.end } }
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success(`Moved ${item.name}`)
+          },
+          onError: (error) => {
+            toast.error(error.message, {
+              ...(error instanceof LockedError
+                ? {
+                    action: {
+                      label: 'Edit',
+                      onClick: () => {
+                        setAction({ kind: 'edit', id: item.entity_id })
+                      },
+                    },
+                  }
+                : {}),
+            })
+          },
+        },
+      )
+    },
+    [updateEvent],
+  )
+  const onPress = useCallback<PressHandler>((event, drawn, mode) => {
+    // Computed occurrences have no event of their own to change.
+    if (isComputedOccurrence(drawn.item)) return
+    pressed.current = { drawn, mode, x0: event.clientX, dx: 0 }
+  }, [])
+  useEffect(() => {
+    const onMove = (event: PointerEvent) => {
+      const press = pressed.current
+      if (press === null) return
+      press.dx = event.clientX - press.x0
+      if (Math.abs(press.dx) >= 3) {
+        setItemDrag({ key: press.drawn.key, mode: press.mode, dx: press.dx })
+      }
+    }
+    const onUp = () => {
+      const press = pressed.current
+      pressed.current = null
+      if (press === null) return
+      setItemDrag(null)
+      if (Math.abs(press.dx) >= 3) commitDrag(press.drawn, press.mode, press.dx)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [commitDrag])
+
+  // The selected event's time: relative anchors show a lock and aren't dragged.
+  const selectedEntity = useEntity(
+    vault,
+    selectedItem?.entity_id ?? '',
+    {},
+    { enabled: selectedItem !== null && !isComputedOccurrence(selectedItem) },
+  )
+  const relative =
+    selectedEntity.data !== undefined &&
+    selectedEntity.data.id === selectedItem?.entity_id &&
+    eventTime(selectedEntity.data).start?.anchor.kind === 'relative'
+
+  // The context menu's target: an item, or a moment of empty space.
+  const [menu, setMenu] = useState<{ key: string | null; t: bigint }>({ key: null, t: 0n })
+  const onMenu = useCallback((key: string) => {
+    setMenu((current) => ({ ...current, key }))
+  }, [])
+  const menuItem = menu.key === null ? null : (byStart.find((i) => itemKey(i) === menu.key) ?? null)
+  const createAt = (t: bigint) => {
+    setAction({
+      kind: 'create',
+      start: pointAt(lens, snap.snap(t), minor?.level ?? 'base', lenses),
+      parent:
+        drillParent === null
+          ? null
+          : { id: drillParent, name: drillName ?? '', dimension_id: dimension.id },
+    })
+  }
+
+  // Sub-events: expanded inline, or drilled into.
+  const expandedIds = new Set(expanded.map((parent) => parent.id))
+  const toggleExpanded = (item: WindowItem) => {
+    setExpanded((current) =>
+      current.some((parent) => parent.id === item.entity_id)
+        ? current.filter((parent) => parent.id !== item.entity_id)
+        : [...current, { id: item.entity_id, name: item.name }],
+    )
+  }
+  const drillTo = (ids: readonly string[], range: { start: bigint; end: bigint } | null) => {
+    void navigate({
+      to: '.',
+      search: (previous: Record<string, unknown>) => ({
+        ...previous,
+        in: ids.length === 0 ? undefined : ids.join(','),
+        ...(range === null ? {} : { from: range.start.toString(), to: range.end.toString() }),
+      }),
+    })
+  }
+  const drillIn = (item: WindowItem) => {
+    const start = item.start_t ?? v.start
+    const end = item.end_t !== null && item.end_t > start ? item.end_t : start + v.span / 10n
+    const pad = (end - start) / 20n
+    setExpanded((current) => current.filter((parent) => parent.id !== item.entity_id))
+    drillTo([...drill, item.entity_id], { start: start - pad, end: end + pad })
+  }
+  // The lanes: sub-events of expanded events move to their own group; the rest is grouped.
+  const mainItems = useMemo(
+    () => laneItems.filter((item) => item.parent_id === null || !expandedIds.has(item.parent_id)),
+    // `expandedIds` is derived from `expanded`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [laneItems, expanded],
+  )
+  const categories = useMemo(
+    () => [
+      ...new Set(data.items.flatMap((item) => (item.category === null ? [] : [item.category]))),
+    ],
+    [data.items],
+  )
+  const lane: LaneProps = {
+    v,
+    layoutV,
+    lenses,
+    selected,
+    onSelect: setSelected,
+    onOpen: open,
+    drag: itemDrag,
+    locked: relative ? selected : null,
+    onPress: editable ? onPress : undefined,
+    onMenu,
+  }
+  /** What a screen reader hears when an item is selected: its name, dates and importance. */
+  const announce = (item: WindowItem) => {
+    const at = (t: bigint | null, precision: string | null) =>
+      t === null
+        ? null
+        : (formatIn(lens, { t, precision: precision ?? item.start_precision }, dimension, lenses) ??
+          t.toString())
+    const start = at(item.start_t, item.start_precision)
+    const end = item.end_t === item.start_t ? null : at(item.end_t, item.end_precision)
+    return [
+      item.name,
+      end === null ? start : `${start ?? '?'} to ${end}`,
+      `importance ${item.importance}`,
+    ]
+      .filter((part) => part !== null)
+      .join(', ')
+  }
+  const drillEntity = useEntity(vault, drillParent ?? '', {}, { enabled: drillParent !== null })
+  const drillName = drillParent === null ? null : (drillEntity.data?.name ?? null)
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const distance = event.shiftKey ? v.widthPx / 2 : v.widthPx / 10
     switch (event.key) {
@@ -410,6 +726,12 @@ function Timeline({
         break
       case 'Escape':
         setSelected(null)
+        break
+      case 'e':
+      case 'E':
+        // Expand or collapse the selected event's sub-events.
+        if (!selectedItem?.has_children) return
+        toggleExpanded(selectedItem)
         break
       case '+':
       case '=':
@@ -508,7 +830,66 @@ function Timeline({
             <option value="ctrl">pans (Ctrl zooms)</option>
           </select>
         </label>
+        <select
+          aria-label="Group lanes"
+          className="h-8 rounded-md border border-input bg-transparent px-1 text-xs"
+          value={grouping}
+          onChange={(event) => {
+            setGrouping(event.target.value as GroupMode)
+          }}
+        >
+          {GROUP_MODES.map((mode) => (
+            <option key={mode.value} value={mode.value}>
+              {mode.label}
+            </option>
+          ))}
+        </select>
+        <FiltersPanel
+          vault={vault}
+          dimensionId={dimensionId}
+          categories={categories}
+          value={filters}
+          onChange={setFilters}
+        />
+        <Button asChild variant="outline" size="sm">
+          <Link to="/v/$vault/d/$dimension/events" params={{ vault, dimension: dimensionId }}>
+            <ListIcon aria-hidden /> List view
+          </Link>
+        </Button>
       </div>
+      {drill.length > 0 && (
+        <nav aria-label="Drilled into" className="flex flex-wrap items-center gap-1 text-sm">
+          <button
+            type="button"
+            className="text-muted-foreground underline-offset-2 hover:underline"
+            onClick={() => {
+              drillTo([], null)
+            }}
+          >
+            All events
+          </button>
+          {drill.map((id, index) => (
+            <span key={id} className="flex items-center gap-1">
+              <ChevronRightIcon aria-hidden className="size-3.5 text-muted-foreground" />
+              {index === drill.length - 1 ? (
+                <span aria-current="location" className="font-medium">
+                  <DrillName vault={vault} id={id} />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="underline-offset-2 hover:underline"
+                  onClick={() => {
+                    drillTo(drill.slice(0, index + 1), null)
+                  }}
+                >
+                  <DrillName vault={vault} id={id} />
+                </button>
+              )}
+            </span>
+          ))}
+        </nav>
+      )}
       <div className="flex items-start gap-3">
         {/* A custom keyboard widget: `application` hands the keys to it (frontend.md §9.6). */}
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
@@ -528,70 +909,194 @@ function Timeline({
             <TimeAxis v={v} found={found} />
             <OverlayStrip v={v} calendar={lens.calendar} />
             <DensityStrip v={v} buckets={data.buckets} />
-            <div
-              ref={lanes}
-              data-testid="timeline-lanes"
-              className="relative cursor-grab touch-none overflow-x-hidden overflow-y-auto active:cursor-grabbing"
-              style={{ height: LANES_HEIGHT }}
-              onPointerDown={(event) => {
-                drag.current = { x: event.clientX, moved: 0 }
-                capture(event.currentTarget, event.pointerId)
-              }}
-              onPointerMove={(event) => {
-                if (drag.current === null) return
-                const dx = event.clientX - drag.current.x
-                drag.current = { x: event.clientX, moved: drag.current.moved + Math.abs(dx) }
-                if (dx !== 0) controls.pan(-dx)
-              }}
-              onPointerUp={(event) => {
-                // A click on empty space (not a drag) clears the selection.
-                if (
-                  drag.current !== null &&
-                  drag.current.moved < 3 &&
-                  event.target === event.currentTarget
-                ) {
-                  setSelected(null)
-                }
-                drag.current = null
-                release(event.currentTarget, event.pointerId)
+            <ContextMenu
+              onOpenChange={(opened) => {
+                if (!opened) setMenu((current) => ({ ...current, key: null }))
               }}
             >
-              <svg
-                width={v.widthPx}
-                height={LANES_HEIGHT}
-                className="pointer-events-none absolute top-0 left-0"
-                aria-hidden
-              >
-                {found.major.map((tick) => {
-                  const x = toPx(v, tick.t)
-                  return (
-                    <line
-                      key={tick.t.toString()}
-                      x1={x}
-                      x2={x}
-                      y1={0}
-                      y2={LANES_HEIGHT}
-                      className="stroke-border"
+              <ContextMenuTrigger asChild>
+                <div
+                  ref={lanes}
+                  data-testid="timeline-lanes"
+                  className="relative cursor-grab touch-none overflow-x-hidden overflow-y-auto active:cursor-grabbing"
+                  style={{ height: LANES_HEIGHT }}
+                  onContextMenuCapture={(event) => {
+                    // Empty space (an item's own handler names it next): the moment there.
+                    const box = event.currentTarget.getBoundingClientRect()
+                    setMenu({ key: null, t: fromPx(v, event.clientX - box.left) })
+                  }}
+                  onDoubleClick={(event) => {
+                    // Double-click on empty space creates an event there (frontend.md §9.4).
+                    if (
+                      !editable ||
+                      (event.target as HTMLElement).closest('[data-item]') !== null
+                    ) {
+                      return
+                    }
+                    const box = event.currentTarget.getBoundingClientRect()
+                    createAt(fromPx(v, event.clientX - box.left))
+                  }}
+                  onPointerDown={(event) => {
+                    drag.current = { x: event.clientX, moved: 0 }
+                    capture(event.currentTarget, event.pointerId)
+                  }}
+                  onPointerMove={(event) => {
+                    if (drag.current === null) return
+                    const dx = event.clientX - drag.current.x
+                    drag.current = { x: event.clientX, moved: drag.current.moved + Math.abs(dx) }
+                    if (dx !== 0) controls.pan(-dx)
+                  }}
+                  onPointerUp={(event) => {
+                    // A click on empty space (not a drag) clears the selection.
+                    if (
+                      drag.current !== null &&
+                      drag.current.moved < 3 &&
+                      event.target === event.currentTarget
+                    ) {
+                      setSelected(null)
+                    }
+                    drag.current = null
+                    release(event.currentTarget, event.pointerId)
+                  }}
+                >
+                  <svg
+                    width={v.widthPx}
+                    height={LANES_HEIGHT}
+                    className="pointer-events-none absolute top-0 left-0"
+                    aria-hidden
+                  >
+                    {found.major.map((tick) => {
+                      const x = toPx(v, tick.t)
+                      return (
+                        <line
+                          key={tick.t.toString()}
+                          x1={x}
+                          x2={x}
+                          y1={0}
+                          y2={LANES_HEIGHT}
+                          className="stroke-border"
+                        />
+                      )
+                    })}
+                  </svg>
+                  {grouping === 'participant' ? (
+                    filters.participants.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">
+                        Choose participants in the filters to see their swimlanes.
+                      </p>
+                    ) : (
+                      filters.participants.map((participant) => (
+                        <ParticipantLane
+                          key={participant.id}
+                          vault={vault}
+                          timelineId={timelineId}
+                          D={dimension.duration}
+                          filters={query}
+                          participant={participant}
+                          lane={lane}
+                          onRemove={() => {
+                            setFilters({
+                              ...filters,
+                              participants: filters.participants.filter(
+                                (each) => each.id !== participant.id,
+                              ),
+                            })
+                          }}
+                        />
+                      ))
+                    )
+                  ) : (
+                    groupItems(mainItems, data.bands, grouping)
+                      // A group with nothing in view (its events are elsewhere in the tiles) is left out.
+                      .filter((group) => group.label === null || inView(group, v))
+                      .map((group) => <LaneGroupView key={group.key} group={group} lane={lane} />)
+                  )}
+                  {expanded.map((parent) => (
+                    <SubEventGroup
+                      key={parent.id}
+                      vault={vault}
+                      timelineId={timelineId}
+                      D={dimension.duration}
+                      filters={query}
+                      parent={parent}
+                      lane={lane}
+                      onCollapse={() => {
+                        setExpanded((current) => current.filter((each) => each.id !== parent.id))
+                      }}
                     />
-                  )
-                })}
-              </svg>
-              <EventLanes
-                v={v}
-                layoutV={layoutV}
-                lenses={lenses}
-                items={laneItems}
-                bands={data.bands}
-                selected={selected}
-                onSelect={setSelected}
-                onOpen={open}
-              />
-              {data.items.length === 0 && data.bands.length === 0 && (
-                <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-xs text-muted-foreground">
-                  {loading ? 'Loading events…' : 'No events here.'}
-                </p>
-              )}
-            </div>
+                  ))}
+                  {data.items.length === 0 && data.bands.length === 0 && (
+                    <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-xs text-muted-foreground">
+                      {loading ? 'Loading events…' : 'No events here.'}
+                    </p>
+                  )}
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {menuItem === null ? (
+                  <>
+                    {editable && (
+                      <ContextMenuItem
+                        onSelect={() => {
+                          createAt(menu.t)
+                        }}
+                      >
+                        New event here…
+                      </ContextMenuItem>
+                    )}
+                    {drill.length > 0 && (
+                      <ContextMenuItem
+                        onSelect={() => {
+                          drillTo(drill.slice(0, -1), null)
+                        }}
+                      >
+                        Back out of {drillName ?? 'this event'}
+                      </ContextMenuItem>
+                    )}
+                    {!editable && drill.length === 0 && (
+                      <ContextMenuItem disabled>No actions here</ContextMenuItem>
+                    )}
+                  </>
+                ) : (
+                  <ItemMenu
+                    item={menuItem}
+                    editable={editable}
+                    expanded={expandedIds.has(menuItem.entity_id)}
+                    onOpen={() => {
+                      open(menuItem)
+                    }}
+                    onAction={(kind) => {
+                      setAction(
+                        kind === 'sub-event'
+                          ? {
+                              kind: 'create',
+                              start: null,
+                              parent: {
+                                id: menuItem.entity_id,
+                                name: menuItem.name,
+                                dimension_id: dimension.id,
+                              },
+                            }
+                          : { kind, id: menuItem.entity_id },
+                      )
+                    }}
+                    onToggleExpanded={() => {
+                      toggleExpanded(menuItem)
+                    }}
+                    onDrillIn={() => {
+                      drillIn(menuItem)
+                    }}
+                    onMaterialize={() => {
+                      if (menuItem.occurrence_key === null) return
+                      materializeOccurrence({
+                        event: menuItem.entity_id,
+                        key: menuItem.occurrence_key,
+                      })
+                    }}
+                  />
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
             <CursorLine
               v={v}
               moment={cursor}
@@ -610,6 +1115,9 @@ function Timeline({
             {data.culled > 0 ? `, ${data.culled} shown as density` : ''}
             {selectedItem !== null ? ` · selected: ${selectedItem.name}` : ''}
           </p>
+          <p aria-live="polite" className="sr-only" data-testid="timeline-announcement">
+            {selectedItem === null ? '' : announce(selectedItem)}
+          </p>
           <Minimap D={dimension.duration} v={v} onCenter={controls.center} />
           {perfEnabled(search) && <PerfOverlay renders={readRenders} />}
         </div>
@@ -621,6 +1129,7 @@ function Timeline({
             lens={lens}
             lenses={lenses}
             onOpen={open}
+            relative={relative}
             onClose={() => {
               setSelected(null)
             }}
@@ -634,6 +1143,17 @@ function Timeline({
           onGo={controls.show}
           onClose={() => {
             setGoTo(false)
+          }}
+        />
+      )}
+      {action !== null && (
+        <TimelineDialogs
+          vault={vault}
+          dimensionId={dimensionId}
+          timelineId={timelineId}
+          action={action}
+          onClose={() => {
+            setAction(null)
           }}
         />
       )}

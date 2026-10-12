@@ -33,6 +33,7 @@ export interface DataSource {
   tree(vault: string, query?: Query<'tree_get'>): Promise<D<'TreePage'>>
   trash(vault: string, query?: Query<'trash_list'>): Promise<D<'TrashPage'>>
   fieldValues(vault: string, query: Query<'entities_field_values'>): Promise<D<'FieldValueList'>>
+  tags(vault: string, query?: Query<'tags_list'>): Promise<D<'TagList'>>
   links(vault: string, id: string, query?: Query<'entities_links'>): Promise<D<'EntityLinks'>>
   backlinks(vault: string, id: string, query?: Query<'entities_backlinks'>): Promise<D<'Backlinks'>>
   linkTypes(vault: string): Promise<D<'LinkTypeList'>>

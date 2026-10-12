@@ -764,6 +764,52 @@ Layers (`core/timeline/`, #82):
   - A materialized occurrence with sub-events gets a dot at its corner and the title
     "(has sub-events)".
 
+Authoring, hierarchy, filters (`core/timeline/`, #83):
+
+- **Sub-events:**
+  - "Expand its sub-events" (context menu, or `E` on the selection) moves an event's sub-events
+    out of the main lanes into a nested group below them. The group's window is filtered with
+    `parent`, and its header collapses it.
+  - "Drill in" filters the whole view to the event's descendants (`parent`) and fits the view to
+    its span with 5% padding. The drill path is kept in the URL (`in`, comma-separated ids) and
+    shown as a breadcrumb ("All events › War › Battle") whose links back out.
+- **Editing** (authors):
+  - A double-click on empty space opens the event dialog with a start at that moment. The start
+    is typed in the display calendar at the axis' minor unit (or absolute), on the timeline shown,
+    and under the drilled-into event if any.
+  - Pressing an item and dragging moves it; the outer 6 px of a span drag an edge. The bar
+    follows the pointer, and on release the edge's moment is snapped to the axis' minor unit.
+  - `dragTime` (`drag-edit.ts`) types the new moment in each anchor's own kind:
+    - an absolute moment, or the date of its unit in the same calendar at the anchor's precision
+      (slot ids for named units, era years if the date was typed with an era);
+    - the date is checked to resolve back to that unit (a reform-ambiguous date doesn't);
+    - a start edge keeps the end where it was (a base duration shrinks or grows), an end edge
+      moves an end date or changes a base duration.
+  - Relative anchors, calendar durations and missing ends are locked. A locked drag says why,
+    with an Edit action. The selected event shows a lock when its start is relative, and its
+    preview offers "Edit offset".
+  - Computed occurrences aren't dragged.
+- **Context menu:**
+  - On an item: Open; Edit time…, New sub-event…, Add a participant…, Link a cause or effect…
+    (authors; dialogs with the event page's sections); Materialize this occurrence (computed
+    occurrences); Expand/Collapse its sub-events; Drill in.
+  - On empty space: New event here…, and Back out when drilled in.
+  - "Branch here" comes with branches (M9).
+- **Filters** (the Filters popover):
+  - Options: minimum importance; categories (those shown or picked); tags in use (`GET /tags`,
+    all required); participants (search, any of them); kinds of participants
+    (`participant_kind`, any).
+  - They go to every window query, so density and counts follow them.
+- **Grouping:**
+  - No grouping, by category (by name, uncategorized last), or by importance (most important
+    first): groups of lanes under labels, each packed on its own.
+  - By participant: a swimlane per participant picked in the filters, each its own window
+    (`participant`).
+  - Location grouping comes with the locations module (M6).
+- **Accessibility:**
+  - Selecting an item announces its name, dates and importance in a polite live region.
+  - "List view" opens the event outline.
+
 ### 9.3 Layout and rendering
 
 - Lane packing: greedy interval partitioning by start, **sticky** per entity id across
