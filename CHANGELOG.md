@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
+The time UI (M5): worlds get their time in the browser. A wizard creates dimensions with preset
+calendars; time pickers type dates in any calendar, absolute moments or anchors relative to other
+records; a calendar editor shows the impact of each change before applying it; events have
+sub-events, causes, participants and recurrence; the timeline view zooms from a dimension's whole
+span to single base units, with lanes, eras, overlays, the time cursor, filters, grouping and
+direct editing; and rich text carries dates in each reader's calendar. The time journeys E1–E4 run
+end to end.
+
 ### Added
 
 - **Inline dates in rich text** (#86): insert a date with `/date` or `@date`. It is shown in
@@ -111,6 +121,17 @@ All notable changes to this project are documented here. The format follows
   dimension, timeline, cursor and calendar live in the URL (`tl`, `at`, `cal`) and are
   remembered per vault and dimension. Calendars compile client-side with `@lore/chronology` and
   are cached by id, revision and resolved anchors.
+- The golden fixture vault `v0.4.0`.
+
+### Fixed
+
+- An anchor to an occurrence of a series names it by its number ("the 4th occurrence of the
+  Festival") rather than its 0-based key ("(occurrence 3)") (#287).
+- Vaults created at the same time (concurrent requests) no longer fail with "no such table":
+  Alembic's migration context is module-global, so migrations in one process now run one at a
+  time (#87).
+- The calendar impact preview shows what "Keep the moment" leads to: the moment read through the
+  edited calendar (`pinned_display`), no longer its date before the edit (#87).
 
 ## [0.3.0] - 2026-10-11
 
@@ -239,13 +260,6 @@ release also carries the first piece of M4, the app shell and vault picker.
 
 ### Fixed
 
-- An anchor to an occurrence of a series names it by its number ("the 4th occurrence of the
-  Festival") rather than its 0-based key ("(occurrence 3)") (#287).
-- Vaults created at the same time (concurrent requests) no longer fail with "no such table":
-  Alembic's migration context is module-global, so migrations in one process now run one at a
-  time (#87).
-- The calendar impact preview shows what "Keep the moment" leads to: the moment read through the
-  edited calendar (`pinned_display`), no longer its date before the edit (#87).
 - A materialized occurrence kept on its key through a recurrence change (`keep_key`, or a direct
   edit that moves it) takes the key's new start as `original_start_t`, so later proposals report
   it as `moved` only when they move it (#230).
@@ -315,7 +329,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Hidoni/lore-world-tracker/releases/tag/v0.1.0
