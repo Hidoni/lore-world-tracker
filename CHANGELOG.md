@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **E2E journeys E1–E4** (#87): the dimension wizard to an event on the timeline, a calendar
+  edit with its impact preview, relative anchors (with a drag on the timeline and a refused
+  cycle), and a recurring event's materialized occurrence with a sub-event.
 - **Timeline view IV** (#83):
   - Sub-events expand inline into nested lanes, or you can drill in (with a breadcrumb, kept in
     the URL).
@@ -233,6 +236,11 @@ release also carries the first piece of M4, the app shell and vault picker.
 
 ### Fixed
 
+- Vaults created at the same time (concurrent requests) no longer fail with "no such table":
+  Alembic's migration context is module-global, so migrations in one process now run one at a
+  time (#87).
+- The calendar impact preview shows what "Keep the moment" leads to: the moment read through the
+  edited calendar (`pinned_display`), no longer its date before the edit (#87).
 - A materialized occurrence kept on its key through a recurrence change (`keep_key`, or a direct
   edit that moves it) takes the key's new start as `original_start_t`, so later proposals report
   it as `moved` only when they move it (#230).

@@ -153,7 +153,7 @@ export function ImpactPreviewDialog({
                   const choice = strategies[item.key] ?? ''
                   const after =
                     choice === 'pin_moment'
-                      ? item.old_display
+                      ? item.pinned_display
                       : choice === 'constrain'
                         ? item.constrained_display
                         : item.new_display

@@ -92,6 +92,16 @@ export class Lore {
     return result.link
   }
 
+  /** The id of the entity named `name` (the quick switcher's first exact match). */
+  async findByName(name: string): Promise<string> {
+    const result = await ok<{ items: { entity_id: string; name: string }[] }>(
+      await this.request.get(`${this.base}/search/quick`, { params: { q: name } }),
+    )
+    const found = result.items.find((item) => item.name === name)
+    if (found === undefined) throw new Error(`no entity named ${name}`)
+    return found.entity_id
+  }
+
   /** The entities linking to or mentioning `id`. */
   async backlinks(id: string): Promise<{ entity: { id: string; name: string } }[]> {
     const result = await ok<{ items: { entity: { id: string; name: string } }[] }>(

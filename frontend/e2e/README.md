@@ -21,13 +21,14 @@ test('E5: …', async ({ page, lore }) => {
 The `lore` fixture creates a **fresh vault per test** (moved to the data trash afterwards), so
 tests never see each other's data. Its helpers:
 
-| Helper | Does |
-|--------|------|
-| `lore.vault`, `lore.base`, `lore.url(id?)` | the vault, its API base, the vault or entity page |
+| Helper                                                              | Does                                                                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `lore.vault`, `lore.base`, `lore.url(id?)`                          | the vault, its API base, the vault or entity page                                        |
 | `createEntity(kind, name, extra?)`, `createDimension(name, extra?)` | create (dimensions get a time spec); only dimensions have bodies until modules add kinds |
-| `entity(id)`, `updateEntity(id, change)` | read; change at the current revision |
-| `link(type, source, target, extra?)` | create a link |
-| `backlinks(id)` | the entities linking to or mentioning `id` |
+| `entity(id)`, `updateEntity(id, change)`                            | read; change at the current revision                                                     |
+| `link(type, source, target, extra?)`                                | create a link                                                                            |
+| `backlinks(id)`                                                     | the entities linking to or mentioning `id`                                               |
+| `findByName(name)`                                                  | the id of the entity with that exact name (quick search)                                 |
 
 Writes send `X-Lore-Client: web` like the SPA.
 
@@ -42,7 +43,7 @@ CI uploads that folder as the `playwright-report` artifact. Open one with
 
 ## Journeys
 
-| # | Spec | Covers |
-|---|------|--------|
-| smoke | `smoke.spec.ts` | the shell loads; create and reopen a vault |
-| E5 | `e5-linking.spec.ts` | a `[[` link in the editor, the backlink on the target, rename relabels the link |
+| #     | Spec                 | Covers                                                                          |
+| ----- | -------------------- | ------------------------------------------------------------------------------- |
+| smoke | `smoke.spec.ts`      | the shell loads; create and reopen a vault                                      |
+| E5    | `e5-linking.spec.ts` | a `[[` link in the editor, the backlink on the target, rename relabels the link |

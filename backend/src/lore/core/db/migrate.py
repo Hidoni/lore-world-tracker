@@ -9,6 +9,7 @@ keys before committing.
 
 import sqlite3
 import tempfile
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -49,6 +50,11 @@ def render_item(type_: str, obj: Any, _autogen_context: Any) -> str | Literal[Fa
     if type_ == "type" and isinstance(obj, TypeDecorator):
         return f"sa.{obj.impl_instance!r}"
     return False
+
+
+# Alembic keeps the running migration in module globals (``alembic.context``, ``alembic.op``):
+# two commands at once in one process (vaults created by concurrent requests) corrupt each other.
+_ALEMBIC = threading.RLock()
 
 
 class MigrationError(LoreError):
@@ -154,7 +160,7 @@ class Migrator:
         ``context.config.attributes`` (the vault's identity for seeding ``vault_meta``)."""
         engine = for_writing(create_vault_engine(path, foreign_keys=False, pool=NullPool))
         try:
-            with engine.connect() as connection, connection.begin():
+            with _ALEMBIC, engine.connect() as connection, connection.begin():
                 command.upgrade(self.config(connection, attributes), target)
                 violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
                 if violations:
@@ -179,7 +185,7 @@ class Migrator:
             path = self._scratch_database(Path(directory))
             engine = create_vault_engine(path, pool=NullPool)
             try:
-                with engine.connect() as connection:
+                with _ALEMBIC, engine.connect() as connection:
                     script = command.revision(
                         self.config(connection), message=message, autogenerate=autogenerate
                     )

@@ -390,6 +390,9 @@ class CalendarProposalItem(BaseModel):
     )
     old_display: str | None = Field(description="`old_t` in the display calendar, before.")
     new_display: str | None = Field(description="`new_t` in the display calendar, after.")
+    pinned_display: str | None = Field(
+        description="`old_t` in the display calendar after the edit (keeping the moment)."
+    )
     constrained_t: MomentStr | None = Field(
         description="`constrain`: the moment of the nearest valid date (invalid dates only)."
     )

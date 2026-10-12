@@ -61,6 +61,9 @@
 The app is built and served by the backend with a temp data dir. Tests create their data through
 the UI or the API (fast setup helper).
 
+Journeys live in `frontend/e2e/` (`e1-…spec.ts` and so on; `time-helpers.ts` has the Gregorian
+dimension wizard and date typing they share).
+
 | # | Journey | Milestone |
 |---|---------|-----------|
 | E1 | Create vault → dimension wizard (Gregorian preset) → create an event with a calendar date → see it on the timeline and the event page | M5 |

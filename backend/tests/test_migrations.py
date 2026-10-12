@@ -1,6 +1,8 @@
 import json
 import re
+import sqlite3
 import tempfile
+import threading
 from pathlib import Path
 
 import pytest
@@ -95,6 +97,30 @@ def test_downgrade_of_the_first_migration(migrations: MigrationHarness) -> None:
     finally:
         engine.dispose()
     assert migrations.tables() == {"alembic_version"}
+
+
+def test_concurrent_upgrades_in_one_process(tmp_path: Path) -> None:
+    """Vaults created by concurrent requests migrate at once: Alembic's module-level context
+    must not be shared between them (an e2e run hit "no such table" and a missing ``config``)."""
+    migrator = Migrator()
+    paths = [tmp_path / f"v{i}.db" for i in range(6)]
+    for path in paths:
+        sqlite3.connect(path).close()
+    errors: list[BaseException] = []
+
+    def upgrade(path: Path) -> None:
+        try:
+            migrator.upgrade(path)
+        except BaseException as exc:  # collected for the assertion
+            errors.append(exc)
+
+    threads = [threading.Thread(target=upgrade, args=(path,)) for path in paths]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    assert {migrator.status_of(path).state for path in paths} == {SchemaState.CURRENT}
 
 
 # --- status ---------------------------------------------------------------------------------
