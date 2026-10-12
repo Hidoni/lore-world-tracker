@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 import { itemGeometry, spanBackground, type ItemGeometry } from './geometry'
 import { StickyLanes } from './lanes'
+import { bandShapes, SeriesBandShape } from './series-bands'
 import { itemKey, type SeriesBand, type WindowBucket, type WindowItem } from './use-timeline-window'
 
 export const LANE_HEIGHT = 22
@@ -22,6 +23,10 @@ const COLORS: Record<number, string> = {
   4: 'color-mix(in oklab, var(--primary) 33%, transparent)',
   5: 'color-mix(in oklab, var(--primary) 42%, transparent)',
 }
+
+/** The marker of a materialized occurrence with sub-events: a dot at its top-left corner. */
+const SUB_EVENTS_MARKER =
+  'after:absolute after:top-0 after:left-0 after:size-1.5 after:rounded-full after:bg-amber-500'
 
 interface Drawn {
   key: string
@@ -77,9 +82,15 @@ interface ItemProps {
 /** One item: a single element (spans: a bar with a gradient; instants: a diamond pseudo-element). */
 const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen }: ItemProps) {
   const { key, item, geometry } = drawn
+  const occurrence = item.occurrence_key !== null
+  // A materialized occurrence with sub-events of its own (recurrence.md §10).
+  const subEvents = occurrence && item.occurrence_state !== null && item.has_children
   const handlers = {
     'data-item': key,
     'data-kind': geometry.kind,
+    'data-occurrence': occurrence ? item.occurrence_key : undefined,
+    'data-sub-events': subEvents ? '' : undefined,
+    title: subEvents ? `${item.name} (has sub-events)` : undefined,
     'aria-label': item.name,
     'aria-pressed': selected,
     onClick: (event: React.MouseEvent) => {
@@ -103,8 +114,13 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
         {...handlers}
         className={cn(
           'absolute max-w-44 truncate pl-4 text-left text-[11px] whitespace-nowrap',
-          'before:absolute before:top-1/2 before:left-[3px] before:size-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-primary',
+          // Occurrences of a series are ticks; other instants, diamonds.
+          occurrence
+            ? 'before:absolute before:inset-y-0 before:left-[7px] before:w-0.5 before:bg-primary'
+            : 'before:absolute before:top-1/2 before:left-[3px] before:size-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-primary',
+          subEvents && SUB_EVENTS_MARKER,
           selected && 'rounded-sm ring-2 ring-ring',
+          item.occurrence_state === 'cancelled' && 'line-through opacity-60',
         )}
         style={{
           transform: `translate(${geometry.x0 - 8}px, ${top}px)`,
@@ -125,6 +141,7 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
       {...handlers}
       className={cn(
         'absolute overflow-hidden rounded-sm px-1 text-left text-[11px] whitespace-nowrap text-foreground',
+        subEvents && SUB_EVENTS_MARKER,
         selected && 'ring-2 ring-ring',
         item.occurrence_state === 'cancelled' && 'line-through opacity-60',
       )}
@@ -189,27 +206,18 @@ export function EventLanes({
     }),
     [anchor],
   )
-  const bandShapes = useMemo(
-    () =>
-      bands.map((band) => ({
-        key: `band:${band.row_id}`,
-        band,
-        x0: toPx(anchor, band.from),
-        x1: toPx(anchor, band.to),
-      })),
-    [bands, anchor],
-  )
+  const shapes = useMemo(() => bandShapes(bands, anchor), [bands, anchor])
   const packing = useMemo(
     () =>
       lanes.pack([
-        ...bandShapes.map(({ key, x0, x1 }) => ({ key, x0, x1 })),
+        ...shapes.map(({ key, x0, x1 }) => ({ key, x0, x1 })),
         ...drawn.map(({ key, geometry }) => ({
           key,
           x0: geometry.kind === 'instant' ? geometry.x0 - 8 : geometry.x0,
           x1: geometry.kind === 'instant' ? geometry.x0 + 8 : geometry.x1,
         })),
       ]),
-    [drawn, bandShapes, lanes],
+    [drawn, shapes, lanes],
   )
   const lane = (key: string) => packing.lanes.get(key) ?? 0
   const elements = useMemo(
@@ -248,22 +256,14 @@ export function EventLanes({
           width: anchor.widthPx,
         }}
       >
-        {bandShapes.map(({ key, band, x0, x1 }) => (
-          <div
-            key={key}
-            data-testid="series-band"
-            title={`${band.name}: about ${band.estimated_count.toString()} occurrences`}
-            className="absolute flex items-center overflow-hidden rounded-sm px-1 text-[11px] whitespace-nowrap text-foreground"
-            style={{
-              transform: `translate(${Math.max(x0, limit.left)}px, ${lane(key) * LANE_HEIGHT + 4}px)`,
-              width: Math.max(4, Math.min(x1, limit.right) - Math.max(x0, limit.left)),
-              height: LANE_HEIGHT - 4,
-              background:
-                'repeating-linear-gradient(135deg, color-mix(in oklab, var(--primary) 30%, transparent) 0 4px, transparent 4px 8px)',
-            }}
-          >
-            {band.name} ×{band.estimated_count.toString()}
-          </div>
+        {shapes.map((shape) => (
+          <SeriesBandShape
+            key={shape.key}
+            shape={shape}
+            top={lane(shape.key) * LANE_HEIGHT + 4}
+            height={LANE_HEIGHT - 4}
+            limit={limit}
+          />
         ))}
         {elements}
       </div>
