@@ -12,7 +12,7 @@ import { useDataSource, useMutations, useRequiredMutations } from './context'
 import type { Domain } from './domain'
 import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
-import type { Entity } from './source'
+import type { Entity, Query } from './source'
 
 const DIMENSIONS = { kind: ['dimension'], limit: 100 }
 
@@ -292,4 +292,65 @@ export function useOccurrences(
     enabled: query !== null,
     placeholderData: (previous) => previous,
   })
+}
+
+/** A timeline window (`GET /timelines/{id}/window`), moments as `bigint`. */
+export type TimelineWindow = Domain<Schemas['TimelineWindow']>
+
+/** One tile of a timeline window: its moments and its pixel budget. */
+export interface WindowTile {
+  /** A stable key: `z:index`. */
+  key: string
+  from: bigint
+  to: bigint
+  px: number
+}
+
+/** Filters of the timeline window (frontend.md §9.2). */
+export type WindowFilters = Omit<Query<'timelines_window'>, 'from' | 'to' | 'px' | 'as_reader'>
+
+function windowQuery(
+  source: ReturnType<typeof useDataSource>,
+  vault: string,
+  timeline: string,
+  tile: WindowTile,
+  filters: WindowFilters,
+) {
+  return {
+    queryKey: keys.window(vault, timeline, { tile: tile.key, px: tile.px, ...filters }),
+    queryFn: () =>
+      source.timelineWindow(vault, timeline, {
+        ...filters,
+        from: tile.from.toString(),
+        to: tile.to.toString(),
+        px: tile.px,
+      }),
+    // Tiles are reused while panning; the server caches them until the next write.
+    staleTime: 60_000,
+  }
+}
+
+/**
+ * The tiles of a timeline window (frontend.md §9.2), one query each (cached by timeline, tile and
+ * filters), with `prefetch` for neighbours. Results come back in the order of `tiles`.
+ */
+export function useWindowTiles(
+  vault: string,
+  timeline: string | null,
+  tiles: readonly WindowTile[],
+  filters: WindowFilters = {},
+) {
+  const source = useDataSource()
+  const client = useQueryClient()
+  const results = useQueries({
+    queries: tiles.map((tile) => ({
+      ...windowQuery(source, vault, timeline ?? '', tile, filters),
+      enabled: timeline !== null,
+    })),
+  })
+  const prefetch = (tile: WindowTile) => {
+    if (timeline === null) return
+    client.query(windowQuery(source, vault, timeline, tile, filters)).catch(() => undefined)
+  }
+  return { results, prefetch }
 }

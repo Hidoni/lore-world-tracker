@@ -2,7 +2,7 @@ import { formatMoment, parseMoment } from '@lore/chronology'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { create } from 'zustand'
 
-import { useDimensionCalendars, useDimensions, useEntity } from '@/data'
+import { useDimensionCalendars, useDimensions, useEntity, type Entity } from '@/data'
 import { readStored, writeStored } from '@/lib/storage'
 
 import { ABSOLUTE, dimensionTime, lenses, type DimensionTime, type Lens } from './calendars'
@@ -70,6 +70,30 @@ function parseCursor(value: string | undefined): Cursor | undefined {
 }
 
 /**
+ * The dimension and its lenses, the same objects while the dimension and its calendars don't
+ * change (views memoize on them: the timeline lays its items out again only when they change).
+ */
+const known = new Map<string, { key: string; dimension: DimensionTime | null; lenses: Lens[] }>()
+
+function stable(
+  entity: Entity,
+  calendars: readonly Entity[],
+): { dimension: DimensionTime | null; lenses: Lens[] } {
+  const key = [
+    entity.revision,
+    ...calendars.map(
+      (calendar) => `${calendar.id}:${calendar.revision}:${calendar.deleted_at ?? ''}`,
+    ),
+  ].join('|')
+  const cached = known.get(entity.id)
+  if (cached?.key === key) return cached
+  const dimension = dimensionTime(entity)
+  const found = { key, dimension, lenses: dimension === null ? [] : lenses(dimension, calendars) }
+  known.set(entity.id, found)
+  return found
+}
+
+/**
  * A dimension's time settings and display calendars (`null` while loading or unknown);
  * `isPending` until the calendars are loaded too.
  */
@@ -78,13 +102,13 @@ export function useDimensionLenses(
   dimensionId: string | null,
 ): { dimension: DimensionTime | null; lenses: Lens[]; isPending: boolean } {
   const entity = useEntity(vault, dimensionId ?? '', {}, { enabled: dimensionId !== null })
-  const dimension = entity.data?.id === dimensionId ? dimensionTime(entity.data) : null
   const { calendars, isPending } = useDimensionCalendars(vault, dimensionId)
+  const found = entity.data?.id === dimensionId ? stable(entity.data, calendars) : null
   return {
-    dimension,
-    lenses: dimension === null ? [] : lenses(dimension, calendars),
+    dimension: found?.dimension ?? null,
+    lenses: found?.lenses ?? [],
     // Until the calendars arrive, only Absolute would be offered.
-    isPending: dimension === null || isPending,
+    isPending: found?.dimension == null || isPending,
   }
 }
 

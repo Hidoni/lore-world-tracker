@@ -72,7 +72,14 @@ export {
 } from './links'
 export { useMeta } from './meta'
 export { useQuickSearch, useSearch, useSearchPages } from './search'
-export type { CalendarProposal, EventTreeNode, RecurrenceProposal } from './time'
+export type {
+  CalendarProposal,
+  EventTreeNode,
+  RecurrenceProposal,
+  TimelineWindow,
+  WindowFilters,
+  WindowTile,
+} from './time'
 export type {
   Affected,
   DataSource,
@@ -113,5 +120,6 @@ export {
   useEventTreeLevel,
   useTimeResolution,
   useTimelines,
+  useWindowTiles,
 } from './time'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'

@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Timeline view II** (#81): events on the timeline, fetched tile by tile with caching and
+  prefetching. They are drawn in sticky lanes: spans with edges fading over their precision
+  (softer for circa), instants as diamonds, unknown ends fading out, and series bands with
+  counts. A density strip shows what the server culled. Click selects with a preview of dates,
+  participants and actions; double-click or Enter opens; ↑/↓ move the selection.
 - **Timeline view I** (#80): `/d/<dimension>/timeline` shows an exact viewport from the whole
   dimension (10^100 base units and more) down to 10 base units, kept in the URL. It has a time
   axis with calendar ticks in the display calendar (base units for Absolute) and a minimap. You
