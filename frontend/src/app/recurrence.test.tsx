@@ -124,6 +124,15 @@ function world() {
         occurrence_key: '3',
         occurrence_state: 'referenced',
         occurrence_number: 4,
+        // At its computed occurrence (as materializing anchors it), plus a day.
+        start: {
+          anchor: {
+            kind: 'relative',
+            ref: { type: 'event', id: 'festival', slot: 'start', occurrence: '3' },
+            offset: { kind: 'base', units: '86400' },
+          },
+          precision: 'day',
+        },
       }),
     ],
     linkTypes: [linkType('core.participant', 'participant')],
@@ -155,11 +164,12 @@ function world() {
       const to = BigInt(url.searchParams.get('to') ?? '0')
       const items = yearly
         .filter((item) => item.start >= from && item.start < to)
-        .map((item, index) => ({
+        .map((item) => ({
           key: item.key,
           start_t: item.start.toString(),
           end_t: item.end.toString(),
-          number: index + 1,
+          // Numbers count from the series' first occurrence, whatever the window.
+          number: yearly.indexOf(item) + 1,
           entity_id: item.key === '1' ? 'occ-1' : item.key === '3' ? 'occ-3' : null,
           state: item.key === '1' ? 'modified' : item.key === '3' ? 'referenced' : null,
         }))
@@ -423,6 +433,19 @@ describe('occurrences', () => {
       expect(router.state.location.pathname).toBe('/v/v1/e/occ-3')
     })
     expect(materialized).toEqual([yearly[2]?.key])
+  })
+
+  it('names the occurrence an anchor points at by its number, not its key (#287)', async () => {
+    world()
+    await renderApp('/v/v1/e/occ-3')
+    const time = await screen.findByRole('region', { name: 'Time' })
+    // Key 3 is the 4th occurrence (keys count from 0).
+    await waitFor(() => {
+      expect(time).toHaveTextContent(
+        '86,400 seconds after the start of the 4th occurrence of Festival.',
+      )
+    })
+    expect(time).not.toHaveTextContent('occurrence 3')
   })
 
   it('heads an occurrence’s page with its number, its series and what it inherits', async () => {

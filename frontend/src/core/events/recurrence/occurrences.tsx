@@ -1,4 +1,4 @@
-import { nextOccurrences, type RecurrenceRule } from '@lore/chronology'
+import { nextOccurrences } from '@lore/chronology'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -18,18 +18,11 @@ import {
 
 import { EventDialog } from '../event-dialog'
 import { ordinal, STATE_LABEL } from './occurrence-header'
+import { widened } from './rule-model'
 import { eventTime } from '../event-time'
 
 /** Occurrences per page of the list. */
 const PAGE = 20
-
-/**
- * The rule without what only narrows it (its end and exclusions): the window ends of the list are
- * found with it in the browser, then the server lists what really happens in them.
- */
-function widened(rule: RecurrenceRule): RecurrenceRule {
-  return { ...rule, limit: { kind: 'never' }, exclusions: [] }
-}
 
 type Action = { kind: 'edit' | 'sub_event'; id: string } | null
 

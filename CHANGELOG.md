@@ -239,6 +239,8 @@ release also carries the first piece of M4, the app shell and vault picker.
 
 ### Fixed
 
+- An anchor to an occurrence of a series names it by its number ("the 4th occurrence of the
+  Festival") rather than its 0-based key ("(occurrence 3)") (#287).
 - Vaults created at the same time (concurrent requests) no longer fail with "no such table":
   Alembic's migration context is module-global, so migrations in one process now run one at a
   time (#87).
