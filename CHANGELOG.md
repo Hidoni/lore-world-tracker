@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Timeline view I** (#80): `/d/<dimension>/timeline` shows an exact viewport from the whole
+  dimension (10^100 base units and more) down to 10 base units, kept in the URL. It has a time
+  axis with calendar ticks in the display calendar (base units for Absolute) and a minimap. You
+  can zoom with the wheel (or Ctrl+wheel), drag to pan, use the keyboard (+/−, Home, ←/→) or the
+  toolbar, and go to a date. A `?perf=1` overlay shows fps and render counts.
 - **Recurring events in the UI** (#79):
   - The event form gets a recurrence editor. Presets cover every year on this date, every month
     on this day, the nth weekday of the month, weekly on chosen days, and every N base units.

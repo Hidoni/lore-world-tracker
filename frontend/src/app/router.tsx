@@ -17,6 +17,7 @@ import { SearchPage, type SearchParams } from '@/core/search'
 import { SettingsPage } from '@/core/settings'
 import { PlaceholderPage, ShellLayout, VaultHome, VaultPicker, VaultScope } from '@/core/shell'
 import { CalendarEditor, DimensionOverview, NewCalendar } from '@/core/time'
+import { TimelineView } from '@/core/timeline'
 import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
@@ -69,12 +70,6 @@ const dimensionRoute = createRoute({
   getParentRoute: () => vaultRoute,
   path: 'd/$dimension',
 })
-const dimensionPage = <TPath extends string>(path: TPath, title: string, description: string) =>
-  createRoute({
-    getParentRoute: () => dimensionRoute,
-    path,
-    component: () => <PlaceholderPage title={title}>{description}</PlaceholderPage>,
-  })
 const dimensionHomeRoute = createRoute({
   getParentRoute: () => dimensionRoute,
   path: '/',
@@ -83,7 +78,26 @@ const dimensionHomeRoute = createRoute({
     return <DimensionOverview key={dimension} vault={vault} dimensionId={dimension} />
   },
 })
-const timelineRoute = dimensionPage('timeline', 'Timeline', 'The timeline view arrives with M5.')
+const timelineRoute = createRoute({
+  getParentRoute: () => dimensionRoute,
+  path: 'timeline',
+  // `from`/`to`: the viewport (moments as decimal strings; it may extend outside the dimension).
+  // `perf=1` shows the performance overlay.
+  validateSearch: (search): { from?: string; to?: string; perf?: '1' } => {
+    const moment = (value: unknown) =>
+      typeof value === 'string' && /^-?(0|[1-9][0-9]*)$/.test(value) ? value : undefined
+    const from = moment(search.from)
+    const to = moment(search.to)
+    return {
+      ...(from !== undefined && to !== undefined ? { from, to } : {}),
+      ...(search.perf === '1' || search.perf === 1 ? { perf: '1' as const } : {}),
+    }
+  },
+  component: function TimelineRoute() {
+    const { vault, dimension } = timelineRoute.useParams()
+    return <TimelineView key={dimension} vault={vault} dimensionId={dimension} />
+  },
+})
 const eventsRoute = createRoute({
   getParentRoute: () => dimensionRoute,
   path: 'events',

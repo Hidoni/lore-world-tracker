@@ -657,6 +657,37 @@ dimension with density and the viewport rectangle.
   `active` (culled events covering the slice: shade with this, so an era begun before the
   window doesn't pile up at its left edge). Decided 2026-10-07.
 
+Implementation (`core/timeline/`, #80):
+
+- **Route:** `/v/$vault/d/$dimension/timeline` (`TimelineView`).
+- **Viewport (`useViewport`):**
+  - Read from the URL's `from`/`to`, else the whole dimension fitted with 24 px on each side.
+  - Clamped to the dimension (`clamp`). The container's width follows a `ResizeObserver`.
+  - Written back to the URL 250 ms after it settles (`replace`). A URL changed elsewhere moves
+    the view.
+- **`TimeAxis`:** an SVG with major ticks above the line, labelled in the calendar's format,
+  and minor ticks below with short labels. They come from `ticks()` for the display calendar.
+  `absoluteTicks` covers the Absolute calendar (and views a calendar can't label): 1, 2,
+  5 × 10^k base units at least 64 px apart, majors at the next power of ten, with as many
+  significant digits as tell neighbours apart.
+- **Lanes:** the area under the axis draws the major tick lines. Event layers come with #81.
+- **`Minimap`:** the whole dimension, with the viewport as a rectangle. Pressing or dragging on
+  it centers the view there, keeping the span.
+- **Interactions:**
+  - The wheel zooms at the cursor (`2^(deltaY/300)`, an exact rational to 1/1024).
+  - "Wheel: pans (Ctrl zooms)" is remembered in `localStorage`.
+  - Drag pans.
+  - Keyboard on the focused timeline (`role="application"`): `+`/`−` halve or double the span
+    at the center, `Home` fits the dimension, `←`/`→` pan a tenth of the width (Shift: half),
+    `G` goes to a date. The toolbar repeats these.
+  - **Go to a date:** a `TimePointPicker` in a dialog shows the unit picked (a year, a day…):
+    calendar and absolute anchors, resolved in the browser.
+- **Range label:** the view's range in the display calendar at the axis' major level, or the
+  exact first major label when the format rounds both ends to the same text (huge years).
+- **`?perf=1`** (or `lore.debug.perf = 1` in `localStorage`) shows frames per second and render
+  counts. Zooming across the whole 10^100 s range of a test dimension with an empty lane set held
+  60 fps in Chromium (#80).
+
 ### 9.3 Layout and rendering
 
 - Lane packing: greedy interval partitioning by start, **sticky** per entity id across
