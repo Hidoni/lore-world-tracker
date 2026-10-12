@@ -1,4 +1,7 @@
+import type { SlotRef, TimePoint } from '@lore/chronology'
 import type { ReactNode } from 'react'
+
+import { TimeRefView } from '@/core/time'
 
 import { EntityLinkView } from './entity-link-view'
 import { isSafeHref, type RichTextDoc } from './schema'
@@ -159,11 +162,14 @@ function renderNode(vault: string, node: RichTextDoc, key: string): ReactNode {
       )
     }
     case 'timeRef':
-      // Calendar-aware rendering arrives with #86.
       return (
-        <span key={key} className="time-ref">
-          date
-        </span>
+        <TimeRefView
+          key={key}
+          vault={vault}
+          timePoint={(attr(node, 'timePoint') as TimePoint | null | undefined) ?? null}
+          slotRef={(attr(node, 'ref') as SlotRef | null | undefined) ?? null}
+          hidden={attr(node, 'hidden_ref') === true}
+        />
       )
     default:
       // Module nodes without a renderer yet: their content, if any.

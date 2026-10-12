@@ -304,6 +304,16 @@ EDITOR_FIXTURES = sorted(
 )
 
 
+def _without_defaults(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: _without_defaults(v)
+            for k, v in value.items()
+            if v is not None and not (k == "approximate" and v is False)
+        }
+    return value
+
+
 def _comparable(node: Any) -> Any:
     """A document without what the server normalizes on purpose: empty ``content`` lists and the
     link attributes it doesn't store (``IGNORED_MARK_ATTRS``)."""
@@ -314,6 +324,10 @@ def _comparable(node: Any) -> Any:
     result = {
         key: _comparable(value) for key, value in node.items() if value != [] or key != "content"
     }
+    if result.get("type") == "timeRef" and isinstance(result.get("attrs"), dict):
+        # The editor keeps both attributes, the one not used as null; the server drops it, and
+        # fills in the time point's defaults (no era or regime, not approximate).
+        result["attrs"] = _without_defaults(result["attrs"])
     if result.get("type") in IGNORED_MARK_ATTRS and isinstance(result.get("attrs"), dict):
         ignored = IGNORED_MARK_ATTRS[result["type"]]
         result["attrs"] = {k: v for k, v in result["attrs"].items() if k not in ignored}
@@ -327,7 +341,12 @@ def test_editor_documents_are_accepted_without_loss(fixture: Path) -> None:
 
 
 def test_editor_fixtures_exist() -> None:
-    assert {path.stem for path in EDITOR_FIXTURES} >= {"blocks", "marks", "markdown-paste"}
+    assert {path.stem for path in EDITOR_FIXTURES} >= {
+        "blocks",
+        "marks",
+        "markdown-paste",
+        "time-ref",
+    }
 
 
 def test_extract_text_mentions_and_refs() -> None:

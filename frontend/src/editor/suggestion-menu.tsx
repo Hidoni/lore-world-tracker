@@ -29,11 +29,14 @@ export function SuggestionMenu({
   editor,
   bridge,
   onCreate,
+  onDate,
 }: {
   vault: string
   editor: Editor
   bridge: SuggestionBridge
   onCreate: (name: string, state: SuggestionState) => void
+  /** `@date`: asks for a date to insert (none: no such entry). */
+  onDate?: (editor: Editor) => void
 }) {
   const state = useSyncExternalStore(bridge.subscribe, bridge.snapshot)
   if (state === null) return null
@@ -49,6 +52,7 @@ export function SuggestionMenu({
       bridge={bridge}
       state={state}
       onCreate={onCreate}
+      onDate={onDate}
     />
   )
 }
@@ -59,12 +63,14 @@ function Menu({
   bridge,
   state,
   onCreate,
+  onDate,
 }: {
   vault: string
   editor: Editor
   bridge: SuggestionBridge
   state: SuggestionState
   onCreate: (name: string, state: SuggestionState) => void
+  onDate: ((editor: Editor) => void) | undefined
 }) {
   const search = useQuickSearch(vault, { q: state.query })
   const registry = useKindRegistry(vault)
@@ -81,6 +87,24 @@ function Menu({
       insertEntityLink(editor, state.range, { id: hit.entity_id, name: hit.name })
     },
   }))
+  // `@date` inserts a date instead of a link (frontend.md §6).
+  if (
+    onDate !== undefined &&
+    state.trigger === '@' &&
+    state.query !== '' &&
+    'date'.startsWith(state.query.toLowerCase())
+  ) {
+    options.unshift({
+      key: 'date',
+      label: 'Date…',
+      detail: 'Shown in each reader’s calendar',
+      run: () => {
+        bridge.publish(null)
+        editor.chain().focus().deleteRange(state.range).run()
+        onDate(editor)
+      },
+    })
+  }
   if (state.query !== '') {
     options.push({
       key: 'create',

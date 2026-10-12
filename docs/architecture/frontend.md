@@ -266,8 +266,8 @@ Implementation (`src/editor/`, #63):
   the table kit to the stored schema. Attributes TipTap adds but the server doesn't store
   (`orderedList.type`, `link.title`, table cell `align`) are removed, and underline is off. A test
   checks every node, mark and attribute the editor produces against the server schema, and that
-  `RICH_TEXT_SCHEMA_VERSION` equals the backend's. `callout`, `visibilityBlock` and `timeRef`
-  are kept as they are until #64/#86 give them a UI.
+  `RICH_TEXT_SCHEMA_VERSION` equals the backend's. `callout` and `visibilityBlock` got their UI
+  in #64, `timeRef` in #86.
 - `[[` (names may contain spaces; a closing `]]` is ignored) and `@` open a menu fed by
   `/search/quick`: arrow keys, Enter/Tab and Escape work, and the last entry, "Create “…” as…",
   opens the create dialog with the name filled in, then links to the new entity.
@@ -305,6 +305,27 @@ Editor II (#64):
   marks and tables, a Markdown paste). `frontend/src/editor/fixtures.test.ts` keeps them equal to
   the editor's output (`UPDATE_FIXTURES=1` rewrites them), and `backend/tests/test_richtext.py`
   checks that the server accepts each without loss.
+
+Inline dates (`timeRef`, #86):
+
+- Inserted from the slash menu ("Date") or by typing `@date` (the `@` menu's first entry,
+  "Date…"). Both open the "Insert a date" dialog, a `TimePointPicker` in the time context's
+  dimension: a calendar date, an absolute moment, or a time relative to another record. The node
+  stores the time point (`timePoint`). The `ref` form (a slot of a record) is read and rendered too.
+- `TimeRefView` (`core/time`, the editor's node view and `RichTextView` alike) shows the date in
+  the **reader's** display calendar at the point's precision, circa included, so switching the
+  calendar rewrites it.
+  - Absolute and calendar dates resolve in the browser (`pointMoment`).
+  - A slot ref, or a relative time point, resolves through the event it names (its `start_t` or
+    `end_t`, plus the offset, calendar offsets by `add`). Otherwise it reads "when <the event>
+    starts".
+  - A reference the reader may not see (`hidden_ref`) reads "a date".
+- Clicking the date opens a popover with the date in every calendar of the dimension, what it is
+  relative to, how far it is from the present, and "Show on timeline": the timeline around the
+  date's unit.
+- The editor's JSON keeps both attributes, the unused one as `null`. The server drops it and fills
+  the time point's defaults. The `time-ref` fixture of `spec/richtext/fixtures/` checks the round
+  trip.
 
 Server rules for saved documents (bodies and `rich_text` fields; `lore.core.richtext.schema`):
 

@@ -67,6 +67,24 @@ describe('editor fixtures (backend contract)', () => {
     editor.destroy()
   })
 
+  it('inline dates (timeRef)', () => {
+    const editor = makeEditor('<p>In </p>')
+    editor.commands.focus('end')
+    editor.commands.insertTimeRef({
+      anchor: { kind: 'calendar', calendar_id: CROWN, fields: { year: '1023', month: 'mar' } },
+      precision: 'month',
+      approximate: true,
+    })
+    editor.commands.insertContent('the empire fell, ')
+    editor.commands.insertTimeRef({ anchor: { kind: 'absolute', t: '5' }, precision: 'base' })
+    editor.commands.insertContent([
+      { type: 'text', text: 'and ' },
+      { type: 'timeRef', attrs: { ref: { type: 'event', id: CROWN, slot: 'end' } } },
+    ])
+    matchesFixture('time-ref', editor.getJSON())
+    editor.destroy()
+  })
+
   it('pasted Markdown with [[Name]] links', async () => {
     const markdown = [
       '# The Crown',

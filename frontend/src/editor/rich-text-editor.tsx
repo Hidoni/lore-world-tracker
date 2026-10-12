@@ -34,6 +34,7 @@ import type { NameResolver } from './markdown-paste'
 import { isSafeHref, type RichTextDoc } from './schema'
 import { SuggestionBridge, type SuggestionState } from './suggestion-state'
 import { SuggestionMenu } from './suggestion-menu'
+import { TimeRefDialog } from './time-ref-dialog'
 
 /** How long typing pauses before an autosave (frontend.md §6). */
 export const AUTOSAVE_DELAY_MS = 1500
@@ -79,6 +80,11 @@ export default function RichTextEditor({
   const bridge = useMemo(() => new SuggestionBridge(), [])
   const moduleExtensions = useExtensionList('editorExtensions', vault)
   const resolveName = useNameResolver(vault)
+  /** The editor asking for a date (slash menu, `@date`): the date dialog inserts it there. */
+  const [dating, setDating] = useState<Editor | null>(null)
+  const requestDate = useCallback((current: Editor) => {
+    setDating(current)
+  }, [])
   const extensions = useMemo(
     () =>
       editorExtensions({
@@ -88,9 +94,10 @@ export default function RichTextEditor({
           toast.warning(`Not linked (no single match): ${names.join(', ')}`)
         },
         ...(placeholder !== undefined ? { placeholder } : {}),
+        requestDate,
         extra: moduleExtensions as unknown as AnyExtension[],
       }),
-    [bridge, placeholder, moduleExtensions, resolveName],
+    [bridge, placeholder, moduleExtensions, resolveName, requestDate],
   )
   const autosave = useAutosave(save)
   const editor = useEditor(
@@ -133,7 +140,21 @@ export default function RichTextEditor({
         onCreate={(name, state) => {
           setCreating({ name, state })
         }}
+        onDate={requestDate}
       />
+      {dating !== null && (
+        <TimeRefDialog
+          vault={vault}
+          onInsert={(point) => {
+            dating.chain().focus().insertTimeRef(point).run()
+            setDating(null)
+          }}
+          onClose={() => {
+            setDating(null)
+            dating.commands.focus()
+          }}
+        />
+      )}
       {creating !== null && (
         <CreateEntityDialog
           vault={vault}

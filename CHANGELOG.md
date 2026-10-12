@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Inline dates in rich text** (#86): insert a date with `/date` or `@date`. It is shown in
+  each reader's display calendar, and clicking it lists every calendar with a link to the timeline
+  there.
 - **E2E journeys E1–E4** (#87): the dimension wizard to an event on the timeline, a calendar
   edit with its impact preview, relative anchors (with a drag on the timeline and a refused
   cycle), and a recurring event's materialized occurrence with a sub-event.
