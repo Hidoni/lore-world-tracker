@@ -737,6 +737,28 @@ Events (`core/timeline/`, #81):
   - On the focused timeline, ↑/↓ select the previous or next item by start (bringing it into
     view), and Escape clears the selection.
 
+Layers (`core/timeline/`, #82):
+
+- **`EraBands`** (above the axis): the display calendar's eras overlapping the view, clipped to
+  it (era 0 runs from −∞, the last to +∞), named and titled "name (abbr)". Calendars don't give
+  eras colours, so they take hues around the circle by index, translucent for both themes.
+- **`OverlayStrip`** (under the axis): one row per overlay of the display calendar, with a glyph
+  where each phase starts (`nextPhaseAt`, exact). A phase named like the one before it continues
+  it (a new moon either side of 0). The glyph is the moon phase nearest the phase's start in
+  eighths of the cycle. An overlay is hidden while its shortest phase is under 18 px wide.
+- **`CursorLine`** (over the axis and lanes): a line at the time cursor's moment (none for "all
+  time") with a handle.
+  - Dragging the handle snaps to the axis' minor unit (`unitBounds` of its level, or multiples of
+    the base-unit step) and sets the cursor (`at`) when let go.
+  - ←/→ on the focused handle move it a unit (the timeline doesn't pan).
+  - A dashed "Now" marker shows the dimension's present.
+- **Series** (`SeriesBandShape`, `EventLanes`):
+  - A series whose window is truncated is a hatched band with its count (#81).
+  - Otherwise the server lists its occurrences, and occurrences are drawn as ticks (instants) or
+    bars.
+  - A materialized occurrence with sub-events gets a dot at its corner and the title
+    "(has sub-events)".
+
 ### 9.3 Layout and rendering
 
 - Lane packing: greedy interval partitioning by start, **sticky** per entity id across

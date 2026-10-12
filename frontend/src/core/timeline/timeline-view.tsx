@@ -27,13 +27,17 @@ import {
   formatIn,
   TimePointPicker,
   useTimeContext,
+  type Cursor,
   type DimensionTime,
   type Lens,
 } from '@/core/time'
 import { useMaterializeOccurrence } from '@/data'
 
+import { CursorLine, TickSnap } from './cursor-line'
+import { EraBands } from './era-bands'
 import { DensityStrip, EventLanes } from './event-lanes'
 import { Minimap } from './minimap'
+import { OverlayStrip } from './overlay-strip'
 import { PerfOverlay, perfEnabled } from './perf-overlay'
 import { capture, release } from './pointer'
 import { isComputedOccurrence, SelectionPreview } from './selection-preview'
@@ -250,6 +254,8 @@ export function TimelineView({ vault, dimensionId }: { vault: string; dimensionI
       dimension={dimension}
       lens={context.lens}
       lenses={context.lenses}
+      cursor={context.moment}
+      onCursor={context.setCursor}
     />
   )
 }
@@ -260,12 +266,17 @@ function Timeline({
   dimension,
   lens,
   lenses,
+  cursor,
+  onCursor,
 }: {
   vault: string
   timelineId: string | null
   dimension: DimensionTime
   lens: Lens
   lenses: readonly Lens[]
+  /** The time cursor's moment (`null`: all time). */
+  cursor: bigint | null
+  onCursor: (cursor: Cursor) => void
 }) {
   const [ref, width] = useWidth()
   const controls: ViewportControls = useViewport(dimension.duration, width)
@@ -374,6 +385,15 @@ function Timeline({
   const found = axisTicks(lens.calendar, v, dimension.baseUnit)
   const level = found.major[0]?.level ?? found.minor[0]?.level ?? 'base'
   const centerX = v.widthPx / 2
+  const minor = found.minor[0] ?? found.major[0]
+  const snap = new TickSnap(
+    lens.calendar,
+    minor?.level ?? 'base',
+    minor?.level === 'base' ? minor.multiple : 1n,
+    dimension.duration,
+  )
+  const formatAt = (t: bigint) =>
+    formatIn(lens, { t, precision: minor?.level ?? 'base' }, dimension, lenses) ?? t.toString()
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const distance = event.shiftKey ? v.widthPx / 2 : v.widthPx / 10
@@ -503,71 +523,83 @@ function Timeline({
           onKeyDown={onKeyDown}
           className="relative flex min-w-0 flex-1 flex-col gap-1 rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <TimeAxis v={v} found={found} />
-          <DensityStrip v={v} buckets={data.buckets} />
-          <div
-            ref={lanes}
-            data-testid="timeline-lanes"
-            className="relative cursor-grab touch-none overflow-x-hidden overflow-y-auto active:cursor-grabbing"
-            style={{ height: LANES_HEIGHT }}
-            onPointerDown={(event) => {
-              drag.current = { x: event.clientX, moved: 0 }
-              capture(event.currentTarget, event.pointerId)
-            }}
-            onPointerMove={(event) => {
-              if (drag.current === null) return
-              const dx = event.clientX - drag.current.x
-              drag.current = { x: event.clientX, moved: drag.current.moved + Math.abs(dx) }
-              if (dx !== 0) controls.pan(-dx)
-            }}
-            onPointerUp={(event) => {
-              // A click on empty space (not a drag) clears the selection.
-              if (
-                drag.current !== null &&
-                drag.current.moved < 3 &&
-                event.target === event.currentTarget
-              ) {
-                setSelected(null)
-              }
-              drag.current = null
-              release(event.currentTarget, event.pointerId)
-            }}
-          >
-            <svg
-              width={v.widthPx}
-              height={LANES_HEIGHT}
-              className="pointer-events-none absolute top-0 left-0"
-              aria-hidden
+          <div className="relative flex flex-col gap-1">
+            <EraBands v={v} calendar={lens.calendar} />
+            <TimeAxis v={v} found={found} />
+            <OverlayStrip v={v} calendar={lens.calendar} />
+            <DensityStrip v={v} buckets={data.buckets} />
+            <div
+              ref={lanes}
+              data-testid="timeline-lanes"
+              className="relative cursor-grab touch-none overflow-x-hidden overflow-y-auto active:cursor-grabbing"
+              style={{ height: LANES_HEIGHT }}
+              onPointerDown={(event) => {
+                drag.current = { x: event.clientX, moved: 0 }
+                capture(event.currentTarget, event.pointerId)
+              }}
+              onPointerMove={(event) => {
+                if (drag.current === null) return
+                const dx = event.clientX - drag.current.x
+                drag.current = { x: event.clientX, moved: drag.current.moved + Math.abs(dx) }
+                if (dx !== 0) controls.pan(-dx)
+              }}
+              onPointerUp={(event) => {
+                // A click on empty space (not a drag) clears the selection.
+                if (
+                  drag.current !== null &&
+                  drag.current.moved < 3 &&
+                  event.target === event.currentTarget
+                ) {
+                  setSelected(null)
+                }
+                drag.current = null
+                release(event.currentTarget, event.pointerId)
+              }}
             >
-              {found.major.map((tick) => {
-                const x = toPx(v, tick.t)
-                return (
-                  <line
-                    key={tick.t.toString()}
-                    x1={x}
-                    x2={x}
-                    y1={0}
-                    y2={LANES_HEIGHT}
-                    className="stroke-border"
-                  />
-                )
-              })}
-            </svg>
-            <EventLanes
+              <svg
+                width={v.widthPx}
+                height={LANES_HEIGHT}
+                className="pointer-events-none absolute top-0 left-0"
+                aria-hidden
+              >
+                {found.major.map((tick) => {
+                  const x = toPx(v, tick.t)
+                  return (
+                    <line
+                      key={tick.t.toString()}
+                      x1={x}
+                      x2={x}
+                      y1={0}
+                      y2={LANES_HEIGHT}
+                      className="stroke-border"
+                    />
+                  )
+                })}
+              </svg>
+              <EventLanes
+                v={v}
+                layoutV={layoutV}
+                lenses={lenses}
+                items={laneItems}
+                bands={data.bands}
+                selected={selected}
+                onSelect={setSelected}
+                onOpen={open}
+              />
+              {data.items.length === 0 && data.bands.length === 0 && (
+                <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-xs text-muted-foreground">
+                  {loading ? 'Loading events…' : 'No events here.'}
+                </p>
+              )}
+            </div>
+            <CursorLine
               v={v}
-              layoutV={layoutV}
-              lenses={lenses}
-              items={laneItems}
-              bands={data.bands}
-              selected={selected}
-              onSelect={setSelected}
-              onOpen={open}
+              moment={cursor}
+              present={dimension.present}
+              snap={snap}
+              format={formatAt}
+              onChange={onCursor}
             />
-            {data.items.length === 0 && data.bands.length === 0 && (
-              <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-xs text-muted-foreground">
-                {loading ? 'Loading events…' : 'No events here.'}
-              </p>
-            )}
           </div>
           <p
             aria-live="polite"

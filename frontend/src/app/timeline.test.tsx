@@ -1,11 +1,12 @@
-import { formatDate, fromFields } from '@lore/chronology'
-import { ticks, toPx, viewport } from '@lore/chronology/viewport'
+import { formatDate, fromFields, nextPhaseAt, rational, unitBounds } from '@lore/chronology'
+import { fromPx, ticks, toPx, viewport } from '@lore/chronology/viewport'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
+import { TickSnap } from '@/core/timeline/cursor-line'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -376,5 +377,144 @@ describe('event lanes', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/v/v1/e/crowning')
     })
+  })
+})
+
+describe('timeline layers', () => {
+  const at = (year: number, month = 'jan', day = 1) =>
+    fromFields(CALENDAR, { year: String(year), month, day: String(day) }, 'day')
+
+  function layersWorld(present: bigint | null = null, items: unknown[] = []) {
+    serveVault({
+      kinds: [...KINDS, kind('calendar', 'Calendar'), kind('event', 'Event')],
+      rows: [
+        ...defaultRows().filter((entity) => entity.id !== 'd1'),
+        dimensionRow('d1', 'Aetheria', 'c-greg', { duration: 10n ** 13n, present }),
+        calendarRow('c-greg', 'Gregorian', 'gregorian'),
+      ],
+    })
+    server.use(
+      http.get('*/api/v1/vaults/v1/timelines/:id/window', () =>
+        HttpResponse.json({ items, buckets: [], series_bands: [], total: items.length, culled: 0 }),
+      ),
+    )
+  }
+
+  it("draws the display calendar's eras, clipped to the view", async () => {
+    layersWorld()
+    await renderApp(`/v/v1/d/d1/timeline?from=${at(-20)}&to=${at(30)}`)
+    const eras = await screen.findAllByTestId('era-band')
+    expect(eras.map((era) => era.textContent)).toEqual(['Before Christ', 'Anno Domini'])
+    expect(eras[1]).toHaveAttribute('title', 'Anno Domini (AD)')
+    // The boundary is at 1 January of year 1, in pixels of the view.
+    const v = viewport(at(-20), at(30) - at(-20), WIDTH)
+    expect(eras[1]?.style.transform).toBe(`translateX(${toPx(v, at(1))}px)`)
+  })
+
+  it('shows phase glyphs once zoomed in enough, exactly at the phase changes', async () => {
+    layersWorld()
+    const from = at(2000)
+    const to = at(2000, 'mar')
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${from}&to=${to}`)
+    const moon = await screen.findByRole('group', { name: 'Moon' })
+    const full = within(moon).getAllByRole('img', { name: 'Moon: Full Moon' })
+    expect(full[0]).toHaveAttribute(
+      'data-t',
+      nextPhaseAt(CALENDAR, from, 'moon', rational(7n, 16n)).toString(),
+    )
+    expect(full[0]).toHaveTextContent('🌕')
+    // New moons start once (the phase either side of 0 is one).
+    const news = within(moon).getAllByRole('img', { name: 'Moon: New Moon' })
+    expect(news[0]).toHaveTextContent('🌑')
+    expect(news.length).toBeLessThanOrEqual(3)
+    expect(screen.getByRole('group', { name: 'Seasons' })).toBeInTheDocument()
+
+    // Zoomed out to centuries, the phases are too close: no overlay.
+    await router.navigate({
+      to: '.',
+      search: (previous: Record<string, unknown>) => ({
+        ...previous,
+        from: String(at(1900)),
+        to: String(at(2100)),
+      }),
+    })
+    await waitFor(() => {
+      expect(screen.queryByTestId('overlay-row')).not.toBeInTheDocument()
+    })
+  })
+
+  it("drags and steps the time cursor, snapping to the axis' minor unit; marks the present", async () => {
+    const present = at(2006, 'jul')
+    layersWorld(present)
+    const from = at(1998)
+    const to = at(2014)
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${from}&to=${to}&at=${at(2005)}`)
+    const handle = await screen.findByRole('slider', { name: 'Time cursor' })
+    expect(screen.getByTestId('cursor-line')).toHaveAttribute('data-t', at(2005).toString())
+    expect(screen.getByTestId('present-marker')).toHaveAttribute(
+      'title',
+      expect.stringMatching(/^Present: /),
+    )
+
+    const v = viewport(from, to - from, WIDTH)
+    const minor = ticks(CALENDAR, v).minor[0]
+    if (minor === undefined) throw new Error('no minor ticks')
+    const snap = new TickSnap(CALENDAR, minor.level, 1n, 10n ** 13n)
+    const cursorIn = () => BigInt((router.state.location.search as { at?: string }).at ?? '-1')
+
+    // → moves to the next unit; the timeline doesn't pan.
+    fireEvent.keyDown(handle, { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(cursorIn()).toBe(unitBounds(CALENDAR, at(2005), minor.level).end)
+    })
+    expect(urlRange(router)).toEqual([from, to])
+
+    // Dragging snaps to the nearest unit and sets the cursor when let go.
+    const dragged = await screen.findByRole('slider', { name: 'Time cursor' })
+    fireEvent.pointerDown(dragged, { clientX: toPx(v, cursorIn()), pointerId: 1 })
+    fireEvent.pointerMove(dragged, { clientX: 700.4, pointerId: 1 })
+    fireEvent.pointerUp(dragged, { pointerId: 1 })
+    const expected = snap.snap(fromPx(v, 700.4))
+    await waitFor(() => {
+      expect(cursorIn()).toBe(expected)
+    })
+    const bounds = unitBounds(CALENDAR, expected, minor.level)
+    expect(bounds.start).toBe(expected)
+  })
+
+  it('marks occurrences as ticks and materialized ones with sub-events', async () => {
+    const occurrence = (key: string, extra: Record<string, unknown>) => ({
+      entity_id: 'feast',
+      row_id: `row-feast-${key}`,
+      name: `Feast ${key}`,
+      visibility: 'public',
+      parent_id: null,
+      has_children: false,
+      start_t: at(2000 + Number(key)).toString(),
+      end_t: at(2000 + Number(key)).toString(),
+      start_precision: 'day',
+      start_approximate: false,
+      end_kind: 'instant',
+      end_precision: null,
+      end_approximate: false,
+      importance: 3,
+      category: null,
+      time_status: 'ok',
+      occurrence_key: key,
+      series_id: 'feast',
+      occurrence_state: null,
+      ...extra,
+    })
+    layersWorld(null, [
+      occurrence('1', {}),
+      occurrence('2', { entity_id: 'feast-2', occurrence_state: 'modified', has_children: true }),
+    ])
+    await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
+    const computed = await screen.findByRole('button', { name: 'Feast 1' })
+    expect(computed).toHaveAttribute('data-occurrence', '1')
+    expect(computed).not.toHaveAttribute('data-sub-events')
+    const materialized = screen.getByRole('button', { name: 'Feast 2' })
+    expect(materialized).toHaveAttribute('data-sub-events')
+    expect(materialized).toHaveAttribute('title', 'Feast 2 (has sub-events)')
   })
 })

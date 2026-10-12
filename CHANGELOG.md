@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Timeline view III** (#82): the display calendar's eras as named, coloured bands; astronomical
+  overlays (moon phases, seasons…) as phase glyphs once zoomed in enough to tell them apart; the
+  time cursor as a line you can drag (snapping to the axis' minor unit) or move with ←/→ on its
+  handle; a "Now" marker at the dimension's present. Occurrences of a series are drawn as ticks,
+  and materialized occurrences with sub-events get a marker.
 - **Timeline view II** (#81): events on the timeline, fetched tile by tile with caching and
   prefetching. They are drawn in sticky lanes: spans with edges fading over their precision
   (softer for circa), instants as diamonds, unknown ends fading out, and series bands with
