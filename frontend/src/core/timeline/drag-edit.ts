@@ -1,37 +1,14 @@
-import {
-  BASE,
-  eraOf,
-  fromFields,
-  toFields,
-  unitBounds,
-  type EndSpec,
-  type TimePoint,
-} from '@lore/chronology'
+import { BASE, eraOf, toFields, unitBounds, type EndSpec, type TimePoint } from '@lore/chronology'
 
-import type { Lens } from '@/core/time'
+import { pointMoment, type Lens } from '@/core/time'
+
+export { pointMoment }
 
 /** What a drag changes: the whole event, its start edge or its end edge. */
 export type DragMode = 'move' | 'start' | 'end'
 
 export type DragResult =
   { kind: 'ok'; start: TimePoint; end: EndSpec } | { kind: 'locked'; reason: string }
-
-/** The moment a point's anchor denotes (absolute and calendar anchors), else `null`. */
-export function pointMoment(point: TimePoint, lenses: readonly Lens[]): bigint | null {
-  const anchor = point.anchor
-  if (anchor.kind === 'absolute') return BigInt(anchor.t)
-  if (anchor.kind !== 'calendar') return null
-  const calendar = lenses.find((lens) => lens.id === anchor.calendar_id)?.calendar ?? null
-  if (calendar === null) return null
-  try {
-    return fromFields(calendar, anchor.fields, point.precision, {
-      era: anchor.era ?? null,
-      regime: anchor.regime ?? null,
-    })
-  } catch {
-    return null
-  }
-}
 
 /**
  * `point` moved to moment `t`, in the same kind of anchor: an absolute moment, or the typed date

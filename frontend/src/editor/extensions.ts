@@ -1,5 +1,4 @@
 import type { AnyExtension, Attributes } from '@tiptap/core'
-import { Node } from '@tiptap/core'
 import Link from '@tiptap/extension-link'
 import { OrderedList } from '@tiptap/extension-list'
 import { TableCell, TableHeader, TableKit } from '@tiptap/extension-table'
@@ -11,6 +10,7 @@ import { EntityLinkMark, EditorSuggestions } from './entity-link'
 import { MarkdownPaste, type NameResolver } from './markdown-paste'
 import { isSafeHref } from './schema'
 import type { SuggestionBridge } from './suggestion-state'
+import { dateSlashItem, TimeRef, type DateRequest } from './time-ref'
 
 /** Drops an attribute the server schema doesn't store (an unknown attribute fails the save). */
 function without(attributes: Attributes | undefined, ...names: string[]): Attributes {
@@ -41,17 +41,6 @@ const ServerLink = Link.extend({
   },
 })
 
-/** A node a later editor issue gives a UI (`timeRef`: #86); until then it's kept as it is. */
-const TimeRef = Node.create({
-  name: 'timeRef',
-  group: 'inline',
-  inline: true,
-  atom: true,
-  addAttributes: () => ({ timePoint: { default: null }, ref: { default: null } }),
-  parseHTML: () => [{ tag: 'span[data-time-ref]' }],
-  renderHTML: () => ['span', { 'data-time-ref': '', class: 'time-ref' }, 'date'],
-})
-
 /** Editor extensions for the stored schema (frontend.md §6), plus the editing helpers. */
 export function editorExtensions(
   options: {
@@ -60,6 +49,8 @@ export function editorExtensions(
     /** Resolves `[[Name]]` in pasted Markdown (no resolver: no Markdown paste). */
     resolveName?: NameResolver | null
     onUnresolvedNames?: (names: string[]) => void
+    /** Asks for a date to insert as a `timeRef` (no request: no "Date" entry). */
+    requestDate?: DateRequest | null
     extra?: readonly AnyExtension[]
   } = {},
 ): AnyExtension[] {
@@ -83,7 +74,10 @@ export function editorExtensions(
     ServerTableHeader,
     Callout,
     VisibilityBlock,
-    TimeRef,
+    TimeRef.configure({
+      request: options.requestDate ?? null,
+      slashItems: options.requestDate ? [dateSlashItem(options.requestDate)] : [],
+    }),
     EntityLinkMark,
     EditorSuggestions.configure({ bridge: options.bridge ?? null }),
     MarkdownPaste.configure({
