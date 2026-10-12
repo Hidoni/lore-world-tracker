@@ -72,7 +72,7 @@ export {
 } from './links'
 export { useMeta } from './meta'
 export { useQuickSearch, useSearch, useSearchPages } from './search'
-export type { CalendarProposal, EventTreeNode } from './time'
+export type { CalendarProposal, EventTreeNode, RecurrenceProposal } from './time'
 export type {
   Affected,
   DataSource,
@@ -99,6 +99,11 @@ export {
 } from './settings'
 export {
   useApplyCalendarProposal,
+  useApplyRecurrenceProposal,
+  useDeleteOccurrence,
+  useMaterializeOccurrence,
+  useOccurrences,
+  useProposeRecurrenceChange,
   useCalendarPresets,
   useCalendarPreview,
   useProposeCalendarChange,

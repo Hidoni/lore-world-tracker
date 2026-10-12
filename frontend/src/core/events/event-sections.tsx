@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   useCreateLink,
   useDeleteLink,
+  useEntity,
   useEventTreeLevel,
   useFindings,
   useLinks,
@@ -294,9 +295,48 @@ export function CausesSection({
   )
 }
 
+/** A materialized occurrence's series participants (`ext.series_participants`). */
+function seriesParticipants(entity: Entity): { entity_id: string; role: string | null }[] {
+  const ext = (entity.ext ?? {}) as { series_participants?: unknown }
+  if (!Array.isArray(ext.series_participants)) return []
+  return ext.series_participants.filter(
+    (item): item is { entity_id: string; role: string | null } =>
+      item !== null && typeof item === 'object' && 'entity_id' in item,
+  )
+}
+
+function SeriesParticipant({
+  vault,
+  entity_id,
+  role,
+}: {
+  vault: string
+  entity_id: string
+  role: string | null
+}) {
+  const other = useEntity(vault, entity_id)
+  return (
+    <li className="flex flex-wrap items-center gap-2">
+      {other.data === undefined ? (
+        <span className="text-muted-foreground">…</span>
+      ) : (
+        <Link
+          to="/v/$vault/e/$entity"
+          params={{ vault, entity: entity_id }}
+          className="font-medium underline-offset-2 hover:underline"
+        >
+          {other.data.name}
+        </Link>
+      )}
+      {role !== null && role !== '' && <Badge variant="secondary">{role}</Badge>}
+    </li>
+  )
+}
+
 /**
  * Participants (`core.participant`, time-model.md §9.4): entities of any kind with their roles,
- * quick-add from search with role suggestions, and remove.
+ * quick-add from search with role suggestions, and remove. A materialized occurrence also lists its
+ * series' participants (recurrence.md §7).
  */
 export function ParticipantsSection({
   vault,
@@ -310,6 +350,7 @@ export function ParticipantsSection({
   const links = useLinks(vault, entity.id, { type: [PARTICIPANT], direction: 'out' })
   const create = useCreateLink(vault)
   const items = links.data?.items ?? []
+  const fromSeries = seriesParticipants(entity)
   return (
     <div className="flex flex-col gap-2 text-sm">
       {links.isPending ? (
@@ -334,6 +375,20 @@ export function ParticipantsSection({
             </li>
           ))}
         </ul>
+      )}
+      {fromSeries.length > 0 && (
+        <section aria-label="From the series" className="flex flex-col gap-1">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase">From the series</h3>
+          <ul className="flex flex-col gap-1">
+            {fromSeries.map((participant) => (
+              <SeriesParticipant
+                key={`${participant.entity_id}:${participant.role ?? ''}`}
+                vault={vault}
+                {...participant}
+              />
+            ))}
+          </ul>
+        </section>
       )}
       {editable && (
         <LinkAdder
