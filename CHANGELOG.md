@@ -9,6 +9,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Recurring events in the UI** (#79):
+  - The event form gets a recurrence editor. Presets cover every year on this date, every month
+    on this day, the nth weekday of the month, weekly on chosen days, and every N base units.
+    An advanced mode covers period, interval, filters, positions, time of day, exclusions and
+    JSON.
+  - The editor shows the rule in words, the next 10 occurrences and its problems.
+  - A series' page lists its occurrences with their numbers. Each can be opened, retimed,
+    cancelled or restored, given a sub-event or a note, or reverted to the computed occurrence.
+  - An occurrence's page says which occurrence of which series it is, and shows what it
+    inherits.
+  - A rule change that orphans customized occurrences opens a reconciliation dialog with a
+    strategy per occurrence; the change is undoable.
 - **Event pages and the event outline** (#78): an event's page shows its start and end with
   how each was given (typed dates, moments, or "3 days after the end of <Coronation>" with the
   target linked), its duration, its dates in every calendar, and its timeline, importance and

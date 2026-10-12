@@ -453,6 +453,50 @@ Implementation (`core/time/`, #72):
   `formatAbsolute`; huge numbers follow `format_integer` (scientific notation). "N years before
   present" counts the display calendar's top level (the default calendar's under Absolute).
 
+Recurrence (`core/events/recurrence/`, #79; recurrence.md §2, §7, §8, §10):
+
+- **`RecurrenceEditor`** (in the event form, under "Repeats"; loaded lazily with the recurrence
+  engine). It isn't shown for materialized occurrences, which can't recur.
+  - **Presets** are built from the series start (`rule-model.ts`, `presetRule`): every year on
+    this date (`select: null`), every month on this day, the nth weekday of the month (a
+    continuous cycle at the day level), every week on these days (a cycle's rounds), and every N
+    base units. Each has an "every N" step. Opening a series picks the preset its rule matches
+    (`detectPreset`; stored defaults are ignored), else Advanced.
+  - **Advanced** mode: the period (a level or a continuous cycle) and interval, filters (every
+    Nth by number or ordinal, by number or slot, by cycle value; each can be negated), the
+    selector path (numbers or slots, cycle values with nth, or every unit), the time-of-day fields,
+    "when the position doesn't exist" (skip or constrain), excluded ranges (time points with
+    notes), and the rule as JSON for anything the forms don't cover (nested filters).
+  - **Ends:** never, after N occurrences, or until a time point (inclusive).
+  - **Summary:** in words (`summarize`), e.g. "Every year on the last day of June at hour 9, odd
+    years only, until 5 May 1200.".
+  - **Preview:** the next 10 occurrences, and the rule's problems (`validateRule`; the
+    start-not-an-occurrence warning in amber), both from the TS engine. The series start,
+    `until` and exclusions are resolved by the server (`/time/resolve`).
+  - **End dates:** a series lasts a duration, so an end date is saved as the base-unit time from
+    the start.
+- **Saving a rule change** PATCHes the event. The server answers `409` with `context.orphaned`
+  when materialized occurrences would lose their key. The form then proposes the change
+  (`POST /events/{id}/recurrence/proposals`) and opens **`ReconcileDialog`**:
+  - Each customized occurrence with its status (unchanged, moves, no longer an occurrence), its
+    date before and after the chosen strategy, and a strategy (move with the rule, re-key, detach,
+    trash), defaulting to the server's.
+  - Re-keying onto a key another occurrence keeps (it stays, or goes to the trash) blocks Apply.
+  - Stale or expired proposals offer "Preview again".
+  - After applying, the event's other changed fields are saved, and the toast's Undo reverts the
+    "Changed the recurrence" changeset.
+- **Occurrences** (a section of a series' page, lazy):
+  - Pages of 20 by time. The window end is found with the TS engine on the rule without its end
+    and exclusions; the server lists what happens in it, computed and materialized merged.
+  - "Earlier" / "Later" / "From the present", and "Show cancelled".
+  - Numbers ("58th") and states (customized, moved, cancelled).
+  - Per occurrence: Open (materializes it), Modify time (the event dialog on the occurrence),
+    Add sub-event, Add note (its page), Cancel / Restore (`ext.cancelled`), and Revert for a
+    customized one (`DELETE …/occurrences/{key}`; with sub-events it asks before trashing them).
+- **`OccurrenceHeader`** on a materialized occurrence's page: "Occurrence #58 of <series>" with
+  its state, and the series' field values it doesn't set ("from the series"). Its participants
+  section also lists the series' participants.
+
 Calendar editor (`core/time/calendar-editor/`, #76, #77):
 
 - **Routes:**

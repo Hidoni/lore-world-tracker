@@ -1,5 +1,6 @@
-import type { EndSpec, TimePoint } from '@lore/chronology'
+import type { EndSpec, RecurrenceRule, TimePoint } from '@lore/chronology'
 import { useId, useState } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -12,19 +13,34 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { EndSpecPicker, TimePointPicker, timeWriteProblem, useDimensionLenses } from '@/core/time'
+import { revertProblem } from '@/core/history'
+import {
+  EndSpecPicker,
+  TimePointPicker,
+  timeWriteProblem,
+  useDimensionLenses,
+  useDisplayLens,
+} from '@/core/time'
 import {
   ApiError,
   fieldErrors,
+  useApplyRecurrenceProposal,
   useCreateEntity,
+  useDataSource,
   useDimensions,
+  useProposeRecurrenceChange,
   useQuickSearch,
+  useRevertChange,
+  useTimeResolution,
   useTimelines,
   useUpdateLatest,
   type Entity,
+  type RecurrenceProposal,
 } from '@/data'
 
 import { eventTime, IMPORTANCE } from './event-time'
+import { ReconcileDialog } from './recurrence/reconcile-dialog'
+import { RecurrenceEditor } from './recurrence/lazy'
 
 /** What the timeline select needs of a timeline tree node. */
 interface TimelineNode {
@@ -171,7 +187,7 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
       : props.entity.dimension_id,
   )
   const dimensionId = dimensionChoice ?? dimensions.data?.items[0]?.id ?? null
-  const { dimension, lenses } = useDimensionLenses(vault, dimensionId)
+  const { dimension, lenses, isPending: lensesPending } = useDimensionLenses(vault, dimensionId)
   const timelines = useTimelines(vault, editing === null ? dimensionId : null)
   const [timelineChoice, setTimeline] = useState<string | null>(null)
   const timelineOptions = flatten(timelines.data?.items ?? [])
@@ -185,7 +201,42 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
   const [parent, setParent] = useState<Parent | null>(props.parent ?? null)
   const [importance, setImportance] = useState(initial?.importance ?? 3)
   const [category, setCategory] = useState(initial?.category ?? '')
-  const pending = create.isPending || update.isPending
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(initial?.recurrence ?? null)
+  // A materialized occurrence can't recur (recurrence.md §7).
+  const canRecur = initial?.seriesId == null
+  const propose = useProposeRecurrenceChange(vault)
+  const apply = useApplyRecurrenceProposal(vault)
+  const revert = useRevertChange(vault)
+  const source = useDataSource()
+  const { lens: displayLens } = useDisplayLens(vault, dimensionId)
+  const [review, setReview] = useState<{
+    proposal: RecurrenceProposal
+    stale: boolean
+    message: string | null
+  } | null>(null)
+  // A series lasts a duration (recurrence.md §1): an end date becomes the time from the start.
+  const endDate = recurrence !== null && end?.kind === 'time_point' ? end : null
+  const endResolution = useTimeResolution(
+    vault,
+    endDate === null || start === null || dimensionId === null
+      ? null
+      : {
+          dimension_id: dimensionId,
+          items: [{ time_point: start as never, end: endDate as never }],
+        },
+  )
+  const resolvedEnd = endResolution.data?.items[0]
+  const lasting =
+    resolvedEnd?.start.t != null && resolvedEnd.end?.t != null
+      ? resolvedEnd.end.t - resolvedEnd.start.t
+      : null
+  const savedEnd: EndSpec | null =
+    endDate === null
+      ? end
+      : lasting === null
+        ? null
+        : { kind: 'duration', duration: { kind: 'base', units: lasting.toString() } }
+  const pending = create.isPending || update.isPending || propose.isPending || apply.isPending
   const error = editing === null ? create.error : update.error
   const errors = fieldErrors(error)
   const problem = saveProblem(error)
@@ -194,12 +245,115 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
 
   const ready =
     start !== null &&
-    end !== null &&
+    savedEnd !== null &&
     (editing !== null || (name.trim() !== '' && dimension !== null))
 
+  const ruleChanged = JSON.stringify(recurrence) !== JSON.stringify(initial?.recurrence ?? null)
+  const others = (entity: Entity) => {
+    // What the recurrence proposal doesn't carry: saved after it.
+    const changed =
+      importance !== initial?.importance ||
+      (category.trim() || null) !== initial.category ||
+      parent?.id !== props.parent?.id
+    if (!changed) {
+      onSaved?.(entity)
+      onClose()
+      return
+    }
+    update.mutate(
+      {
+        id: entity.id,
+        change: {
+          ...(parent?.id === props.parent?.id ? {} : { parent_id: parent?.id ?? null }),
+          ext: { importance, category: category.trim() || null },
+        },
+      },
+      {
+        onSuccess: (result) => {
+          onSaved?.(result.entity)
+          onClose()
+        },
+      },
+    )
+  }
+
+  const undoRecurrence = async () => {
+    const { items } = await source.changes(vault, { limit: 20 })
+    const last = items.find(
+      (item) =>
+        item.reverted_by_changeset_id === null && item.summary.startsWith('Changed the recurrence'),
+    )
+    if (last === undefined) return
+    try {
+      await revert.mutateAsync(last.id)
+      toast.success(`Undone: ${last.summary}`)
+    } catch (error) {
+      const refused = revertProblem(error)
+      toast.error('Couldn’t undo the change', {
+        description: [refused.message, ...refused.details].join(' '),
+      })
+    }
+  }
+
+  const previewRuleChange = () => {
+    if (editing === null || start === null || savedEnd === null) return
+    propose.mutate(
+      {
+        event: editing.id,
+        body: { rule: recurrence as never, start: start as never, end: savedEnd as never },
+      },
+      {
+        onSuccess: (proposal) => {
+          setReview({ proposal, stale: false, message: null })
+        },
+        onError: (error) => {
+          setReview(null)
+          toast.error(saveProblem(error) ?? 'The change couldn’t be previewed.')
+        },
+      },
+    )
+  }
+
+  const applyRuleChange = (strategies: Record<string, string>) => {
+    if (editing === null || review === null) return
+    apply.mutate(
+      {
+        event: editing.id,
+        proposal: review.proposal.id,
+        body: { strategies: strategies as never },
+      },
+      {
+        onSuccess: (result) => {
+          setReview(null)
+          toast.success('Recurrence changed', {
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                void undoRecurrence()
+              },
+            },
+          })
+          others(result.event)
+        },
+        onError: (error) => {
+          const stale =
+            error instanceof ApiError && (error.status === 404 || error.code === 'proposal_stale')
+          setReview(
+            (current) =>
+              current && {
+                ...current,
+                stale,
+                message: stale ? null : (saveProblem(error) ?? 'The change couldn’t be applied.'),
+              },
+          )
+        },
+      },
+    )
+  }
+
   const submit = () => {
-    if (start === null || end === null) return
-    const times = { start, end, importance, category: category.trim() || null }
+    if (start === null || savedEnd === null) return
+    const times = { start, end: savedEnd, importance, category: category.trim() || null }
     if (editing === null) {
       create.mutate(
         {
@@ -207,7 +361,11 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
           name: name.trim(),
           dimension_id: dimensionId,
           parent_id: parent?.id ?? null,
-          ext: { ...times, ...(timelineId === null ? {} : { timeline_id: timelineId }) },
+          ext: {
+            ...times,
+            ...(recurrence === null ? {} : { recurrence }),
+            ...(timelineId === null ? {} : { timeline_id: timelineId }),
+          },
         },
         {
           onSuccess: (result) => {
@@ -222,13 +380,24 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
           id: editing.id,
           change: {
             ...(parent?.id === props.parent?.id ? {} : { parent_id: parent?.id ?? null }),
-            ext: times,
+            ext: { ...times, ...(ruleChanged ? { recurrence } : {}) },
           },
         },
         {
           onSuccess: (result) => {
             onSaved?.(result.entity)
             onClose()
+          },
+          onError: (error) => {
+            // Orphaned occurrences need a reconciliation (recurrence.md §8).
+            if (
+              error instanceof ApiError &&
+              error.status === 409 &&
+              Array.isArray(error.context.orphaned)
+            ) {
+              update.reset()
+              previewRuleChange()
+            }
           },
         },
       )
@@ -300,7 +469,7 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
           </div>
         </>
       )}
-      {dimension === null ? (
+      {dimension === null || lensesPending ? (
         <p className="text-sm text-muted-foreground">
           {dimensions.data?.items.length === 0
             ? 'Create a dimension first: events happen in one.'
@@ -337,7 +506,48 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
             {errors['ext.end'] !== undefined && (
               <p className="text-sm text-destructive">{errors['ext.end']}</p>
             )}
+            {endDate !== null && (
+              <p className="text-xs text-muted-foreground">
+                Each occurrence lasts as long as from the start to this end date.
+              </p>
+            )}
           </div>
+          {canRecur && (
+            <RecurrenceEditor
+              vault={vault}
+              dimension={dimension}
+              lenses={lenses}
+              start={start}
+              end={savedEnd}
+              value={recurrence}
+              onChange={setRecurrence}
+            />
+          )}
+          {Object.entries(errors)
+            .filter(([path]) => path.startsWith('ext.recurrence'))
+            .map(([path, message]) => (
+              <p key={path} className="text-sm text-destructive">
+                {message}
+              </p>
+            ))}
+          {review !== null && (
+            <ReconcileDialog
+              vault={vault}
+              proposal={review.proposal}
+              dimension={dimension}
+              lens={displayLens}
+              lenses={lenses}
+              precision={start?.precision ?? 'base'}
+              applying={apply.isPending}
+              stale={review.stale}
+              message={review.message}
+              onApply={applyRuleChange}
+              onRerun={previewRuleChange}
+              onClose={() => {
+                setReview(null)
+              }}
+            />
+          )}
         </>
       )}
       <ParentField

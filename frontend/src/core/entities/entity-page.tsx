@@ -7,6 +7,9 @@ import { FieldsPanel } from '@/core/fields'
 import {
   CausesSection,
   EventTimeSection,
+  eventTime,
+  OccurrenceHeader,
+  OccurrencesSection,
   ParticipantsSection,
   SubEventsSection,
 } from '@/core/events'
@@ -189,9 +192,15 @@ function EntityView({
               )}
               {data.kind === EVENT && (
                 <>
+                  <OccurrenceHeader vault={vault} entity={data} />
                   <Section title="Time">
                     <EventTimeSection vault={vault} entity={data} editable={editable} />
                   </Section>
+                  {eventTime(data).recurrence !== null && (
+                    <Section title="Occurrences">
+                      <OccurrencesSection vault={vault} entity={data} editable={editable} />
+                    </Section>
+                  )}
                   <Section title="Sub-events">
                     <SubEventsSection vault={vault} entity={data} editable={editable} />
                   </Section>

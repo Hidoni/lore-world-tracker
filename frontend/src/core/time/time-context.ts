@@ -69,15 +69,23 @@ function parseCursor(value: string | undefined): Cursor | undefined {
   }
 }
 
-/** A dimension's time settings and display calendars (`null` while loading or unknown). */
+/**
+ * A dimension's time settings and display calendars (`null` while loading or unknown);
+ * `isPending` until the calendars are loaded too.
+ */
 export function useDimensionLenses(
   vault: string,
   dimensionId: string | null,
-): { dimension: DimensionTime | null; lenses: Lens[] } {
+): { dimension: DimensionTime | null; lenses: Lens[]; isPending: boolean } {
   const entity = useEntity(vault, dimensionId ?? '', {}, { enabled: dimensionId !== null })
   const dimension = entity.data?.id === dimensionId ? dimensionTime(entity.data) : null
-  const { calendars } = useDimensionCalendars(vault, dimensionId)
-  return { dimension, lenses: dimension === null ? [] : lenses(dimension, calendars) }
+  const { calendars, isPending } = useDimensionCalendars(vault, dimensionId)
+  return {
+    dimension,
+    lenses: dimension === null ? [] : lenses(dimension, calendars),
+    // Until the calendars arrive, only Absolute would be offered.
+    isPending: dimension === null || isPending,
+  }
 }
 
 /** The display calendar: the wanted one if the dimension has it, else its default, else the first. */

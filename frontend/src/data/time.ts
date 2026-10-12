@@ -161,6 +161,9 @@ type Schemas = components['schemas']
 /** A calendar edit's impact preview, moments as `bigint`. */
 export type CalendarProposal = Domain<Schemas['CalendarProposalOut']>
 
+/** A recurrence rule change's reconciliation preview, moments as `bigint`. */
+export type RecurrenceProposal = Domain<Schemas['RecurrenceProposalOut']>
+
 /** A row of the event outline, moments as `bigint`. */
 export type EventTreeNode = Domain<Schemas['EventTreeNode']>
 
@@ -195,5 +198,98 @@ export function useApplyCalendarProposal(vault: string) {
     }) => mutations.applyCalendarProposal(vault, calendar, proposal, body),
     meta: { toast: false },
     onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/**
+ * Previews a change of a series' rule, start or end (`POST /events/{id}/recurrence/proposals`,
+ * recurrence.md §8): every materialized occurrence with its status and strategies.
+ */
+export function useProposeRecurrenceChange(vault: string) {
+  const mutations = useRequiredMutations()
+  return useMutation({
+    mutationFn: ({ event, body }: { event: string; body: Schemas['RecurrenceProposalIn'] }) =>
+      mutations.proposeRecurrenceChange(vault, event, body),
+    meta: { toast: false },
+  })
+}
+
+/** Applies a recurrence proposal with a strategy per occurrence; one undoable changeset. */
+export function useApplyRecurrenceProposal(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      event,
+      proposal,
+      body,
+    }: {
+      event: string
+      proposal: string
+      body: Schemas['RecurrenceApplyIn']
+    }) => mutations.applyRecurrenceProposal(vault, event, proposal, body),
+    meta: { toast: false },
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/** Materializes an occurrence (get-or-create, recurrence.md §7): the occurrence's event. */
+export function useMaterializeOccurrence(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ event, key }: { event: string; key: string }) =>
+      mutations.materializeOccurrence(vault, event, key),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/**
+ * Deletes a materialized occurrence: it reverts to the computed one. `409
+ * occurrence_has_sub_events` asks for `trashSubEvents`.
+ */
+export function useDeleteOccurrence(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      event,
+      key,
+      trashSubEvents,
+    }: {
+      event: string
+      key: string
+      trashSubEvents?: boolean
+    }) => mutations.deleteOccurrence(vault, event, key, { trashSubEvents }),
+    meta: { toast: false },
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/** A series' occurrences overlapping `[from, to)` (computed and materialized, merged). */
+export function useOccurrences(
+  vault: string,
+  event: string,
+  window: { from: bigint; to: bigint } | null,
+  options: { includeCancelled?: boolean; limit?: number } = {},
+) {
+  const source = useDataSource()
+  const query =
+    window === null
+      ? null
+      : {
+          from: window.from.toString(),
+          to: window.to.toString(),
+          limit: options.limit ?? 50,
+          ...(options.includeCancelled ? { include_cancelled: true } : {}),
+        }
+  return useQuery({
+    queryKey: keys.occurrences(vault, event, query ?? {}),
+    queryFn: () => {
+      if (query === null) throw new Error('No window.')
+      return source.occurrences(vault, event, query)
+    },
+    enabled: query !== null,
+    placeholderData: (previous) => previous,
   })
 }

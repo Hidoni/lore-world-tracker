@@ -17,6 +17,8 @@ const VAULT_WIDE = [
   'consistencyRules',
   // Outline rows carry names and participant counts.
   'eventTree',
+  // A series' list changes with its occurrences' writes (cancel, materialize), keyed by the series.
+  'occurrences',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']

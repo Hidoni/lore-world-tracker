@@ -1,4 +1,4 @@
-import type { EndSpec, TimePoint } from '@lore/chronology'
+import type { EndSpec, RecurrenceRule, TimePoint } from '@lore/chronology'
 
 import type { Entity } from '@/data'
 
@@ -13,6 +13,13 @@ export interface EventTime {
   importance: number
   category: string | null
   recurring: boolean
+  /** The series' rule (`null`: not recurring, or hidden from the request). */
+  recurrence: RecurrenceRule | null
+  /** Materialized occurrences: their series and key. */
+  seriesId: string | null
+  occurrenceKey: string | null
+  occurrenceState: string | null
+  occurrenceNumber: number | null
 }
 
 const record = (value: unknown): Record<string, unknown> =>
@@ -34,6 +41,14 @@ export function eventTime(entity: Pick<Entity, 'ext'>): EventTime {
     importance: typeof ext.importance === 'number' ? ext.importance : 3,
     category: text(ext.category),
     recurring: ext.recurrence !== null && ext.recurrence !== undefined,
+    recurrence:
+      ext.recurrence !== null && typeof ext.recurrence === 'object'
+        ? (ext.recurrence as RecurrenceRule)
+        : null,
+    seriesId: text(ext.series_id),
+    occurrenceKey: text(ext.occurrence_key),
+    occurrenceState: text(ext.occurrence_state),
+    occurrenceNumber: typeof ext.occurrence_number === 'number' ? ext.occurrence_number : null,
   }
 }
 
