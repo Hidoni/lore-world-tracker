@@ -37,6 +37,14 @@ function levelDef(definition: CalendarDefinition, id: string) {
 }
 
 /** The continuous cycles of the calendar (only those can be a period, §2.1), by level. */
+/**
+ * A rule without its limit or exclusions: the same keys and starts, every period's occurrences
+ * (for windows and for locating a key; the server applies the rest).
+ */
+export function widened(rule: RecurrenceRule): RecurrenceRule {
+  return { ...rule, limit: { kind: 'never' }, exclusions: [] }
+}
+
 export function continuousCycles(calendar: CompiledCalendar): Cycle[] {
   const seen = new Set<string>()
   return calendar.definition.regimes.flatMap((regime) =>

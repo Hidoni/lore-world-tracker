@@ -21,6 +21,7 @@ import { useEntity, useTimelines, type Entity } from '@/data'
 
 import { EventDialog } from './event-dialog'
 import { eventTime, IMPORTANCE, type EventTime } from './event-time'
+import { OccurrenceRefLabel } from './recurrence/lazy'
 
 const SLOT_VERBS: Record<string, [string, string]> = {
   // [the moment itself, after/before it]
@@ -83,21 +84,27 @@ export function AnchorText({
   const { ref, offset } = anchor
   const [moment, of] = SLOT_VERBS[ref.slot] ?? [ref.slot, `${ref.slot} of`]
   const amount = formatDuration(offset, dimension, lenses)
-  const occurrence = ref.occurrence ? ` (occurrence ${ref.occurrence})` : ''
+  // An occurrence of a series is named the way its page is: "the 3rd occurrence of …" (#287).
+  const occurrence =
+    ref.occurrence == null ? null : (
+      <>
+        <OccurrenceRefLabel vault={vault} seriesId={ref.id} occurrenceKey={ref.occurrence} />{' '}
+      </>
+    )
   const target = <Target vault={vault} type={ref.type} id={ref.id} />
   if (amount === '') {
     return (
       <span>
-        When {target}
-        {occurrence} {moment}
+        When {occurrence}
+        {target} {moment}
         {circa}.
       </span>
     )
   }
   return (
     <span>
-      {amount} {durationSign(offset) === 1 ? 'after' : 'before'} the {of} {target}
-      {occurrence}
+      {amount} {durationSign(offset) === 1 ? 'after' : 'before'} the {of} {occurrence}
+      {target}
       {circa}.
     </span>
   )

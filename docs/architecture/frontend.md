@@ -522,6 +522,11 @@ Recurrence (`core/events/recurrence/`, #79; recurrence.md §2, §7, §8, §10):
 - **`OccurrenceHeader`** on a materialized occurrence's page: "Occurrence #58 of <series>" with
   its state, and the series' field values it doesn't set ("from the series"). Its participants
   section also lists the series' participants.
+- **Anchors to an occurrence** read like its header: "When the 3rd occurrence of <series> starts"
+  (`OccurrenceRefLabel`, lazy with the recurrence engine). The engine finds the key's start
+  (widened rule), and the occurrences endpoint gives its number for that one moment: keys count
+  skipped periods, so `k + 1` isn't the number. Until then it reads "the occurrence on <date> of",
+  or "an occurrence of" (#287).
 
 Calendar editor (`core/time/calendar-editor/`, #76, #77):
 
