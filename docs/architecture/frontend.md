@@ -688,6 +688,55 @@ Implementation (`core/timeline/`, #80):
   counts. Zooming across the whole 10^100 s range of a test dimension with an empty lane set held
   60 fps in Chromium (#80).
 
+Events (`core/timeline/`, #81):
+
+- **`useTimelineWindow`:** the viewport's tiles at its zoom level (`tileFor`), one `/window`
+  query each (`useWindowTiles`), with a pixel budget equal to a tile's width at this zoom
+  (at most 2,000). Queries are cached by timeline, tile, budget and filters for a minute, and the
+  neighbouring tiles are prefetched.
+  - Tiles are merged: items once each by row and occurrence key, series bands joined (their counts
+    add up, tiles being disjoint), buckets and counts concatenated.
+  - While new tiles load, the last complete window stays on screen.
+- **Items** (`EventLanes`, `geometry.ts`): each item is **one absolutely positioned element**, not
+  several SVG nodes, which keeps 1,000 items inside the node budget. At most 1,400 are drawn
+  (on screen with a 200 px margin, the most important first beyond that).
+  - A span is a bar whose CSS gradient fades its edges over the start's and end's uncertainty:
+    the unit of their precision (`unitBounds` in a calendar that has the level). A duration end
+    carries the start's uncertainty. Edges wider than the bar share it.
+  - Circa softens an edge to at least 6 px. An unknown end fades out over 72 px after the start.
+  - Instants are diamonds, unless their own uncertainty is wider than 8 px: then they are a
+    fuzzy span.
+  - Bar colour strengthens with importance, and cancelled occurrences are struck through.
+  - Series with too many occurrences are hatched bands with their estimated count.
+- **Lanes** (`lanes.ts`): greedy partitioning by start, taking a lane until the item's end or a
+  96 px label minimum, with a 4 px gap.
+  - It is sticky (`StickyLanes`): the previous packing's lanes are tried first, so panning keeps
+    every lane, zooming keeps those still free, and new items fill gaps.
+  - The lanes area scrolls vertically when the lanes don't fit.
+- **Performance:**
+  - Items are laid out against an anchor viewport. A pan of less than half a width only
+    translates the layer, so items don't re-render.
+  - During a zoom, the layer keeps its layout scaled to the view (one transform). It lays out
+    again once the zoom pauses for 120 ms or the scale passes ×4 or ¼, as a transition; tiles that
+    arrive meanwhile wait too.
+  - Extents are cached per moment and precision, the merged window is reused while its tiles'
+    results are the same objects, and `useDimensionLenses` returns the same lenses while the
+    dimension and its calendars don't change.
+  - Fades under half a pixel are drawn as plain colour.
+  - Measured on the `medium` sample vault (Chromium, 1,600 px wide, 1,400 items drawn, 1,406
+    nodes in the lanes):
+    - drag pan: 59 fps, p95 16.8 ms;
+    - wheel zoom: 54–56 fps, p90 16.7 ms. Its only long frames are the re-layouts after it
+      pauses.
+- **`DensityStrip`:** under the axis, one bar per bucket shaded by `active`, titled "+N" with
+  `starts`. The status line counts events and those shown as density.
+- **Selection:** a click selects and opens a preview beside the timeline: name, dates in the
+  display calendar, importance and category, participants, Open and Edit time.
+  - A double-click, or Enter on the selection, opens the event's page. A computed occurrence is
+    materialized first.
+  - On the focused timeline, ↑/↓ select the previous or next item by start (bringing it into
+    view), and Escape clears the selection.
+
 ### 9.3 Layout and rendering
 
 - Lane packing: greedy interval partitioning by start, **sticky** per entity id across

@@ -462,6 +462,9 @@ export function serveVault(
       return HttpResponse.json(paged(items, url))
     }),
     http.get('*/api/v1/vaults/v1/consistency/rules', () => HttpResponse.json({ items: rules })),
+    http.get('*/api/v1/vaults/v1/timelines/:id/window', () =>
+      HttpResponse.json({ items: [], buckets: [], series_bands: [], total: 0, culled: 0 }),
+    ),
     http.get('*/api/v1/vaults/v1/dimensions/:id/timelines', ({ params }) =>
       HttpResponse.json({ dimension_id: params.id, items: [] }),
     ),

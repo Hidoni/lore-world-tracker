@@ -2,11 +2,13 @@ import { formatDate, fromFields } from '@lore/chronology'
 import { ticks, toPx, viewport } from '@lore/chronology/viewport'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
-import { defaultRows, kind, KINDS, serveVault } from '@/test/fake-vault'
+import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
+import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
 
 const D = 10n ** 100n
@@ -192,6 +194,187 @@ describe('the timeline view', () => {
       // Centered on the middle of the dimension (to a pixel of the whole strip).
       const middle = (from + to) / 2n
       expect(middle > total / 2n - total / 500n && middle < total / 2n + total / 500n).toBe(true)
+    })
+  })
+})
+
+describe('event lanes', () => {
+  const at = (year: number) => fromFields(CALENDAR, { year: String(year) }, 'year')
+
+  function item(id: string, name: string, extra: Record<string, unknown>) {
+    return {
+      entity_id: id,
+      row_id: `row-${id}`,
+      name,
+      visibility: 'public',
+      parent_id: null,
+      has_children: false,
+      start_t: at(2000).toString(),
+      end_t: at(2001).toString(),
+      start_precision: 'day',
+      start_approximate: false,
+      end_kind: 'time_point',
+      end_precision: 'day',
+      end_approximate: false,
+      importance: 3,
+      category: null,
+      time_status: 'ok',
+      occurrence_key: null,
+      series_id: null,
+      occurrence_state: null,
+      ...extra,
+    }
+  }
+
+  /** A world whose window answers with a few events and counts its requests. */
+  function eventsWorld() {
+    serveVault({
+      kinds: [...KINDS, kind('calendar', 'Calendar'), kind('event', 'Event')],
+      rows: [
+        ...defaultRows().filter((entity) => entity.id !== 'd1'),
+        dimensionRow('d1', 'Aetheria', 'c-greg', { duration: 10n ** 13n }),
+        calendarRow('c-greg', 'Gregorian', 'gregorian'),
+        row('war', 'event', 'The Long War', { dimension_id: 'd1' }),
+        row('crowning', 'event', 'Crowning', { dimension_id: 'd1' }),
+      ],
+    })
+    const requests: URLSearchParams[] = []
+    server.use(
+      http.get('*/api/v1/vaults/v1/timelines/:id/window', ({ request }) => {
+        const params = new URL(request.url).searchParams
+        requests.push(params)
+        const from = BigInt(params.get('from') ?? '0')
+        const to = BigInt(params.get('to') ?? '0')
+        // A band counts the occurrences in each tile: here all in the tile holding its start.
+        const holdsBand = from <= at(2000) && at(2000) < to
+        return HttpResponse.json({
+          items: [
+            item('war', 'The Long War', {
+              start_t: at(2000).toString(),
+              end_t: at(2010).toString(),
+              start_precision: 'year',
+              end_precision: 'year',
+              importance: 5,
+            }),
+            item('crowning', 'Crowning', {
+              start_t: at(2003).toString(),
+              end_t: at(2003).toString(),
+              end_kind: 'instant',
+              start_precision: 'base',
+            }),
+            item('rumour', 'Rumour', {
+              start_t: at(2004).toString(),
+              end_t: null,
+              end_kind: 'unknown',
+              start_approximate: true,
+            }),
+          ],
+          buckets:
+            from <= at(2005) && at(2005) < to
+              ? [{ from: at(2005).toString(), to: at(2006).toString(), starts: 7, active: 9 }]
+              : [],
+          series_bands: !holdsBand
+            ? []
+            : [
+                {
+                  entity_id: 'tide',
+                  row_id: 'row-tide',
+                  name: 'Tides',
+                  visibility: 'public',
+                  importance: 2,
+                  category: null,
+                  from: at(2000).toString(),
+                  to: at(2008).toString(),
+                  estimated_count: '5000',
+                },
+              ],
+          total: 10,
+          culled: 7,
+        })
+      }),
+    )
+    return requests
+  }
+
+  const lanesOf = (): Record<string, string | undefined> =>
+    Object.fromEntries<string | undefined>(
+      [...document.querySelectorAll<HTMLElement>('[data-item]')].map((element) => [
+        element.getAttribute('aria-label') ?? '',
+        /translate\([^,]+px, ([^)]+)px\)/.exec(element.style.transform)?.[1],
+      ]),
+    )
+
+  it('draws events by tile, with fuzzy edges, bands and density, and keeps lanes on pan', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const requests = eventsWorld()
+    await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
+    const war = await screen.findByRole('button', { name: 'The Long War' })
+    expect(requests.length).toBeGreaterThan(0)
+    // Each tile asks for at least the view's width in pixels, from tile bounds.
+    for (const params of requests) {
+      expect(Number(params.get('px'))).toBeGreaterThanOrEqual(WIDTH)
+      expect(BigInt(params.get('to') ?? '0') > BigInt(params.get('from') ?? '0')).toBe(true)
+    }
+    // A coarse span fades in and out; an exact instant is a diamond; an unknown end fades.
+    expect(war.style.background).toMatch(/linear-gradient\(to right, transparent 0%/)
+    expect(screen.getByRole('button', { name: 'Crowning' })).toHaveAttribute('data-kind', 'instant')
+    expect(screen.getByRole('button', { name: 'Rumour' }).style.background).toMatch(
+      /transparent 100%\)$/,
+    )
+    expect(screen.getByTestId('series-band')).toHaveTextContent('Tides ×5000')
+    expect(screen.getAllByTestId('density-bucket')).toHaveLength(1)
+    expect(screen.getByTestId('timeline-status')).toHaveTextContent(
+      /\d+ events, \d+ shown as density/,
+    )
+
+    // Panning a little keeps every item in its lane and reuses the tiles.
+    const before = lanesOf()
+    const asked = requests.length
+    const view = screen.getByRole('application', { name: 'Timeline' })
+    fireEvent.keyDown(view, { key: 'ArrowRight' })
+    fireEvent.keyDown(view, { key: 'ArrowLeft' })
+    fireEvent.keyDown(view, { key: 'ArrowLeft' })
+    await waitFor(() => {
+      expect(lanesOf()).toEqual(before)
+    })
+    expect(requests.length).toBeLessThanOrEqual(asked + 2) // at most the prefetched neighbours
+  })
+
+  it('selects with a click or the arrow keys, previews, and opens', async () => {
+    eventsWorld()
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
+    await userEvent.click(await screen.findByRole('button', { name: 'Crowning' }))
+    const preview = await screen.findByRole('complementary', { name: 'Selected event' })
+    expect(within(preview).getByRole('link', { name: 'Crowning' })).toHaveAttribute(
+      'href',
+      '/v/v1/e/crowning',
+    )
+    expect(preview).toHaveTextContent('Importance 3')
+
+    // ↓ selects the next event by start, ↑ the one before.
+    const view = screen.getByRole('application', { name: 'Timeline' })
+    view.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(
+      within(screen.getByRole('complementary', { name: 'Selected event' })).getByRole('heading'),
+    ).toHaveTextContent('Rumour')
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}')
+    expect(screen.getByRole('button', { name: 'The Long War' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/v/v1/e/war')
+    })
+  })
+
+  it('opens an event with a double-click', async () => {
+    eventsWorld()
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
+    await userEvent.dblClick(await screen.findByRole('button', { name: 'Crowning' }))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/v/v1/e/crowning')
     })
   })
 })
