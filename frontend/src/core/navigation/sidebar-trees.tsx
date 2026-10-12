@@ -41,6 +41,7 @@ import {
 import { cn } from '@/lib/utils'
 import { readStored, writeStored } from '@/lib/storage'
 
+import { EventsSection } from './events-section'
 import { togglePin, usePlaceList } from './places'
 import { RenameDialog } from './rename-dialog'
 import { canReparent, childKinds, type TreeEntity } from './reparent'
@@ -56,7 +57,10 @@ interface DropData {
 const ROW =
   'group flex min-w-0 items-center gap-1 rounded-md py-1 pr-1 text-sm hover:bg-accent focus-within:bg-accent'
 
-/** The kinds with a sidebar section: dimensions, then every non-system kind but events (M5). */
+/**
+ * The kinds with a sidebar tree: dimensions, then every non-system kind but events (their
+ * hierarchy is the events section, by time on a timeline).
+ */
 export function sectionKinds(registry: KindRegistry): Kind[] {
   return registry.kinds.filter(
     (kind) =>
@@ -92,6 +96,8 @@ function announcements(registry: KindRegistry): Announcements {
 }
 
 const COLLAPSED_KEY = 'lore.sidebar.collapsed'
+/** The events section's key among the collapsed sections (not a kind key). */
+const EVENTS_KEY = ':events'
 
 function loadCollapsed(): Set<string> {
   try {
@@ -154,6 +160,16 @@ export function SidebarTrees({ vault, onNavigate }: { vault: string; onNavigate?
     )
   }
 
+  const events = (
+    <EventsSection
+      vault={vault}
+      open={!collapsed.has(EVENTS_KEY)}
+      onToggle={() => {
+        toggle(EVENTS_KEY)
+      }}
+      onNavigate={onNavigate}
+    />
+  )
   const sections = sectionKinds(registry).map((kind) => (
     <KindSection
       key={kind.key}
@@ -178,6 +194,7 @@ export function SidebarTrees({ vault, onNavigate }: { vault: string; onNavigate?
         registry={registry}
         onNavigate={onNavigate}
       />
+      {events}
       {editable ? (
         <DndContext
           sensors={sensors}

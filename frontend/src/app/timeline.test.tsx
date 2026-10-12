@@ -13,6 +13,8 @@ import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
 
 const D = 10n ** 100n
+/** The first window's items can take a while under a loaded test run. */
+const LOADED = { timeout: 5000 }
 const WIDTH = 960
 const dimension = { ...testDimension('c-greg'), duration: D }
 const compiled = compiledCalendar(presetCalendar('c-greg', 'gregorian'), dimension)
@@ -309,7 +311,7 @@ describe('event lanes', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const requests = eventsWorld()
     await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
-    const war = await screen.findByRole('button', { name: 'The Long War' })
+    const war = await screen.findByRole('button', { name: 'The Long War' }, LOADED)
     expect(requests.length).toBeGreaterThan(0)
     // Each tile asks for at least the view's width in pixels, from tile bounds.
     for (const params of requests) {
@@ -344,7 +346,7 @@ describe('event lanes', () => {
   it('selects with a click or the arrow keys, previews, and opens', async () => {
     eventsWorld()
     const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
-    await userEvent.click(await screen.findByRole('button', { name: 'Crowning' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Crowning' }, LOADED))
     const preview = await screen.findByRole('complementary', { name: 'Selected event' })
     expect(within(preview).getByRole('link', { name: 'Crowning' })).toHaveAttribute(
       'href',
@@ -373,7 +375,7 @@ describe('event lanes', () => {
   it('opens an event with a double-click', async () => {
     eventsWorld()
     const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
-    await userEvent.dblClick(await screen.findByRole('button', { name: 'Crowning' }))
+    await userEvent.dblClick(await screen.findByRole('button', { name: 'Crowning' }, LOADED))
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/v/v1/e/crowning')
     })
@@ -510,7 +512,7 @@ describe('timeline layers', () => {
       occurrence('2', { entity_id: 'feast-2', occurrence_state: 'modified', has_children: true }),
     ])
     await renderApp(`/v/v1/d/d1/timeline?from=${at(1998)}&to=${at(2014)}`)
-    const computed = await screen.findByRole('button', { name: 'Feast 1' })
+    const computed = await screen.findByRole('button', { name: 'Feast 1' }, LOADED)
     expect(computed).toHaveAttribute('data-occurrence', '1')
     expect(computed).not.toHaveAttribute('data-sub-events')
     const materialized = screen.getByRole('button', { name: 'Feast 2' })

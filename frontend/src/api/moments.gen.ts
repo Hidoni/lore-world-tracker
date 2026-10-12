@@ -26,6 +26,21 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "CausalityGraphOut": {
+    "o": {
+      "nodes": {
+        "a": {
+          "r": "CausalityNodeOut"
+        }
+      }
+    }
+  },
+  "CausalityNodeOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
   "ConvertIn": {
     "o": {
       "moments": {

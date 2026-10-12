@@ -226,6 +226,33 @@ class EventTreePage(BaseModel):
     next_cursor: str | None
 
 
+class CausalityNodeOut(BaseModel):
+    id: str
+    name: str
+    visibility: Visibility
+    start_t: MomentStr | None
+    end_t: MomentStr | None
+    time_status: str | None
+    importance: int
+    category: str | None
+    display: EventDisplay
+    distance: int = Field(description="`core.causes` links from the focus event (0: itself).")
+
+
+class CausalityEdgeOut(BaseModel):
+    id: str = Field(description="The link's id.")
+    source_id: str = Field(description="The cause.")
+    target_id: str = Field(description="The effect.")
+    description: str | None
+
+
+class CausalityGraphOut(BaseModel):
+    focus: str
+    nodes: list[CausalityNodeOut] = Field(description="Nearest first, then by start.")
+    edges: list[CausalityEdgeOut] = Field(description="The links between the nodes.")
+    truncated: bool = Field(description="Whether events within `depth` were left out (`limit`).")
+
+
 class WindowItemOut(BaseModel):
     entity_id: str
     row_id: str

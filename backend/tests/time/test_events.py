@@ -378,6 +378,80 @@ def test_event_tree_counts_the_participants_shown(api: LinkApi, world: dict[str,
     assert counts(as_reader="true") == [("Battle", 1), ("Quiet", 0)]
 
 
+# --- causality -------------------------------------------------------------------------------
+
+
+def test_causality(api: LinkApi, world: dict[str, Any]) -> None:
+    """Events up to `depth` links away either way, nearest first then by start, each once (a
+    cycle too), with the links between them; trashed and private ends are left out."""
+    prime = world["prime"]
+    spark = event(api, world, "Spark", start=at(1))
+    riot = event(api, world, "Riot", start=at(5))
+    war = event(api, world, "War", start=at(10))
+    peace = event(api, world, "Peace", start=at(50))
+    famine = event(api, world, "Famine", start=at(20))
+    gone = event(api, world, "Gone", start=at(30))
+    secret = event(api, world, "Secret", start=at(3), visibility="private")
+    event(api, world, "Unrelated", start=at(4))
+    api.made_link("core.causes", spark, riot, data={"description": "a spark"})
+    api.made_link("core.causes", riot, war)
+    api.made_link("core.causes", war, peace)
+    api.made_link("core.causes", war, famine)
+    api.made_link("core.causes", famine, riot)  # a cycle: riot → war → famine → riot
+    api.made_link("core.causes", war, gone)
+    api.made_link("core.causes", secret, war)
+    api.delete(gone["id"])
+
+    url = f"{api.base}/timelines/{prime}/causality"
+
+    def graph(**params: Any) -> dict[str, Any]:
+        response = api.client.get(url, params={"event": riot["id"], **params})
+        assert response.status_code == 200, response.json()
+        result: dict[str, Any] = response.json()
+        return result
+
+    def nodes(found: dict[str, Any]) -> list[tuple[str, int]]:
+        return [(node["name"], node["distance"]) for node in found["nodes"]]
+
+    def edges(found: dict[str, Any]) -> set[tuple[str, str]]:
+        name = {node["id"]: node["name"] for node in found["nodes"]}
+        return {(name[e["source_id"]], name[e["target_id"]]) for e in found["edges"]}
+
+    one = graph(depth=1)
+    assert one["focus"] == riot["id"]
+    assert nodes(one) == [("Riot", 0), ("Spark", 1), ("War", 1), ("Famine", 1)]
+    assert edges(one) == {("Spark", "Riot"), ("Riot", "War"), ("War", "Famine"), ("Famine", "Riot")}
+    spark_edge = next(e for e in one["edges"] if e["source_id"] == spark["id"])
+    assert spark_edge["description"] == "a spark"
+    assert one["nodes"][0]["display"]["calendar_id"] == world["calendar"]["id"]
+    assert one["truncated"] is False
+
+    two = graph(depth=2)
+    assert nodes(two)[-2:] == [("Secret", 2), ("Peace", 2)]
+    assert ("Secret", "War") in edges(two)
+    reader = api.client.get(url, params={"event": riot["id"], "depth": 2, "as_reader": "true"})
+    assert [n["name"] for n in reader.json()["nodes"]] == [
+        "Riot",
+        "Spark",
+        "War",
+        "Famine",
+        "Peace",
+    ]
+
+    assert nodes(graph(depth=2, limit=3)) == [("Riot", 0), ("Spark", 1), ("War", 1)]
+    assert graph(depth=2, limit=3)["truncated"] is True
+
+    problem(api.client.get(url, params={"event": gone["id"]}), 404, "not_found")
+    problem(
+        api.client.get(url, params={"event": secret["id"], "as_reader": "true"}), 404, "not_found"
+    )
+    problem(
+        api.client.get(f"{api.base}/timelines/{war['id']}/causality", params={"event": war["id"]}),
+        404,
+        "not_found",
+    )
+
+
 # --- history ---------------------------------------------------------------------------------
 
 

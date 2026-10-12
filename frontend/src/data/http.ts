@@ -198,6 +198,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'EventTreePage',
       ),
+    causality: async (vault, timeline, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/timelines/{timeline_id}/causality`, {
+            params: { path: { vault_id: vault, timeline_id: timeline }, query },
+          }),
+        ),
+        'CausalityGraphOut',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(

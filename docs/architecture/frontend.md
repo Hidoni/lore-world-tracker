@@ -96,12 +96,17 @@ itself passes `meta: { toast: false }`. Every route gets the default error bound
 
 Sidebar navigation (`core/navigation/`, #65):
 
-- **Sections:** one per kind, for dimensions and every non-system kind except events (their
-  hierarchy arrives in M5). Each is a tree by `parent_id`, loaded one level at a time from `/tree`
+- **Sections:** one per kind, for dimensions and every non-system kind except events. Each is a tree by `parent_id`, loaded one level at a time from `/tree`
   (`kind=<key>`, then `parent=<id>` when a node opens, with "Show more" past 200). Roots are
   entities whose parent isn't of the same kind. Multiversal entities carry a ∞ badge. Collapsed
   sections are remembered (`lore.sidebar.collapsed`). Each heading links to the kind's list and
   has a "New …" button.
+- **Events** (`EventsSection`, #84): the event hierarchy of the time context's timeline, under
+  Pinned. Top-level events by start (with their start in the display of the dimension's default
+  calendar), each level loaded from `/timelines/{id}/event-tree` when it opens, with "Show more"
+  past 100. A series expands into its sub-events and its materialized occurrences (the tree lists
+  an occurrence without a parent of its own under its series). The heading links to the event
+  outline, and collapsing is remembered with the other sections.
 - **Drag and drop** (dnd-kit; pointer, or Space then arrow keys from a focused row): drop on an
   entity to move inside it, or on a section heading to move to the top. `canReparent` mirrors the
   server's parent rules (`data-model.md` §3.4): allowed parent kinds, no cycles, same dimension
@@ -809,6 +814,22 @@ supports keyboard navigation between items (arrow keys) and announces focused it
     event dialog. The dimension overview and the command palette link to it.
 - **Causality view:** React Flow + elkjs layered layout of cause → effect chains around an event
   (depth control, time-ordered left → right).
+  - Implementation (`core/events/causality/`, #84): `GET /timelines/{id}/causality` gives the
+    events up to `depth` `core.causes` links away (either direction) on the time context's timeline
+    and the links between them. A timeline select appears when the dimension has branches.
+  - ELK lays the graph out (layered, left → right) with each edge pointing from the earlier event
+    to the later one. Columns therefore follow time even for a cycle or an effect dated before its
+    cause, while the arrows keep the links' own direction. Within a column, ELK is given the events
+    by start (model order), which it keeps where crossings allow.
+  - ELK runs in a web worker where there are workers (`elk-api` + `elk-worker`), else on the main
+    thread. React Flow and ELK load lazily with the first graph that has links.
+  - **Compact** on event pages, under "Causes and effects": depth 1, 280 px high, with a "Full
+    view" link. It says when the event has no causes or effects, or isn't on the timeline.
+  - **Full page** at `/v/$vault/e/$entity/causality`: depth 2 by default (1–6), link descriptions
+    as edge labels, zoom controls, and a crosshair on each node that focuses the graph on it.
+  - Clicking a node opens the event. "As a list" shows the same graph as a list (events by
+    start, with what caused them and what they lead to) for keyboard and screen-reader use
+    (§9.6). Past `limit` (200), the view says it shows the nearest events.
 - **Graph view (module):** see `docs/modules/graph.md`.
 - **Hierarchy views:** location tree, org chart, family tree and language family tree come from
   their modules (React Flow + elkjs where diagrams are needed).

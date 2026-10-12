@@ -89,6 +89,31 @@ export function useEventTreeLevel(
   })
 }
 
+export type CausalityGraph = Domain<Schemas['CausalityGraphOut']>
+
+/**
+ * The cause → effect graph around `event` on a timeline (`GET /timelines/{id}/causality`), up to
+ * `depth` links away. `null` timeline or event: nothing to ask.
+ */
+export function useCausality(
+  vault: string,
+  timeline: string | null,
+  event: string | null,
+  depth: number,
+) {
+  const source = useDataSource()
+  const query = { event: event ?? '', depth }
+  return useQuery({
+    queryKey: keys.causality(vault, timeline ?? '', query),
+    queryFn: () => source.causality(vault, timeline ?? '', query),
+    enabled: timeline !== null && event !== null,
+    placeholderData: (previous) => previous,
+    // An event the timeline doesn't show is a 404 the view explains.
+    retry: false,
+    meta: { toast: false },
+  })
+}
+
 /**
  * Time points (and ends) resolved by the server (`POST /time/resolve`): previews for relative
  * anchors and end checks. Authors only (it's a `Mutations` call); `null` skips the request.

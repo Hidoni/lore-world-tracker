@@ -32,6 +32,7 @@ from lore.core.time.dimensions import TIMELINE, timeline_tree
 from lore.core.time.events import (
     EVENT,
     EventTimes,
+    causality,
     event_tree,
     home_row,
     live_sub_events,
@@ -47,6 +48,9 @@ from lore.core.time.schemas import (
     CalendarPreviewIn,
     CalendarProposalIn,
     CalendarProposalOut,
+    CausalityEdgeOut,
+    CausalityGraphOut,
+    CausalityNodeOut,
     ConvertIn,
     ConvertOut,
     DimensionCreated,
@@ -340,6 +344,69 @@ def get_event_tree(
             for item in rows
         ],
         next_cursor=next_cursor,
+    )
+
+
+@timelines_router.get("/{timeline_id}/causality", name="causality")
+def get_causality(
+    *,
+    timeline_id: TimelineIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    event: Annotated[str, Query(pattern=ID_PATTERN, description="The focus event.")],
+    depth: Annotated[int, Query(ge=1, le=6, description="Links away from the focus event.")] = 2,
+    limit: Annotated[int, Query(ge=1, le=500, description="Events at most.")] = 200,
+) -> CausalityGraphOut:
+    """The cause → effect graph around ``event`` on the timeline: the events the timeline shows
+    up to ``depth`` ``core.causes`` links away (either direction), nearest first, and the links
+    between them. ``404`` for a timeline or event the request may not see, or an event the
+    timeline doesn't show."""
+    from lore.core.entities.service import EntityService  # noqa: PLC0415 (import cycle)
+
+    context = VaultContext(vault, session, registry)
+    entities = EntityService(context, policy)
+    timeline = entities.load_visible(timeline_id)
+    if timeline.kind != TIMELINE or timeline.deleted_at is not None:
+        raise NotFoundError(f"No timeline {timeline_id}.")
+    graph = causality(context, policy, timeline_id, event, depth=depth, limit=limit)
+    if graph is None:
+        raise NotFoundError(f"No event {event} on the timeline.")
+    times = EventTimes(context, policy)
+    return CausalityGraphOut(
+        focus=event,
+        nodes=[
+            CausalityNodeOut(
+                id=node.entity.id,
+                name=node.entity.name,
+                visibility=node.entity.visibility,
+                start_t=node.row.start_t,
+                end_t=node.row.end_t,
+                time_status=node.row.time_status,
+                importance=node.row.importance,
+                category=node.row.category,
+                display=EventDisplay.model_validate(
+                    times.displays(str(node.entity.dimension_id), node.row)
+                ),
+                distance=node.distance,
+            )
+            for node in graph.nodes
+        ],
+        edges=[
+            CausalityEdgeOut(
+                id=link.id,
+                source_id=link.source_id,
+                target_id=link.target_id,
+                description=(
+                    description
+                    if isinstance(description := (link.data or {}).get("description"), str)
+                    else None
+                ),
+            )
+            for link in graph.edges
+        ],
+        truncated=graph.truncated,
     )
 
 

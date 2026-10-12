@@ -245,6 +245,21 @@ def event_tree(c: Canary) -> Iterator[Call]:
         yield Call(prime, {"parent": hidden_id}, status=404)
 
 
+@recipe(f"{V}/timelines/{{timeline_id}}/causality")
+def causality(c: Canary) -> Iterator[Call]:
+    url = f"{_v(c)}/timelines/{c.public['Prime']}/causality"
+    for name in ("Coronation", "Aftermath"):  # Aftermath: a private cause, by a private link
+        yield Call(url, {"event": c.public[name], "depth": 6})
+        yield Call(url, {"event": c.public[name], "limit": 1})
+    for hidden_id in c.hidden_ids:
+        yield Call(url, {"event": hidden_id}, status=404)
+        yield Call(
+            f"{_v(c)}/timelines/{hidden_id}/causality",
+            {"event": c.public["Coronation"]},
+            status=404,
+        )
+
+
 @recipe(f"{V}/timelines/{{timeline_id}}/window")
 def timeline_window(c: Canary) -> Iterator[Call]:
     url = f"{_v(c)}/timelines/{c.public['Prime']}/window"

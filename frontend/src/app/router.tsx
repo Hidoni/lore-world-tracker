@@ -10,7 +10,7 @@ import { Suspense } from 'react'
 
 import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
-import { EventOutline } from '@/core/events'
+import { CausalityPage, EventOutline } from '@/core/events'
 import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
@@ -115,6 +115,14 @@ const entityRoute = createRoute({
   component: function EntityRoute() {
     const { vault, entity } = entityRoute.useParams()
     return <EntityPage key={entity} vault={vault} entityId={entity} />
+  },
+})
+const causalityRoute = createRoute({
+  getParentRoute: () => vaultRoute,
+  path: 'e/$entity/causality',
+  component: function CausalityRoute() {
+    const { vault, entity } = causalityRoute.useParams()
+    return <CausalityPage key={entity} vault={vault} eventId={entity} />
   },
 })
 const calendarEditRoute = createRoute({
@@ -292,6 +300,7 @@ function buildRouteTree(definitions: readonly ModuleDefinition[]) {
     vaultHomeRoute,
     dimensionRoute.addChildren([dimensionHomeRoute, timelineRoute, eventsRoute]),
     entityRoute,
+    causalityRoute,
     kindListRoute,
     calendarEditRoute,
     calendarNewRoute,

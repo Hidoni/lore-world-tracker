@@ -181,7 +181,8 @@ interface TimelineNode {
   children: readonly TimelineNode[]
 }
 
-function flatten(nodes: readonly TimelineNode[]): TimelineNode[] {
+/** A dimension's timelines, depth first (for timeline selects). */
+export function flatten(nodes: readonly TimelineNode[]): TimelineNode[] {
   return nodes.flatMap((node) => [...(node.trashed ? [] : [node]), ...flatten(node.children)])
 }
 
