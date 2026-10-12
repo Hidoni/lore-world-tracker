@@ -9,6 +9,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Timeline view IV** (#83):
+  - Sub-events expand inline into nested lanes, or you can drill in (with a breadcrumb, kept in
+    the URL).
+  - Double-click empty space to create an event there.
+  - Drag an event or its edges to retime it: snapped to the axis unit and typed in the anchor's
+    calendar. Relative times show a lock and an "Edit offset" action.
+  - A context menu offers sub-events, participants, causes and effects, materializing
+    occurrences, expanding and drilling.
+  - A filters panel covers importance, categories, tags, participants and participant kinds.
+  - Lanes can be grouped by category, importance or participant swimlanes.
+  - Selections are announced to screen readers, and a "List view" link opens the outline.
+  - API: `GET /tags` and the window's `participant_kind` filter.
+
 - **Causality view and event hierarchy** (#84):
   - Event pages show a compact cause → effect graph (React Flow, laid out by ELK in time order,
     left → right), with a full-page view that has a depth control, focus, timeline choice and a

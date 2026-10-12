@@ -12,6 +12,7 @@
   everywhere it lasts, not only at the left edge). Buckets where both are 0 are left out.
 - **Filters:** ``min_importance``; ``categories`` (any); ``tags`` (all required);
   ``participants`` (any: events with a visible ``core.participant`` link to one of them);
+  ``participant_kinds`` (any: events with a visible participant of one of these kinds, #83);
   ``parent`` (all descendants of that event). Decided 2026-10-06.
 - Visibility: only events the policy and the timeline show; participant links must be visible
   too. Precision names reach readers as ``ReaderTimes`` shows the points.
@@ -84,6 +85,7 @@ class WindowQuery:
     categories: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     participants: tuple[str, ...] = ()
+    participant_kinds: tuple[str, ...] = ()
     parent: str | None = None
     include_series: bool = True
     include_cancelled: bool = False
@@ -525,6 +527,21 @@ def _filters(policy: VisibilityPolicy, query: WindowQuery) -> list[Any]:
                 link.target_id.in_(query.participants),
                 link.deleted_at.is_(None),
                 *policy.links(link),
+            )
+        )
+    if query.participant_kinds:
+        link = aliased(Link)
+        target = aliased(Entity)
+        conditions.append(
+            exists().where(
+                link.source_id == Event.entity_id,
+                link.link_type == PARTICIPANT,
+                link.deleted_at.is_(None),
+                *policy.links(link),
+                target.id == link.target_id,
+                target.kind.in_(query.participant_kinds),
+                target.deleted_at.is_(None),
+                *policy.entities(target),
             )
         )
     if query.parent is not None:

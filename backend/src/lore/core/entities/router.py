@@ -24,6 +24,7 @@ from lore.core.entities.schemas import (
     EntityWriteResult,
     FieldValueList,
     ListSort,
+    TagList,
     TrashPage,
     TreePage,
 )
@@ -36,6 +37,7 @@ from lore.core.visibility import AUTHOR, VisibilityPolicy
 router = APIRouter(prefix="/vaults/{vault_id}/entities", tags=["entities"])
 tree_router = APIRouter(prefix="/vaults/{vault_id}", tags=["tree"])
 trash_router = APIRouter(prefix="/vaults/{vault_id}", tags=["trash"])
+tags_router = APIRouter(prefix="/vaults/{vault_id}", tags=["tags"])
 
 EntityIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Entity id.")]
 IdQuery = Annotated[str | None, Query(pattern=ID_PATTERN)]
@@ -137,6 +139,21 @@ def get_tree(
     return _queries(vault, session, registry, policy).tree(
         dimension=dimension, parent=parent, kinds=kinds, cursor=cursor, limit=limit
     )
+
+
+@tags_router.get("/tags", name="list")
+def list_tags(
+    *,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    q: Annotated[str | None, Query(max_length=200, description="A name prefix.")] = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+) -> TagList:
+    """Tags in use on the entities the request sees (not in the trash), by name, with how many
+    use each (for filters)."""
+    return _queries(vault, session, registry, policy).tags(q=q, limit=limit)
 
 
 @trash_router.get("/trash", name="list")

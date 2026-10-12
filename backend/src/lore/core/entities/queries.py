@@ -44,14 +44,18 @@ from lore.core.entities.models import (
     Entity,
     EntityAlias,
     EntityTag,
+    Tag,
     entity_sort_name,
     fold_text,
+    tag_name_key,
 )
 from lore.core.entities.schemas import (
     EntityPage,
     EntitySummary,
     FieldValue,
     FieldValueList,
+    TagCount,
+    TagList,
     TrashItem,
     TrashPage,
     TreeNode,
@@ -406,6 +410,29 @@ class EntityQueries:
         ]
 
     # --- field values ---------------------------------------------------------------------------
+
+    def tags(self, *, q: str | None = None, limit: int = 200) -> TagList:
+        """Tags in use on entities the request sees (not in the trash), by name, with counts;
+        ``q`` keeps names starting with it (ignoring case). Unused tags aren't listed."""
+        count = func.count(EntityTag.entity_id)
+        statement = (
+            select(Tag, count)
+            .join(EntityTag, EntityTag.tag_id == Tag.id)
+            .join(Entity, Entity.id == EntityTag.entity_id)
+            .where(*self._shown(Entity), Entity.deleted_at.is_(None))
+            .group_by(Tag.id)
+            .order_by(Tag.name_key, Tag.id)
+            .limit(limit)
+        )
+        if q:
+            key = tag_name_key(q)
+            statement = statement.where(Tag.name_key >= key, Tag.name_key < key + "\U0010ffff")
+        return TagList(
+            items=[
+                TagCount(id=tag.id, name=tag.name, color=tag.color, count=int(n))
+                for tag, n in self.session.execute(statement)
+            ]
+        )
 
     def field_values(
         self, *, kind: str, field: str, q: str | None = None, limit: int = 20

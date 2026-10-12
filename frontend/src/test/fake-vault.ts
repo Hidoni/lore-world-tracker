@@ -462,6 +462,20 @@ export function serveVault(
       return HttpResponse.json(paged(items, url))
     }),
     http.get('*/api/v1/vaults/v1/consistency/rules', () => HttpResponse.json({ items: rules })),
+    http.get('*/api/v1/vaults/v1/tags', () => {
+      const counts = new Map<string, { id: string; name: string; color: null; count: number }>()
+      for (const entity of rows.values()) {
+        if (entity.deleted_at !== null) continue
+        for (const tag of (entity as { tags?: { id: string; name: string }[] }).tags ?? []) {
+          const known = counts.get(tag.id)
+          if (known === undefined) counts.set(tag.id, { ...tag, color: null, count: 1 })
+          else known.count += 1
+        }
+      }
+      return HttpResponse.json({
+        items: [...counts.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      })
+    }),
     http.get('*/api/v1/vaults/v1/timelines/:id/event-tree', () =>
       HttpResponse.json({ items: [], next_cursor: null }),
     ),

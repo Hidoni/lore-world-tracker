@@ -1,9 +1,11 @@
 import { toPx, type Viewport } from '@lore/chronology/viewport'
+import { LockIcon } from 'lucide-react'
 import { memo, useMemo, useState } from 'react'
 
 import type { Lens } from '@/core/time'
 import { cn } from '@/lib/utils'
 
+import type { DragMode } from './drag-edit'
 import { itemGeometry, spanBackground, type ItemGeometry } from './geometry'
 import { StickyLanes } from './lanes'
 import { bandShapes, SeriesBandShape } from './series-bands'
@@ -28,7 +30,7 @@ const COLORS: Record<number, string> = {
 const SUB_EVENTS_MARKER =
   'after:absolute after:top-0 after:left-0 after:size-1.5 after:rounded-full after:bg-amber-500'
 
-interface Drawn {
+export interface Drawn {
   key: string
   item: WindowItem
   geometry: ItemGeometry
@@ -70,17 +72,47 @@ function visible(items: readonly WindowItem[], anchor: Viewport, lenses: readonl
   return drawn
 }
 
+/** An item being dragged: how far, and which part (frontend.md §9.4). */
+export interface DragPreview {
+  key: string
+  mode: DragMode
+  dx: number
+}
+
+/** Pixels at a span's ends that drag the edge rather than the whole span. */
+const EDGE_PX = 6
+
+/** What pressing an item does: start a drag of its body or an edge (editable timelines). */
+export type PressHandler = (event: React.PointerEvent, drawn: Drawn, mode: DragMode) => void
+
 interface ItemProps {
   drawn: Drawn
   top: number
   selected: boolean
   limit: { left: number; right: number }
+  /** This item's drag, while it is dragged. */
+  drag: DragPreview | null
+  /** Its time is relative to another record: dragging it is off. */
+  locked: boolean
   onSelect: (key: string | null) => void
   onOpen: (item: WindowItem) => void
+  onPress: PressHandler | undefined
+  onMenu: ((key: string) => void) | undefined
 }
 
 /** One item: a single element (spans: a bar with a gradient; instants: a diamond pseudo-element). */
-const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen }: ItemProps) {
+const Item = memo(function Item({
+  drawn,
+  top,
+  selected,
+  limit,
+  drag,
+  locked,
+  onSelect,
+  onOpen,
+  onPress,
+  onMenu,
+}: ItemProps) {
   const { key, item, geometry } = drawn
   const occurrence = item.occurrence_key !== null
   // A materialized occurrence with sub-events of its own (recurrence.md §10).
@@ -90,7 +122,13 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
     'data-kind': geometry.kind,
     'data-occurrence': occurrence ? item.occurrence_key : undefined,
     'data-sub-events': subEvents ? '' : undefined,
-    title: subEvents ? `${item.name} (has sub-events)` : undefined,
+    'data-locked': locked ? '' : undefined,
+    'data-dragging': drag === null ? undefined : drag.mode,
+    title: locked
+      ? `${item.name} (relative to another record: edit its offset)`
+      : subEvents
+        ? `${item.name} (has sub-events)`
+        : undefined,
     'aria-label': item.name,
     'aria-pressed': selected,
     onClick: (event: React.MouseEvent) => {
@@ -101,11 +139,30 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
       event.stopPropagation()
       onOpen(item)
     },
-    // Pressing an item doesn't start a pan.
-    onPointerDown: (event: React.PointerEvent) => {
+    // Pressing an item doesn't start a pan; on an editable timeline it may start a drag.
+    onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
       event.stopPropagation()
+      if (onPress === undefined || event.button !== 0) return
+      const box = event.currentTarget.getBoundingClientRect()
+      const x = event.clientX - box.left
+      const edge =
+        geometry.kind === 'span' && box.width > 3 * EDGE_PX
+          ? x < EDGE_PX
+            ? 'start'
+            : x > box.width - EDGE_PX
+              ? 'end'
+              : null
+          : null
+      onPress(event, drawn, edge ?? 'move')
+    },
+    onContextMenu: () => {
+      onMenu?.(key)
     },
   }
+  const dx = drag?.dx ?? 0
+  const lock = locked ? (
+    <LockIcon aria-hidden className="mr-0.5 inline size-3 align-[-2px]" />
+  ) : null
   if (geometry.kind === 'instant') {
     return (
       <button
@@ -123,16 +180,19 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
           item.occurrence_state === 'cancelled' && 'line-through opacity-60',
         )}
         style={{
-          transform: `translate(${geometry.x0 - 8}px, ${top}px)`,
+          transform: `translate(${geometry.x0 - 8 + dx}px, ${top}px)`,
           height: LANE_HEIGHT - 4,
         }}
       >
+        {lock}
         {item.name}
       </button>
     )
   }
-  const left = Math.max(geometry.x0, limit.left)
-  const right = Math.min(geometry.x1, limit.right)
+  const x0 = geometry.x0 + (drag?.mode === 'end' ? 0 : dx)
+  const x1 = Math.max(x0 + 2, geometry.x1 + (drag?.mode === 'start' ? 0 : dx))
+  const left = Math.max(x0, limit.left)
+  const right = Math.min(x1, limit.right)
   const color = COLORS[item.importance] ?? COLORS[3] ?? 'var(--primary)'
   return (
     <button
@@ -154,13 +214,14 @@ const Item = memo(function Item({ drawn, top, selected, limit, onSelect, onOpen 
             ...geometry,
             x0: left,
             x1: right,
-            fadeIn: left > geometry.x0 ? 0 : geometry.fadeIn,
-            fadeOut: right < geometry.x1 ? 0 : geometry.fadeOut,
+            fadeIn: left > x0 ? 0 : geometry.fadeIn,
+            fadeOut: right < x1 ? 0 : geometry.fadeOut,
           },
           color,
         ),
       }}
     >
+      {lock}
       {item.name}
     </button>
   )
@@ -183,6 +244,10 @@ export function EventLanes({
   selected,
   onSelect,
   onOpen,
+  drag = null,
+  locked = null,
+  onPress,
+  onMenu,
 }: {
   /** The current view. */
   v: Viewport
@@ -194,6 +259,11 @@ export function EventLanes({
   selected: string | null
   onSelect: (key: string | null) => void
   onOpen: (item: WindowItem) => void
+  drag?: DragPreview | null
+  /** The key of an item whose time is relative (the selected one, once known). */
+  locked?: string | null
+  onPress?: PressHandler
+  onMenu?: (key: string) => void
 }) {
   const [anchors] = useState(() => new Anchor())
   const [lanes] = useState(() => new StickyLanes())
@@ -229,11 +299,15 @@ export function EventLanes({
           top={(packing.lanes.get(each.key) ?? 0) * LANE_HEIGHT + 4}
           selected={each.key === selected}
           limit={limit}
+          drag={drag?.key === each.key ? drag : null}
+          locked={each.key === locked}
           onSelect={onSelect}
           onOpen={onOpen}
+          onPress={onPress}
+          onMenu={onMenu}
         />
       )),
-    [drawn, packing, selected, limit, onSelect, onOpen],
+    [drawn, packing, selected, limit, drag, locked, onSelect, onOpen, onPress, onMenu],
   )
   // The laid-out items moved (and, while a zoom's layout catches up, scaled) to the current view.
   const shift = toPx(v, anchor.start)

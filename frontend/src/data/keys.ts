@@ -18,6 +18,7 @@ export const keys = {
   tree: (vault: string, params?: object) => [vault, 'tree', params ?? {}] as const,
   trash: (vault: string, params?: object) => [vault, 'trash', params ?? {}] as const,
   fieldValues: (vault: string, params: object) => [vault, 'fieldValues', params] as const,
+  tags: (vault: string, params: object) => [vault, 'tags', params] as const,
   links: (vault: string, id: string, params?: object) =>
     [vault, 'links', id, params ?? {}] as const,
   backlinks: (vault: string, id: string, params?: object) =>

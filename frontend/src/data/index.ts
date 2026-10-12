@@ -27,6 +27,7 @@ export {
   useEntityList,
   useRegistry,
   useRestoreEntity,
+  useTags,
   useTrash,
   useTrashList,
   useTree,

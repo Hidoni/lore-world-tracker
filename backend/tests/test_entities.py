@@ -504,6 +504,25 @@ def test_tags_are_shared_case_insensitively(api: Api) -> None:
     assert api.get(first["id"]).json()["tags"] == first["tags"]
 
 
+def test_tags_in_use(api: Api) -> None:
+    api.make("misc", tags=["Canon", "Big"])
+    api.make("misc", tags=["canon"])
+    secret = api.make("misc", tags=["Secret", "Canon"], visibility="private")
+    gone = api.make("misc", tags=["Gone"])
+    api.delete(gone["id"])
+    url = f"{api.base}/tags"
+
+    def listed(**params: Any) -> list[tuple[str, int]]:
+        items = api.client.get(url, params=params).json()["items"]
+        return [(tag["name"], tag["count"]) for tag in items]
+
+    assert listed() == [("Big", 1), ("Canon", 3), ("Secret", 1)]
+    assert listed(as_reader="true") == [("Big", 1), ("Canon", 2)]
+    assert listed(q="ca") == [("Canon", 3)]
+    assert listed(limit=1) == [("Big", 1)]
+    assert secret["tags"][0]["id"] in {tag["id"] for tag in api.client.get(url).json()["items"]}
+
+
 # --- trash, restore, purge ------------------------------------------------------------------
 
 

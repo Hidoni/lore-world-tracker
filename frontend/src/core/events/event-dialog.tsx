@@ -67,6 +67,10 @@ export type EventDialogMode =
       dimensionId?: string | null
       parent?: (Parent & { dimension_id: string | null }) | null
       initialName?: string
+      /** A start to begin with (the timeline's double-click: the moment clicked). */
+      initialStart?: TimePoint | null
+      /** The timeline to create it on (default: the dimension's prime timeline). */
+      timelineId?: string | null
     }
   | { mode: 'edit'; entity: Entity; parent: Parent | null }
 
@@ -189,14 +193,18 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
   const dimensionId = dimensionChoice ?? dimensions.data?.items[0]?.id ?? null
   const { dimension, lenses, isPending: lensesPending } = useDimensionLenses(vault, dimensionId)
   const timelines = useTimelines(vault, editing === null ? dimensionId : null)
-  const [timelineChoice, setTimeline] = useState<string | null>(null)
+  const [timelineChoice, setTimeline] = useState<string | null>(
+    props.mode === 'create' ? (props.timelineId ?? null) : null,
+  )
   const timelineOptions = flatten(timelines.data?.items ?? [])
   const timelineId =
     timelineChoice ??
     timelineOptions.find((option) => option.node.is_prime)?.node.id ??
     timelineOptions[0]?.node.id ??
     null
-  const [start, setStart] = useState<TimePoint | null>(initial?.start ?? null)
+  const [start, setStart] = useState<TimePoint | null>(
+    initial?.start ?? (props.mode === 'create' ? (props.initialStart ?? null) : null),
+  )
   const [end, setEnd] = useState<EndSpec | null>(initial?.end ?? { kind: 'instant' })
   const [parent, setParent] = useState<Parent | null>(props.parent ?? null)
   const [importance, setImportance] = useState(initial?.importance ?? 3)

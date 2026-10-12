@@ -200,6 +200,11 @@ def test_filters(api: LinkApi, world: dict[str, Any]) -> None:
     assert filtered(tag=[tags["Canon"], tags["Big"]]) == ["War"]  # all required
     assert filtered(participant=[ana["id"], bob["id"]]) == ["War", "Battle"]  # any
     assert filtered(participant=[ana["id"]]) == ["Battle"]
+    beast = api.make("beast", "Cerberus", **home)
+    api.made_link("core.participant", war, beast)
+    assert filtered(participant_kind=["gadget"]) == ["War", "Battle"]
+    assert filtered(participant_kind=["beast"]) == ["War"]
+    assert filtered(participant_kind=["misc"]) == []
     assert filtered(parent=war["id"]) == ["Battle", "Skirmish"]  # every depth
     assert filtered(parent=battle["id"]) == ["Skirmish"]
 
@@ -220,6 +225,8 @@ def test_readers(api: LinkApi, world: dict[str, Any]) -> None:
     assert page["total"] == 2
     assert names(window(api, world, 0, 1000, participant=[spy["id"]], **reader)) == []
     assert names(window(api, world, 0, 1000, participant=[spy["id"]])) == ["Open"]
+    assert names(window(api, world, 0, 1000, participant_kind=["gadget"], **reader)) == []
+    assert names(window(api, world, 0, 1000, participant_kind=["gadget"])) == ["Open"]
     url = f"{api.base}/timelines/{world['prime']}/window"
     hidden_parent = api.client.get(
         url, params={"from": "0", "to": "10", "px": 10, "parent": plot["id"], **reader}
