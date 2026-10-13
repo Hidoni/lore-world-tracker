@@ -319,6 +319,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #145 | M12-08 | Accessibility and UX polish pass (keyboard, focus, contrast, list alternatives, shortcuts) | M | P1 | #117, #130, #135 |
 | #146 | M12-09 | MVP release 1.0.0: changelog, fixture vault, docs refresh, user guide | M | P0 | #143, #144, #145 |
 | #241 | M12-10 | Event writes cost 14–27 ms each: the large sample world takes 46 minutes to build (bug) | M | P2 | – |
+| #307 | M12-11 | Backend test suite outgrew the CI timeout: run it in parallel and cut the leak suite's cost | M | P1 | – |
 
 ### M13: Post-MVP backlog
 
