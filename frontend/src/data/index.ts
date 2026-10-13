@@ -25,6 +25,7 @@ export {
   useEntities,
   useEntity,
   useEntityList,
+  useFieldValues,
   useRegistry,
   useRestoreEntity,
   useTags,

@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Misc entries** (#89): the first feature module. A misc entry (with a free-text category) can
+  hold entities of any kind; its page lists its children by kind with an "Add child" menu, and
+  the sidebar groups misc entries by category. Text fields suggest the values other entities of
+  the kind use. The sample world gains "Time Travel" and "Tide Magic".
+
 ## [0.4.0] - 2026-10-12
 
 The time UI (M5): worlds get their time in the browser. A wizard creates dimensions with preset

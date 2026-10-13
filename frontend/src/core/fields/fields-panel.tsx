@@ -106,6 +106,7 @@ function RichTextField({
 
 function FieldRow({
   vault,
+  kind,
   field,
   value,
   visibility,
@@ -113,6 +114,7 @@ function FieldRow({
   save,
 }: {
   vault: string
+  kind: string
   field: FieldDef
   value: unknown
   visibility: Visibility | undefined
@@ -195,6 +197,7 @@ function FieldRow({
           <FieldEditor
             field={field}
             id={id}
+            suggest={{ vault, kind }}
             value={immediate && !editing ? value : draft}
             invalid={error !== null}
             onChange={setDraft}
@@ -319,6 +322,7 @@ export function FieldsPanel({
                   <FieldRow
                     key={field.key}
                     vault={vault}
+                    kind={entity.kind}
                     field={field}
                     value={values[field.key]}
                     visibility={overrides[field.key]}

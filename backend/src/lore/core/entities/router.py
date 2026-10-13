@@ -131,13 +131,22 @@ def get_tree(
     dimension: IdQuery = None,
     parent: IdQuery = None,
     kinds: KindsQuery = None,
+    group_by: Annotated[
+        str | None,
+        Query(max_length=200, description="A text field of the one kind: each node's `group`."),
+    ] = None,
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> TreePage:
     """One level of the navigation tree: the roots (entities without a shown parent), or the
     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name."""
     return _queries(vault, session, registry, policy).tree(
-        dimension=dimension, parent=parent, kinds=kinds, cursor=cursor, limit=limit
+        dimension=dimension,
+        parent=parent,
+        kinds=kinds,
+        group_by=group_by,
+        cursor=cursor,
+        limit=limit,
     )
 
 

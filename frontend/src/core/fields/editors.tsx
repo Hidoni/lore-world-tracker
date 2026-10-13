@@ -3,6 +3,7 @@ import type { ComponentProps, KeyboardEvent, ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useFieldValues } from '@/data'
 import { RichTextView, isDoc } from '@/editor'
 
 import { docToText, textToDoc } from './rich-text-fallback'
@@ -19,6 +20,8 @@ export interface FieldEditorProps {
   onCancel: () => void
   invalid: boolean
   disabled?: boolean
+  /** Where a single text field's values come from for autocomplete (`GET /entities/field-values`). */
+  suggest?: { vault: string; kind: string }
 }
 
 /** Types implemented in M5 (time pickers) and by the media module. */
@@ -48,9 +51,35 @@ function keys(onCommit: () => void, onCancel: () => void, multiline = false) {
   }
 }
 
+/** Values other entities of the kind use for a text field, offered while typing. */
+function FieldSuggestions({
+  id,
+  vault,
+  kind,
+  field,
+  q,
+}: {
+  id: string
+  vault: string
+  kind: string
+  field: string
+  q: string
+}) {
+  // All values (most used first); the browser filters them as the author types.
+  const values = useFieldValues(vault, { kind, field, limit: 50 })
+  const items = (values.data?.items ?? []).filter((item) => item.value !== q)
+  return (
+    <datalist id={id} data-testid="field-suggestions">
+      {items.map((item) => (
+        <option key={item.value} value={item.value} />
+      ))}
+    </datalist>
+  )
+}
+
 /** The editor of one field value, per field type (data-model.md §4.2). */
 export function FieldEditor(props: FieldEditorProps): ReactNode {
-  const { field, id, value, onChange, onCommit, onCancel, invalid, disabled } = props
+  const { field, id, value, onChange, onCommit, onCancel, invalid, disabled, suggest } = props
   const common = {
     id,
     disabled,
@@ -71,7 +100,20 @@ export function FieldEditor(props: FieldEditorProps): ReactNode {
   }
   switch (field.type) {
     case 'text':
-      return <Input {...single} />
+      return suggest === undefined || field.multiple ? (
+        <Input {...single} />
+      ) : (
+        <>
+          <Input {...single} list={`${id}-suggestions`} autoComplete="off" />
+          <FieldSuggestions
+            id={`${id}-suggestions`}
+            vault={suggest.vault}
+            kind={suggest.kind}
+            field={field.key}
+            q={text(value)}
+          />
+        </>
+      )
     case 'url':
       return <Input {...single} type="url" placeholder="https://" />
     case 'integer':

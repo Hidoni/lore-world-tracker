@@ -185,7 +185,8 @@ class EntityPage(BaseModel):
 
 class TreeNode(BaseModel):
     """A navigation tree node. ``child_counts`` counts the children the same tree would show,
-    by kind."""
+    by kind. ``group``: its value of the tree's ``group_by`` field (``null`` without one, when
+    empty, or when the request may not see the field)."""
 
     id: str
     kind: str
@@ -199,6 +200,7 @@ class TreeNode(BaseModel):
     sort_key: str | None
     has_children: bool
     child_counts: dict[str, int]
+    group: str | None = None
 
 
 class TreePage(BaseModel):

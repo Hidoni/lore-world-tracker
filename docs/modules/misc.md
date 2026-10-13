@@ -45,9 +45,21 @@ autocomplete, implemented in core with this module as the first user).
 
 ## UI
 
-- Sidebar section "Misc" grouped by `category`, then by tree (`parent_id`).
-- Misc entity page: an extra **Children** panel listing children of every kind, grouped by kind,
-  with "add child of kind…" actions.
+- Sidebar section "Misc entries" grouped by `category`, then by tree (`parent_id`): the kind's UI
+  config sets `groupBy: 'category'`, so the top level comes from `/tree?group_by=category` and is
+  listed by category (case variants merged), entries without one last under "No category".
+- Misc entity page: an extra **Children** panel (`misc.children`) listing children of every kind
+  and dimension (`/entities/{id}/children`), grouped by kind in registry order, with an "Add
+  child" menu of every kind that may be placed under a misc entry (it opens the create dialog
+  with the entry as parent).
+- `category` autocompletes from `GET /entities/field-values`: every single text field editor
+  offers the values other entities of its kind use (a `datalist`, most used first).
+
+Implementation (#89): `backend/src/lore/modules/misc/` (`MODULE`, kind in `kinds.py`) and
+`frontend/src/modules/misc/`. Every non-system kind lists `misc` among its allowed parents, which
+`backend/tests/modules/test_misc.py` checks for core and every registered module. The sample world
+has "Time Travel" (Concept, multiversal) holding two misc entries and an event,
+and "Tide Magic" (Magic).
 
 ## Consistency rules
 

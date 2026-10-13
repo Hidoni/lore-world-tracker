@@ -5,8 +5,6 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { moduleDefinitions } from '@/modules'
-
 // Module → module imports follow declared dependencies (modules.md §3, the frontend twin of
 // backend/tests/test_architecture.py): module `a` may import `@/modules/b/public` only when `b` is
 // in a's `dependsOn`. ESLint (`no-restricted-imports`) keeps them to `public.ts`.
@@ -50,7 +48,11 @@ describe('frontend module dependencies', () => {
     expect(undeclaredImports(files, { characters: ['groups'] })).toEqual(['groups → characters'])
   })
 
-  it('holds for every module folder', () => {
+  it('holds for every module folder', async () => {
+    // Loaded here, with a location for the API client the modules' imports reach (node env).
+    const scope = globalThis as { location?: unknown }
+    scope.location ??= new URL('http://localhost/')
+    const { moduleDefinitions } = await import('@/modules')
     const folders = readdirSync(modulesDir).filter((name) =>
       statSync(path.join(modulesDir, name)).isDirectory(),
     )

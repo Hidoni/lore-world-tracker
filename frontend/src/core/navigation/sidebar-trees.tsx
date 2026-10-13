@@ -388,9 +388,12 @@ interface LevelProps {
 /** One level of a tree, fetched when shown (a collapsed node loads nothing). */
 function TreeLevel(props: LevelProps) {
   const { vault, kind, parent, path } = props
+  // The top level of a grouped kind comes in groups (by a text field's value).
+  const groupBy = parent === null && kind.groupBy !== null ? kind.groupBy : null
   const level = useTreeLevel(vault, {
     kind: [kind.key],
     ...(parent === null ? {} : { parent: parent.id }),
+    ...(groupBy === null ? {} : { group_by: groupBy }),
   })
   const nodes = level.data?.pages.flatMap((page) => page.items) ?? []
   const depth = path.length
@@ -409,11 +412,29 @@ function TreeLevel(props: LevelProps) {
       </p>
     )
   }
+  const field = kind.fields.find((candidate) => candidate.key === groupBy)
   return (
     <ul className="flex flex-col" aria-label={parent ? `Inside ${parent.name}` : undefined}>
-      {nodes.map((node) => (
-        <TreeRow key={node.id} {...props} node={node} />
-      ))}
+      {groupBy === null
+        ? nodes.map((node) => <TreeRow key={node.id} {...props} node={node} />)
+        : groupNodes(nodes).map(([group, members]) => {
+            const title = group ?? `No ${(field?.label ?? groupBy).toLowerCase()}`
+            return (
+              <li key={group ?? ''} data-tree-group>
+                <p
+                  className="truncate pt-1 pl-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
+                  aria-hidden
+                >
+                  {title}
+                </p>
+                <ul className="flex flex-col" aria-label={title}>
+                  {members.map((node) => (
+                    <TreeRow key={node.id} {...props} node={node} />
+                  ))}
+                </ul>
+              </li>
+            )
+          })}
       {level.hasNextPage && (
         <li style={indent}>
           <button
@@ -430,6 +451,35 @@ function TreeLevel(props: LevelProps) {
       )}
     </ul>
   )
+}
+
+/**
+ * Nodes by `group` (case-insensitively, under the most frequent spelling), groups by name with
+ * the ungrouped last; nodes keep the tree's order within a group.
+ */
+export function groupNodes(nodes: readonly TreeNode[]): [string | null, TreeNode[]][] {
+  const groups = new Map<string, { spellings: Map<string, number>; members: TreeNode[] }>()
+  const loose: TreeNode[] = []
+  for (const node of nodes) {
+    const value = node.group?.trim() ?? ''
+    if (value === '') {
+      loose.push(node)
+      continue
+    }
+    const key = value.toLocaleLowerCase()
+    const group = groups.get(key) ?? { spellings: new Map<string, number>(), members: [] }
+    group.spellings.set(value, (group.spellings.get(value) ?? 0) + 1)
+    group.members.push(node)
+    groups.set(key, group)
+  }
+  const named = [...groups.values()].map(({ spellings, members }): [string, TreeNode[]] => {
+    const [name] = [...spellings.entries()].sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )[0] ?? ['']
+    return [name, members]
+  })
+  named.sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
+  return loose.length === 0 ? named : [...named, [null, loose]]
 }
 
 function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {

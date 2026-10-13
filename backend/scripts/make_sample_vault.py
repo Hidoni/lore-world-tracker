@@ -18,7 +18,8 @@ The world has two parts:
   uses every calendar feature and is anchored to events; events typed in every calendar, at every
   precision, with every end kind; a chain of relative anchors; recurring events of every rule
   type, with referenced, modified and cancelled occurrences, a sub-event of an occurrence and an
-  anchor to an occurrence; sub-events and causes.
+  anchor to an occurrence; sub-events and causes. Misc entries (M6): a topic holding
+  children of several kinds.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -28,9 +29,9 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-characters, places and other module kinds (M6, M7), correspondences (M9), media (M10), custom
-fields and kinds (M11). Old fixtures are never regenerated: the next milestone release commits a
-new one (``persistence-and-migrations.md`` §3.5).
+characters, places and other module kinds (M6, M7; misc entries since #89), correspondences
+(M9), media (M10), custom fields and kinds (M11). Old fixtures are never regenerated: the next
+milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
 
 import argparse
@@ -1121,6 +1122,40 @@ def _core_series(writer: Writer, core: Core, world: SampleWorld) -> None:
     world.occurrences = {"Rite of Tides": {"2": "referenced", "4": "modified", "6": "cancelled"}}
 
 
+def _core_misc(writer: Writer, core: Core) -> None:
+    """Misc entries (M6): a multiversal topic holding children of several kinds, and categories
+    for the sidebar's grouping."""
+    with writer.transaction("Sample world: misc entries") as s:
+        topic = s.entity(
+            "misc",
+            "Time Travel",
+            summary="Whether the past can be visited, and what it costs.",
+            fields={"category": "Concept"},
+            body=doc(p("Scholars of the Spire argue it is possible only at the edge of a tide.")),
+        )
+        core.ids["Time Travel"] = topic
+        core.ids["The Grandfather Paradox"] = s.entity(
+            "misc", "The Grandfather Paradox", parent_id=topic, fields={"category": "Concept"}
+        )
+        core.ids["The Chronolith"] = s.entity(
+            "misc",
+            "The Chronolith",
+            parent_id=topic,
+            dimension_id=core[WORLD_NAME],
+            fields={"category": "Artifact"},
+        )
+        core.ids["The First Jump"] = s.entity(
+            "event",
+            "The First Jump",
+            parent_id=topic,
+            dimension_id=core[WORLD_NAME],
+            ext=at(1_500_000),
+        )
+        core.ids["Tide Magic"] = s.entity(
+            "misc", "Tide Magic", dimension_id=core[WORLD_NAME], fields={"category": "Magic"}
+        )
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1191,6 +1226,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_dates(writer, core)
     _core_chain(writer, core)
     _core_series(writer, core, world)
+    _core_misc(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)
