@@ -91,9 +91,7 @@ Indexes: `(language_id, collation_key)`, `(language_id, headword)`, `(language_i
   tooltip. Inserted via `@@` or the slash menu.
 - IPA input helper (a character palette popover) for the pronunciation field.
 
-Implementation (#96): `backend/src/lore/modules/languages/` and `frontend/src/modules/languages/`,
-without the lexicon (its table, endpoints, page, `lexiconRef` and IPA helper come with their own
-issues). Panels: **Family** (descended from, ancestor of, dialects, borrows from, lends to; a link
+Implementation (#96): `backend/src/lore/modules/languages/` and `frontend/src/modules/languages/`. Panels: **Family** (descended from, ancestor of, dialects, borrows from, lends to; a link
 to the tree view), **Speakers** (`speaks` with fluency) and **Scripts** (on languages and, the
 other way round, on writing systems). The family tree view (`/v/<vault>/m/languages/family-tree`,
 also in the command palette) draws the time context's dimension with React Flow and ELK:
@@ -101,6 +99,27 @@ ancestors above descendants, dialects below their language, borrowings dashed an
 the layout; "As a list" gives the same graph as text. The sample world has Old Tidespeech →
 Varnish (with the Harbor Cant dialect) and Shoal Tongue, the multiversal Common Trade, Tide Runes
 and Spire Glyphs, and speakers.
+
+Lexicon backend (#97): the model and migration (`languages_lexicon_entries`, on the core
+declarative base: the registry tells module tables from core ones by their models), the service
+(`lexicon.py`), collation (`collation.py`) and CSV (`lexicon_csv.py`).
+
+- Collation keys: the headword is split into letters of `alphabet_order` by longest match
+  (multigraphs such as "ch"), ignoring case and composition; each letter is 8 hex digits, letters
+  outside the alphabet after it by code point. Changing a language's fields re-keys its lexicon
+  in the same transaction (a `KindExtension.update` hook).
+- Attestation: `valid_from`/`valid_to` are time slots of the record type
+  `languages.lexicon_entry` (a `SlotProvider` on `timeline_id`), resolved and propagated with the
+  `TimeWriter`, and registered with `TimelineView` (open-ended bounds). A bound needs a timeline
+  of the language's dimension.
+- Visibility: the `VisibilityFilter` hides private entries and those of hidden languages; search
+  documents (`languages.lexicon_entry`: headword as name, romanization and pronunciation as
+  aliases, glosses as summary, tags as extra) are found only while the language is. An undo
+  re-indexes the entries it touched (`REVERT_HOOKS`); purging a language deletes its entries.
+- CSV: the import takes JSON `{csv, columns?}` (headers name fields unless mapped; `definitions`
+  `gloss1; gloss2`, `tags` by `;` or `,`, `etymology` its text), skips blank lines, and is all or
+  nothing; the export writes the same columns. Publish sanitizing waits for the publish
+  machinery (M12).
 
 ## Consistency rules
 

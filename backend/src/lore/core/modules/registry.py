@@ -473,7 +473,17 @@ class ModuleRegistry:
 
     def _validate_tables(self) -> list[str]:
         problems: list[str] = []
-        core_tables = set(self.core_metadata.tables) if self.core_metadata is not None else set()
+        # Module models share the declarative base, so the metadata holds their tables too: a
+        # table is the module's when it is the very table of one of its models.
+        module_tables = [
+            getattr(model, "__table__", None) for module in self.modules for model in module.models
+        ]
+        metadata = self.core_metadata.tables if self.core_metadata is not None else {}
+        core_tables = {
+            name
+            for name, table in metadata.items()
+            if not any(table is owned for owned in module_tables)
+        }
         table_owner: dict[str, str] = {}
         for module in self.modules:
             for model in module.models:

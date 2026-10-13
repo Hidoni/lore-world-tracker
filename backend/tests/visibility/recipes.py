@@ -274,6 +274,24 @@ def species_members(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/m/species/{hidden_id}/members", status=404)
 
 
+@recipe(f"{V}/m/languages/{{language_id}}/lexicon")
+def lexicon(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/languages/{c.public['Varnish']}/lexicon"
+    for params in ({}, {"tag": "sea"}, {"sort": "recent"}, {"sort": "headword"}, {"q": "CANARY"}):
+        yield Call(path, params)
+    for needle in c.strings:
+        yield Call(path, {"q": needle})
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/languages/{hidden_id}/lexicon", status=404)
+
+
+@recipe(f"{V}/m/languages/{{language_id}}/lexicon/export")
+def lexicon_export(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/languages/{c.public['Varnish']}/lexicon/export")
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/languages/{hidden_id}/lexicon/export", status=404)
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

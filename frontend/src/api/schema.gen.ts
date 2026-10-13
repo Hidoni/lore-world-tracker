@@ -1362,6 +1362,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/languages/{language_id}/lexicon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lexicon List
+         * @description The language's lexicon, page by page: by its own alphabet (`collation`), by headword, or
+         *     the most recently changed first (`recent`). Entries the request may not see are left out;
+         *     ``404`` for a language it may not see.
+         */
+        get: operations["languages_lexicon_list"];
+        put?: never;
+        /**
+         * Lexicon Create
+         * @description Add an entry (its collation key from the language's `alphabet_order`; an attestation
+         *     period needs `timeline_id`).
+         */
+        post: operations["languages_lexicon_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/languages/lexicon/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Lexicon Delete
+         * @description Move an entry to the trash (undo restores it).
+         */
+        delete: operations["languages_lexicon_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Lexicon Update
+         * @description Change an entry (revision required; `409 revision_conflict` when it changed meanwhile).
+         */
+        patch: operations["languages_lexicon_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/languages/{language_id}/lexicon/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lexicon Import
+         * @description Import entries from CSV (header row; `definitions` as `gloss1; gloss2`). All or nothing:
+         *     with any problem nothing is created and `errors` lists them (row and column).
+         */
+        post: operations["languages_lexicon_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/languages/{language_id}/lexicon/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lexicon Export
+         * @description The lexicon as CSV (the import's columns), entries the request may see, by alphabet.
+         */
+        get: operations["languages_lexicon_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2012,6 +2104,15 @@ export interface components {
             display?: string | null;
             error?: components["schemas"]["TimeProblem"] | null;
         };
+        /** Definition */
+        Definition: {
+            /** Gloss */
+            gloss: string;
+            /** Notes */
+            notes?: string | null;
+            /** Examples */
+            examples?: components["schemas"]["Example"][];
+        };
         /** DescentEdge */
         DescentEdge: {
             /**
@@ -2395,6 +2496,20 @@ export interface components {
             entity: components["schemas"]["EntityOut"];
             affected: components["schemas"]["Affected"];
         };
+        /** Etymology */
+        Etymology: {
+            /** Text */
+            text?: string | null;
+            /** Sources */
+            sources?: components["schemas"]["EtymologySource"][];
+        };
+        /** EtymologySource */
+        EtymologySource: {
+            entry_id?: components["schemas"]["EntityId"] | null;
+            language_id?: components["schemas"]["EntityId"] | null;
+            /** Form */
+            form?: string | null;
+        };
         /** EventDisplay */
         EventDisplay: {
             /**
@@ -2447,6 +2562,13 @@ export interface components {
             items: components["schemas"]["EventTreeNode"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** Example */
+        Example: {
+            /** Text */
+            text: string;
+            /** Translation */
+            translation?: string | null;
         };
         /** Extent */
         Extent: {
@@ -2676,6 +2798,53 @@ export interface components {
         };
         Icon: string;
         Id: string;
+        /**
+         * ImportIn
+         * @description A CSV document (UTF-8 text with a header row) and how its columns map to fields.
+         */
+        ImportIn: {
+            /** Csv */
+            csv: string;
+            /**
+             * Columns
+             * @description Header → field (`headword`, `romanization`, `pronunciation`, `part_of_speech`, `definitions`, `tags`, `etymology`, `notes`, or `` to skip). Default: headers that name a field.
+             */
+            columns?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** ImportProblem */
+        ImportProblem: {
+            /**
+             * Row
+             * @description 1-based data row (the header is row 0).
+             */
+            row: number;
+            /** Column */
+            column: string | null;
+            /** Message */
+            message: string;
+        };
+        /** ImportReport */
+        ImportReport: {
+            /** Rows */
+            rows: number;
+            /**
+             * Created
+             * @description Entries created (0 for a dry run or a refused import).
+             */
+            created: number;
+            /**
+             * Columns
+             * @description The mapping used: header → field.
+             */
+            columns: {
+                [key: string]: string;
+            };
+            /** Errors */
+            errors: components["schemas"]["ImportProblem"][];
+            affected?: components["schemas"]["Affected"] | null;
+        };
         /** InstantEnd */
         InstantEnd: {
             /**
@@ -2745,6 +2914,145 @@ export interface components {
             from_t: MomentString | null;
             /** To T */
             to_t: MomentString | null;
+        };
+        /** LexiconEntryCreate */
+        LexiconEntryCreate: {
+            /** Romanization */
+            romanization?: string | null;
+            /**
+             * Pronunciation
+             * @description IPA.
+             */
+            pronunciation?: string | null;
+            /**
+             * Part Of Speech
+             * @description Free text; suggested: noun, verb, adjective, adverb, pronoun, preposition, conjunction, interjection, particle, numeral, affix, phrase, other.
+             */
+            part_of_speech?: string | null;
+            /** Definitions */
+            definitions?: components["schemas"]["Definition"][];
+            etymology?: components["schemas"]["Etymology"];
+            /**
+             * Notes
+             * @description A rich-text document.
+             */
+            notes?: {
+                [key: string]: unknown;
+            } | null;
+            /** Tags */
+            tags?: string[];
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+            /** @description Required with an attestation bound: where it is dated. */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            /** @description First attested. */
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            /** @description Last attested. */
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            /** Sort Key */
+            sort_key?: string | null;
+            /** Headword */
+            headword: string;
+            /** Suppress */
+            suppress?: components["schemas"]["SuppressItem"][] | null;
+        };
+        /** LexiconEntryOut */
+        LexiconEntryOut: {
+            /** Id */
+            id: string;
+            /** Language Id */
+            language_id: string;
+            /** Headword */
+            headword: string;
+            /** Romanization */
+            romanization: string | null;
+            /** Pronunciation */
+            pronunciation: string | null;
+            /** Part Of Speech */
+            part_of_speech: string | null;
+            /** Definitions */
+            definitions: components["schemas"]["Definition"][];
+            etymology: components["schemas"]["Etymology"];
+            /** Notes */
+            notes: {
+                [key: string]: unknown;
+            } | null;
+            /** Tags */
+            tags: string[];
+            /** Collation Key */
+            collation_key: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Timeline Id */
+            timeline_id: string | null;
+            valid_from: components["schemas"]["TimePoint"] | null;
+            valid_to: components["schemas"]["TimePoint"] | null;
+            /** Valid From T */
+            valid_from_t: MomentString | null;
+            /** Valid To T */
+            valid_to_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
+        /**
+         * LexiconEntryUpdate
+         * @description Only the members sent change (``null`` clears a nullable one).
+         */
+        LexiconEntryUpdate: {
+            /** Revision */
+            revision: number;
+            /** Headword */
+            headword?: string | null;
+            /** Romanization */
+            romanization?: string | null;
+            /** Pronunciation */
+            pronunciation?: string | null;
+            /** Part Of Speech */
+            part_of_speech?: string | null;
+            /** Definitions */
+            definitions?: components["schemas"]["Definition"][] | null;
+            etymology?: components["schemas"]["Etymology"] | null;
+            /** Notes */
+            notes?: {
+                [key: string]: unknown;
+            } | null;
+            /** Tags */
+            tags?: string[] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            /** Sort Key */
+            sort_key?: string | null;
+            /** Suppress */
+            suppress?: components["schemas"]["SuppressItem"][] | null;
+        };
+        /** LexiconPage */
+        LexiconPage: {
+            /** Items */
+            items: components["schemas"]["LexiconEntryOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** LexiconWriteResult */
+        LexiconWriteResult: {
+            entry: components["schemas"]["LexiconEntryOut"];
+            affected: components["schemas"]["Affected"];
         };
         /** Life */
         Life: {
@@ -7240,6 +7548,243 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FamilyTree"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_list: {
+        parameters: {
+            query?: {
+                /** @description Start of a headword or romanization, or in a gloss. */
+                q?: string | null;
+                /** @description A part of speech. */
+                pos?: string | null;
+                tag?: string | null;
+                sort?: "collation" | "headword" | "recent";
+                cursor?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Language id. */
+                language_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexiconPage"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Language id. */
+                language_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LexiconEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexiconWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Lexicon entry id. */
+                entry_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexiconWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Lexicon entry id. */
+                entry_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LexiconEntryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexiconWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_import: {
+        parameters: {
+            query?: {
+                /** @description Only validate and report. */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Language id. */
+                language_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_export: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Language id. */
+                language_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             /** @description Problem */

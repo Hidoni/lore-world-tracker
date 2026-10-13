@@ -367,6 +367,22 @@ def _languages(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("languages.descended_from", varnish, secret)
     b.hidden("language", visibility="private", parent_id=varnish["id"], **home)
     b.hidden_link("languages.borrowed_from", trade, varnish, visibility="private")
+    # The lexicon: a private entry, an entry of the private language, a public one.
+    lexicon = f"{b.api.base}/m/languages/{varnish['id']}/lexicon"
+    for body in (
+        {"headword": "thalass", "definitions": [{"gloss": "the sea"}], "tags": ["sea"]},
+        {"headword": b.canary_string(), "visibility": "private", "tags": ["sea"],
+         "definitions": [{"gloss": b.canary_string()}]},
+    ):  # fmt: skip
+        made = b.api.client.post(lexicon, json=body)
+        assert made.status_code == 201, made.json()
+        if body.get("visibility") == "private":
+            b.canary.hidden_ids.add(made.json()["entry"]["id"])
+    hidden = b.api.client.post(
+        f"{b.api.base}/m/languages/{secret['id']}/lexicon", json={"headword": b.canary_string()}
+    )
+    assert hidden.status_code == 201, hidden.json()
+    b.canary.hidden_ids.add(hidden.json()["entry"]["id"])
 
 
 def _species(b: _Builder, home: dict[str, Any]) -> None:

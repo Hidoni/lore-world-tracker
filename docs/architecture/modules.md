@@ -147,7 +147,8 @@ not core's.
   target existing kinds; field types are unique; link-type keys and rule ids start with `<id>.`,
   are unique, rules' `owner` is the module and link types name existing kinds; module tables are
   prefixed `<id>_`, unique, not core tables and listed in `history_tables` (and no core table
-  uses a module prefix); kind
+  uses a module prefix; module models may use the core declarative base, whose metadata then
+  holds their tables too: a table is a module's when it is one of its models' tables, #97); kind
   extensions name existing kinds, at most one per kind.
 - Routers are always mounted, at `/api/v1/vaults/{vault_id}/m/<id>/`, and `create_app` adds the
   FastAPI dependency `require_module("<id>")` (`lore.core.api.deps`) to each, which returns
