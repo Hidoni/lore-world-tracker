@@ -233,7 +233,7 @@ class HistoryService:
         entities = EntityService(VaultContext(self.vault, self.session, self.registry))
         tables = recorded_tables(self.session)
         owners: set[str] = set()  # entities owning changed extension rows (dimensions, …)
-        links = LinkService(self.session, self.registry)
+        links = LinkService(self.session, self.registry, vault=self.vault)
         link_types = LinkTypeService(self.session, self.registry)
         for change in changes:
             if change.before is None:  # the revert deleted the row

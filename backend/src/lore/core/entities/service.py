@@ -761,7 +761,7 @@ class EntityService:
     # --- inline links (composite writes, api.md §1) ----------------------------------------------
 
     def _links(self) -> LinkService:
-        return LinkService(self.session, self.registry)
+        return LinkService(self.session, self.registry, vault=self.context.vault)
 
     def _add_links(self, entity: Entity, items: Sequence[EntityLinkAdd]) -> list[Link]:
         """Create ``links_add``: the entity fills the end the item leaves out. Error paths are

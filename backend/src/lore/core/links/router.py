@@ -40,29 +40,29 @@ KeyPath = Annotated[str, Path(pattern=LINK_TYPE_KEY_PATTERN, description="Link t
 
 @router.post("", name="create", status_code=201)
 def create_link(
-    body: LinkCreate, _vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+    body: LinkCreate, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
 ) -> LinkWriteResult:
     """Create a link (``422 link_type_not_allowed`` when the type doesn't fit, ``409 conflict``
     when a uniqueness or cardinality limit is reached)."""
-    return LinkService(session, registry).create(body)
+    return LinkService(session, registry, vault=vault).create(body)
 
 
 @router.patch("/{link_id}", name="update")
 def update_link(
     link_id: LinkIdPath,
     body: LinkUpdate,
-    _vault: WritableVaultDep,
+    vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
 ) -> LinkWriteResult:
     """Change role, data, visibility, validity or manual order (revision required)."""
-    return LinkService(session, registry).update(link_id, body)
+    return LinkService(session, registry, vault=vault).update(link_id, body)
 
 
 @router.delete("/{link_id}", name="delete")
 def delete_link(
     link_id: LinkIdPath,
-    _vault: WritableVaultDep,
+    vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
     suppress: Annotated[
@@ -71,7 +71,7 @@ def delete_link(
 ) -> LinkDeleteResult:
     """Move the link to the trash."""
     request_suppress(session, suppress.suppress if suppress else None)
-    return LinkService(session, registry).trash(link_id)
+    return LinkService(session, registry, vault=vault).trash(link_id)
 
 
 @types_router.get("", name="list")

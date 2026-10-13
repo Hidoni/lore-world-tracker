@@ -201,7 +201,7 @@ def test_validity_rules(api: LinkApi) -> None:
     link = api.made_link("world.reigns", a, b, timeline_id=timeline["id"], valid_to=LATER)
     assert link["valid_to"] == {**LATER, "approximate": False}
     assert link["valid_from"] is None
-    assert link["time_status"] is None  # resolved by #102
+    assert (link["time_status"], link["valid_to_t"]) == ("ok", "20")
     api.delete(timeline["dimension_id"])  # its prime timeline follows it into the trash
     assert invalid(
         api.link("world.reigns", b, a, timeline_id=timeline["id"], valid_from=POINT)

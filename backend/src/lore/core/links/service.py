@@ -8,8 +8,10 @@ Rules (decided 2026-10-04 where noted):
   available kinds. An entity can't link to itself (decided).
 - Symmetric types are stored once with ``source_id < target_id``.
 - Validity: ``temporal: never`` refuses bounds, ``required`` needs at least one. A link with bounds
-  needs a ``timeline_id``; a timeless link has none. Bounds are stored as time-point specs and
-  resolved (``*_t``, ``time_status``) by #102.
+  needs a ``timeline_id`` (default: the prime timeline of its source's dimension, else its
+  target's); a timeless link has none. Bounds are slots ``link:<id>.valid_from|valid_to``,
+  resolved and propagated by ``TimeWriter`` (#102): they may be anchored to events and referenced
+  by other dates.
 - Uniqueness and cardinality (``409 conflict``): ``per_pair`` counts every link of the pair.
   ``per_pair_per_period`` and ``max_*`` limits only count timeless links until validity periods
   resolve in #102 (decided): links with bounds are always accepted meanwhile.
@@ -59,13 +61,18 @@ from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext.models import Mention
 from lore.core.time.changes import report as report_time
+from lore.core.time.dependencies import SlotNode
+from lore.core.time.dimensions import prime_timeline
 from lore.core.time.models import Timeline
+from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
 from lore.core.vaults import OpenVault
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 TIMELINE_KIND = "timeline"
+LINK = "link"
+SLOTS = ("valid_from", "valid_to")
 
 
 class LinkTypeNotAllowedError(InvalidInputError):
@@ -103,6 +110,8 @@ def link_out(link: Link) -> LinkOut:
         timeline_id=link.timeline_id,
         valid_from=link.valid_from_spec,
         valid_to=link.valid_to_spec,
+        valid_from_t=link.valid_from_t,
+        valid_to_t=link.valid_to_t,
         time_status=link.time_status,
         sort_key=link.sort_key,
         revision=link.revision,
@@ -196,10 +205,12 @@ class LinkService:
             visibility=data.visibility,
             sort_key=data.sort_key,
         )
-        self._apply(link, info, data, set(data.model_fields_set) | {"data"})
+        sent = set(data.model_fields_set) | {"data"}
+        self._apply(link, info, data, sent, source=source, target=target)
         self._check_limits(info, link)
         self.session.add(link)
         self.session.flush()
+        self._write_times(link, {s for s in SLOTS if getattr(link, f"{s}_spec") is not None})
         return link
 
     def update(self, link_id: str, data: LinkUpdate) -> LinkWriteResult:
@@ -222,9 +233,14 @@ class LinkService:
             link.visibility = data.visibility
         if "sort_key" in sent:
             link.sort_key = data.sort_key
+        timeline_before = link.timeline_id
         self._apply(link, info, data, sent)
         self._check_limits(info, link)
         self.session.flush()
+        slots = {slot for slot in SLOTS if slot in sent}
+        if link.timeline_id != timeline_before:  # another dimension: the bounds resolve again
+            slots.update(s for s in SLOTS if getattr(link, f"{s}_spec") is not None)
+        self._write_times(link, slots)
         return LinkWriteResult(link=link_out(link), affected=self.affected([link]))
 
     def trash(self, link_id: str) -> LinkDeleteResult:
@@ -233,6 +249,7 @@ class LinkService:
         if link.deleted_at is None:
             link.deleted_at = utc_now()
             self.session.flush()
+            self._touch_dependents([link])
         return LinkDeleteResult(id=link.id, link=link_out(link), affected=self.affected([link]))
 
     def trash_for_entity(self, entity_id: str, link_ids: Sequence[str]) -> list[Link]:
@@ -249,6 +266,7 @@ class LinkService:
         if errors:
             raise InvalidInputError("Some links can't be removed.", errors=errors)
         self.session.flush()
+        self._touch_dependents(links)
         return links
 
     def affected(self, links: Sequence[Link]) -> Affected:
@@ -464,8 +482,13 @@ class LinkService:
         info: LinkTypeInfo,
         data: LinkCreate | LinkUpdate,
         sent: set[str],
+        *,
+        source: Entity | None = None,
+        target: Entity | None = None,
     ) -> None:
-        """Role, data and validity (shared by create and update)."""
+        """Role, data and validity (shared by create and update). A link given bounds without a
+        timeline gets the prime timeline of its ends' dimension; one losing its bounds loses its
+        timeline."""
         if "role" in sent:
             link.role = data.role
         if "data" in sent:
@@ -476,14 +499,59 @@ class LinkService:
                 raise InvalidInputError("The link data doesn't match its type.", errors=errors)
             link.data = data.data
         if "valid_from" in sent:
-            link.valid_from_spec = (
-                data.valid_from.model_dump(mode="json") if data.valid_from else None
-            )
+            link.valid_from_spec = data.valid_from
         if "valid_to" in sent:
-            link.valid_to_spec = data.valid_to.model_dump(mode="json") if data.valid_to else None
+            link.valid_to_spec = data.valid_to
         if "timeline_id" in sent:
             link.timeline_id = data.timeline_id
+        elif "valid_from" in sent or "valid_to" in sent:
+            bounded = link.valid_from_spec is not None or link.valid_to_spec is not None
+            if not bounded:
+                link.timeline_id = None
+            elif link.timeline_id is None:
+                link.timeline_id = self._default_timeline(link, source, target)
         self._check_validity(info, link)
+
+    def _default_timeline(
+        self, link: Link, source: Entity | None, target: Entity | None
+    ) -> str | None:
+        """The prime timeline of the dimension of the link's source (else its target)."""
+        ends = [source or self.session.get(Entity, link.source_id),
+                target or self.session.get(Entity, link.target_id)]  # fmt: skip
+        for end in ends:
+            if end is not None and end.dimension_id is not None:
+                prime = prime_timeline(self.session, end.dimension_id)
+                if prime is not None:
+                    return prime.id
+        return None  # both ends multiversal: the timeline must be given
+
+    # --- time -----------------------------------------------------------------------------------
+
+    def _writer(self) -> TimeWriter:
+        if self.vault is None:
+            raise RuntimeError("link time writes need the vault")
+        return TimeWriter(VaultContext(self.vault, self.session, self.registry))
+
+    def _write_times(self, link: Link, slots: set[str]) -> None:
+        """Store the changed bounds' specs and propagate (resolving them and what is anchored to
+        them); ``422 time_constraint`` when a bound can't resolve."""
+        if not slots:
+            return
+        writer = self._writer()
+        for slot in sorted(slots):
+            writer.set_spec(LINK, link.id, slot, getattr(link, f"{slot}_spec"))
+        writer.propagate(path="")
+
+    def _touch_dependents(self, links: Sequence[Link]) -> None:
+        """Trashed links: what is anchored to their bounds keeps its last moments
+        (``trashed_ref``)."""
+        bounded = [link for link in links if link.timeline_id is not None]
+        if not bounded:
+            return
+        writer = self._writer()
+        nodes = [SlotNode(LINK, link.id, slot) for link in bounded for slot in SLOTS]
+        writer.touch(*(d for node in nodes for d in writer.index.dependents_of(node)))
+        writer.propagate(path="")
 
     def _check_validity(self, info: LinkTypeInfo, link: Link) -> None:
         bounded = link.valid_from_spec is not None or link.valid_to_spec is not None

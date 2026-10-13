@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from lore.chronology.schema import TimePoint
 from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
-from lore.core.types import Affected
+from lore.core.types import Affected, MomentStr
 
 ID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 LINK_TYPE_KEY_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
@@ -164,8 +164,10 @@ class LinkOut(BaseModel):
     data: dict[str, Any]
     visibility: Visibility
     timeline_id: str | None
-    valid_from: dict[str, Any] | None
-    valid_to: dict[str, Any] | None
+    valid_from: TimePoint | None
+    valid_to: TimePoint | None
+    valid_from_t: MomentStr | None = Field(description="The start's resolved moment.")
+    valid_to_t: MomentStr | None = Field(description="The end's resolved moment (excluded).")
     time_status: str | None
     sort_key: str | None
     revision: int
