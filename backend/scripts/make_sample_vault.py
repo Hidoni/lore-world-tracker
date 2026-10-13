@@ -594,7 +594,7 @@ class Writer:
                 session,
                 context,
                 EntityService(context),
-                LinkService(session, self.registry),
+                LinkService(session, self.registry, vault=self.vault),
                 LinkTypeService(session, self.registry),
                 HistoryService(session, self.registry, self.vault),
             )
