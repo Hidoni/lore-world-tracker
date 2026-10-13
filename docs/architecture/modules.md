@@ -180,7 +180,7 @@ frontend/src/modules/<id>/
 ```ts
 defineModule({
   id: 'characters',
-  kinds: { character: { icon, color, panels: [...], listColumns: [...], createDefaults, groupBy } },
+  kinds: { character: { icon, color, panels: [...], listColumns: [...], createDefaults, groupBy, iconBy } },
   routes: (vaultRoute) => [...],                 // attached under /v/$vault
   navSections: [...],                            // sidebar sections
   entityPanels: [{ id, kinds, title, component, placement: 'main' | 'side', order }],

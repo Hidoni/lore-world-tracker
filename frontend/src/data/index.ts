@@ -126,4 +126,11 @@ export {
   useTimelines,
   useWindowTiles,
 } from './time'
+export {
+  useLocationEvents,
+  useLocationResidents,
+  useLocationTree,
+  type LocationEvent,
+  type LocationNode,
+} from './locations'
 export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'

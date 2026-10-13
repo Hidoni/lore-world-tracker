@@ -234,6 +234,7 @@ def build_canary_vault(data_dir: Path) -> Canary:
         )
 
         _events(b, home, secret, secret_year, realm)
+        _locations(b, home)
 
         canary.tags = {t["name"]: t["id"] for t in api.get(ghost["id"]).json()["tags"]}
         canary.hidden_ids.update(canary.tags.values())
@@ -290,6 +291,27 @@ def _events(
     _series(b, home, secret, plot)
     b.hidden("calendar", ext={"definition": YEARS}, dimension_id=realm["id"])
     b.hidden("event", dimension_id=realm["id"])
+
+
+def _locations(b: _Builder, home: dict[str, Any]) -> None:
+    """Locations: a private location inside a public city (its contents, events and residents
+    stay hidden), events there, a private event at the city, a private site link, and residents
+    by a private link or private themselves."""
+    varn = b.public("location", "Varn", fields={"location_type": "city"}, **home)
+    vault = b.hidden("location", visibility="private", parent_id=varn["id"], **home)
+    b.public("location", "Undercroft", parent_id=vault["id"], **home)  # a root for readers
+    b.public("location", "Market", parent_id=varn["id"], **home)
+    start = {"start": {"anchor": {"kind": "absolute", "t": "5"}, "precision": "base"}}
+    heist = b.public("event", "Heist", ext=start, **home)
+    b.api.made_link("locations.event_site", heist, vault)  # its only site is hidden
+    riot = b.public("event", "Riot", ext=start, **home)
+    b.hidden_link("locations.event_site", riot, varn, visibility="private")
+    secret_meeting = b.hidden("event", visibility="private", ext=start, **home)
+    b.api.made_link("locations.event_site", secret_meeting, varn)
+    lantern = b.public("gadget", "Street lamp", **home)
+    b.hidden_link("locations.resides_in", lantern, varn, visibility="private")
+    spy = b.hidden("gadget", visibility="private", **home)
+    b.api.made_link("locations.resides_in", spy, varn, data={"kind": "base"})
 
 
 def _series(

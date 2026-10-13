@@ -21,6 +21,8 @@ export interface KindUiConfig {
   createDefaults?: Readonly<Record<string, unknown>>
   /** A text field the sidebar section groups its top level by (misc: `category`). */
   groupBy?: string
+  /** Icons per value of a field (locations: per `location_type`), in the sidebar and lists. */
+  iconBy?: { field: string; icons: Readonly<Record<string, IconName>> }
 }
 
 export interface NavSection {

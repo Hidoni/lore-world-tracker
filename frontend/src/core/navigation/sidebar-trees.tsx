@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/context-menu'
 import { FindingsBadge } from '@/core/consistency'
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
-import { useKindRegistry, type Kind, type KindRegistry } from '@/core/registry'
+import { KindIcon, useKindRegistry, type Kind, type KindRegistry } from '@/core/registry'
 import {
   useDeleteEntity,
   useMutations,
@@ -390,10 +390,12 @@ function TreeLevel(props: LevelProps) {
   const { vault, kind, parent, path } = props
   // The top level of a grouped kind comes in groups (by a text field's value).
   const groupBy = parent === null && kind.groupBy !== null ? kind.groupBy : null
+  // Nodes carry the value of the field that groups them, or that picks their icon.
+  const field = groupBy ?? (kind.groupBy === null ? kind.iconField : null)
   const level = useTreeLevel(vault, {
     kind: [kind.key],
     ...(parent === null ? {} : { parent: parent.id }),
-    ...(groupBy === null ? {} : { group_by: groupBy }),
+    ...(field === null ? {} : { group_by: field }),
   })
   const nodes = level.data?.pages.flatMap((page) => page.items) ?? []
   const depth = path.length
@@ -412,13 +414,13 @@ function TreeLevel(props: LevelProps) {
       </p>
     )
   }
-  const field = kind.fields.find((candidate) => candidate.key === groupBy)
+  const groupField = kind.fields.find((candidate) => candidate.key === groupBy)
   return (
     <ul className="flex flex-col" aria-label={parent ? `Inside ${parent.name}` : undefined}>
       {groupBy === null
         ? nodes.map((node) => <TreeRow key={node.id} {...props} node={node} />)
         : groupNodes(nodes).map(([group, members]) => {
-            const title = group ?? `No ${(field?.label ?? groupBy).toLowerCase()}`
+            const title = group ?? `No ${(groupField?.label ?? groupBy).toLowerCase()}`
             return (
               <li key={group ?? ''} data-tree-group>
                 <p
@@ -503,7 +505,7 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
     disabled: !editable,
   })
   const valid = dragging !== null && canReparent(registry, dragging, node, path).ok
-  const Icon = registry.kind(node.kind)?.icon ?? kind.icon
+  const nodeKind = registry.kind(node.kind) ?? kind
   const creatable = childKinds(registry, node.kind)
   const childKind = creatable.find((candidate) => candidate.key === node.kind) ?? creatable[0]
   const current = params.entity === node.id
@@ -554,7 +556,12 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
               className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={onNavigate}
             >
-              <Icon aria-hidden className="size-4 shrink-0" style={{ color: kind.color }} />
+              <KindIcon
+                kind={nodeKind}
+                value={node.group}
+                className="size-4 shrink-0"
+                style={{ color: kind.color }}
+              />
               <span className="truncate">{node.name}</span>
             </Link>
             {node.multiversal && node.kind !== 'dimension' && (

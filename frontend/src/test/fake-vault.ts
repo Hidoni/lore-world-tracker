@@ -596,6 +596,80 @@ export function serveVault(
         })
       return HttpResponse.json(paged(items, url))
     }),
+    // The locations module's reads (docs/modules/locations.md).
+    http.get('*/api/v1/vaults/v1/m/locations/tree', ({ request }) => {
+      const url = new URL(request.url)
+      const root = url.searchParams.get('root')
+      const depth = Number(url.searchParams.get('depth') ?? '1')
+      const live = [...rows.values()].filter(
+        (entity) => entity.kind === 'location' && entity.deleted_at === null,
+      )
+      const level = (parent: string | null, remaining: number): unknown[] =>
+        live
+          .filter((entity) => entity.parent_id === parent)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((entity) => {
+            const count = live.filter((child) => child.parent_id === entity.id).length
+            const type = entity.fields.location_type
+            return {
+              id: entity.id,
+              name: entity.name,
+              visibility: entity.visibility,
+              dimension_id: entity.dimension_id,
+              parent_id: entity.parent_id,
+              multiversal: entity.dimension_id === null,
+              location_type: typeof type === 'string' ? type : null,
+              child_count: count,
+              children: remaining > 1 ? level(entity.id, remaining - 1) : null,
+            }
+          })
+      return HttpResponse.json({ root_id: root, items: level(root, depth), truncated: false })
+    }),
+    http.get('*/api/v1/vaults/v1/m/locations/:id/events', ({ request, params }) => {
+      const url = new URL(request.url)
+      const inside = url.searchParams.get('include_descendants') !== 'false'
+      const sites = [String(params.id)]
+      for (let i = 0; inside && i < sites.length; i++) {
+        for (const entity of rows.values()) {
+          if (entity.kind === 'location' && entity.parent_id === sites[i]) sites.push(entity.id)
+        }
+      }
+      const items = [...rows.values()]
+        .filter((entity) => entity.kind === 'event' && entity.deleted_at === null)
+        .map((entity) => ({
+          entity,
+          at: [...links.values()]
+            .filter(
+              (link) =>
+                link.link_type === 'locations.event_site' &&
+                link.source_id === entity.id &&
+                sites.includes(link.target_id),
+            )
+            .map((link) => link.target_id),
+          start: String((entity.ext as { start_t?: string } | undefined)?.start_t ?? '0'),
+        }))
+        .filter((item) => item.at.length > 0)
+        .sort((a, b) => Number(BigInt(a.start) - BigInt(b.start)))
+        .map(({ entity, at, start }) => ({
+          id: entity.id,
+          name: entity.name,
+          visibility: entity.visibility,
+          start_t: start,
+          end_t: start,
+          time_status: 'ok',
+          importance: 3,
+          display: { calendar_id: 'absolute', start: `${start} s`, end: `${start} s` },
+          site_ids: at,
+        }))
+      return HttpResponse.json({ items, truncated: false })
+    }),
+    http.get('*/api/v1/vaults/v1/m/locations/:id/residents', ({ params }) =>
+      HttpResponse.json({
+        items: entityLinks(String(params.id)).filter(
+          (item) => item.link.link_type === 'locations.resides_in' && item.direction === 'in',
+        ),
+      }),
+    ),
     http.get('*/api/v1/vaults/v1/entities/field-values', ({ request }) => {
       const url = new URL(request.url)
       const kindKey = url.searchParams.get('kind')

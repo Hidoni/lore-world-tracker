@@ -22,11 +22,23 @@ const VAULT_WIDE = [
   'causality',
   // A series' list changes with its occurrences' writes (cancel, materialize), keyed by the series.
   'occurrences',
+  // Module reads built from entities and links (names, sites, residents).
+  'locationTree',
+  'locationEvents',
+  'locationResidents',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']
 /** Areas that show resolved moments. */
-const TIME = ['window', 'eventTree', 'causality', 'occurrences', 'timelines', 'resolve']
+const TIME = [
+  'window',
+  'eventTree',
+  'causality',
+  'occurrences',
+  'timelines',
+  'resolve',
+  'locationEvents',
+]
 const SEARCH = ['search', 'quickSearch']
 
 /**

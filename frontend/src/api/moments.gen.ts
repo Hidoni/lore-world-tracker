@@ -83,6 +83,21 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "hi": "m"
     }
   },
+  "LocationEvent": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "LocationEvents": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "LocationEvent"
+        }
+      }
+    }
+  },
   "OccurrenceOut": {
     "o": {
       "start_t": "m",

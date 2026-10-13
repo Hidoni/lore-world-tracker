@@ -62,6 +62,23 @@ None.
 - A **location tree view** page (`/m/locations/tree`): a collapsible outline with filters by type.
 - Event page: a "Location" quick field (sets `locations.event_site`).
 
+Implementation (#90): `backend/src/lore/modules/locations/` and `frontend/src/modules/locations/`.
+
+- The tree endpoint reads the core tree (`/tree` with `group_by=location_type`), so roots,
+  visibility and the trash work as in the sidebar. "Events here" looks for visible, live
+  locations below the location through visible parents only (a hidden location hides what it
+  contains), up to 5,000, and lists each event once with all of its listed sites.
+- `resides_in` accepts any source kind; "not a location" is a convention for now.
+- UI: the kind's config sets `iconBy` (an icon per type) for the sidebar tree and lists. The panels are
+  Contents (`/m/locations/tree?root=`), Events here (the time context's timeline, with an
+  "Include places inside" toggle), Residents and Connections (marking ends in other
+  dimensions). The tree page is `/v/<vault>/m/locations/tree`, linked from Contents and the
+  command palette, with a type filter that keeps ancestors of matches. The event page's
+  "Location" side panel sets, replaces and removes `event_site` links.
+- The sample world has The Shimmering Reach (galaxy) → … → Hall of Tides (room) and The Void
+  Between Worlds (plane) with event sites, an origin, a resident and a portal.
+- Consistency rules come with #106.
+
 ## Consistency rules
 
 | Id | Default | Check |

@@ -34,6 +34,10 @@ export interface Kind {
   createDefaults: Readonly<Record<string, unknown>>
   /** The text field the sidebar groups the kind's top level by, if any. */
   groupBy: string | null
+  /** The field whose value picks an entity's icon (`iconFor`), if any. */
+  iconField: string | null
+  /** The icon of an entity of this kind whose `iconField` has `value`. */
+  iconFor: (value: string | null | undefined) => LucideIcon
 }
 
 export interface LinkType extends Readonly<Schemas['LinkTypeOut']> {
@@ -84,6 +88,11 @@ export function buildKindRegistry(
       listColumns: config.listColumns ?? [],
       createDefaults: config.createDefaults ?? {},
       groupBy: config.groupBy ?? null,
+      iconField: config.iconBy?.field ?? null,
+      iconFor: (value) => {
+        const name = value == null ? undefined : config.iconBy?.icons[value]
+        return name === undefined ? iconFor(iconName) : iconFor(name)
+      },
     }
   })
   const linkTypes = registry.link_types.map((linkType): LinkType => ({

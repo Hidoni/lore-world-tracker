@@ -42,4 +42,9 @@ export const keys = {
     [vault, 'window', timeline, params] as const,
   occurrences: (vault: string, event: string, params: object) =>
     [vault, 'occurrences', event, params] as const,
+  locationTree: (vault: string, params: object) => [vault, 'locationTree', params] as const,
+  locationEvents: (vault: string, location: string, params: object) =>
+    [vault, 'locationEvents', location, params] as const,
+  locationResidents: (vault: string, location: string) =>
+    [vault, 'locationResidents', location] as const,
 }
