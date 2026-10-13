@@ -1235,6 +1235,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/groups/{group_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members
+         * @description Everyone and everything `groups.member_of` the group (and, with ``include_subgroups``,
+         *     its sub-groups), at any time (as-of filtering comes with the time cursor). ``404`` for a
+         *     group the request may not see.
+         */
+        get: operations["groups_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/groups/{group_id}/leaders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leaders
+         * @description The leadership succession (`groups.led_by`): timeless leaders first, then by the start of
+         *     their validity. ``404`` for a group the request may not see.
+         */
+        get: operations["groups_leaders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/groups/{group_id}/territory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Territory
+         * @description The locations the group controls (`groups.controls`), at any time. ``404`` for a group
+         *     the request may not see.
+         */
+        get: operations["groups_territory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2506,6 +2570,25 @@ export interface components {
             fields: components["schemas"]["FieldOut"][];
         };
         Label: string;
+        /** Leaders */
+        Leaders: {
+            /**
+             * Items
+             * @description Timeless leaders first, then by the start of their validity.
+             */
+            items: components["schemas"]["Leadership"][];
+        };
+        /** Leadership */
+        Leadership: {
+            item: components["schemas"]["EntityLink"];
+            /**
+             * From T
+             * @description Start of the validity (`null`: timeless).
+             */
+            from_t: MomentString | null;
+            /** To T */
+            to_t: MomentString | null;
+        };
         /** Life */
         Life: {
             /** Items */
@@ -2865,6 +2948,20 @@ export interface components {
              * @description Some levels were cut at `limit` nodes.
              */
             truncated: boolean;
+        };
+        /** Members */
+        Members: {
+            /** Items */
+            items: components["schemas"]["Membership"][];
+        };
+        /** Membership */
+        Membership: {
+            /**
+             * Group Id
+             * @description The group (or sub-group) the member belongs to.
+             */
+            group_id: string;
+            item: components["schemas"]["EntityLink"];
         };
         /**
          * MentionCountsOut
@@ -6759,6 +6856,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Life"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    groups_members: {
+        parameters: {
+            query?: {
+                include_subgroups?: boolean;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Group id. */
+                group_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Members"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    groups_leaders: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Group id. */
+                group_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Leaders"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    groups_territory: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Group id. */
+                group_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityLinks"];
                 };
             };
             /** @description Problem */

@@ -28,6 +28,9 @@ const VAULT_WIDE = [
   'locationResidents',
   'characterRelationships',
   'characterLife',
+  'groupMembers',
+  'groupLeaders',
+  'groupTerritory',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']

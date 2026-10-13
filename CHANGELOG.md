@@ -23,6 +23,11 @@ All notable changes to this project are documented here. The format follows
   field. A character page groups their relationships, lists the events of their life on the
   timeline, and shows their affiliations from other modules. The sample world gains three
   generations of the royal house of Varn.
+- **Groups** (#94): organizations (governments, guilds, houses, secret societies…) with
+  sub-groups, members with ranks and titles, leaders, alliances, wars, vassalage and territory.
+  A group page lists its members (with sub-groups on request), structure, leadership, relations
+  with other groups and territory. Characters can now serve groups. The sample world gains an
+  empire with ministries, a secret society and a war.
 
 ## [0.4.0] - 2026-10-12
 

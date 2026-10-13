@@ -596,6 +596,37 @@ export function serveVault(
         })
       return HttpResponse.json(paged(items, url))
     }),
+    // The groups module's reads (docs/modules/groups.md).
+    http.get('*/api/v1/vaults/v1/m/groups/:id/members', ({ request, params }) => {
+      const inside = new URL(request.url).searchParams.get('include_subgroups') === 'true'
+      const groups = [String(params.id)]
+      for (let i = 0; inside && i < groups.length; i++) {
+        for (const entity of rows.values()) {
+          if (entity.kind === 'group' && entity.parent_id === groups[i]) groups.push(entity.id)
+        }
+      }
+      return HttpResponse.json({
+        items: groups.flatMap((group) =>
+          entityLinks(group)
+            .filter((item) => item.link.link_type === 'groups.member_of' && item.direction === 'in')
+            .map((item) => ({ group_id: group, item })),
+        ),
+      })
+    }),
+    http.get('*/api/v1/vaults/v1/m/groups/:id/leaders', ({ params }) =>
+      HttpResponse.json({
+        items: entityLinks(String(params.id))
+          .filter((item) => item.link.link_type === 'groups.led_by' && item.direction === 'out')
+          .map((item) => ({ item, from_t: null, to_t: null })),
+      }),
+    ),
+    http.get('*/api/v1/vaults/v1/m/groups/:id/territory', ({ params }) =>
+      HttpResponse.json({
+        items: entityLinks(String(params.id)).filter(
+          (item) => item.link.link_type === 'groups.controls' && item.direction === 'out',
+        ),
+      }),
+    ),
     // The characters module's reads (docs/modules/characters.md).
     http.get('*/api/v1/vaults/v1/m/characters/:id/relationships', ({ params }) => {
       const category = (key: string) =>

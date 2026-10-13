@@ -150,3 +150,10 @@ EXTRA = ModuleSpec(
 # The real misc module provides `misc`, the parent the test kinds use.
 MISC = misc.MODULE
 ENTITY_MODULES = (MISC, WORLD, EXTRA)
+
+
+def with_real_modules() -> tuple[ModuleSpec, ...]:
+    """The test modules plus every real module (their link types name each other's kinds)."""
+    from lore.modules import ALL_MODULES  # noqa: PLC0415
+
+    return (*ENTITY_MODULES, *(module for module in ALL_MODULES if module is not MISC))

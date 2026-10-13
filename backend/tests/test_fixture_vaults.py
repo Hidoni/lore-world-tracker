@@ -217,11 +217,12 @@ def test_the_generator_is_deterministic_for_a_seed(
         "character": 8,
         "dimension": 4,
         "event": 48 + 120,
+        "group": 6,
         "location": 9,
         "misc": 4,
         "timeline": 4,
     }
-    assert first.links == 37 + 150
+    assert first.links == 49 + 150
     assert (first.entities, first.links) == (second.entities, second.links)
     assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
     assert _content(tmp_path / "a", first.vault_id) != _content(tmp_path / "c", other.vault_id)
@@ -273,7 +274,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "88 entities, 37 links" in capsys.readouterr().out
+    assert "94 entities, 49 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 

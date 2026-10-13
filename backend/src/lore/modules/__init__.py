@@ -5,11 +5,12 @@ from sqlalchemy import MetaData
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleSpec
 from lore.modules.characters import MODULE as CHARACTERS
+from lore.modules.groups import MODULE as GROUPS
 from lore.modules.locations import MODULE as LOCATIONS
 from lore.modules.misc import MODULE as MISC
 
 # Every module's spec, in dependency order. Explicit: no entry points, no discovery (§2.2).
-ALL_MODULES: list[ModuleSpec] = [MISC, LOCATIONS, CHARACTERS]
+ALL_MODULES: list[ModuleSpec] = [MISC, LOCATIONS, CHARACTERS, GROUPS]
 
 
 def load_metadata() -> MetaData:

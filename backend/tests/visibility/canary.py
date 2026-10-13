@@ -297,6 +297,7 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     """Private content of the real modules' kinds and links."""
     _locations(b, home)
     _characters(b, home)
+    _groups(b, home)
 
 
 def _locations(b: _Builder, home: dict[str, Any]) -> None:
@@ -336,6 +337,24 @@ def _characters(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("core.participant", tryst, queen)
     duel = b.public("event", "Duel", ext=start, **home)
     b.hidden_link("core.participant", duel, heir, visibility="private", role=b.canary_string())
+
+
+def _groups(b: _Builder, home: dict[str, Any]) -> None:
+    """Groups: a private sub-group with a member, a member by a private link, a private member,
+    a private leader and a hidden territory."""
+    empire = b.public("group", "Empire", **home)
+    b.public("group", "Ministry", parent_id=empire["id"], **home)
+    cabal = b.hidden("group", visibility="private", parent_id=empire["id"], **home)
+    agent = b.public("character", "Agent", **home)
+    b.api.made_link("groups.member_of", agent, cabal, data={"rank": "adept"})
+    b.hidden_link(
+        "groups.member_of", agent, empire, visibility="private", data={"title": b.canary_string()}
+    )
+    spy = b.hidden("character", visibility="private", **home)
+    b.api.made_link("groups.member_of", spy, empire)
+    b.api.made_link("groups.led_by", empire, spy)
+    vault = b.hidden("location", visibility="private", **home)
+    b.api.made_link("groups.controls", empire, vault)
 
 
 def _series(

@@ -7,15 +7,14 @@ from typing import Any
 
 import pytest
 
-from lore.modules.characters import MODULE as CHARACTERS
 from lore.modules.characters.links import CATEGORIES
 from tests.entity_api import LinkApi, make_client, problem
-from tests.entity_modules import ENTITY_MODULES
+from tests.entity_modules import with_real_modules
 
 
 @pytest.fixture
 def api(tmp_path: Path) -> Iterator[LinkApi]:
-    with make_client(tmp_path, (*ENTITY_MODULES, CHARACTERS)) as client:
+    with make_client(tmp_path, with_real_modules()) as client:
         yield LinkApi(client)
 
 

@@ -133,6 +133,13 @@ export {
   type RelationshipGroup,
 } from './characters'
 export {
+  useGroupLeaders,
+  useGroupMembers,
+  useGroupTerritory,
+  type Leadership,
+  type Membership,
+} from './groups'
+export {
   useLocationEvents,
   useLocationResidents,
   useLocationTree,

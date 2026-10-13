@@ -80,8 +80,7 @@ None.
 - **Relationship web** = the local graph filtered to character relationship types (graph module).
 
 Implementation (#92): `backend/src/lore/modules/characters/` and
-`frontend/src/modules/characters/`. `characters.serves` targets characters until the groups
-module (#94) adds its kind. Panels: **Relationships** (Family, Social, Other, with `data.kind`,
+`frontend/src/modules/characters/`. `characters.serves` targets characters and groups (#94). Panels: **Relationships** (Family, Social, Other, with `data.kind`,
 capacity and roles, and "Add relationship" through the link dialog), **Life** (the time
 context's timeline), **Affiliations** (the `out` links of `groups.member_of`,
 `locations.resides_in`, `locations.origin`, `species.is_a` and `languages.speaks` of the enabled

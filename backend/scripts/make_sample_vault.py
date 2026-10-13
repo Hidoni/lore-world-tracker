@@ -20,7 +20,8 @@ The world has two parts:
   type, with referenced, modified and cancelled occurrences, a sub-event of an occurrence and an
   anchor to an occurrence; sub-events and causes. Misc entries (M6): a topic holding
   children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
-  Characters (M6): three generations with spouses, siblings and a rival.
+  Characters (M6): three generations with spouses, siblings and a rival. Groups (M6): an empire
+  with ministries, a secret society and a war.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -30,7 +31,7 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-other module kinds (M6, M7; misc entries since #89, locations since #90, characters since #92),
+other module kinds (M6, M7; since #89: misc entries, locations, characters, groups),
 correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
 regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
@@ -1235,6 +1236,59 @@ def _core_characters(writer: Writer, core: Core) -> None:
         s.link("locations.resides_in", ilsa, core["Varn"], data={"kind": "home"})
 
 
+def _core_groups(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Groups (M6): an empire with ministries and a vassal house, a private secret society, a
+    war, members with ranks, leaders and territory."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    with writer.transaction("Sample world: groups") as s:
+        empire = s.entity(
+            "group",
+            "Empire of the Tides",
+            fields={"group_type": "government", "motto": "The sea remembers."},
+            **home,
+        )
+        core.ids["Empire of the Tides"] = empire
+        for name in ("Ministry of Tides", "Ministry of Coin"):
+            core.ids[name] = s.entity(
+                "group", name, parent_id=empire, fields={"group_type": "government"}, **home
+            )
+        core.ids["House Varn"] = s.entity(
+            "group", "House Varn", fields={"group_type": "noble_house"}, **home
+        )
+        core.ids["The Whisperers"] = s.entity(
+            "group",
+            "The Whisperers",
+            visibility="private",
+            fields={"group_type": "secret_society"},
+            **home,
+        )
+        core.ids["The Free Shoals"] = s.entity(
+            "group", "The Free Shoals", fields={"group_type": "tribe"}, **home
+        )
+        s.link("groups.member_of", core["Ilsa the Tidebound"], empire, data={"rank": "Empress"})
+        s.link(
+            "groups.member_of",
+            core["Lord Tavish"],
+            core["Ministry of Tides"],
+            data={"title": "Minister"},
+        )
+        s.link(
+            "groups.member_of", core["Duke Halvard"], core["The Whisperers"], visibility="private"
+        )
+        s.link(
+            "groups.member_of", core["King Aldric"], core["House Varn"], data={"is_leader": True}
+        )
+        s.link("groups.led_by", empire, core["Ilsa the Tidebound"], data={"title": "Empress"})
+        s.link("groups.led_by", core["House Varn"], core["King Aldric"])
+        s.link("groups.vassal_of", core["House Varn"], empire)
+        s.link("groups.part_of", core["House Varn"], empire)
+        s.link("groups.at_war_with", empire, core["The Free Shoals"])
+        s.link("groups.allied_with", empire, core["House Varn"])
+        s.link("groups.controls", empire, core["Kingdom of Varn"])
+        s.link("characters.serves", core["Lord Tavish"], empire, data={"capacity": "consort"})
+    world.reader_hidden.append("The Whisperers")
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1308,6 +1362,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_misc(writer, core)
     _core_locations(writer, core)
     _core_characters(writer, core)
+    _core_groups(writer, core, world)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)
