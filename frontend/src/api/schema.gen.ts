@@ -1299,6 +1299,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/languages/family-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Family Tree
+         * @description The language family graph: languages the request sees with the `descended_from` and
+         *     `borrowed_from` links between them, and dialect edges to their parent languages.
+         */
+        get: operations["languages_family_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2357,6 +2378,53 @@ export interface components {
              * @example 31557600000
              */
             hi: MomentString;
+        };
+        /** FamilyEdge */
+        FamilyEdge: {
+            /**
+             * Id
+             * @description The link's id, or `dialect:<child id>` for a dialect.
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "descended_from" | "borrowed_from" | "dialect";
+            /**
+             * Source Id
+             * @description The descendant, the borrower or the dialect.
+             */
+            source_id: string;
+            /**
+             * Target Id
+             * @description The ancestor, the lender or the parent language.
+             */
+            target_id: string;
+        };
+        /** FamilyNode */
+        FamilyNode: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Dimension Id */
+            dimension_id: string | null;
+            /**
+             * Parent Id
+             * @description The language it is a dialect of, if shown.
+             */
+            parent_id: string | null;
+        };
+        /** FamilyTree */
+        FamilyTree: {
+            /** Nodes */
+            nodes: components["schemas"]["FamilyNode"][];
+            /** Edges */
+            edges: components["schemas"]["FamilyEdge"][];
+            /** Truncated */
+            truncated: boolean;
         };
         /** FieldOptionOut */
         FieldOptionOut: {
@@ -6968,6 +7036,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_family_tree: {
+        parameters: {
+            query?: {
+                /** @description Languages of a dimension (and multiversal ones). */
+                dimension?: string | null;
+                /** @description Languages at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyTree"];
                 };
             };
             /** @description Problem */

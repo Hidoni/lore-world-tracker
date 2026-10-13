@@ -596,6 +596,51 @@ export function serveVault(
         })
       return HttpResponse.json(paged(items, url))
     }),
+    // The languages module's family graph (docs/modules/languages.md).
+    http.get('*/api/v1/vaults/v1/m/languages/family-tree', () => {
+      const languages = [...rows.values()]
+        .filter((entity) => entity.kind === 'language' && entity.deleted_at === null)
+        .sort((a, b) => a.name.localeCompare(b.name))
+      const ids = new Set(languages.map((language) => language.id))
+      const kinds: Record<string, string> = {
+        'languages.descended_from': 'descended_from',
+        'languages.borrowed_from': 'borrowed_from',
+      }
+      return HttpResponse.json({
+        nodes: languages.map((language) => ({
+          id: language.id,
+          name: language.name,
+          visibility: language.visibility,
+          dimension_id: language.dimension_id,
+          parent_id:
+            language.parent_id !== null && ids.has(language.parent_id) ? language.parent_id : null,
+        })),
+        edges: [
+          ...[...links.values()]
+            .filter(
+              (link) =>
+                kinds[link.link_type] !== undefined &&
+                ids.has(link.source_id) &&
+                ids.has(link.target_id),
+            )
+            .map((link) => ({
+              id: link.id,
+              kind: kinds[link.link_type],
+              source_id: link.source_id,
+              target_id: link.target_id,
+            })),
+          ...languages
+            .filter((language) => language.parent_id !== null && ids.has(language.parent_id))
+            .map((language) => ({
+              id: `dialect:${language.id}`,
+              kind: 'dialect',
+              source_id: language.id,
+              target_id: language.parent_id,
+            })),
+        ],
+        truncated: false,
+      })
+    }),
     // The groups module's reads (docs/modules/groups.md).
     http.get('*/api/v1/vaults/v1/m/groups/:id/members', ({ request, params }) => {
       const inside = new URL(request.url).searchParams.get('include_subgroups') === 'true'
