@@ -127,6 +127,12 @@ export {
   useWindowTiles,
 } from './time'
 export {
+  useCharacterLife,
+  useCharacterRelationships,
+  type LifeEvent,
+  type RelationshipGroup,
+} from './characters'
+export {
   useLocationEvents,
   useLocationResidents,
   useLocationTree,

@@ -18,6 +18,11 @@ All notable changes to this project are documented here. The format follows
   between dimensions). A location page lists its contents, the events there (and inside it) and
   its residents and connections. There is a location tree page, and event pages get a
   "Location" field. The sample world gains a galaxy-to-room hierarchy.
+- **Characters** (#92): people with family (parent, sibling, spouse), social (romance, friend,
+  rival, enemy, mentor, serves) and custom relationships, and a private-by-default "Secret"
+  field. A character page groups their relationships, lists the events of their life on the
+  timeline, and shows their affiliations from other modules. The sample world gains three
+  generations of the royal house of Varn.
 
 ## [0.4.0] - 2026-10-12
 

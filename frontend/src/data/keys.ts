@@ -47,4 +47,8 @@ export const keys = {
     [vault, 'locationEvents', location, params] as const,
   locationResidents: (vault: string, location: string) =>
     [vault, 'locationResidents', location] as const,
+  characterRelationships: (vault: string, character: string) =>
+    [vault, 'characterRelationships', character] as const,
+  characterLife: (vault: string, character: string, params: object) =>
+    [vault, 'characterLife', character, params] as const,
 }

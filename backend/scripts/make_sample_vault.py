@@ -20,6 +20,7 @@ The world has two parts:
   type, with referenced, modified and cancelled occurrences, a sub-event of an occurrence and an
   anchor to an occurrence; sub-events and causes. Misc entries (M6): a topic holding
   children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
+  Characters (M6): three generations with spouses, siblings and a rival.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -29,7 +30,7 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-characters and other module kinds (M6, M7; misc entries since #89, locations since #90),
+other module kinds (M6, M7; misc entries since #89, locations since #90, characters since #92),
 correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
 regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
@@ -1194,6 +1195,46 @@ def _core_locations(writer: Writer, core: Core) -> None:
         )
 
 
+def _core_characters(writer: Writer, core: Core) -> None:
+    """Characters (M6): three generations of the royal house with spouses and siblings, a rival
+    with a secret, a mentor, a resident and roles in events."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    people = (
+        ("King Aldric", {"epithet": "the Elder", "title": ["King of Varn"]}),
+        ("Queen Maren", {"occupation": ["Tidecaller"]}),
+        ("Ilsa the Tidebound", {"full_name": "Ilsa Maren-Varn", "title": ["Queen of Varn"]}),
+        ("Prince Corin", {}),
+        ("Lord Tavish", {}),
+        ("Wren", {}),
+        ("Bram", {}),
+        ("Duke Halvard", {"secret": "He sold the Spire's plans to the Accord."}),
+    )
+    with writer.transaction("Sample world: characters") as s:
+        for name, fields in people:
+            core.ids[name] = s.entity("character", name, fields=fields, **home)
+        aldric, maren, ilsa = core["King Aldric"], core["Queen Maren"], core["Ilsa the Tidebound"]
+        corin, tavish, halvard = core["Prince Corin"], core["Lord Tavish"], core["Duke Halvard"]
+        s.link("characters.spouse_of", aldric, maren, data={"kind": "marriage"})
+        s.link("characters.spouse_of", ilsa, tavish, data={"kind": "marriage"})
+        for parent in (aldric, maren):
+            for child in (ilsa, corin):
+                s.link("characters.parent_of", parent, child, data={"kind": "biological"})
+        for child in ("Wren", "Bram"):
+            for parent in (ilsa, tavish):
+                s.link("characters.parent_of", parent, core[child], data={"kind": "biological"})
+        s.link("characters.sibling_of", ilsa, corin, data={"kind": "full"})
+        s.link("characters.sibling_of", core["Wren"], core["Bram"], data={"kind": "full"})
+        s.link("characters.rival_of", ilsa, halvard)
+        s.link("characters.enemy_of", corin, halvard, visibility="private")
+        s.link("characters.mentor_of", maren, ilsa)
+        s.link("characters.serves", tavish, ilsa, data={"capacity": "consort"})
+        s.link("characters.relationship", halvard, core["Wren"], role="godfather")
+        s.link("core.participant", core["Coronation of Ilsa"], ilsa, role="queen")
+        s.link("core.participant", core["Coronation of Ilsa"], halvard, role="witness")
+        s.link("core.participant", core["Founding of Varn"], aldric, role="founder")
+        s.link("locations.resides_in", ilsa, core["Varn"], data={"kind": "home"})
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1266,6 +1307,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_series(writer, core, world)
     _core_misc(writer, core)
     _core_locations(writer, core)
+    _core_characters(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)

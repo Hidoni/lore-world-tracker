@@ -78,6 +78,13 @@ export interface DataSource {
     query: Query<'locations_events'>,
   ): Promise<D<'LocationEvents'>>
   locationResidents(vault: string, location: string): Promise<D<'EntityLinks'>>
+  // The characters module (docs/modules/characters.md).
+  characterRelationships(vault: string, character: string): Promise<D<'Relationships'>>
+  characterLife(
+    vault: string,
+    character: string,
+    query: Query<'characters_life'>,
+  ): Promise<D<'Life'>>
 }
 
 /**

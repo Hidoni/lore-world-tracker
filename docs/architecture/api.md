@@ -230,7 +230,7 @@ understood, or that only leaves out, answers `422` with the reason on `q`.
 
 | Module | Endpoints |
 |--------|-----------|
-| characters | `GET /m/characters/{id}/family-tree?up=&down=&include_spouses=&include_siblings=&timeline=`, `GET /m/characters/{id}/relationships?timeline=&at=` |
+| characters | `GET /m/characters/{id}/family-tree?up=&down=&include_spouses=&include_siblings=&timeline=`, `GET /m/characters/{id}/relationships?timeline=&at=` (#92: `{groups: [{category: family\|social\|custom, items: EntityLink[]}]}`, all three in order; custom = `characters.relationship` and user-defined `custom.*` link types to characters; `timeline`/`at` come with the time cursor, M7), `GET /m/characters/{id}/life?timeline=&limit=` (#92: the events the timeline shows the character takes part in through a visible `core.participant` link, by start, with `roles`) |
 | groups | `GET /m/groups/{id}/org-chart?timeline=&at=&depth=`, `GET /m/groups/{id}/members?timeline=&at=&include_subgroups=`, `GET /m/groups/{id}/leaders?timeline=`, `GET /m/groups/{id}/territory?timeline=&at=` |
 | locations | `GET /m/locations/tree?dimension=&root=&depth=&limit=` (nested `LocationNode`s with `location_type` and `child_count`; `children` within `depth`, else `null`), `GET /m/locations/{id}/events?timeline=&include_descendants=&from=&to=&limit=` (events the timeline shows whose `event_site` is the location or a visible location inside it, by start, with `site_ids`; `timeline` is required), `GET /m/locations/{id}/residents` (the `resides_in` links to it, as `EntityLinks`; `timeline=&at=` come with the time cursor, M7) (#90) |
 | species | `GET /m/species/{id}/members?timeline=&at=`, `GET /m/species/descent-tree?dimension=` |

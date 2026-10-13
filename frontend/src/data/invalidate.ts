@@ -26,6 +26,8 @@ const VAULT_WIDE = [
   'locationTree',
   'locationEvents',
   'locationResidents',
+  'characterRelationships',
+  'characterLife',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']
@@ -38,6 +40,7 @@ const TIME = [
   'timelines',
   'resolve',
   'locationEvents',
+  'characterLife',
 ]
 const SEARCH = ['search', 'quickSearch']
 
