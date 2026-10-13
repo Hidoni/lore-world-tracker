@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 
 import { useKindRegistry } from '@/core/registry'
+import { certaintyProps } from '@/core/time'
 import type { EntityLink } from '@/data'
+import { cn } from '@/lib/utils'
 
 /** Words for the `data.kind` values of the module's link types. */
 const KINDS: Record<string, string> = {
@@ -44,7 +46,14 @@ export function LinkRows({
         const Icon = registry?.kind(item.other.kind)?.icon
         const detail = linkDetail(item)
         return (
-          <li key={item.link.id} className="flex flex-wrap items-center gap-1.5 text-sm">
+          <li
+            key={item.link.id}
+            {...certaintyProps(item.certainty)}
+            className={cn(
+              'flex flex-wrap items-center gap-1.5 text-sm',
+              certaintyProps(item.certainty).className,
+            )}
+          >
             <span className="text-muted-foreground">{item.label}</span>
             {Icon && <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
             <Link

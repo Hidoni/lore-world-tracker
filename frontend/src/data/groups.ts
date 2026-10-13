@@ -27,9 +27,14 @@ export function useGroupOrgChart(
 }
 
 /** Members of a group (and of its sub-groups), at any time. */
-export function useGroupMembers(vault: string, group: string, includeSubgroups: boolean) {
+export function useGroupMembers(
+  vault: string,
+  group: string,
+  includeSubgroups: boolean,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
-  const query = { include_subgroups: includeSubgroups }
+  const query = { include_subgroups: includeSubgroups, ...asOf }
   return useQuery({
     queryKey: keys.groupMembers(vault, group, query),
     queryFn: () => source.groupMembers(vault, group, query),
@@ -38,19 +43,27 @@ export function useGroupMembers(vault: string, group: string, includeSubgroups: 
 }
 
 /** The leadership succession of a group. */
-export function useGroupLeaders(vault: string, group: string) {
+export function useGroupLeaders(
+  vault: string,
+  group: string,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
   return useQuery({
-    queryKey: keys.groupLeaders(vault, group),
-    queryFn: () => source.groupLeaders(vault, group),
+    queryKey: keys.groupLeaders(vault, group, asOf),
+    queryFn: () => source.groupLeaders(vault, group, asOf),
   })
 }
 
 /** The locations a group controls. */
-export function useGroupTerritory(vault: string, group: string) {
+export function useGroupTerritory(
+  vault: string,
+  group: string,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
   return useQuery({
-    queryKey: keys.groupTerritory(vault, group),
-    queryFn: () => source.groupTerritory(vault, group),
+    queryKey: keys.groupTerritory(vault, group, asOf),
+    queryFn: () => source.groupTerritory(vault, group, asOf),
   })
 }

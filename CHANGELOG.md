@@ -25,6 +25,11 @@ All notable changes to this project are documented here. The format follows
   dates can refer to them. Links, backlinks, relationships, members, leaders, territory,
   residents and species members can be shown as of a moment, with uncertain ones flagged. Links
   from earlier versions resolve their dates once, when the vault first opens.
+- **Time cursor** (#103): the top bar sets the moment the wiki shows: the present, all time, a
+  picked date, or one day, month or year before or after. Entity pages then say whether the
+  entity existed ("Not yet born", "Died in 1204"), show its name and time-dependent fields as
+  they were, and list the relationships, members, residents and other links valid then;
+  uncertain ones are shown muted. Lists and the sidebar can hide what didn't exist then.
 
 ## [0.5.0] - 2026-10-13
 

@@ -44,6 +44,35 @@ export function useEntity(
   })
 }
 
+/** An entity's state at the time cursor (`GET …/state`); off without a moment. */
+export function useEntityState(
+  vault: string,
+  id: string,
+  query: Query<'entities_state'> | undefined,
+) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.entityState(vault, id, query ?? {}),
+    queryFn: () => source.entityState(vault, id, query ?? { at: 'present' }),
+    enabled: query !== undefined,
+  })
+}
+
+/** An entity's facts (`GET …/facts`), by field, then start. */
+export function useFacts(
+  vault: string,
+  id: string,
+  query: Query<'facts_list_facts'> = {},
+  options: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.facts(vault, id, query),
+    queryFn: () => source.facts(vault, id, query),
+    enabled: options.enabled ?? true,
+  })
+}
+
 export function useChildren(vault: string, id: string, query: Query<'entities_children'> = {}) {
   const source = useDataSource()
   return useQuery({

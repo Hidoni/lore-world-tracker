@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import type { EntityViewProps } from '@/core/modules'
+import { useEntityAsOf } from '@/core/time'
 import { useChildren, useEntity, useGroupMembers } from '@/data'
 
 import { LinkRows } from './link-rows'
@@ -14,7 +15,8 @@ export function MembersPanel({ vault, entityId }: EntityViewProps) {
   const [inside, setInside] = useState(false)
   const [history, setHistory] = useState(false)
   const group = useEntity(vault, entityId)
-  const members = useGroupMembers(vault, entityId, inside)
+  const asOf = useEntityAsOf(vault, entityId)
+  const members = useGroupMembers(vault, entityId, inside, asOf)
   const children = useChildren(vault, entityId, { kind: ['group'], limit: 500 })
   const names = new Map((children.data?.items ?? []).map((child) => [child.id, child.name]))
   const items = members.data?.items ?? []

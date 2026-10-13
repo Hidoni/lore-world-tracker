@@ -9,11 +9,15 @@ import { keys } from './keys'
 export type DescentTree = Domain<components['schemas']['DescentTree']>
 
 /** Everyone and everything of a species (`species.is_a`), at any time. */
-export function useSpeciesMembers(vault: string, species: string) {
+export function useSpeciesMembers(
+  vault: string,
+  species: string,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
   return useQuery({
-    queryKey: keys.speciesMembers(vault, species),
-    queryFn: () => source.speciesMembers(vault, species),
+    queryKey: keys.speciesMembers(vault, species, asOf),
+    queryFn: () => source.speciesMembers(vault, species, asOf),
   })
 }
 

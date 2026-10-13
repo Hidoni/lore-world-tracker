@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 
 import { useKindRegistry } from '@/core/registry'
+import { certaintyProps } from '@/core/time'
 import type { EntityLink } from '@/data'
+import { cn } from '@/lib/utils'
 
 /** What a link adds to its label: rank, title, a leader flag, its role. */
 export function linkDetail(item: EntityLink): string | null {
@@ -40,7 +42,14 @@ export function LinkRows({
         const detail = linkDetail(item)
         const more = extra?.(item) ?? null
         return (
-          <li key={item.link.id} className="flex flex-wrap items-center gap-1.5 text-sm">
+          <li
+            key={item.link.id}
+            {...certaintyProps(item.certainty)}
+            className={cn(
+              'flex flex-wrap items-center gap-1.5 text-sm',
+              certaintyProps(item.certainty).className,
+            )}
+          >
             {showLabel && <span className="text-muted-foreground">{item.label}</span>}
             {Icon && <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
             <Link

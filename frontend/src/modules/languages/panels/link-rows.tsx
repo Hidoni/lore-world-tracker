@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
 
+import { certaintyProps } from '@/core/time'
 import type { EntityLink } from '@/data'
+import { cn } from '@/lib/utils'
 
 const FLUENCY: Record<string, string> = {
   native: 'native',
@@ -30,7 +32,11 @@ export function LinkRows({
               ? note
               : null
         return (
-          <li key={item.link.id} className="text-sm">
+          <li
+            key={item.link.id}
+            {...certaintyProps(item.certainty)}
+            className={cn('text-sm', certaintyProps(item.certainty).className)}
+          >
             <Link
               to="/v/$vault/e/$entity"
               params={{ vault, entity: item.other.id }}

@@ -1,4 +1,5 @@
 import type { EntityViewProps } from '@/core/modules'
+import { useEntityAsOf } from '@/core/time'
 import { useLocationResidents } from '@/data'
 
 import { LinkList } from './link-list'
@@ -13,7 +14,8 @@ const RESIDENCE: Record<string, string> = {
 
 /** Who and what resides here (at any time; the time cursor filters them with M7). */
 export function ResidentsPanel({ vault, entityId }: EntityViewProps) {
-  const residents = useLocationResidents(vault, entityId)
+  const asOf = useEntityAsOf(vault, entityId)
+  const residents = useLocationResidents(vault, entityId, asOf)
   if (residents.isPending) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
     <LinkList

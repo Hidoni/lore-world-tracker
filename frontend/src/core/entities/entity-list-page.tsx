@@ -7,7 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FieldDisplay } from '@/core/fields'
 import { useKindRegistry, type Kind } from '@/core/registry'
+import { certaintyProps, useExistenceQuery } from '@/core/time'
 import { useEntities, useEntityList, useMutations, type components, type Query } from '@/data'
+
+import { cn } from '@/lib/utils'
 
 import { CreateEntityDialog } from './create-entity-dialog'
 
@@ -71,7 +74,9 @@ function EntityList({ vault, kind }: { vault: string; kind: Kind }) {
   const [sort, setSort] = useState<Sort>('name')
   const [creating, setCreating] = useState(false)
   const dimensions = useEntities(vault, { kind: ['dimension'], limit: 100 })
+  const existence = useExistenceQuery(vault)
   const query: Query<'entities_list'> = {
+    ...existence,
     kind: [kind.key],
     sort,
     limit: PAGE_SIZE,
@@ -234,7 +239,11 @@ function EntityList({ vault, kind }: { vault: string; kind: Kind }) {
                     <Link
                       to="/v/$vault/e/$entity"
                       params={{ vault, entity: entity.id }}
-                      className="font-medium hover:underline"
+                      {...certaintyProps(entity.existence)}
+                      className={cn(
+                        'font-medium hover:underline',
+                        certaintyProps(entity.existence).className,
+                      )}
                     >
                       {entity.name}
                     </Link>

@@ -30,6 +30,7 @@ import {
 import { FindingsBadge } from '@/core/consistency'
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
 import { KindIcon, useKindRegistry, type Kind, type KindRegistry } from '@/core/registry'
+import { certaintyProps, useExistenceQuery } from '@/core/time'
 import {
   useDeleteEntity,
   useMutations,
@@ -392,7 +393,9 @@ function TreeLevel(props: LevelProps) {
   const groupBy = parent === null && kind.groupBy !== null ? kind.groupBy : null
   // Nodes carry the value of the field that groups them, or that picks their icon.
   const field = groupBy ?? (kind.groupBy === null ? kind.iconField : null)
+  const existence = useExistenceQuery(vault)
   const level = useTreeLevel(vault, {
+    ...existence,
     kind: [kind.key],
     ...(parent === null ? {} : { parent: parent.id }),
     ...(field === null ? {} : { group_by: field }),
@@ -562,7 +565,12 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
                 className="size-4 shrink-0"
                 style={{ color: kind.color }}
               />
-              <span className="truncate">{node.name}</span>
+              <span
+                {...certaintyProps(node.existence)}
+                className={cn('truncate', certaintyProps(node.existence).className)}
+              >
+                {node.name}
+              </span>
             </Link>
             {node.multiversal && node.kind !== 'dimension' && (
               <Badge variant="outline" className="h-4 px-1 text-[10px]" title="Multiversal">

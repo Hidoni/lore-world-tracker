@@ -13,6 +13,10 @@ export const keys = {
   entities: (vault: string, params?: object) => [vault, 'entities', params ?? {}] as const,
   entity: (vault: string, id: string, params?: object) =>
     [vault, 'entity', id, params ?? {}] as const,
+  entityState: (vault: string, id: string, params: object) =>
+    [vault, 'entityState', id, params] as const,
+  facts: (vault: string, id: string, params?: object) =>
+    [vault, 'facts', id, params ?? {}] as const,
   children: (vault: string, id: string, params?: object) =>
     [vault, 'children', id, params ?? {}] as const,
   tree: (vault: string, params?: object) => [vault, 'tree', params ?? {}] as const,
@@ -45,26 +49,29 @@ export const keys = {
   locationTree: (vault: string, params: object) => [vault, 'locationTree', params] as const,
   locationEvents: (vault: string, location: string, params: object) =>
     [vault, 'locationEvents', location, params] as const,
-  locationResidents: (vault: string, location: string) =>
-    [vault, 'locationResidents', location] as const,
-  characterRelationships: (vault: string, character: string) =>
-    [vault, 'characterRelationships', character] as const,
+  locationResidents: (vault: string, location: string, params?: object) =>
+    [vault, 'locationResidents', location, params ?? {}] as const,
+  characterRelationships: (vault: string, character: string, params?: object) =>
+    [vault, 'characterRelationships', character, params ?? {}] as const,
   characterFamilyTree: (vault: string, character: string, params: object) =>
     [vault, 'characterFamilyTree', character, params] as const,
   characterLife: (vault: string, character: string, params: object) =>
     [vault, 'characterLife', character, params] as const,
   groupMembers: (vault: string, group: string, params: object) =>
     [vault, 'groupMembers', group, params] as const,
-  groupLeaders: (vault: string, group: string) => [vault, 'groupLeaders', group] as const,
+  groupLeaders: (vault: string, group: string, params?: object) =>
+    [vault, 'groupLeaders', group, params ?? {}] as const,
   groupOrgChart: (vault: string, group: string, params: object) =>
     [vault, 'groupOrgChart', group, params] as const,
-  groupTerritory: (vault: string, group: string) => [vault, 'groupTerritory', group] as const,
+  groupTerritory: (vault: string, group: string, params?: object) =>
+    [vault, 'groupTerritory', group, params ?? {}] as const,
   languageFamilyTree: (vault: string, params: object) =>
     [vault, 'languageFamilyTree', params] as const,
   lexicon: (vault: string, language: string, params: object) =>
     [vault, 'lexicon', language, params] as const,
   lexiconEntry: (vault: string, entry: string) => [vault, 'lexiconEntry', entry] as const,
-  speciesMembers: (vault: string, species: string) => [vault, 'speciesMembers', species] as const,
+  speciesMembers: (vault: string, species: string, params?: object) =>
+    [vault, 'speciesMembers', species, params ?? {}] as const,
   speciesDescentTree: (vault: string, params: object) =>
     [vault, 'speciesDescentTree', params] as const,
 }
