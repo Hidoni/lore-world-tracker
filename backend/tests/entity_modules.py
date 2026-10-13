@@ -41,6 +41,15 @@ EVERY_TYPE = (
 )
 
 
+# Fields whose values change over time (facts, time-model.md §10.2).
+TEMPORAL = (
+    FieldDef("era", "Era", "time_point", temporal=True),
+    FieldDef("rank", "Rank", "integer", temporal=True),
+    FieldDef("lore", "Lore", "rich_text", temporal=True),
+    FieldDef("hidden_rank", "Hidden rank", "integer", temporal=True, default_visibility="private"),
+)
+
+
 def _kind(key: str, **values: Any) -> KindDef:
     return KindDef(key, key.title(), key.title() + "s", icon="box", color="#000000", **values)
 
@@ -81,7 +90,7 @@ WORLD = ModuleSpec(
     name="World",
     description="Kinds for entity tests.",
     kinds=(
-        _kind("gadget", allowed_parents=("gadget", "misc"), fields=EVERY_TYPE),
+        _kind("gadget", allowed_parents=("gadget", "misc"), fields=(*EVERY_TYPE, *TEMPORAL)),
         _kind(
             "relic",
             allowed_parents=("misc",),

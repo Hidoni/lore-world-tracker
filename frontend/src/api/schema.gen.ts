@@ -537,6 +537,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/facts/{fact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Move the fact to the trash.
+         */
+        delete: operations["facts_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change a fact's value, timeline, validity, visibility, source or note (revision
+         *     required).
+         */
+        patch: operations["facts_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Facts
+         * @description The entity's facts (field values over time, existence, names), by field and start.
+         *     ``404`` for an entity the request may not see.
+         */
+        get: operations["facts_list_facts"];
+        put?: never;
+        /**
+         * Create Fact
+         * @description A fact: the field must be temporal (or ``core.exists``/``core.name``), the value fits its
+         *     type, the timeline is of the entity's dimension (any for a multiversal entity) and
+         *     ``source_event_id`` is an event.
+         */
+        post: operations["facts_create_fact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/changes": {
         parameters: {
             query?: never;
@@ -2638,6 +2690,121 @@ export interface components {
              * @example 31557600000
              */
             hi: MomentString;
+        };
+        /** FactCreate */
+        FactCreate: {
+            /**
+             * Field Key
+             * @description A temporal field of the entity's kind, `core.exists` or `core.name`.
+             */
+            field_key: string;
+            /**
+             * Value
+             * @description The field's value (checked by its type); `true` for `core.exists` (the default), a name for `core.name`.
+             */
+            value?: unknown;
+            /** @description The timeline it holds in: of the entity's dimension (any for a multiversal entity). */
+            timeline_id: components["schemas"]["EntityId"];
+            /** @description Start (`null`: always). */
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            /** @description End, excluded (`null`: on). */
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+            /** @description The event that caused it. */
+            source_event_id?: components["schemas"]["EntityId"] | null;
+            /** Note */
+            note?: string | null;
+            /** Sort Key */
+            sort_key?: string | null;
+            /** @description A branch's override of a fact (with branches, M9). */
+            overrides_id?: components["schemas"]["EntityId"] | null;
+            /** Suppress */
+            suppress?: components["schemas"]["SuppressItem"][] | null;
+        };
+        /** FactList */
+        FactList: {
+            /**
+             * Items
+             * @description By field, then start (open starts first), manual order and creation.
+             */
+            items: components["schemas"]["FactOut"][];
+        };
+        /** FactOut */
+        FactOut: {
+            /** Id */
+            id: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Field Key */
+            field_key: string;
+            /** Value */
+            value: unknown;
+            /**
+             * Value T
+             * @description A `time_point` value's resolved moment (other types: `null`).
+             */
+            value_t: MomentString | null;
+            /** Timeline Id */
+            timeline_id: string;
+            valid_from: components["schemas"]["TimePoint"] | null;
+            valid_to: components["schemas"]["TimePoint"] | null;
+            /** Valid From T */
+            valid_from_t: MomentString | null;
+            /** Valid To T */
+            valid_to_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Source Event Id
+             * @description `null` also when the request may not see the event.
+             */
+            source_event_id: string | null;
+            /** Note */
+            note: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
+        /**
+         * FactUpdate
+         * @description Only the members sent change (``null`` clears a nullable one).
+         */
+        FactUpdate: {
+            /** Revision */
+            revision: number;
+            /** Value */
+            value?: unknown;
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            source_event_id?: components["schemas"]["EntityId"] | null;
+            /** Note */
+            note?: string | null;
+            /** Sort Key */
+            sort_key?: string | null;
+            /** Suppress */
+            suppress?: components["schemas"]["SuppressItem"][] | null;
+        };
+        /** FactWriteResult */
+        FactWriteResult: {
+            fact: components["schemas"]["FactOut"];
+            affected: components["schemas"]["Affected"];
         };
         /** FamilyEdge */
         FamilyEdge: {
@@ -6190,6 +6357,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backlinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    facts_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fact id. */
+                fact_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    facts_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fact id. */
+                fact_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    facts_list_facts: {
+        parameters: {
+            query?: {
+                /** @description Only this field's facts. */
+                field?: string | null;
+                /** @description Only facts of this timeline. */
+                timeline?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    facts_create_fact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactWriteResult"];
                 };
             };
             /** @description Problem */

@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Facts** (#100): field values that hold for a period of a timeline, existence periods and
+  names over time, stored with exact validity bounds that can be anchored to events (and move
+  with them) or referenced by other dates. A multiversal entity can have facts in several
+  dimensions. Fact values are searchable, and readers only see the facts they may see.
+  Time-point field values now take part in time: anchored to an event, they follow it. Vaults
+  from earlier versions update their time-point fields once, when they first open.
+
 ## [0.5.0] - 2026-10-13
 
 The content modules (M6): the things a world is made of get their own kinds, fields, link types,

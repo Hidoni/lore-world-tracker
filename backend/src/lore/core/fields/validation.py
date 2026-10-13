@@ -103,6 +103,11 @@ class KindFields:
             raise InvalidInputError("Some field visibilities are invalid.", errors=errors)
         return result
 
+    def validate_value(self, field: FieldDef, value: Any) -> Any:
+        """One value of ``field`` (a list for ``multiple`` fields), normalized; ``ValueError``
+        with the problem otherwise (facts, ``time-model.md`` §10.2)."""
+        return self._validate(field, value)
+
     def _validate(self, field: FieldDef, value: Any) -> Any:
         validate = self.validators[field.type]
         if not field.multiple or field.type == "multi_enum":

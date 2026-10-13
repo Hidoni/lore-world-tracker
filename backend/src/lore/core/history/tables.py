@@ -50,8 +50,15 @@ class HistoryTable:
 def core_history_tables() -> tuple[HistoryTable, ...]:
     from lore.core.consistency.models import Suppression  # noqa: PLC0415
     from lore.core.entities.models import Entity, EntityAlias, EntityTag, Tag  # noqa: PLC0415
+    from lore.core.facts.models import EntityFact  # noqa: PLC0415
     from lore.core.links.models import CustomLinkType, Link  # noqa: PLC0415
-    from lore.core.time.models import Calendar, Dimension, Event, Timeline  # noqa: PLC0415
+    from lore.core.time.models import (  # noqa: PLC0415
+        Calendar,
+        Dimension,
+        EntityTimeField,
+        Event,
+        Timeline,
+    )
 
     return (
         HistoryTable.of(Entity, columns_owner("id")),
@@ -65,4 +72,6 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         HistoryTable.of(Link, columns_owner("source_id", "target_id")),
         HistoryTable.of(CustomLinkType),
         HistoryTable.of(Suppression),
+        HistoryTable.of(EntityFact, columns_owner("entity_id")),
+        HistoryTable.of(EntityTimeField, columns_owner("entity_id")),
     )

@@ -256,6 +256,17 @@ Time-point **field** values that must participate in propagation:
 `entity_field`, slot = field key. Facts of `time_point` fields store their value here too, keyed by
 `fact:<fact_id>`.
 
+Implementation (#100): `lore.core.time.models.EntityTimeField` and `lore.core.time.fields`.
+- The value stays in `entities.fields` (reads, search); the row mirrors its spec and holds the
+  resolved moment. The entity service keeps the rows in step on every write of `fields` or
+  `dimension_id` (`write_time_fields`).
+- A `multiple` field's values are slots `<key>.<index>`.
+- A multiversal entity's own values are stored without a moment (no dimension to resolve in);
+  a fact's value resolves in its timeline's dimension.
+- Rows of fields the kind no longer offers (archived, disabled module) are kept.
+- Vaults from before v0.6.0 get their rows (resolved, never refused) once, when they first
+  open (`vault_meta.time_fields_synced`).
+
 ### 5.7 Worldlines and correspondences
 
 - `worldline_segments` per `time-model.md` §11.1 (+ `revision`, timestamps, `deleted_at`). Indexes
@@ -338,6 +349,20 @@ valid_from_spec/_t, valid_to_spec/_t, time_status, visibility, source_event_id N
 note, sort_key, revision, timestamps, deleted_at`. Indexes `(entity_id, field_key)`,
 `(timeline_id, valid_from_t)`. Special keys: `core.exists` (existence), `core.name` (names over
 time).
+
+Implementation (#100): `lore.core.facts`.
+- Model: `EntityFact`, registered with `TimelineView` (open bounds).
+- Slot provider `fact` (`valid_from`, `valid_to`, referenceable).
+- Service: `Facts`. Validation:
+  - the field is `temporal` (or `core.exists`, value `true`, or `core.name`, a non-empty name);
+  - the value fits the field type (`KindFields.validate_value`);
+  - the timeline belongs to the entity's dimension (any for a multiversal entity);
+  - `source_event_id` is an event;
+  - `overrides_id` is refused until M9.
+- Fact values add to the entity's search document. A private fact or field is restricted;
+  `core.name` facts read like names.
+- Purging an entity deletes its facts and time-field rows, after anchor freezing. Facts naming it
+  as their source event forget it. Facts in a timeline block its purge.
 
 ### 6.4 `mentions` (derived)
 

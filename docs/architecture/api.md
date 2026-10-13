@@ -70,8 +70,8 @@
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |
 | GET | `/vaults/{v}/entities/{id}/history` | changesets touching the entity (its row, aliases, tags, links), newest first; kept after a purge |
 | GET | `/vaults/{v}/entities/{id}/state` | as-of state (`timeline, at`) per `time-model.md` §10.5 |
-| GET/POST | `/vaults/{v}/entities/{id}/facts` | list/create temporal facts (`field`, `timeline`) |
-| PATCH/DELETE | `/vaults/{v}/facts/{id}` | update/trash a fact |
+| GET/POST | `/vaults/{v}/entities/{id}/facts` | list/create temporal facts (`field`, `timeline`). #100: `{items: FactOut[]}` by field, then start (open first), `sort_key`, creation; `FactOut` = `{id, entity_id, field_key, value, value_t, timeline_id, valid_from, valid_to, valid_from_t, valid_to_t, time_status, visibility, source_event_id, note, sort_key, revision, created_at, updated_at, deleted_at}` (`value_t`: a `time_point` value's moment). POST `{field_key, value, timeline_id, valid_from?, valid_to?, visibility?, source_event_id?, note?, sort_key?, suppress?}` → `201 {fact, affected}`; `overrides_id` is refused (`not_supported`) until branches (M9). Readers see a fact when they see it, its entity, its timeline and its field; a hidden source event reads `null`, time points referring to hidden records read as moments |
+| PATCH/DELETE | `/vaults/{v}/facts/{id}` | update (revision required; the field can't change)/trash a fact → `{fact, affected}` |
 | GET | `/vaults/{v}/tags` | tags in use on the entities the request sees (not in the trash), by name: `q` (a name prefix, ignoring case), `limit` (default 200) → `{items: [{id, name, color, count}]}`, `count` being those entities (#83, for filters) |
 | GET | `/vaults/{v}/trash` | trashed entities, most recently trashed first, each with `orphan_count` (its children not in the trash) |
 | GET | `/vaults/{v}/entities/field-values` | distinct values of a `text` field (`kind, field, q, limit`) for autocomplete → `{items: [{value, count}]}` |

@@ -2,6 +2,10 @@
 ``data-model.md`` §5.1-§5.3), ``events`` (§5.4) and ``time_dependencies`` (§5.5,
 ``time-model.md`` §7.1).
 
+``entity_time_fields`` (§5.6) holds the time-point field values that take part in propagation:
+an entity's ``time_point`` fields (slot = field key) and the values of ``time_point`` facts
+(slot ``fact:<fact id>``), record type ``entity_field``.
+
 ``time_dependencies`` holds the edges propagation walks. It is derived from the specs, but kept in
 the same transaction as them (not recorded in history). Dependents and targets are polymorphic
 (any registered record type), so it has no foreign keys.
@@ -209,3 +213,19 @@ class Proposal(IdMixin, Base):
         CheckConstraint("kind IN ('calendar', 'recurrence')", name="kind"),
         Index("ix_proposals_expires_at", "expires_at"),
     )
+
+
+class EntityTimeField(Base):
+    """A time-point field value with its resolved moment (record type ``entity_field``): the
+    entity's own field value (``field_key`` = the key; ``<key>.<index>`` for each value of a
+    ``multiple`` field) or a fact's value (``fact:<fact id>``). Its trash state is the entity's."""
+
+    __tablename__ = "entity_time_fields"
+
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT), primary_key=True
+    )
+    field_key: Mapped[str] = mapped_column(String, primary_key=True)
+    spec: Mapped[TimePoint] = spec_column(nullable=False)
+    t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()

@@ -90,6 +90,7 @@ logger = logging.getLogger(__name__)
 OPTIMIZE_EVERY = timedelta(days=1)
 # The schema revision the vault's consistency findings were last fully scanned at.
 CONSISTENCY_SCANNED = "consistency_scanned_revision"
+TIME_FIELDS_SYNCED = "time_fields_synced"
 # How often the scheduler deletes expired proposals of an open vault (data-model.md §5.9).
 CLEANUP_EVERY = timedelta(hours=1)
 
@@ -695,6 +696,8 @@ class VaultManager:
                     with opened.write_sessions.begin() as session:
                         _record_module_states(session, self.module_registry)
                     with opened.write_sessions.begin() as session:
+                        _ensure_time_fields(opened, session, self.module_registry)
+                    with opened.write_sessions.begin() as session:
                         _ensure_search_index(opened, session, self.module_registry)
                     with opened.write_sessions.begin() as session:
                         _ensure_consistency_scan(opened, session, self.module_registry)
@@ -853,6 +856,41 @@ def _ensure_consistency_scan(opened: OpenVault, session: Session, registry: Modu
     counts = scan(VaultContext(opened, session, registry))
     set_meta(session, CONSISTENCY_SCANNED, current)
     logger.info("scanned vault %s for consistency (%d findings)", opened.id, sum(counts.values()))
+
+
+def _ensure_time_fields(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:
+    """Once per vault (vaults from before v0.6.0): the time-point field values stored in
+    ``entities.fields`` get their ``entity_time_fields`` rows and resolve (``data-model.md``
+    §5.6). Values that don't resolve keep their spec, with a status, and don't block."""
+    # Imported here: these packages depend on core packages that import this one.
+    from sqlalchemy import select  # noqa: PLC0415
+
+    from lore.core.consistency.engine import record_only  # noqa: PLC0415
+    from lore.core.entities.models import Entity  # noqa: PLC0415
+    from lore.core.entities.service import EntityService  # noqa: PLC0415
+    from lore.core.history.recorder import context as history_context  # noqa: PLC0415
+    from lore.core.modules.spec import VaultContext  # noqa: PLC0415
+    from lore.core.time.fields import write_time_fields  # noqa: PLC0415
+
+    if get_meta(session, TIME_FIELDS_SYNCED) is not None:
+        return
+    context = VaultContext(opened, session, registry)
+    service = EntityService(context)
+    kinds = {
+        key: service.kind_fields(kind).active
+        for key, kind in service.kinds.items()
+        if any(f.type == "time_point" for f in service.kind_fields(kind).active.values())
+    }
+    count = 0
+    if kinds:
+        record_only(session)
+        history = history_context(session)
+        history.origin, history.summary = "migration", "Time-point fields take part in time"
+        for entity in session.scalars(select(Entity).where(Entity.kind.in_(sorted(kinds)))):
+            write_time_fields(context, entity, kinds[entity.kind], strict=False)
+            count += 1
+    set_meta(session, TIME_FIELDS_SYNCED, "1")
+    logger.info("synced time-point fields of vault %s (%d entities)", opened.id, count)
 
 
 def _ensure_search_index(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:

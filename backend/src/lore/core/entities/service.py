@@ -35,6 +35,7 @@ from lore.core.entities.schemas import (
     TagOut,
 )
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
+from lore.core.facts.models import EntityFact
 from lore.core.fields import KindFields
 from lore.core.links.models import Link
 from lore.core.links.schemas import EntityLinkAdd, LinkCreate
@@ -50,6 +51,7 @@ from lore.core.richtext.relabel import relabel_links, relabel_values
 from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
 from lore.core.time.changes import report as report_time
+from lore.core.time.fields import write_time_fields
 from lore.core.time.models import Event
 from lore.core.time.propagate import after_trash
 from lore.core.time.redact import ReaderTimes
@@ -253,6 +255,7 @@ class EntityService:
         self._replace_tags(entity, data.tags)
         if extension is not None:
             extension.write(self.context, entity, data.ext, True)
+        write_time_fields(self.context, entity, kind_fields.active)
         links = self._add_links(entity, data.links_add)
         mentioned = self.refresh_mentions(entity)
         self.session.flush()
@@ -294,6 +297,13 @@ class EntityService:
             extension = self._extension_for(kind, data.ext)
             if extension is not None:
                 extension.write(self.context, entity, data.ext, False)
+        if sent & {"fields", "dimension_id"}:
+            write_time_fields(
+                self.context,
+                entity,
+                self.kind_fields(kind).active,
+                touch=entity.dimension_id != old_dimension,
+            )
         hooks = self.extensions.get(kind.key)
         if sent and hooks is not None and hooks.update is not None:
             hooks.update(self.context, entity, frozenset(sent))
@@ -733,6 +743,9 @@ class EntityService:
             "events in this timeline": select(func.count())
             .select_from(Event)
             .where(Event.timeline_id == entity.id),
+            "facts in this timeline": select(func.count())
+            .select_from(EntityFact)
+            .where(EntityFact.timeline_id == entity.id, EntityFact.entity_id != entity.id),
         }
         counts = {label: self.session.scalar(query) or 0 for label, query in references.items()}
         blocking = {label: count for label, count in counts.items() if count}

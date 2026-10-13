@@ -32,6 +32,7 @@ from lore.core.api.spa import spa_router
 from lore.core.consistency import router as consistency_router
 from lore.core.db import ensure_sqlite_capabilities
 from lore.core.entities import router as entities_router
+from lore.core.facts import router as facts_router
 from lore.core.history import router as history_router
 from lore.core.links import router as links_router
 from lore.core.logging import configure_logging
@@ -116,6 +117,8 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(links_router.router)
     api.include_router(links_router.types_router)
     api.include_router(links_router.entity_router)
+    api.include_router(facts_router.router)
+    api.include_router(facts_router.entity_router)
     api.include_router(history_router.router)
     api.include_router(history_router.entity_router)
     api.include_router(search_router.router)

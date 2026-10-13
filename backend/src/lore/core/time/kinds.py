@@ -2,7 +2,9 @@
 (``time-model.md`` §6, ``modules.md`` §2.1)."""
 
 from lore.core.entities.extensions import KindExtension
+from lore.core.facts.models import EntityFact
 from lore.core.time import calendars, dimensions, events, series
+from lore.core.time.fields import ENTITY_FIELD_SLOTS
 from lore.core.time.models import Calendar, Dimension, Event, Timeline
 from lore.core.time.slots import SlotDef, SlotProvider
 
@@ -54,6 +56,18 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         write_spec=calendars.write_calendar_specs,
         keys=calendars.calendar_slot_keys,
     ),
+    # Facts' validity (time-model.md §10.1): anchors may refer to a fact's bounds.
+    SlotProvider(
+        "fact",
+        EntityFact,
+        (
+            SlotDef("valid_from", referenceable=True),
+            SlotDef("valid_to", referenceable=True),
+        ),
+        entity_column="entity_id",
+        timeline_column="timeline_id",
+    ),
+    ENTITY_FIELD_SLOTS,
 )
 
 CORE_KIND_EXTENSIONS: tuple[KindExtension, ...] = (
