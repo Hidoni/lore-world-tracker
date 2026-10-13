@@ -99,6 +99,13 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'FactList',
       ),
+    causedFacts: async (vault, event) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/facts`, { params: { ...path(vault), query: { source_event: event } } }),
+        ),
+        'FactList',
+      ),
     children: async (vault, id, query) =>
       toDomain(
         await unwrap(
@@ -437,6 +444,36 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
             body: suppress ?? null,
           }),
         ),
+      ),
+    createFact: async (vault, entity, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/entities/{entity_id}/facts`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+            body,
+          }),
+        ),
+        'FactWriteResult',
+      ),
+    updateFact: async (vault, id, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/facts/{fact_id}`, {
+            params: { path: { vault_id: vault, fact_id: id } },
+            body,
+          }),
+        ),
+        'FactWriteResult',
+      ),
+    deleteFact: async (vault, id) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/facts/{fact_id}`, {
+            params: { path: { vault_id: vault, fact_id: id } },
+            body: null,
+          }),
+        ),
+        'FactWriteResult',
       ),
     createLink: async (vault, body) =>
       toDomain(

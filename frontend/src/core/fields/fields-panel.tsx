@@ -1,4 +1,4 @@
-import { ChevronDownIcon, PencilIcon } from 'lucide-react'
+import { ChevronDownIcon, HistoryIcon, PencilIcon } from 'lucide-react'
 import { Suspense, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { LazyRichTextEditor, isDoc, type SaveOutcome } from '@/editor'
 import { readStored, writeStored } from '@/lib/storage'
 
 import { FieldDisplay, FieldEditor, PLACEHOLDER_TYPES } from './editors'
+import { FactHistory } from './fact-history'
 import { normalizeField, validateField, type FieldDef } from './schema'
 
 type Visibility = components['schemas']['Visibility']
@@ -165,6 +166,7 @@ function FieldRow({
   editable,
   save,
   asOf,
+  history,
 }: {
   vault: string
   kind: string
@@ -174,6 +176,8 @@ function FieldRow({
   editable: boolean
   save: Saver
   asOf?: AsOfField
+  /** Temporal fields: the history toggle. */
+  history?: { open: boolean; toggle: () => void }
 }) {
   const id = useId()
   const [editing, setEditing] = useState(false)
@@ -287,6 +291,18 @@ function FieldRow({
         {field.help && <p className="text-xs text-muted-foreground">{field.help}</p>}
       </div>
       <div className="flex items-center gap-1">
+        {history !== undefined && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`${field.label} over time`}
+            aria-expanded={history.open}
+            title="Values over time"
+            onClick={history.toggle}
+          >
+            <HistoryIcon />
+          </Button>
+        )}
         {canEdit && !immediate && !editing && (
           <Button variant="ghost" size="icon" aria-label={`Edit ${field.label}`} onClick={start}>
             <PencilIcon />
@@ -342,6 +358,7 @@ export function FieldsPanel({
   asOf?: Record<string, AsOfField>
 }) {
   const [collapsed, setCollapsed] = useState(() => readCollapsed(entity.kind))
+  const [historyOf, setHistoryOf] = useState<string | null>(null)
   const live = fields
     .filter((field) => !field.archived)
     .toSorted((a, b) => a.sort - b.sort || a.label.localeCompare(b.label))
@@ -385,17 +402,41 @@ export function FieldsPanel({
             {open && (
               <div className="divide-y">
                 {members.map((field) => (
-                  <FieldRow
-                    key={field.key}
-                    vault={vault}
-                    kind={entity.kind}
-                    field={field}
-                    value={values[field.key]}
-                    visibility={overrides[field.key]}
-                    editable={editable}
-                    save={save}
-                    asOf={asOf?.[field.key]}
-                  />
+                  <div key={field.key}>
+                    <FieldRow
+                      vault={vault}
+                      kind={entity.kind}
+                      field={field}
+                      value={values[field.key]}
+                      visibility={overrides[field.key]}
+                      editable={editable}
+                      save={save}
+                      asOf={asOf?.[field.key]}
+                      {...(field.temporal
+                        ? {
+                            history: {
+                              open: historyOf === field.key,
+                              toggle: () => {
+                                setHistoryOf(historyOf === field.key ? null : field.key)
+                              },
+                            },
+                          }
+                        : {})}
+                    />
+                    {historyOf === field.key && (
+                      <section
+                        aria-label={`${field.label} over time`}
+                        className="mb-2 ml-[10.75rem] rounded-md border p-2"
+                      >
+                        <FactHistory
+                          vault={vault}
+                          entity={entity}
+                          fieldKey={field.key}
+                          field={field}
+                        />
+                      </section>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

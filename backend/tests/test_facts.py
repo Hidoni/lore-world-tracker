@@ -250,3 +250,21 @@ def test_stored_time_fields_resolve_and_older_vaults_sync_on_open(world: World) 
     with vault.write_sessions.begin() as session:
         _ensure_time_fields(vault, session, vault.registry)
     assert rows() == {"time_point": (str(101 * DAY), "ok")}
+
+
+def test_changes_caused_by_an_event(world: World) -> None:
+    caused = world.made(field_key="rank", value="2", source_event_id=world.event["id"])
+    world.made(field_key="rank", value="1")  # no source
+    other = world.api.make("gadget", "Clock", dimension_id=world.dimension["id"])
+    named = world.made(other, field_key="core.name", value="Old Clock",
+                       source_event_id=world.event["id"])  # fmt: skip
+    url = f"{world.api.base}/facts"
+    response = world.api.client.get(url, params={"source_event": world.event["id"]})
+    assert response.status_code == 200, response.json()
+    assert {f["id"] for f in response.json()["items"]} == {caused["id"], named["id"]}
+    # Trashed facts drop out; a non-event or a missing id is 404.
+    assert world.delete(caused).status_code == 200
+    items = world.api.client.get(url, params={"source_event": world.event["id"]}).json()["items"]
+    assert [f["id"] for f in items] == [named["id"]]
+    problem(world.api.client.get(url, params={"source_event": world.gadget["id"]}), 404,
+            "not_found")  # fmt: skip

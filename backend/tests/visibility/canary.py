@@ -332,6 +332,13 @@ def _facts(b: _Builder, home: dict[str, Any]) -> None:
     until = {"anchor": {"kind": "absolute", "t": "60"}, "precision": "base"}
     private_existence = fact(field_key="core.exists", valid_to=until, visibility="private")
     b.canary.hidden_ids.add(private_existence["id"])
+    # A public event that caused private changes: its "changes caused" hides them.
+    coronation = b.public("event", "Coronation", ext=start, **home)
+    caused = fact(field_key="rank", value="4", source_event_id=coronation["id"],
+                  visibility="private", note=b.canary_string())  # fmt: skip
+    b.canary.hidden_ids.add(caused["id"])
+    hidden_rank = fact(field_key="hidden_rank", value="5", source_event_id=coronation["id"])
+    b.canary.hidden_ids.add(hidden_rank["id"])
 
 
 def _module_content(b: _Builder, home: dict[str, Any]) -> None:

@@ -17,6 +17,7 @@ export const keys = {
     [vault, 'entityState', id, params] as const,
   facts: (vault: string, id: string, params?: object) =>
     [vault, 'facts', id, params ?? {}] as const,
+  causedFacts: (vault: string, event: string) => [vault, 'causedFacts', event] as const,
   children: (vault: string, id: string, params?: object) =>
     [vault, 'children', id, params ?? {}] as const,
   tree: (vault: string, params?: object) => [vault, 'tree', params ?? {}] as const,

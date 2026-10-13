@@ -28,6 +28,7 @@ export { MomentDisplay, SpanDisplay } from './moment-display'
 export { pointMoment } from './point-moment'
 export { TimeRefView } from './time-ref-view'
 export { CalendarSelector, DimensionSwitcher } from './switchers'
+export { BoundsEditor, type Bounds } from './bounds-editor'
 export { TimePointPicker } from './time-point-picker'
 export {
   TimeCursorControl,

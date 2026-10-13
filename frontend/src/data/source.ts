@@ -37,6 +37,8 @@ export interface DataSource {
   entityState(vault: string, id: string, query: Query<'entities_state'>): Promise<EntityState>
   /** An entity's facts (temporal field values, existence, names over time). */
   facts(vault: string, id: string, query?: Query<'facts_list_facts'>): Promise<D<'FactList'>>
+  /** An event's "changes caused": the facts whose source it is. */
+  causedFacts(vault: string, event: string): Promise<D<'FactList'>>
   children(vault: string, id: string, query?: Query<'entities_children'>): Promise<D<'TreePage'>>
   tree(vault: string, query?: Query<'tree_get'>): Promise<D<'TreePage'>>
   trash(vault: string, query?: Query<'trash_list'>): Promise<D<'TrashPage'>>
@@ -177,6 +179,9 @@ export interface Mutations {
     id: string,
     suppress?: Schemas['SuppressIn'],
   ): Promise<EntityWriteResult>
+  createFact(vault: string, entity: string, body: Schemas['FactCreate']): Promise<D<'FactWriteResult'>>
+  updateFact(vault: string, id: string, body: Schemas['FactUpdate']): Promise<D<'FactWriteResult'>>
+  deleteFact(vault: string, id: string): Promise<D<'FactWriteResult'>>
   createLink(vault: string, body: Schemas['LinkCreate']): Promise<D<'LinkWriteResult'>>
   updateLink(vault: string, id: string, body: Schemas['LinkUpdate']): Promise<D<'LinkWriteResult'>>
   deleteLink(

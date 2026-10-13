@@ -203,6 +203,17 @@ def facts(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/entities/{holder}/facts", {"timeline": c.public["Prime"]})
 
 
+@recipe(f"{V}/facts")
+def caused_facts(c: Canary) -> Iterator[Call]:
+    """An event's "changes caused": private facts and facts of private fields stay hidden."""
+    path = f"{_v(c)}/facts"
+    for name in ("Coronation", "Heist", "Fact Holder"):
+        yield Call(path, {"source_event": c.public[name]}, status=200 if name != "Fact Holder"
+                   else 404)  # fmt: skip
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {"source_event": hidden_id}, status=404)
+
+
 @recipe(f"{V}/entities/{{entity_id}}/backlinks")
 def backlinks(c: Canary) -> Iterator[Call]:
     yield from _entities(c, "/backlinks")
