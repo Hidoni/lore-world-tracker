@@ -21,7 +21,8 @@ The world has two parts:
   anchor to an occurrence; sub-events and causes. Misc entries (M6): a topic holding
   children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
   Characters (M6): three generations with spouses, siblings and a rival. Groups (M6): an empire
-  with ministries, a secret society and a war.
+  with ministries, a secret society and a war. Languages (M6): a family with a dialect and two
+  scripts.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -31,7 +32,7 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-other module kinds (M6, M7; since #89: misc entries, locations, characters, groups),
+other module kinds (M6, M7; since #89: misc, locations, characters, groups, languages),
 correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
 regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
@@ -1289,6 +1290,47 @@ def _core_groups(writer: Writer, core: Core, world: SampleWorld) -> None:
     world.reader_hidden.append("The Whisperers")
 
 
+def _core_languages(writer: Writer, core: Core) -> None:
+    """Languages (M6): a family with a dialect, a multiversal trade language, two scripts and
+    speakers."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    with writer.transaction("Sample world: languages") as s:
+        core.ids["Old Tidespeech"] = s.entity(
+            "language", "Old Tidespeech", fields={"status": "extinct", "code": "otd"}, **home
+        )
+        core.ids["Varnish"] = s.entity(
+            "language",
+            "Varnish",
+            fields={"status": "living", "word_order": "SOV", "modality": ["spoken", "written"]},
+            **home,
+        )
+        core.ids["Harbor Cant"] = s.entity(
+            "language", "Harbor Cant", parent_id=core["Varnish"], **home
+        )
+        core.ids["Shoal Tongue"] = s.entity("language", "Shoal Tongue", **home)
+        core.ids["Common Trade"] = s.entity("language", "Common Trade", fields={"status": "living"})
+        core.ids["Tide Runes"] = s.entity(
+            "writing_system",
+            "Tide Runes",
+            fields={"script_type": "abjad", "direction": "rtl", "glyph_count": 24},
+            **home,
+        )
+        core.ids["Spire Glyphs"] = s.entity(
+            "writing_system", "Spire Glyphs", fields={"script_type": "logographic"}, **home
+        )
+        for child in ("Varnish", "Shoal Tongue"):
+            s.link("languages.descended_from", core[child], core["Old Tidespeech"])
+        s.link("languages.borrowed_from", core["Varnish"], core["Common Trade"],
+               data={"note": "trade words"})  # fmt: skip
+        s.link("languages.uses_script", core["Old Tidespeech"], core["Spire Glyphs"])
+        s.link("languages.uses_script", core["Varnish"], core["Tide Runes"])
+        s.link("languages.speaks", core["Ilsa the Tidebound"], core["Varnish"],
+               data={"fluency": "native"})  # fmt: skip
+        s.link("languages.speaks", core["Duke Halvard"], core["Common Trade"],
+               data={"fluency": "fluent"})  # fmt: skip
+        s.link("languages.speaks", core["Empire of the Tides"], core["Varnish"])
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1363,6 +1405,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_locations(writer, core)
     _core_characters(writer, core)
     _core_groups(writer, core, world)
+    _core_languages(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)

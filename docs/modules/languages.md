@@ -91,6 +91,17 @@ Indexes: `(language_id, collation_key)`, `(language_id, headword)`, `(language_i
   tooltip. Inserted via `@@` or the slash menu.
 - IPA input helper (a character palette popover) for the pronunciation field.
 
+Implementation (#96): `backend/src/lore/modules/languages/` and `frontend/src/modules/languages/`,
+without the lexicon (its table, endpoints, page, `lexiconRef` and IPA helper come with their own
+issues). Panels: **Family** (descended from, ancestor of, dialects, borrows from, lends to; a link
+to the tree view), **Speakers** (`speaks` with fluency) and **Scripts** (on languages and, the
+other way round, on writing systems). The family tree view (`/v/<vault>/m/languages/family-tree`,
+also in the command palette) draws the time context's dimension with React Flow and ELK:
+ancestors above descendants, dialects below their language, borrowings dashed and not shaping
+the layout; "As a list" gives the same graph as text. The sample world has Old Tidespeech →
+Varnish (with the Harbor Cant dialect) and Shoal Tongue, the multiversal Common Trade, Tide Runes
+and Spire Glyphs, and speakers.
+
 ## Consistency rules
 
 | Id | Default | Check |

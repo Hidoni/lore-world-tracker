@@ -298,6 +298,7 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _locations(b, home)
     _characters(b, home)
     _groups(b, home)
+    _languages(b, home)
 
 
 def _locations(b: _Builder, home: dict[str, Any]) -> None:
@@ -355,6 +356,16 @@ def _groups(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("groups.led_by", empire, spy)
     vault = b.hidden("location", visibility="private", **home)
     b.api.made_link("groups.controls", empire, vault)
+
+
+def _languages(b: _Builder, home: dict[str, Any]) -> None:
+    """Languages: a private ancestor, a private dialect, and a descent by a private link."""
+    varnish = b.public("language", "Varnish", **home)
+    trade = b.public("language", "Trade Cant", **home)
+    secret = b.hidden("language", visibility="private", **home)
+    b.api.made_link("languages.descended_from", varnish, secret)
+    b.hidden("language", visibility="private", parent_id=varnish["id"], **home)
+    b.hidden_link("languages.borrowed_from", trade, varnish, visibility="private")
 
 
 def _series(

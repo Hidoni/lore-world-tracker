@@ -28,6 +28,10 @@ All notable changes to this project are documented here. The format follows
   A group page lists its members (with sub-groups on request), structure, leadership, relations
   with other groups and territory. Characters can now serve groups. The sample world gains an
   empire with ministries, a secret society and a war.
+- **Languages** (#96): languages (with dialects) and writing systems, with descent, borrowing,
+  scripts and speakers. A language page shows its family, speakers and scripts, and a language
+  family tree view draws the descent of a dimension's languages. The sample world gains a
+  language family with a dialect and two scripts.
 
 ## [0.4.0] - 2026-10-12
 

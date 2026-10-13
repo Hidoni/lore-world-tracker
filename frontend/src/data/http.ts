@@ -280,6 +280,13 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'EntityLinks',
       ),
+    languageFamilyTree: async (vault, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/languages/family-tree`, { params: { ...path(vault), query } }),
+        ),
+        'FamilyTree',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(

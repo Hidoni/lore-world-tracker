@@ -251,6 +251,14 @@ def group_territory(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/territory")
 
 
+@recipe(f"{V}/m/languages/family-tree")
+def language_family_tree(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/languages/family-tree"
+    yield Call(path, {"limit": 2000})
+    for entity_id in [*c.public.values(), *c.hidden_ids]:
+        yield Call(path, {"dimension": entity_id})
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

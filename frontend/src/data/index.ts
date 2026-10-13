@@ -139,6 +139,7 @@ export {
   type Leadership,
   type Membership,
 } from './groups'
+export { useLanguageFamilyTree, type FamilyTree } from './languages'
 export {
   useLocationEvents,
   useLocationResidents,
