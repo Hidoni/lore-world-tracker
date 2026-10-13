@@ -246,9 +246,8 @@ class Groups:
                 )
             )
         member = aliased(Entity)
-        counts: dict[str, int] = {
-            target: count
-            for target, count in self.session.execute(
+        counts: dict[str, int] = dict(
+            self.session.execute(
                 select(Link.target_id, func.count(Link.id))
                 .join(member, member.id == Link.source_id)
                 .where(
@@ -261,8 +260,8 @@ class Groups:
                     *valid_at(at),
                 )
                 .group_by(Link.target_id)
-            )
-        }
+            ).all()
+        )
         return OrgChart(
             root_id=root.id,
             units=[
