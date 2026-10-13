@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
@@ -152,4 +152,86 @@ describe('characters module', () => {
       ),
     ).toBeVisible()
   })
+})
+
+describe('family tree', () => {
+  /** Mara (adoptive) mother of Ilsa, married to Oren; their son Tam. */
+  const FAMILY: LinkRow[] = [
+    {
+      id: 'l1',
+      link_type: 'characters.parent_of',
+      source_id: 'mara',
+      target_id: 'ilsa',
+      data: { kind: 'adoptive' },
+    },
+    { id: 'l2', link_type: 'characters.spouse_of', source_id: 'oren', target_id: 'ilsa' },
+    { id: 'l3', link_type: 'characters.parent_of', source_id: 'ilsa', target_id: 'tam' },
+    { id: 'l4', link_type: 'characters.parent_of', source_id: 'oren', target_id: 'tam' },
+  ]
+  const names = (scope: HTMLElement) =>
+    within(scope)
+      .getAllByTestId('family-person')
+      .map((node) => node.getAttribute('title'))
+      .sort()
+
+  it('draws the family in the panel, with existence unknown, and re-centers in place', async () => {
+    world({ links: FAMILY })
+    await renderApp('/v/v1/e/ilsa')
+    const panel = await screen.findByRole('region', { name: 'Family tree' }, WAIT)
+    const figure = await within(panel).findByRole('figure', { name: 'Family tree' }, WAIT)
+    await waitFor(() => {
+      expect(names(figure)).toEqual(['Ilsa', 'Mara', 'Oren', 'Tam'])
+    }, WAIT)
+    const ilsa = within(figure)
+      .getAllByTestId('family-person')
+      .find((node) => node.getAttribute('title') === 'Ilsa')
+    expect(ilsa).toHaveAttribute('data-existence', 'unknown')
+    expect(ilsa).toHaveTextContent('Lifespan unknown')
+
+    // A click on the son re-centers on him: one generation each way from Tam is his parents.
+    await userEvent.selectOptions(within(panel).getByLabelText('Generations up'), '1')
+    // A plain click: userEvent's mousedown reaches d3-zoom, which needs a window jsdom lacks.
+    fireEvent.click(within(figure).getByTitle('Tam'))
+    await waitFor(() => {
+      expect(names(within(panel).getByRole('figure', { name: 'Family tree' }))).toEqual([
+        'Ilsa',
+        'Oren',
+        'Tam',
+      ])
+    }, WAIT)
+    expect(within(panel).getByRole('link', { name: 'Open the family tree view' })).toHaveAttribute(
+      'href',
+      '/v/v1/m/characters/tam/family-tree',
+    )
+    await userEvent.click(within(panel).getByRole('button', { name: 'Back to this character' }))
+    await waitFor(() => {
+      expect(names(within(panel).getByRole('figure', { name: 'Family tree' }))).toContain('Mara')
+    }, WAIT)
+  }, 20_000)
+
+  it('shows the full view with depth controls and a list', async () => {
+    world({ links: FAMILY })
+    const { router } = await renderApp('/v/v1/m/characters/ilsa/family-tree')
+    expect(await screen.findByRole('heading', { name: 'Family tree of Ilsa' }, WAIT)).toBeVisible()
+    const figure = await screen.findByRole('figure', { name: 'Family tree' }, WAIT)
+    await waitFor(() => {
+      expect(names(figure)).toEqual(['Ilsa', 'Mara', 'Oren', 'Tam'])
+    }, WAIT)
+    await userEvent.selectOptions(screen.getByLabelText('Generations down'), '0')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    const up = await screen.findByRole('region', { name: '1 generation up' }, WAIT)
+    expect(up).toHaveTextContent('Mara')
+    const same = screen.getByRole('region', { name: 'Same generation' })
+    expect(same).toHaveTextContent('Ilsa · child of Mara · spouse of Oren')
+    expect(screen.queryByRole('region', { name: '1 generation down' })).toBeNull()
+
+    // Opening a relative from the drawing goes to their page.
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    // React Flow keeps nodes hidden until it has measured them (jsdom has no layout), and a
+    // hidden button has no accessible name: find it by its label.
+    fireEvent.click(await screen.findByLabelText('Open Mara', {}, WAIT))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/v/v1/e/mara')
+    })
+  }, 20_000)
 })

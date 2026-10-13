@@ -74,9 +74,8 @@ None.
   **Family tree** (embedded, depth control), **Affiliations** (memberships, residence, species,
   languages), **Life** (existence, events participated in, age at each event).
 - **Family tree view** (`/m/characters/{id}/family-tree`): generations top to bottom,
-  spouses adjacent, multiple marriages supported, deceased at the cursor shown muted. Layout via
-  elkjs layered with marriage junction nodes, rendered in React Flow. A spike decides whether a
-  dedicated genealogy layout library is better (issue in M6).
+  spouses adjacent, multiple marriages supported, deceased at the cursor shown muted. Laid out
+  by relatives-tree (the #93 spike, ADR-0015) and rendered in React Flow.
 - **Relationship web** = the local graph filtered to character relationship types (graph module).
 
 Implementation (#92): `backend/src/lore/modules/characters/` and
@@ -84,9 +83,32 @@ Implementation (#92): `backend/src/lore/modules/characters/` and
 capacity and roles, and "Add relationship" through the link dialog), **Life** (the time
 context's timeline), **Affiliations** (the `out` links of `groups.member_of`,
 `locations.resides_in`, `locations.origin`, `species.is_a` and `languages.speaks` of the enabled
-modules). The family tree (view, endpoint and panel) and as-of filtering come with their own
-issues. The sample world has the royal house of Varn over three generations, a rival with a
+modules). As-of filtering comes with its own issue. The sample world has the royal house of Varn over three generations, a rival with a
 secret and roles in events.
+
+Family tree (#93): `GET /m/characters/{id}/family-tree` gathers the family generation by
+generation, one set of links at a time:
+
+- `up` generations of ancestors and `down` of descendants (0–10, default 3 each);
+- with `include_siblings`, the siblings of the character and of their ancestors (linked
+  siblings, and the other children of the parents in the tree);
+- with `include_spouses`, everyone's spouses, and the other parents of children in the tree
+  within the generations asked for (the parents of a half-sibling or a grandchild).
+
+The response is `{root_id, people: [{id, name, visibility, generation, from_t, to_t}], edges:
+[{id, kind: parent|spouse|sibling, source_id, target_id, relation}], truncated}` (`limit`, default
+500 people). Only links the request sees, between characters outside the trash, count.
+`from_t`/`to_t` (existence) are `null` until temporal facts land (M7). The UI shows "Lifespan
+unknown" for now and will mute the deceased at the cursor. `timeline` is checked like other
+reads.
+
+The **Family tree** panel (character pages) shows two generations each way. Clicking a relative
+re-centers the panel on them, with "Back to this character". The panel links to the view, which
+starts at three generations. Both have generations up/down, Spouses, Siblings and "As a list"
+(people by generation, with parents and spouses). In the view, a click re-centers on the
+relative's tree, and the icon on a box opens the person's page. The layout is ADR-0015's
+relatives-tree adapter: at most two parents a person (biological first), an "Unknown parent"
+for siblings without recorded ones, and spouses on opposite sides.
 
 ## Consistency rules
 

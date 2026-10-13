@@ -42,6 +42,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-hook-form": "^7.90.0",
+    "relatives-tree": "^3.2.2",
     "sonner": "^2.0.8",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"

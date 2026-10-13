@@ -899,6 +899,67 @@ export function serveVault(
         })),
       })
     }),
+    // The family tree: relatives within `up`/`down` generations through family links
+    // (parents ±1, spouses and siblings 0), and the family links between them.
+    http.get('*/api/v1/vaults/v1/m/characters/:id/family-tree', ({ request, params }) => {
+      const url = new URL(request.url)
+      const root = found(params.id)
+      if (root?.kind !== 'character') return new HttpResponse(null, { status: 404 })
+      const up = Number(url.searchParams.get('up') ?? '3')
+      const down = Number(url.searchParams.get('down') ?? '3')
+      const kinds: Record<string, 'parent' | 'spouse' | 'sibling'> = {
+        'characters.parent_of': 'parent',
+        'characters.spouse_of': 'spouse',
+        'characters.sibling_of': 'sibling',
+      }
+      if (url.searchParams.get('include_spouses') === 'false') delete kinds['characters.spouse_of']
+      if (url.searchParams.get('include_siblings') === 'false') delete kinds['characters.sibling_of']
+      const family = [...links.values()].filter(
+        (link) =>
+          kinds[link.link_type] !== undefined &&
+          found(link.source_id)?.deleted_at === null &&
+          found(link.target_id)?.deleted_at === null,
+      )
+      const generation = new Map([[root.id, 0]])
+      const queue = [root.id]
+      for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+        const at = generation.get(id) ?? 0
+        for (const link of family) {
+          const kind = kinds[link.link_type]
+          const [other, step] =
+            link.source_id === id
+              ? [link.target_id, kind === 'parent' ? 1 : 0]
+              : link.target_id === id
+                ? [link.source_id, kind === 'parent' ? -1 : 0]
+                : [null, 0]
+          if (other === null || generation.has(other)) continue
+          if (at + step < -up || at + step > down) continue
+          generation.set(other, at + step)
+          queue.push(other)
+        }
+      }
+      return HttpResponse.json({
+        root_id: root.id,
+        people: [...generation.entries()].map(([id, at]) => ({
+          id,
+          name: found(id)?.name ?? id,
+          visibility: found(id)?.visibility ?? 'public',
+          generation: at,
+          from_t: null,
+          to_t: null,
+        })),
+        edges: family
+          .filter((link) => generation.has(link.source_id) && generation.has(link.target_id))
+          .map((link) => ({
+            id: link.id,
+            kind: kinds[link.link_type],
+            source_id: link.source_id,
+            target_id: link.target_id,
+            relation: (link.data as { kind?: string } | undefined)?.kind ?? null,
+          })),
+        truncated: false,
+      })
+    }),
     http.get('*/api/v1/vaults/v1/m/characters/:id/life', ({ params }) => {
       const id = String(params.id)
       const items = [...links.values()]
