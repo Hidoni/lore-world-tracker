@@ -16,11 +16,13 @@ function lazyPanel(
 const FamilyPanel = lazyPanel(async () => (await import('./panels/family-panel')).FamilyPanel)
 const SpeakersPanel = lazyPanel(async () => (await import('./panels/speakers-panel')).SpeakersPanel)
 const ScriptsPanel = lazyPanel(async () => (await import('./panels/scripts-panel')).ScriptsPanel)
+const LexiconPanel = lazyPanel(async () => (await import('./panels/lexicon-panel')).LexiconPanel)
 
 /**
  * The languages module (docs/modules/languages.md): languages (dialects as children) and writing
- * systems, with their family, speakers and scripts, and a family tree view. The lexicon comes
- * with its own issue.
+ * systems, with their family, speakers and scripts, a family tree view, and each language's
+ * lexicon (panel, full page, entry drawer, CSV import and export; `lexiconRef` words in rich
+ * text).
  */
 export default defineModule({
   id: 'languages',
@@ -34,8 +36,21 @@ export default defineModule({
       path: 'family-tree',
       component: lazyRouteComponent(() => import('./views/family-tree-page')),
     }),
+    createRoute({
+      getParentRoute: () => parent,
+      path: '$language/lexicon',
+      component: lazyRouteComponent(() => import('./views/lexicon-page')),
+    }),
   ],
   entityPanels: [
+    {
+      id: 'languages.lexicon',
+      kinds: ['language'],
+      title: 'Lexicon',
+      component: LexiconPanel,
+      placement: 'main',
+      order: 5,
+    },
     {
       id: 'languages.family',
       kinds: ['language'],

@@ -13,6 +13,11 @@ type Schemas = components['schemas']
 export type FamilyTree = Domain<Schemas['FamilyTree']>
 export type LexiconEntry = Domain<Schemas['LexiconEntryOut']>
 export type LexiconImportReport = Schemas['ImportReport']
+export type LexiconEntryUpdate = Schemas['LexiconEntryUpdate']
+export type LexiconDefinition = Schemas['Definition']
+export type EtymologySource = Schemas['EtymologySource']
+/** A time point as request bodies take it. */
+export type WireTimePoint = Schemas['TimePoint']
 
 /** The language family graph (of a dimension and the multiversal languages, or all). */
 export function useLanguageFamilyTree(vault: string, dimension: string | null) {
