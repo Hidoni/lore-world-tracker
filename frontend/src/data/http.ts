@@ -244,20 +244,20 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'LocationEvents',
       ),
-    locationResidents: async (vault, location) =>
+    locationResidents: async (vault, location, query) =>
       toDomain(
         await unwrap(
           client.GET(`${V}/m/locations/{location_id}/residents`, {
-            params: { path: { vault_id: vault, location_id: location } },
+            params: { path: { vault_id: vault, location_id: location }, query },
           }),
         ),
         'EntityLinks',
       ),
-    characterRelationships: async (vault, character) =>
+    characterRelationships: async (vault, character, query) =>
       toDomain(
         await unwrap(
           client.GET(`${V}/m/characters/{character_id}/relationships`, {
-            params: { path: { vault_id: vault, character_id: character } },
+            params: { path: { vault_id: vault, character_id: character }, query },
           }),
         ),
         'Relationships',
@@ -289,11 +289,11 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'Members',
       ),
-    groupLeaders: async (vault, group) =>
+    groupLeaders: async (vault, group, query) =>
       toDomain(
         await unwrap(
           client.GET(`${V}/m/groups/{group_id}/leaders`, {
-            params: { path: { vault_id: vault, group_id: group } },
+            params: { path: { vault_id: vault, group_id: group }, query },
           }),
         ),
         'Leaders',
@@ -307,11 +307,11 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'OrgChart',
       ),
-    groupTerritory: async (vault, group) =>
+    groupTerritory: async (vault, group, query) =>
       toDomain(
         await unwrap(
           client.GET(`${V}/m/groups/{group_id}/territory`, {
-            params: { path: { vault_id: vault, group_id: group } },
+            params: { path: { vault_id: vault, group_id: group }, query },
           }),
         ),
         'EntityLinks',
@@ -323,11 +323,11 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'FamilyTree',
       ),
-    speciesMembers: async (vault, species) =>
+    speciesMembers: async (vault, species, query) =>
       toDomain(
         await unwrap(
           client.GET(`${V}/m/species/{species_id}/members`, {
-            params: { path: { vault_id: vault, species_id: species } },
+            params: { path: { vault_id: vault, species_id: species }, query },
           }),
         ),
         'EntityLinks',

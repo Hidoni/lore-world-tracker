@@ -1,4 +1,5 @@
 import type { EntityViewProps } from '@/core/modules'
+import { useEntityAsOf } from '@/core/time'
 import { useLinks, useLinkTypes } from '@/data'
 
 import { LinkRows } from './link-rows'
@@ -20,7 +21,8 @@ export function AffiliationsPanel({ vault, entityId }: EntityViewProps) {
   const offered = useLinkTypes(vault)
   const known = new Set(offered.data?.items.map((type) => type.key) ?? [])
   const types = AFFILIATIONS.filter((key) => known.has(key))
-  const links = useLinks(vault, entityId, { type: types, direction: 'out' })
+  const asOf = useEntityAsOf(vault, entityId)
+  const links = useLinks(vault, entityId, { type: types, direction: 'out', ...asOf })
   if (offered.isPending) return <p className="text-sm text-muted-foreground">Loading…</p>
   if (types.length === 0) {
     return (

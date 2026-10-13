@@ -1,10 +1,12 @@
 import { add, formatMoment, type TimePoint } from '@lore/chronology'
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon } from 'lucide-react'
 import { useState } from 'react'
+import { create } from 'zustand'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useEntity } from '@/data'
+import { readStored, writeStored } from '@/lib/storage'
 
 import type { DimensionTime, Lens } from './calendars'
 import { formatIn } from './format'
@@ -13,6 +15,22 @@ import { useTimeContext, type TimeContext } from './time-context'
 import { TimePointPicker } from './time-point-picker'
 
 const BASE_STEP = 'base'
+const HIDE_KEY = 'lore.hideNonExisting'
+
+interface ExistenceFilter {
+  /** Lists and trees leave out what doesn't exist at the cursor. */
+  hide: boolean
+  setHide: (hide: boolean) => void
+}
+
+/** The "hide entities not existing at the cursor" choice (per browser). */
+export const useExistenceFilter = create<ExistenceFilter>()((set) => ({
+  hide: readStored(HIDE_KEY) === '1',
+  setHide: (hide) => {
+    writeStored(HIDE_KEY, hide ? '1' : '0')
+    set({ hide })
+  },
+}))
 
 /** The levels a lens can step by (coarse first), or the base unit for the Absolute calendar. */
 function stepLevels(lens: Lens | null): { id: string; label: string }[] {
@@ -69,6 +87,8 @@ export function cursorLabel(context: TimeContext): string {
 export function TimeCursorControl({ vault }: { vault: string }) {
   const context = useTimeContext(vault)
   const [open, setOpen] = useState(false)
+  const hide = useExistenceFilter((state) => state.hide)
+  const setHide = useExistenceFilter((state) => state.setHide)
   const [point, setPoint] = useState<TimePoint | null>(null)
   const levels = stepLevels(context.lens)
   const [chosenLevel, setLevel] = useState<string | null>(null)
@@ -155,6 +175,16 @@ export function TimeCursorControl({ vault }: { vault: string }) {
               </select>
             </label>
           )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hide}
+              onChange={(event) => {
+                setHide(event.target.checked)
+              }}
+            />
+            Hide entities that don’t exist then (lists and trees)
+          </label>
           <TimePointPicker
             dimension={dimension}
             lenses={context.lenses}
@@ -219,4 +249,36 @@ export function useEntityAsOf(
   if (asOf === undefined || entity.data === undefined) return undefined
   const dimension = entity.data.dimension_id
   return dimension === null || dimension === context.dimensionId ? asOf : undefined
+}
+
+/** Why an item is shown muted at the time cursor. */
+export const POSSIBLE_NOTE = 'Possibly valid then: the moment is inside an uncertain date.'
+
+/**
+ * Props for an item read at the time cursor: muted, with an explanation, when only possibly
+ * valid then (`certainty: possible`).
+ */
+export function certaintyProps(certainty: string | null | undefined): {
+  className?: string
+  title?: string
+  'data-certainty'?: string
+} {
+  if (certainty === 'possible') {
+    return {
+      className: 'text-muted-foreground italic',
+      title: POSSIBLE_NOTE,
+      'data-certainty': 'possible',
+    }
+  }
+  return certainty == null ? {} : { 'data-certainty': certainty }
+}
+
+/**
+ * The existence filter of lists and trees (`timeline`, `at`): only when the cursor is at a moment
+ * and the "hide entities that don't exist then" choice is on.
+ */
+export function useExistenceQuery(vault: string): { timeline?: string; at?: string } {
+  const asOf = useAsOf(vault)
+  const hide = useExistenceFilter((state) => state.hide)
+  return hide && asOf !== undefined ? asOf : {}
 }

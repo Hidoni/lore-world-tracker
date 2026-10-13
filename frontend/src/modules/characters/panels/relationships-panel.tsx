@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { LinkDialog } from '@/core/links'
 import type { EntityViewProps } from '@/core/modules'
+import { useEntityAsOf } from '@/core/time'
 import { useCharacterRelationships, useEntity, useMutations } from '@/data'
 
 import { LinkRows } from './link-rows'
@@ -13,7 +14,8 @@ const TITLES: Record<string, string> = { family: 'Family', social: 'Social', cus
 /** The character's relationships by category (family, social, other), and adding one. */
 export function RelationshipsPanel({ vault, entityId }: EntityViewProps) {
   const entity = useEntity(vault, entityId)
-  const relationships = useCharacterRelationships(vault, entityId)
+  const asOf = useEntityAsOf(vault, entityId)
+  const relationships = useCharacterRelationships(vault, entityId, asOf)
   const editable = useMutations() !== null && entity.data?.deleted_at === null
   const [adding, setAdding] = useState(false)
   const groups = (relationships.data?.groups ?? []).filter((group) => group.items.length > 0)

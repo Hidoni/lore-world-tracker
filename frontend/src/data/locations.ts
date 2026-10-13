@@ -44,10 +44,14 @@ export function useLocationEvents(
 }
 
 /** Who and what resides at a location (`locations.resides_in` links to it). */
-export function useLocationResidents(vault: string, location: string) {
+export function useLocationResidents(
+  vault: string,
+  location: string,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
   return useQuery({
-    queryKey: keys.locationResidents(vault, location),
-    queryFn: () => source.locationResidents(vault, location),
+    queryKey: keys.locationResidents(vault, location, asOf),
+    queryFn: () => source.locationResidents(vault, location, asOf),
   })
 }

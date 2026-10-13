@@ -31,10 +31,14 @@ export { CalendarSelector, DimensionSwitcher } from './switchers'
 export { TimePointPicker } from './time-point-picker'
 export {
   TimeCursorControl,
+  POSSIBLE_NOTE,
+  certaintyProps,
   cursorLabel,
   stepMoment,
   useAsOf,
   useEntityAsOf,
+  useExistenceFilter,
+  useExistenceQuery,
 } from './time-cursor-control'
 export { timeProblemMessage, timeWriteProblem } from './time-problems'
 export {

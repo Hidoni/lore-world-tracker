@@ -25,11 +25,15 @@ export function useCharacterFamilyTree(vault: string, character: string, query: 
 }
 
 /** A character's relationships by category (family, social, custom). */
-export function useCharacterRelationships(vault: string, character: string) {
+export function useCharacterRelationships(
+  vault: string,
+  character: string,
+  asOf?: { timeline: string; at: string },
+) {
   const source = useDataSource()
   return useQuery({
-    queryKey: keys.characterRelationships(vault, character),
-    queryFn: () => source.characterRelationships(vault, character),
+    queryKey: keys.characterRelationships(vault, character, asOf),
+    queryFn: () => source.characterRelationships(vault, character, asOf),
   })
 }
 

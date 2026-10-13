@@ -85,9 +85,17 @@ export interface DataSource {
     location: string,
     query: Query<'locations_events'>,
   ): Promise<D<'LocationEvents'>>
-  locationResidents(vault: string, location: string): Promise<D<'EntityLinks'>>
+  locationResidents(
+    vault: string,
+    location: string,
+    query?: Query<'locations_residents'>,
+  ): Promise<D<'EntityLinks'>>
   // The characters module (docs/modules/characters.md).
-  characterRelationships(vault: string, character: string): Promise<D<'Relationships'>>
+  characterRelationships(
+    vault: string,
+    character: string,
+    query?: Query<'characters_relationships'>,
+  ): Promise<D<'Relationships'>>
   characterFamilyTree(
     vault: string,
     character: string,
@@ -100,13 +108,17 @@ export interface DataSource {
   ): Promise<D<'Life'>>
   // The groups module (docs/modules/groups.md).
   groupMembers(vault: string, group: string, query?: Query<'groups_members'>): Promise<D<'Members'>>
-  groupLeaders(vault: string, group: string): Promise<D<'Leaders'>>
+  groupLeaders(vault: string, group: string, query?: Query<'groups_leaders'>): Promise<D<'Leaders'>>
   groupOrgChart(
     vault: string,
     group: string,
     query?: Query<'groups_org_chart'>,
   ): Promise<D<'OrgChart'>>
-  groupTerritory(vault: string, group: string): Promise<D<'EntityLinks'>>
+  groupTerritory(
+    vault: string,
+    group: string,
+    query?: Query<'groups_territory'>,
+  ): Promise<D<'EntityLinks'>>
   // The languages module (docs/modules/languages.md).
   languageFamilyTree(
     vault: string,
@@ -119,7 +131,11 @@ export interface DataSource {
   ): Promise<D<'LexiconPage'>>
   lexiconEntry(vault: string, entry: string): Promise<D<'LexiconEntryOut'>>
   // The species module (docs/modules/species.md).
-  speciesMembers(vault: string, species: string): Promise<D<'EntityLinks'>>
+  speciesMembers(
+    vault: string,
+    species: string,
+    query?: Query<'species_members'>,
+  ): Promise<D<'EntityLinks'>>
   speciesDescentTree(
     vault: string,
     query?: Query<'species_descent_tree'>,

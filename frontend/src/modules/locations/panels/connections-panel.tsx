@@ -1,4 +1,5 @@
 import type { EntityViewProps } from '@/core/modules'
+import { useEntityAsOf } from '@/core/time'
 import { useEntity, useLinks } from '@/data'
 
 import { CONNECTED_TO } from '../types'
@@ -16,7 +17,8 @@ const ROUTES: Record<string, string> = {
 /** Locations connected to this one (roads, rivers, portals… a portal may cross dimensions). */
 export function ConnectionsPanel({ vault, entityId }: EntityViewProps) {
   const entity = useEntity(vault, entityId)
-  const links = useLinks(vault, entityId, { type: [CONNECTED_TO] })
+  const asOf = useEntityAsOf(vault, entityId)
+  const links = useLinks(vault, entityId, { type: [CONNECTED_TO], ...asOf })
   if (links.isPending) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
     <LinkList
