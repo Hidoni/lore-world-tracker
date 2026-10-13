@@ -464,7 +464,7 @@ def test_undo_respects_parent_rules(api: LinkApi, app: FastAPI) -> None:
 def test_undo_respects_required_fields(tmp_path: Path) -> None:
     from dataclasses import replace  # noqa: PLC0415
 
-    from tests.entity_modules import EXTRA, WORLD  # noqa: PLC0415
+    from tests.entity_modules import EXTRA, MISC, WORLD  # noqa: PLC0415
 
     with make_client(tmp_path) as client:
         api = LinkApi(client)
@@ -476,7 +476,7 @@ def test_undo_respects_required_fields(tmp_path: Path) -> None:
         if k.key == "gadget" else k
         for k in WORLD.kinds
     )  # fmt: skip
-    with make_client(tmp_path, (replace(WORLD, kinds=kinds), EXTRA)) as client:
+    with make_client(tmp_path, (MISC, replace(WORLD, kinds=kinds), EXTRA)) as client:
         api = LinkApi(client, api.vault)
         app = client.app
         assert refused(api, app, edit) == ["Thing: Text is required"]  # type: ignore[arg-type]

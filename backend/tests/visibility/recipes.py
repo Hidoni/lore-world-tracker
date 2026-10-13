@@ -162,6 +162,10 @@ def tree(c: Canary) -> Iterator[Call]:
     for entity_id in [*c.public.values(), *c.hidden_ids]:
         yield Call(path, {"parent": entity_id})
         yield Call(path, {"dimension": entity_id})
+    # Groups are field values: private ones must not show.
+    yield Call(path, {"kind": "misc", "group_by": "category", "limit": 500})
+    for name in ("text", "secret"):
+        yield Call(path, {"kind": "gadget", "group_by": name, "limit": 500})
 
 
 @recipe(f"{V}/tags")

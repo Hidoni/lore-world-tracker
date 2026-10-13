@@ -66,6 +66,21 @@ export function useTags(vault: string, query: Query<'tags_list'> = {}) {
   })
 }
 
+/** Distinct values of a text field among a kind's entities, most used first (autocomplete). */
+export function useFieldValues(
+  vault: string,
+  query: Query<'entities_field_values'>,
+  options: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.fieldValues(vault, query),
+    queryFn: () => source.fieldValues(vault, query),
+    enabled: options.enabled ?? true,
+    staleTime: 30_000,
+  })
+}
+
 export function useTrash(vault: string, query: Query<'trash_list'> = {}) {
   const source = useDataSource()
   return useQuery({ queryKey: keys.trash(vault, query), queryFn: () => source.trash(vault, query) })

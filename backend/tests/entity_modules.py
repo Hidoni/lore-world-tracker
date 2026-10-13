@@ -18,6 +18,7 @@ from lore.core.registry import (
 )
 from lore.core.registry import KindCapabilities as Caps
 from lore.core.visibility import VisibilityPolicy
+from lore.modules import misc
 
 OPTIONS = (FieldOption("red", "Red"), FieldOption("blue", "Blue"))
 
@@ -80,7 +81,6 @@ WORLD = ModuleSpec(
     name="World",
     description="Kinds for entity tests.",
     kinds=(
-        _kind("misc", allowed_parents=("misc",)),
         _kind("gadget", allowed_parents=("gadget", "misc"), fields=EVERY_TYPE),
         _kind(
             "relic",
@@ -147,4 +147,6 @@ EXTRA = ModuleSpec(
     link_types=(LinkTypeDef("extra.hunts", "hunts", source_kinds=("beast",)),),
 )
 
-ENTITY_MODULES = (WORLD, EXTRA)
+# The real misc module provides `misc`, the parent the test kinds use.
+MISC = misc.MODULE
+ENTITY_MODULES = (MISC, WORLD, EXTRA)

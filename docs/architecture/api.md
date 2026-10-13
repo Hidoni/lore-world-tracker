@@ -64,7 +64,7 @@
 | DELETE | `/vaults/{v}/entities/{id}` | move to trash (idempotent), or `?purge=true` for permanent (author only) → `{id, purged, entity, affected}` |
 | POST | `/vaults/{v}/entities/{id}/restore` | restore from trash (idempotent) → `{entity, affected}` |
 | GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (every dimension, not trashed; `kind`, `cursor`, `limit`), sorted like the tree → `{items: TreeNode[], next_cursor}` |
-| GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal` |
+| GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `group_by` (a single text field of the one `kind`: each node's `group` is its trimmed value, `null` when empty or the request can't see the field; #89), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal`, `group` |
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
 | GET | `/vaults/{v}/entities/{id}/backlinks` | entities pointing at this one: incoming (and symmetric) links and mentions with counts by block visibility, by name (decided 2026-10-04); `include_trashed` → `{items: [{entity, links, mentions: {public, spoiler, private}}]}` |
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |

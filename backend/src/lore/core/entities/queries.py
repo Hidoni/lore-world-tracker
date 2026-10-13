@@ -64,6 +64,7 @@ from lore.core.entities.schemas import (
 from lore.core.entities.service import DIMENSION_KIND, EntityService
 from lore.core.errors import InvalidInputError
 from lore.core.modules.service import ModuleDisabledError
+from lore.core.registry import FieldDef
 
 type EntityTable = Any  # Entity or an aliased(Entity)
 
@@ -324,11 +325,18 @@ class EntityQueries:
         dimension: str | None = None,
         parent: str | None = None,
         kinds: Sequence[str] | None = None,
+        group_by: str | None = None,
         cursor: str | None = None,
         limit: int = 200,
     ) -> TreePage:
         """One level of the navigation tree: the roots, or the children of ``parent``.
-        Multiversal entities appear in every dimension (``frontend.md`` §3)."""
+        Multiversal entities appear in every dimension (``frontend.md`` §3). ``group_by`` (a text
+        field of the one kind in ``kinds``) sets each node's ``group`` to its value there."""
+        group_field = None
+        if group_by is not None:
+            if kinds is None or len(set(kinds)) != 1:
+                raise _invalid("group_by", "Grouping needs exactly one kind.")
+            group_field = self._text_field(next(iter(kinds)), group_by, "group_by")
         e = Entity
         conditions = self._in_tree(e, dimension, kinds)
         if parent is not None:
@@ -350,7 +358,7 @@ class EntityQueries:
             sort="sort_key",
             cursor=cursor,
             limit=limit,
-            build=lambda rows: self._nodes(rows, dimension, kinds),
+            build=lambda rows: self._nodes(rows, dimension, kinds, group_field),
         )
         return TreePage(items=items, next_cursor=next_cursor)
 
@@ -377,7 +385,11 @@ class EntityQueries:
         return TreePage(items=items, next_cursor=next_cursor)
 
     def _nodes(
-        self, entities: list[Entity], dimension: str | None, kinds: Sequence[str] | None
+        self,
+        entities: list[Entity],
+        dimension: str | None,
+        kinds: Sequence[str] | None,
+        group_field: FieldDef | None = None,
     ) -> list[TreeNode]:
         child = aliased(Entity)
         counts: dict[str, dict[str, int]] = defaultdict(dict)
@@ -405,9 +417,18 @@ class EntityQueries:
                 sort_key=e.sort_key,
                 has_children=bool(counts.get(e.id)),
                 child_counts=counts.get(e.id, {}),
+                group=None if group_field is None else self._group(e, group_field),
             )
             for e in entities
         ]
+
+    def _group(self, entity: Entity, field: FieldDef) -> str | None:
+        """The entity's (stripped) value of a single text field, if the request may see it."""
+        value = (entity.fields or {}).get(field.key)
+        if not isinstance(value, str) or not value.strip():
+            return None
+        level = self.policy.field_level(field, entity.field_visibility or {})
+        return value.strip() if self.policy.shows(level) else None
 
     # --- field values ---------------------------------------------------------------------------
 
@@ -434,11 +455,8 @@ class EntityQueries:
             ]
         )
 
-    def field_values(
-        self, *, kind: str, field: str, q: str | None = None, limit: int = 20
-    ) -> FieldValueList:
-        """Distinct values of a ``text`` field among the kind's entities (not in the trash), for
-        autocomplete. Case/accent variants are merged (decided 2026-10-04)."""
+    def _text_field(self, kind: str, field: str, name: str = "field") -> FieldDef:
+        """The active ``text`` field ``field`` of ``kind`` (``name``: the parameter, for errors)."""
         registered = self.service.kinds.get(kind)
         if registered is None:
             if kind in self.service.registry.all_kind_keys():
@@ -446,8 +464,15 @@ class EntityQueries:
             raise _invalid("kind", f"Unknown kind {kind!r}.")
         definition = self.service.kind_fields(registered).active.get(field)
         if definition is None or definition.type != "text":
-            raise _invalid("field", f"{field!r} is not a text field of this kind.")
+            raise _invalid(name, f"{field!r} is not a text field of this kind.")
+        return definition
 
+    def field_values(
+        self, *, kind: str, field: str, q: str | None = None, limit: int = 20
+    ) -> FieldValueList:
+        """Distinct values of a ``text`` field among the kind's entities (not in the trash), for
+        autocomplete. Case/accent variants are merged (decided 2026-10-04)."""
+        definition = self._text_field(kind, field)
         path = f'$."{field}"'  # field keys match ^[a-z][a-z0-9_.]*$: nothing to escape
         conditions = [
             *self._shown(Entity),

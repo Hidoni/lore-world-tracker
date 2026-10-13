@@ -197,6 +197,7 @@ function KindForm({
                 <FieldEditor
                   field={field}
                   id={id}
+                  suggest={{ vault, kind: kind.key }}
                   value={control.value}
                   invalid={message !== undefined}
                   onChange={control.onChange}

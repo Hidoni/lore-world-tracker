@@ -32,6 +32,8 @@ export interface Kind {
   headerMedia: ComponentType<EntityViewProps> | null
   listColumns: readonly string[]
   createDefaults: Readonly<Record<string, unknown>>
+  /** The text field the sidebar groups the kind's top level by, if any. */
+  groupBy: string | null
 }
 
 export interface LinkType extends Readonly<Schemas['LinkTypeOut']> {
@@ -81,6 +83,7 @@ export function buildKindRegistry(
       headerMedia: headerMedia[kind.key] ?? null,
       listColumns: config.listColumns ?? [],
       createDefaults: config.createDefaults ?? {},
+      groupBy: config.groupBy ?? null,
     }
   })
   const linkTypes = registry.link_types.map((linkType): LinkType => ({

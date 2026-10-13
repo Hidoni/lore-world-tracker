@@ -17,7 +17,7 @@ from lore.core.vaults import VaultManager
 from tests import entity_modules
 from tests.conftest import local_client
 from tests.entity_api import HEADERS, Api, invalid, make_client, new_app, problem
-from tests.entity_modules import ENTITY_MODULES, EXTRA, WORLD
+from tests.entity_modules import ENTITY_MODULES, EXTRA, MISC, WORLD
 
 ABSENT = object()
 
@@ -276,7 +276,7 @@ def test_required_fields_are_checked_on_every_save(tmp_path: Path) -> None:
         else k
         for k in WORLD.kinds
     )
-    with make_client(tmp_path, (replace(WORLD, kinds=kinds), EXTRA)) as client:
+    with make_client(tmp_path, (MISC, replace(WORLD, kinds=kinds), EXTRA)) as client:
         api = Api(client, api.vault)
         assert api.get(gadget["id"]).status_code == 200
         rename = api.patch(gadget, name="Renamed")
@@ -310,7 +310,7 @@ def test_archived_and_disabled_fields_are_preserved(tmp_path: Path) -> None:
         else k
         for k in WORLD.kinds
     )
-    with make_client(tmp_path, (replace(WORLD, kinds=kinds), EXTRA)) as client:
+    with make_client(tmp_path, (MISC, replace(WORLD, kinds=kinds), EXTRA)) as client:
         api = Api(client, api.vault)
         archived = api.get(gadget["id"]).json()
         assert archived["fields"] == {"extra.wings": True}

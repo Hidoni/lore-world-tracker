@@ -19,6 +19,8 @@ export interface KindUiConfig {
   listColumns?: readonly string[]
   /** Initial values of the create dialog. */
   createDefaults?: Readonly<Record<string, unknown>>
+  /** A text field the sidebar section groups its top level by (misc: `category`). */
+  groupBy?: string
 }
 
 export interface NavSection {

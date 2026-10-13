@@ -24,7 +24,9 @@ from tests.entity_modules import ENTITY_MODULES
 from tests.sample_modules import ADDON, BASE, SAMPLE
 
 # The real modules plus test modules with kinds, fields and module routes to cover.
-LEAK_MODULES: tuple[ModuleSpec, ...] = (*ALL_MODULES, *ENTITY_MODULES, BASE, SAMPLE, ADDON)
+LEAK_MODULES: tuple[ModuleSpec, ...] = tuple(
+    {m.id: m for m in (*ALL_MODULES, *ENTITY_MODULES, BASE, SAMPLE, ADDON)}.values()
+)
 POINT = {"anchor": {"kind": "absolute", "t": "42"}, "precision": "base", "approximate": False}
 
 
@@ -212,7 +214,14 @@ def build_canary_vault(data_dir: Path) -> Canary:
         # Hierarchy: a private parent with a public child, a public parent with a private child.
         cabal = b.hidden("misc", visibility="private", **home)
         b.public("misc", "Member", parent_id=cabal["id"], **home)
-        shelf = b.public("misc", "Shelf", **home)
+        # A misc category readers may not see (the sidebar groups by it: `/tree?group_by=`).
+        shelf = b.public(
+            "misc",
+            "Shelf",
+            fields={"category": b.canary_string()},
+            field_visibility={"category": "private"},
+            **home,
+        )
         b.public("misc", "Book", parent_id=shelf["id"], **home)
         b.hidden("misc", visibility="private", parent_id=shelf["id"], **home)
 

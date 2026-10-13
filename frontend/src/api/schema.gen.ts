@@ -3672,7 +3672,8 @@ export interface components {
         /**
          * TreeNode
          * @description A navigation tree node. ``child_counts`` counts the children the same tree would show,
-         *     by kind.
+         *     by kind. ``group``: its value of the tree's ``group_by`` field (``null`` without one, when
+         *     empty, or when the request may not see the field).
          */
         TreeNode: {
             /** Id */
@@ -3700,6 +3701,8 @@ export interface components {
             child_counts: {
                 [key: string]: number;
             };
+            /** Group */
+            group?: string | null;
         };
         /** TreePage */
         TreePage: {
@@ -4796,6 +4799,8 @@ export interface operations {
                 parent?: string | null;
                 /** @description Kind keys (repeat for several). */
                 kind?: string[] | null;
+                /** @description A text field of the one kind: each node's `group`. */
+                group_by?: string | null;
                 cursor?: string | null;
                 limit?: number;
                 /** @description Apply reader filtering (preview what readers see). */

@@ -560,6 +560,7 @@ export function serveVault(
       const url = new URL(request.url)
       const kinds = url.searchParams.getAll('kind')
       const parent = url.searchParams.get('parent')
+      const groupBy = url.searchParams.get('group_by')
       const inTree = (entity: Row | undefined): entity is Row =>
         entity?.deleted_at === null && (kinds.length === 0 || kinds.includes(entity.kind))
       const items = [...rows.values()]
@@ -587,9 +588,28 @@ export function serveVault(
             sort_key: null,
             has_children: children.length > 0,
             child_counts: children.length > 0 ? { [entity.kind]: children.length } : {},
+            group:
+              groupBy !== null && typeof entity.fields[groupBy] === 'string'
+                ? entity.fields[groupBy]
+                : null,
           }
         })
       return HttpResponse.json(paged(items, url))
+    }),
+    http.get('*/api/v1/vaults/v1/entities/field-values', ({ request }) => {
+      const url = new URL(request.url)
+      const kindKey = url.searchParams.get('kind')
+      const field = url.searchParams.get('field') ?? ''
+      const counts = new Map<string, number>()
+      for (const entity of rows.values()) {
+        const value = entity.fields[field]
+        if (entity.kind !== kindKey || entity.deleted_at !== null) continue
+        if (typeof value === 'string') counts.set(value, (counts.get(value) ?? 0) + 1)
+      }
+      const items = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([value, count]) => ({ value, count }))
+      return HttpResponse.json({ items })
     }),
     http.get('*/api/v1/vaults/v1/trash', ({ request }) => {
       const items = [...rows.values()]
