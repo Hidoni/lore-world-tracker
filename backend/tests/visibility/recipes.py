@@ -121,6 +121,17 @@ def entity_list(c: Canary) -> Iterator[Call]:
         yield Call(path, {"tag": tag_id})
     for needle in [*c.strings, "C", "L"]:
         yield Call(path, {"q": needle})
+    yield from _as_of(c, path, {"limit": 500})
+
+
+def _as_of(c: Canary, path: str, params: dict[str, Any]) -> Iterator[Call]:
+    """A list at moments (existence filter): before, inside and after private existence, and in
+    a hidden timeline (404)."""
+    prime = c.public["Prime"]
+    for at in ("0", "59", "60", "500"):
+        yield Call(path, {**params, "timeline": prime, "at": at})
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {**params, "timeline": hidden_id, "at": "0"}, status=404)
 
 
 @recipe(f"{V}/entities/field-values")
@@ -134,11 +145,31 @@ def field_values(c: Canary) -> Iterator[Call]:
 @recipe(f"{V}/entities/{{entity_id}}")
 def entity(c: Canary) -> Iterator[Call]:
     yield from _entities(c)
+    holder = f"{_v(c)}/entities/{c.public['Fact Holder']}"
+    for at in ("0", "41", "60"):
+        yield Call(holder, {"at": at})
+
+
+@recipe(f"{V}/entities/{{entity_id}}/state")
+def entity_state(c: Canary) -> Iterator[Call]:
+    """As-of state: names anchored to a hidden event, private existence, private fields."""
+    prime = c.public["Prime"]
+    holder = f"{_v(c)}/entities/{c.public['Fact Holder']}/state"
+    for at in ("0", "40", "41", "59", "60", "500"):
+        yield Call(holder, {"at": at})
+        yield Call(holder, {"at": at, "timeline": prime})
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/entities/{hidden_id}/state", {"at": "0"}, status=404)
+        yield Call(holder, {"at": "0", "timeline": hidden_id}, status=404)
 
 
 @recipe(f"{V}/entities/{{entity_id}}/children")
 def children(c: Canary) -> Iterator[Call]:
     yield from _entities(c, "/children")
+    for entity_id in c.public.values():
+        yield Call(
+            f"{_v(c)}/entities/{entity_id}/children", {"timeline": c.public["Prime"], "at": "0"}
+        )
 
 
 @recipe(f"{V}/entities/{{entity_id}}/links")
@@ -174,6 +205,7 @@ def tree(c: Canary) -> Iterator[Call]:
     yield Call(path, {"kind": "misc", "group_by": "category", "limit": 500})
     for name in ("text", "secret"):
         yield Call(path, {"kind": "gadget", "group_by": name, "limit": 500})
+    yield from _as_of(c, path, {"limit": 500})
 
 
 LOCATIONS = ("Varn", "Undercroft", "Market")

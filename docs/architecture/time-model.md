@@ -758,7 +758,7 @@ The UI offers shortcuts: "create birth event and anchor existence start to it".
 
 `state(entity, T, t)` returns:
 
-1. **Existence** per §10.4 (`exists | not_exists | unknown | possibly`).
+1. **Existence** per §10.4 (`exists | not_exists | unknown | possible`).
 2. **Fields:** for each temporal field, the visible fact covering `t` (latest `valid_from` wins on
    overlap, flagged), else the static value.
 3. **Links:** timeless links plus temporal links visible in `T` whose validity covers `t`.
@@ -766,6 +766,16 @@ The UI offers shortcuts: "create birth event and anchor existence start to it".
 
 **Precision-awareness:** if `t` lies inside the uncertainty extent of a relevant bound, the item is
 returned with `certainty: "possible"`. The UI renders it de-emphasized.
+
+Implementation (#101): `lore.core.time.state.StateReader` reads the facts of a set of entities in
+one query (`TimelineView` lineage, the request's policy) and decides coverage: a bound given at a
+coarser precision than `base` may be any moment of its extent `[lo, hi)`, so a start covers `t`
+certainly from `hi - 1` and possibly from `lo`, and an end stops covering certainly at `hi - 1`
+and possibly from `lo`. Existence is `exists` when a fact covers certainly, `possible` when only
+possibly. A multiple field joins the values of every covering fact; a single-valued one takes the
+latest start (then the latest created) and is flagged `ambiguous` when several cover. Links as of
+`t` (item 3) come with the links endpoint's time cursor. Lists, the tree and children filter by
+existence (`api.md` §2). `lore.core.facts.state` builds the API state.
 
 ### 10.6 Time cursor
 

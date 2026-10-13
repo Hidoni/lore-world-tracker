@@ -13,13 +13,15 @@ from lore.core.api.deps import (
     WritableVaultDep,
 )
 from lore.core.consistency.schemas import SuppressIn, request_suppress
-from lore.core.entities.queries import EntityQueries
+from lore.core.entities.queries import EntityQueries, ExistenceOf
 from lore.core.entities.schemas import (
+    AT_PATTERN,
     ID_PATTERN,
     EntityCreate,
     EntityDeleteResult,
-    EntityOut,
     EntityPage,
+    EntityRead,
+    EntityStateOut,
     EntityUpdate,
     EntityWriteResult,
     FieldValueList,
@@ -29,6 +31,7 @@ from lore.core.entities.schemas import (
     TreePage,
 )
 from lore.core.entities.service import EntityService
+from lore.core.facts.state import EntityStates, existence_of
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
 from lore.core.vaults import OpenVault
@@ -45,6 +48,18 @@ KindsQuery = Annotated[
     list[str] | None, Query(alias="kind", description="Kind keys (repeat for several).")
 ]
 CursorQuery = Annotated[str | None, Query(max_length=4096)]
+TimelineQuery = Annotated[
+    str | None,
+    Query(pattern=ID_PATTERN, description="The time cursor's timeline (with `at`)."),
+]
+AtQuery = Annotated[
+    str | None,
+    Query(
+        pattern=AT_PATTERN,
+        max_length=1000,
+        description="The time cursor: a moment, or `present` (the timeline's dimension's).",
+    ),
+]
 
 
 def _service(
@@ -57,9 +72,27 @@ def _service(
 
 
 def _queries(
-    vault: OpenVault, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy
+    vault: OpenVault,
+    session: Session,
+    registry: ModuleRegistry,
+    policy: VisibilityPolicy,
+    existence: ExistenceOf | None = None,
 ) -> EntityQueries:
-    return EntityQueries(_service(vault, session, registry, policy))
+    return EntityQueries(_service(vault, session, registry, policy), existence)
+
+
+def _existence(
+    vault: OpenVault,
+    session: Session,
+    registry: ModuleRegistry,
+    policy: VisibilityPolicy,
+    *,
+    timeline: str | None,
+    at: str | None,
+    dimension: str | None,
+) -> ExistenceOf | None:
+    context = VaultContext(vault, session, registry)
+    return existence_of(context, policy, timeline_id=timeline, at=at, dimension_id=dimension)
 
 
 # Static paths first: "/field-values" must not be taken for an entity id.
@@ -86,10 +119,17 @@ def list_entities(
     sort: ListSort = "name",
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> EntityPage:
     """Entities of enabled kinds. ``dimension`` includes multiversal entities unless
-    ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value."""
-    return _queries(vault, session, registry, policy).list_entities(
+    ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value.
+    With ``at`` (and ``timeline``, default: the prime timeline of ``dimension``), entities that
+    don't exist then are left out; a page may then be short and still have a ``next_cursor``."""
+    existence = _existence(
+        vault, session, registry, policy, timeline=timeline, at=at, dimension=dimension
+    )
+    return _queries(vault, session, registry, policy, existence).list_entities(
         kinds=kinds,
         dimension=dimension,
         include_multiversal=include_multiversal,
@@ -137,10 +177,16 @@ def get_tree(
     ] = None,
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> TreePage:
     """One level of the navigation tree: the roots (entities without a shown parent), or the
-    children of ``parent``. Manually ordered entities (``sort_key``) first, then by name."""
-    return _queries(vault, session, registry, policy).tree(
+    children of ``parent``. Manually ordered entities (``sort_key``) first, then by name. ``at``
+    filters by existence as in entity lists (child counts don't)."""
+    existence = _existence(
+        vault, session, registry, policy, timeline=timeline, at=at, dimension=dimension
+    )
+    return _queries(vault, session, registry, policy, existence).tree(
         dimension=dimension,
         parent=parent,
         kinds=kinds,
@@ -189,15 +235,48 @@ def create_entity(
 
 @router.get("/{entity_id}", name="get")
 def get_entity(
+    *,
     entity_id: EntityIdPath,
     vault: VaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
-) -> EntityOut:
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
+) -> EntityRead:
     """The full entity (for the author also when it is in the trash; ``deleted_at`` is then
-    set)."""
-    return _service(vault, session, registry, policy).get(entity_id)
+    set). With ``at``, its ``state`` then, as ``GET …/state`` returns it."""
+    service = _service(vault, session, registry, policy)
+    out = EntityRead.model_validate(service.get(entity_id), from_attributes=True)
+    if at is not None:
+        states = EntityStates(VaultContext(vault, session, registry), policy)
+        out.state = states.of_entity(entity_id, timeline_id=timeline, at=at)
+    return out
+
+
+@router.get("/{entity_id}/state", name="state")
+def get_entity_state(
+    *,
+    entity_id: EntityIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: Annotated[
+        str,
+        Query(
+            pattern=AT_PATTERN,
+            max_length=1000,
+            description="A moment, or `present` (the timeline's dimension's present).",
+        ),
+    ],
+) -> EntityStateOut:
+    """What was true of the entity at ``at`` in ``timeline`` (default: its dimension's prime
+    timeline; required for multiversal entities): existence, name and temporal fields, with
+    certainty (``time-model.md`` §10.5)."""
+    states = EntityStates(VaultContext(vault, session, registry), policy)
+    return states.of_entity(entity_id, timeline_id=timeline, at=at)
 
 
 @router.get("/{entity_id}/children", name="children")
@@ -211,9 +290,15 @@ def list_children(
     kinds: KindsQuery = None,
     cursor: CursorQuery = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> TreePage:
-    """Children of every kind and dimension (not in the trash), sorted like the tree."""
-    return _queries(vault, session, registry, policy).children(
+    """Children of every kind and dimension (not in the trash), sorted like the tree. ``at``
+    (with ``timeline``) filters by existence as in entity lists."""
+    existence = _existence(
+        vault, session, registry, policy, timeline=timeline, at=at, dimension=None
+    )
+    return _queries(vault, session, registry, policy, existence).children(
         entity_id, kinds=kinds, cursor=cursor, limit=limit
     )
 

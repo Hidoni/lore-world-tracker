@@ -3,9 +3,14 @@ suggestions (``api.md`` §2, Entities).
 
 Every query starts from ``EntityQueries._shown``: the conditions an entity must meet to appear in
 any listing (its kind's module is enabled, and the request's ``VisibilityPolicy`` shows it).
-**Hook point:** the time cursor (``timeline``/``at`` existence filter, M3/M7) adds its conditions
-there, so the endpoints' signatures don't change. Readers never see the trash; a visible entity
-whose parent they can't see is listed with ``parent_id`` null (a root).
+The time cursor (``timeline``/``at``, ``time-model.md`` §10.4) filters pages by existence after the
+query: ``existence_of`` (a ``StateReader``) reads each batch's ``core.exists`` facts, entities that
+don't exist at the moment are skipped (``unknown`` and ``possible`` ones stay, with ``existence``
+set) and the next batch is read until the page is full. A page may come back short with a
+``next_cursor`` when many entities in a row are skipped (``MAX_BATCHES``).
+
+Readers never see the trash; a visible entity whose parent they can't see is listed with
+``parent_id`` null (a root).
 
 Pagination is keyset based (``api.md`` §1): the cursor holds the sort values of the last item, so
 pages stay stable while entities are inserted or deleted.
@@ -65,10 +70,15 @@ from lore.core.entities.service import DIMENSION_KIND, EntityService
 from lore.core.errors import InvalidInputError
 from lore.core.modules.service import ModuleDisabledError
 from lore.core.registry import FieldDef
+from lore.core.types import Existence
 
 type EntityTable = Any  # Entity or an aliased(Entity)
 
 MAX_SUGGESTIONS = 100
+EXISTENCE_BATCH = 200
+MAX_BATCHES = 10
+
+type ExistenceOf = Callable[[Sequence[Entity]], dict[str, Existence]]
 
 
 @dataclass(frozen=True)
@@ -144,10 +154,12 @@ def _like_prefix(text: str) -> str:
 
 
 class EntityQueries:
-    def __init__(self, service: EntityService) -> None:
+    def __init__(self, service: EntityService, existence_of: ExistenceOf | None = None) -> None:
         self.service = service
         self.session = service.session
         self.policy = service.policy
+        self.existence_of = existence_of
+        self._existence: dict[str, Existence] = {}
 
     # --- shared conditions ----------------------------------------------------------------------
 
@@ -194,9 +206,43 @@ class EntityQueries:
             key = tuple_(*columns)
             statement = statement.where(key < bound if order.descending else key > bound)
         ordering = [c.desc() for c in columns] if order.descending else columns
-        rows = list(self.session.scalars(statement.order_by(*ordering).limit(limit + 1)))
-        next_cursor = _encode_cursor(sort, order, rows[limit - 1]) if len(rows) > limit else None
+        if self.existence_of is None:
+            rows = list(self.session.scalars(statement.order_by(*ordering).limit(limit + 1)))
+            last = None
+        else:
+            rows, last = self._existing(statement, order, columns, ordering, limit)
+        if len(rows) > limit:
+            next_cursor: str | None = _encode_cursor(sort, order, rows[limit - 1])
+        else:
+            next_cursor = None if last is None else _encode_cursor(sort, order, last)
         return build(rows[:limit]), next_cursor
+
+    def _existing(
+        self,
+        statement: Select[Any],
+        order: _Order,
+        columns: list[ColumnElement[Any]],
+        ordering: Sequence[ColumnElement[Any]],
+        limit: int,
+    ) -> tuple[list[Entity], Entity | None]:
+        """Up to ``limit + 1`` rows that exist at the cursor moment, read in batches. Returns the
+        last row read too when the scan stopped early (``MAX_BATCHES``): the page ends there."""
+        assert self.existence_of is not None
+        size = max(limit + 1, EXISTENCE_BATCH)
+        key = tuple_(*columns)
+        kept: list[Entity] = []
+        batch_statement = statement
+        for _ in range(MAX_BATCHES):
+            batch = list(self.session.scalars(batch_statement.order_by(*ordering).limit(size)))
+            existence = self.existence_of(batch)
+            self._existence.update(existence)
+            kept += [row for row in batch if existence.get(row.id) != "not_exists"]
+            if len(kept) > limit or len(batch) < size:
+                return kept, None
+            values = order.values(batch[-1])
+            bound = tuple_(*(literal(v, c.type) for c, v in zip(columns, values, strict=True)))
+            batch_statement = statement.where(key < bound if order.descending else key > bound)
+        return kept, batch[-1]
 
     # --- lists ----------------------------------------------------------------------------------
 
@@ -286,6 +332,7 @@ class EntityQueries:
             created_at=entity.created_at,
             updated_at=entity.updated_at,
             deleted_at=entity.deleted_at,
+            existence=self._existence.get(entity.id),
         )
 
     def _trash_items(self, entities: list[Entity]) -> list[TrashItem]:
@@ -420,6 +467,7 @@ class EntityQueries:
                 has_children=bool(counts.get(e.id)),
                 child_counts=counts.get(e.id, {}),
                 group=None if group_field is None else self._group(e, group_field),
+                existence=self._existence.get(e.id),
             )
             for e in entities
         ]

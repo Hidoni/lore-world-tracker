@@ -1,7 +1,7 @@
 """Wire types shared by API schemas (``docs/architecture/api.md`` §1)."""
 
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, PlainSerializer, WithJsonSchema
 
@@ -87,3 +87,10 @@ class Affected(BaseModel):
     dimensions: list[str]
     time_changed: bool
     search_changed: bool
+
+
+type Existence = Literal["exists", "not_exists", "unknown", "possible"]
+"""An entity's existence at a moment in a timeline (``time-model.md`` §10.4)."""
+
+type Certainty = Literal["certain", "possible"]
+"""``possible``: the moment lies inside the uncertainty extent of a relevant bound (§10.5)."""

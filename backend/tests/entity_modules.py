@@ -47,6 +47,7 @@ TEMPORAL = (
     FieldDef("rank", "Rank", "integer", temporal=True),
     FieldDef("lore", "Lore", "rich_text", temporal=True),
     FieldDef("hidden_rank", "Hidden rank", "integer", temporal=True, default_visibility="private"),
+    FieldDef("titles", "Titles", "text", multiple=True, temporal=True),
 )
 
 
