@@ -139,7 +139,20 @@ export {
   type Leadership,
   type Membership,
 } from './groups'
-export { useLanguageFamilyTree, type FamilyTree } from './languages'
+export {
+  lexiconExportUrl,
+  useCreateLexiconEntry,
+  useDeleteLexiconEntry,
+  useImportLexicon,
+  useLanguageFamilyTree,
+  useLexicon,
+  useLexiconEntry,
+  useUpdateLexiconEntry,
+  type FamilyTree,
+  type LexiconEntry,
+  type LexiconImportReport,
+  type LexiconQuery,
+} from './languages'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,

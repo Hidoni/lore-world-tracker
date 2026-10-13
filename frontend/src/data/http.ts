@@ -296,6 +296,24 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'EntityLinks',
       ),
+    lexicon: async (vault, language, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/languages/{language_id}/lexicon`, {
+            params: { path: { vault_id: vault, language_id: language }, query },
+          }),
+        ),
+        'LexiconPage',
+      ),
+    lexiconEntry: async (vault, entry) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/languages/lexicon/{entry_id}`, {
+            params: { path: { vault_id: vault, entry_id: entry } },
+          }),
+        ),
+        'LexiconEntryOut',
+      ),
     speciesDescentTree: async (vault, query) =>
       toDomain(
         await unwrap(
@@ -552,6 +570,42 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           }),
         ),
         'RecurrenceApplyOut',
+      ),
+    createLexiconEntry: async (vault, language, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/languages/{language_id}/lexicon`, {
+            params: { path: { vault_id: vault, language_id: language } },
+            body,
+          }),
+        ),
+        'LexiconWriteResult',
+      ),
+    updateLexiconEntry: async (vault, entry, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/languages/lexicon/{entry_id}`, {
+            params: { path: { vault_id: vault, entry_id: entry } },
+            body,
+          }),
+        ),
+        'LexiconWriteResult',
+      ),
+    deleteLexiconEntry: async (vault, entry) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/languages/lexicon/{entry_id}`, {
+            params: { path: { vault_id: vault, entry_id: entry } },
+          }),
+        ),
+        'LexiconWriteResult',
+      ),
+    importLexicon: async (vault, language, body, dryRun) =>
+      unwrap(
+        client.POST(`${V}/m/languages/{language_id}/lexicon/import`, {
+          params: { path: { vault_id: vault, language_id: language }, query: { dry_run: dryRun } },
+          body,
+        }),
       ),
   }
 }

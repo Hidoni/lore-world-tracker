@@ -1396,7 +1396,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Lexicon Get
+         * @description One entry (`lexiconRef` nodes and the entry drawer). ``404`` when the request may not see
+         *     it or its language, or it is in the trash.
+         */
+        get: operations["languages_lexicon_get"];
         put?: never;
         post?: never;
         /**
@@ -7631,6 +7636,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LexiconWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    languages_lexicon_get: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Lexicon entry id. */
+                entry_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexiconEntryOut"];
                 };
             };
             /** @description Problem */
