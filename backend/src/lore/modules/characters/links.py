@@ -64,11 +64,11 @@ LINK_TYPES = (
     _between("characters.rival_of", "rival of", symmetric=True),
     _between("characters.enemy_of", "enemy of", symmetric=True),
     _between("characters.mentor_of", "mentor of", inverse="student of"),
-    # Groups (M6, #94) add their kind to the targets.
     _between(
         "characters.serves",
         "serves",
         inverse="served by",
+        target_kinds=(CHARACTER, "group"),  # groups: the groups module
         data_schema={
             "type": "object",
             "properties": {"capacity": {"type": "string", "maxLength": 200}},

@@ -51,4 +51,8 @@ export const keys = {
     [vault, 'characterRelationships', character] as const,
   characterLife: (vault: string, character: string, params: object) =>
     [vault, 'characterLife', character, params] as const,
+  groupMembers: (vault: string, group: string, params: object) =>
+    [vault, 'groupMembers', group, params] as const,
+  groupLeaders: (vault: string, group: string) => [vault, 'groupLeaders', group] as const,
+  groupTerritory: (vault: string, group: string) => [vault, 'groupTerritory', group] as const,
 }

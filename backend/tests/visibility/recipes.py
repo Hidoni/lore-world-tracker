@@ -224,6 +224,33 @@ def character_life(c: Canary) -> Iterator[Call]:
     yield from _characters(c, "/life", {"timeline": c.public["Prime"]})
 
 
+GROUPS = ("Empire", "Ministry")
+
+
+def _groups(c: Canary, suffix: str, params: dict[str, Any] | None = None) -> Iterator[Call]:
+    """The route for every visible group (200) and every hidden id (404)."""
+    for name in GROUPS:
+        yield Call(f"{_v(c)}/m/groups/{c.public[name]}{suffix}", dict(params or {}))
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/groups/{hidden_id}{suffix}", dict(params or {}), status=404)
+
+
+@recipe(f"{V}/m/groups/{{group_id}}/members")
+def group_members(c: Canary) -> Iterator[Call]:
+    yield from _groups(c, "/members")
+    yield from _groups(c, "/members", {"include_subgroups": "true"})
+
+
+@recipe(f"{V}/m/groups/{{group_id}}/leaders")
+def group_leaders(c: Canary) -> Iterator[Call]:
+    yield from _groups(c, "/leaders")
+
+
+@recipe(f"{V}/m/groups/{{group_id}}/territory")
+def group_territory(c: Canary) -> Iterator[Call]:
+    yield from _groups(c, "/territory")
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

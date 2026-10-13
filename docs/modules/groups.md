@@ -62,6 +62,16 @@ None.
   vassalage over time), **Territory**.
 - **Org chart view** (React Flow + elkjs): sub-groups and leaders as of the cursor.
 
+Implementation (#94): `backend/src/lore/modules/groups/` and `frontend/src/modules/groups/`.
+`groups.controls` names the `location` kind, so it is offered only while the locations module is
+enabled; `characters.serves` now also targets groups. The leadership succession is ordered by
+the links' resolved validity, which arrives with temporal links (M7): until then, by name. Panels:
+**Members** (ranks, titles, leaders; "Include sub-groups"), **Structure** (sub-groups and
+`part_of` parts), **Leadership**, **Group relations** (alliances, wars, vassalage; the core
+Relations panel lists every link) and **Territory**. The org chart (endpoint and view) and the
+membership Gantt come with their own issues. The sample world has the Empire of the Tides with
+two ministries, House Varn (vassal), the private Whisperers and a war with the Free Shoals.
+
 ## Consistency rules
 
 | Id | Default | Check |

@@ -85,6 +85,10 @@ export interface DataSource {
     character: string,
     query: Query<'characters_life'>,
   ): Promise<D<'Life'>>
+  // The groups module (docs/modules/groups.md).
+  groupMembers(vault: string, group: string, query?: Query<'groups_members'>): Promise<D<'Members'>>
+  groupLeaders(vault: string, group: string): Promise<D<'Leaders'>>
+  groupTerritory(vault: string, group: string): Promise<D<'EntityLinks'>>
 }
 
 /**

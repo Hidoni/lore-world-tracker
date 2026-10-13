@@ -253,6 +253,33 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'Life',
       ),
+    groupMembers: async (vault, group, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/groups/{group_id}/members`, {
+            params: { path: { vault_id: vault, group_id: group }, query },
+          }),
+        ),
+        'Members',
+      ),
+    groupLeaders: async (vault, group) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/groups/{group_id}/leaders`, {
+            params: { path: { vault_id: vault, group_id: group } },
+          }),
+        ),
+        'Leaders',
+      ),
+    groupTerritory: async (vault, group) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/groups/{group_id}/territory`, {
+            params: { path: { vault_id: vault, group_id: group } },
+          }),
+        ),
+        'EntityLinks',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(
