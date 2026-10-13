@@ -165,6 +165,54 @@ export interface LinkRow {
   /** The resolved validity (temporal links, M7), for module reads that report it. */
   valid_from_t?: string | null
   valid_to_t?: string | null
+  /** Valid only possibly where it is valid (an uncertain bound), for as-of reads. */
+  possible?: boolean
+}
+
+export interface FactRow {
+  id: string
+  entity_id: string
+  field_key: string
+  value?: unknown
+  valid_from_t?: string | null
+  valid_to_t?: string | null
+  timeline_id?: string
+  /** Covers its moments only possibly (an uncertain bound). */
+  possible?: boolean
+}
+
+function factOut(fact: FactRow) {
+  const point = (t: string | null | undefined) =>
+    t == null ? null : { anchor: { kind: 'absolute', t }, precision: 'base', approximate: false }
+  return {
+    value: fact.field_key === 'core.exists' ? true : null,
+    value_t: null,
+    timeline_id: 'd1-prime',
+    valid_from: point(fact.valid_from_t),
+    valid_to: point(fact.valid_to_t),
+    valid_from_t: null,
+    valid_to_t: null,
+    time_status: 'ok',
+    visibility: 'public',
+    source_event_id: null,
+    note: null,
+    sort_key: null,
+    revision: 1,
+    created_at: '2026-10-11T10:00:00.000000+00:00',
+    updated_at: '2026-10-11T10:00:00.000000+00:00',
+    deleted_at: null,
+    ...fact,
+  }
+}
+
+/** Whether a fact (or link) row is valid at `t`: `certain`, `possible` or not (`null`). */
+function coverage(
+  row: { valid_from_t?: string | null; valid_to_t?: string | null; possible?: boolean },
+  t: bigint,
+): 'certain' | 'possible' | null {
+  if (row.valid_from_t != null && BigInt(row.valid_from_t) > t) return null
+  if (row.valid_to_t != null && BigInt(row.valid_to_t) <= t) return null
+  return row.possible === true ? 'possible' : 'certain'
 }
 
 function linkOut(link: LinkRow) {
@@ -374,6 +422,8 @@ export function serveVault(
     refusals?: { findings: BlockingRow[]; times?: number }
     /** Lexicon entries (the languages module). */
     lexicon?: LexiconRow[]
+    /** Facts (temporal field values, existence, names): as-of state and existence filters. */
+    facts?: FactRow[]
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
@@ -381,6 +431,7 @@ export function serveVault(
     ...(options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]),
   ]
   const links = new Map((options.links ?? []).map((link) => [link.id, linkOut(link)]))
+  const facts = options.facts ?? []
   let linkSeq = 0
   const moduleStates = options.moduleStates?.map((state) => ({ ...state }))
   let settings = {
@@ -483,7 +534,89 @@ export function serveVault(
           other: linked(other),
         }
       })
+  /** An entity's state at `t` (time-model.md §10.5, without uncertainty extents). */
+  const stateOf = (id: string, t: bigint) => {
+    const own = facts.filter((fact) => fact.entity_id === id)
+    const covering = (key: string) =>
+      own
+        .filter((fact) => fact.field_key === key)
+        .map((fact) => ({ fact, certainty: coverage(fact, t) }))
+        .filter(
+          (item): item is { fact: FactRow; certainty: 'certain' | 'possible' } =>
+            item.certainty !== null,
+        )
+        .sort((a, b) =>
+          BigInt(a.fact.valid_from_t ?? -1) < BigInt(b.fact.valid_from_t ?? -1) ? 1 : -1,
+        )
+    const exists = covering('core.exists')
+    const existence = !own.some((fact) => fact.field_key === 'core.exists')
+      ? 'unknown'
+      : exists.some((item) => item.certainty === 'certain')
+        ? 'exists'
+        : exists.length > 0
+          ? 'possible'
+          : 'not_exists'
+    const name = covering('core.name')[0]
+    const fields: Record<string, unknown> = {}
+    for (const key of new Set(own.map((fact) => fact.field_key))) {
+      if (key === 'core.exists' || key === 'core.name') continue
+      const found = covering(key)
+      const first = found[0]
+      if (first === undefined) continue
+      fields[key] = {
+        value: first.fact.value ?? null,
+        source: 'fact',
+        fact_ids: [first.fact.id],
+        certainty: first.certainty,
+        ambiguous: found.length > 1,
+      }
+    }
+    return {
+      existence,
+      existence_fact_ids: exists.map((item) => item.fact.id),
+      name: (name?.fact.value as string | undefined) ?? existing(id).name,
+      name_certainty: name?.certainty ?? 'certain',
+      name_fact_id: name?.fact.id ?? null,
+      fields,
+    }
+  }
+  /** `at` of a request (`null`: none, or `present`). */
+  const atOf = (url: URL): bigint | null => {
+    const at = url.searchParams.get('at')
+    return at === null || at === 'present' ? null : BigInt(at)
+  }
+  /** Links valid at `at` (all without), with their certainty. */
+  const asOf = <T extends { link: { valid_from_t?: unknown; valid_to_t?: unknown } }>(
+    items: T[],
+    at: bigint | null,
+  ) =>
+    items
+      .map((item) => ({
+        ...item,
+        certainty: at === null ? null : coverage(item.link as Parameters<typeof coverage>[0], at),
+      }))
+      .filter((item) => at === null || item.certainty !== null)
+  /** An entity's existence at `at` (`null` without). */
+  const existenceAt = (id: string, at: bigint | null) =>
+    at === null ? null : stateOf(id, at).existence
   server.use(
+    http.get('*/api/v1/vaults/v1/entities/:id/state', ({ request, params }) => {
+      const url = new URL(request.url)
+      const at = atOf(url)
+      const id = String(params.id)
+      if (at === null || found(id) === undefined) return new HttpResponse(null, { status: 404 })
+      return HttpResponse.json({
+        entity_id: id,
+        timeline_id: url.searchParams.get('timeline') ?? 'd1-prime',
+        at: at.toString(),
+        ...stateOf(id, at),
+      })
+    }),
+    http.get('*/api/v1/vaults/v1/entities/:id/facts', ({ params }) =>
+      HttpResponse.json({
+        items: facts.filter((fact) => fact.entity_id === String(params.id)).map(factOut),
+      }),
+    ),
     http.get('*/api/v1/vaults/v1', () => HttpResponse.json(makeVault('v1', 'Atlas'))),
     http.get('*/api/v1/vaults/v1/registry', () =>
       HttpResponse.json({
@@ -616,6 +749,7 @@ export function serveVault(
       const kinds = url.searchParams.getAll('kind')
       const parent = url.searchParams.get('parent')
       const groupBy = url.searchParams.get('group_by')
+      const at = atOf(url)
       const inTree = (entity: Row | undefined): entity is Row =>
         entity?.deleted_at === null && (kinds.length === 0 || kinds.includes(entity.kind))
       const items = [...rows.values()]
@@ -625,6 +759,7 @@ export function serveVault(
             ? entity.parent_id === null || !inTree(found(entity.parent_id))
             : entity.parent_id === parent,
         )
+        .filter((entity) => existenceAt(entity.id, at) !== 'not_exists')
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((entity) => {
           const children = [...rows.values()].filter(
@@ -647,6 +782,7 @@ export function serveVault(
               groupBy !== null && typeof entity.fields[groupBy] === 'string'
                 ? entity.fields[groupBy]
                 : null,
+            existence: existenceAt(entity.id, at),
           }
         })
       return HttpResponse.json(paged(items, url))
@@ -1238,7 +1374,7 @@ export function serveVault(
       const url = new URL(request.url)
       const only = url.searchParams.getAll('type')
       const direction = url.searchParams.get('direction') ?? 'both'
-      const items = entityLinks(String(params.id))
+      const items = asOf(entityLinks(String(params.id)), atOf(url))
         .filter((item) => only.length === 0 || only.includes(item.link.link_type))
         .filter(
           (item) =>

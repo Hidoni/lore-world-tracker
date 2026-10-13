@@ -478,6 +478,27 @@ Implementation (`core/time/`, #72):
   `@lore/chronology` (`resolved_anchors` is `CompileContext.resolved`) and caches it by id,
   definition revision, resolved anchors and the dimension's base unit and duration (§12). A
   calendar that doesn't compile is left out of the selector.
+- **Time cursor** (`TimeCursorControl`, #103; time-model.md §10.5-§10.6): the top bar shows the
+  cursor (Present, All time, or the moment in the display calendar) with steps of one unit of a
+  display-calendar level (the Absolute calendar steps by one base unit) on either side. Its
+  popover offers Present (disabled without a present moment), All time, the step level, a
+  `TimePointPicker` ("Go to this moment") and the "hide entities that don't exist then"
+  choice (`useExistenceFilter`, per browser). `useAsOf(vault)` turns the cursor into API
+  parameters (`timeline`, `at`; none for all time), `useEntityAsOf(vault, entity)` does it
+  for an entity's reads (none for an entity of another dimension: the moment belongs to the
+  current one), and `useExistenceQuery` adds them to lists and trees when the filter is on.
+  - Entity pages read `GET …/state` and the entity's facts. An `ExistenceNote` says when the
+    entity doesn't exist yet or any more (kind phrases: "Not yet born", "Died …"; groups
+    founded/dissolved, locations founded/destroyed, species and languages emerged/extinct), only
+    possibly exists, has no existence facts, or had another name then. Temporal fields show
+    their value then (the timeless value below it, "Changed N times"); editing still changes
+    the timeless value.
+  - The relations panel and the modules' panels (relationships, affiliations, members, leaders,
+    group relations, territory, residents, connections, species members, speakers) pass the
+    cursor; the org chart already did. Items that are only `possible` then render muted with an
+    explanation (`certaintyProps`), as do tree nodes and list rows whose `existence` is
+    `possible`.
+  - All time shows everything, as before.
 - **Formatting:** a moment shows at its precision when the display calendar has that level, else
   at the coarsest level whose unit fits in its extent (the extent given, or the precision's unit
   in the calendar that has it), like the backend's `display_level`. The Absolute calendar uses
