@@ -171,6 +171,11 @@ class EntityOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+
+
+class EntityRead(EntityOut):
+    """``GET …/entities/{id}``: the entity, and with ``at`` its state then."""
+
     state: EntityStateOut | None = Field(
         default=None, description="With `at`: the entity's state then (`time-model.md` §10.5)."
     )

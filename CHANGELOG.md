@@ -15,6 +15,11 @@ All notable changes to this project are documented here. The format follows
   dimensions. Fact values are searchable, and readers only see the facts they may see.
   Time-point field values now take part in time: anchored to an event, they follow it. Vaults
   from earlier versions update their time-point fields once, when they first open.
+- **As-of state** (#101): what was true of an entity at a moment of a timeline: whether it
+  existed (or whether that is unknown, or only possible because a date is given to the year),
+  its name then and its time-dependent field values, flagged when facts overlap. The moment can be
+  the dimension's present. Entity lists, the navigation tree and children can show only what
+  exists at a moment.
 
 ## [0.5.0] - 2026-10-13
 

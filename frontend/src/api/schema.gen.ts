@@ -236,6 +236,8 @@ export interface paths {
          * List
          * @description Entities of enabled kinds. ``dimension`` includes multiversal entities unless
          *     ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value.
+         *     With ``at`` (and ``timeline``, default: the prime timeline of ``dimension``), entities that
+         *     don't exist then are left out; a page may then be short and still have a ``next_cursor``.
          */
         get: operations["entities_list"];
         put?: never;
@@ -280,7 +282,7 @@ export interface paths {
         /**
          * Get
          * @description The full entity (for the author also when it is in the trash; ``deleted_at`` is then
-         *     set).
+         *     set). With ``at``, its ``state`` then, as ``GET …/state`` returns it.
          */
         get: operations["entities_get"];
         put?: never;
@@ -301,6 +303,28 @@ export interface paths {
         patch: operations["entities_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * State
+         * @description What was true of the entity at ``at`` in ``timeline`` (default: its dimension's prime
+         *     timeline; required for multiversal entities): existence, name and temporal fields, with
+         *     certainty (``time-model.md`` §10.5).
+         */
+        get: operations["entities_state"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/entities/{entity_id}/children": {
         parameters: {
             query?: never;
@@ -310,7 +334,8 @@ export interface paths {
         };
         /**
          * Children
-         * @description Children of every kind and dimension (not in the trash), sorted like the tree.
+         * @description Children of every kind and dimension (not in the trash), sorted like the tree. ``at``
+         *     (with ``timeline``) filters by existence as in entity lists.
          */
         get: operations["entities_children"];
         put?: never;
@@ -351,7 +376,8 @@ export interface paths {
         /**
          * Get
          * @description One level of the navigation tree: the roots (entities without a shown parent), or the
-         *     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name.
+         *     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name. ``at``
+         *     filters by existence as in entity lists (child counts don't).
          */
         get: operations["tree_get"];
         put?: never;
@@ -2050,6 +2076,8 @@ export interface components {
              */
             distance: number;
         };
+        /** @enum {string} */
+        Certainty: "certain" | "possible";
         /**
          * ChangeOut
          * @description A row-level change. ``before``/``after`` are the full rows (JSON columns decoded).
@@ -2488,6 +2516,108 @@ export interface components {
             next_cursor: string | null;
         };
         /**
+         * EntityRead
+         * @description ``GET …/entities/{id}``: the entity, and with ``at`` its state then.
+         */
+        EntityRead: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Origin Timeline Id */
+            origin_timeline_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            body: components["schemas"]["JsonObject"] | null;
+            /** Body Schema Version */
+            body_schema_version: number | null;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /** Field Visibility */
+            field_visibility: {
+                [key: string]: components["schemas"]["Visibility"];
+            };
+            visibility: components["schemas"]["Visibility"];
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /** Cover Media Id */
+            cover_media_id: string | null;
+            /** Sort Key */
+            sort_key: string | null;
+            /** Aliases */
+            aliases: components["schemas"]["AliasOut"][];
+            /** Tags */
+            tags: components["schemas"]["TagOut"][];
+            ext: components["schemas"]["JsonObject"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** @description With `at`: the entity's state then (`time-model.md` §10.5). */
+            state?: components["schemas"]["EntityStateOut"] | null;
+        };
+        /**
+         * EntityStateOut
+         * @description What was true of an entity at a moment in a timeline (``time-model.md`` §10.5).
+         */
+        EntityStateOut: {
+            /** Entity Id */
+            entity_id: string;
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * At
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            at: MomentString;
+            /** @description `unknown`: no existence facts in the timeline (treated as existing). */
+            existence: components["schemas"]["Existence"];
+            /**
+             * Existence Fact Ids
+             * @description The existence facts covering the moment.
+             */
+            existence_fact_ids: string[];
+            /** Name */
+            name: string;
+            name_certainty: components["schemas"]["Certainty"];
+            /**
+             * Name Fact Id
+             * @description The `core.name` fact giving the name, if any.
+             */
+            name_fact_id: string | null;
+            /**
+             * Fields
+             * @description Temporal fields the request may see (static fields are on the entity).
+             */
+            fields: {
+                [key: string]: components["schemas"]["FieldStateOut"];
+            };
+        };
+        /**
          * EntitySummary
          * @description An entity in a list: everything but the body, aliases, tags and ``ext``.
          */
@@ -2531,6 +2661,8 @@ export interface components {
             updated_at: string;
             /** Deleted At */
             deleted_at: string | null;
+            /** @description With `at`: `exists`, `unknown` (no existence facts) or `possible` (the moment is inside a bound's uncertainty extent). */
+            existence?: components["schemas"]["Existence"] | null;
         };
         /**
          * EntityUpdate
@@ -2671,6 +2803,8 @@ export interface components {
             /** Translation */
             translation?: string | null;
         };
+        /** @enum {string} */
+        Existence: "exists" | "not_exists" | "unknown" | "possible";
         /** Extent */
         Extent: {
             /**
@@ -2893,6 +3027,29 @@ export interface components {
             searchable: boolean;
             /** Archived */
             archived: boolean;
+        };
+        /** FieldStateOut */
+        FieldStateOut: {
+            /** Value */
+            value: unknown;
+            /**
+             * Source
+             * @description `fact`: a fact covering the moment; `static`: the entity's timeless value.
+             * @enum {string}
+             */
+            source: "fact" | "static";
+            /**
+             * Fact Ids
+             * @description The covering facts used (latest start first).
+             */
+            fact_ids: string[];
+            /** @description `possible` when the moment lies inside a used fact's bound's uncertainty extent. */
+            certainty: components["schemas"]["Certainty"];
+            /**
+             * Ambiguous
+             * @description Several facts of a single-valued field cover the moment (the latest start wins).
+             */
+            ambiguous: boolean;
         };
         /** FieldTypeOut */
         FieldTypeOut: {
@@ -4786,6 +4943,8 @@ export interface components {
             updated_at: string;
             /** Deleted At */
             deleted_at: string | null;
+            /** @description With `at`: `exists`, `unknown` (no existence facts) or `possible` (the moment is inside a bound's uncertainty extent). */
+            existence?: components["schemas"]["Existence"] | null;
             /** Orphan Count */
             orphan_count: number;
         };
@@ -4830,6 +4989,8 @@ export interface components {
             };
             /** Group */
             group?: string | null;
+            /** @description With `at`: as in entity lists (`exists|unknown|possible`). */
+            existence?: components["schemas"]["Existence"] | null;
         };
         /** TreePage */
         TreePage: {
@@ -5617,6 +5778,10 @@ export interface operations {
                 sort?: "name" | "-name" | "created" | "-created" | "updated" | "-updated" | "sort_key";
                 cursor?: string | null;
                 limit?: number;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -5727,6 +5892,10 @@ export interface operations {
     entities_get: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -5747,7 +5916,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityOut"];
+                    "application/json": components["schemas"]["EntityRead"];
                 };
             };
             /** @description Problem */
@@ -5840,6 +6009,47 @@ export interface operations {
             };
         };
     };
+    entities_state: {
+        parameters: {
+            query: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description A moment, or `present` (the timeline's dimension's present). */
+                at: string;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityStateOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     entities_children: {
         parameters: {
             query?: {
@@ -5847,6 +6057,10 @@ export interface operations {
                 kind?: string[] | null;
                 cursor?: string | null;
                 limit?: number;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -5930,6 +6144,10 @@ export interface operations {
                 group_by?: string | null;
                 cursor?: string | null;
                 limit?: number;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };

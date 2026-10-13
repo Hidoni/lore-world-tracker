@@ -134,7 +134,7 @@ def test_list_filters(api: Api) -> None:
         for key in ("id", "kind", "dimension_id", "parent_id", "name", "slug", "summary",
                     "fields", "visibility", "icon", "color", "sort_key", "revision",
                     "created_at", "updated_at", "deleted_at")
-    }  # fmt: skip
+    } | {"existence": None}  # fmt: skip
 
 
 def test_list_sorts(api: Api) -> None:

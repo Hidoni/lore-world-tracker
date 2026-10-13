@@ -62,6 +62,18 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "EntityRead": {
+    "o": {
+      "state": {
+        "r": "EntityStateOut"
+      }
+    }
+  },
+  "EntityStateOut": {
+    "o": {
+      "at": "m"
+    }
+  },
   "EventTreeNode": {
     "o": {
       "start_t": "m",

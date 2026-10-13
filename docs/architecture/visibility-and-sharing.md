@@ -125,7 +125,7 @@ These tests run in CI on every PR that touches the backend.
 The reader UI may only use these read operations (DataSource methods). The post-MVP
 `StaticDataSource` must implement all of them from a snapshot:
 
-`meta`, `registry`, `entities` (list/filter), `entity` (+ `state` as-of), `facts`, `tree`, `tags`, `children`,
+`meta`, `registry`, `entities` (list/filter, by existence at `at`), `entity` (+ `state` as-of), `facts`, `tree`, `tags`, `children`,
 `links`, `backlinks`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
 `graph`, `characterRelationships`, `characterLife`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
 `orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,

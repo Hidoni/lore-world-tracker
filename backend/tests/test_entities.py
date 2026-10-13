@@ -84,7 +84,7 @@ def test_create_and_get(api: Api) -> None:
         ("Vital", "nickname", "private"),
     ]
     assert [tag["name"] for tag in entity["tags"]] == ["Machines", "Steam"]
-    assert api.get(entity["id"]).json() == entity
+    assert api.get(entity["id"]).json() == {**entity, "state": None}  # `state`: with `at`
 
 
 def test_default_visibility_comes_from_the_vault(api: Api, app: FastAPI) -> None:

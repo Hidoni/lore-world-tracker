@@ -19,8 +19,8 @@ from lore.core.entities.schemas import (
     ID_PATTERN,
     EntityCreate,
     EntityDeleteResult,
-    EntityOut,
     EntityPage,
+    EntityRead,
     EntityStateOut,
     EntityUpdate,
     EntityWriteResult,
@@ -243,11 +243,11 @@ def get_entity(
     policy: PolicyDep,
     timeline: TimelineQuery = None,
     at: AtQuery = None,
-) -> EntityOut:
+) -> EntityRead:
     """The full entity (for the author also when it is in the trash; ``deleted_at`` is then
     set). With ``at``, its ``state`` then, as ``GET …/state`` returns it."""
     service = _service(vault, session, registry, policy)
-    out = service.get(entity_id)
+    out = EntityRead.model_validate(service.get(entity_id), from_attributes=True)
     if at is not None:
         states = EntityStates(VaultContext(vault, session, registry), policy)
         out.state = states.of_entity(entity_id, timeline_id=timeline, at=at)
