@@ -6,9 +6,14 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useKindRegistry } from '@/core/registry'
+import { useEntityAsOf } from '@/core/time'
 import { useDeleteLink, useLinks, type EntityLink } from '@/data'
+import { cn } from '@/lib/utils'
 
 import { LinkDialog, type LinkDialogMode } from './link-dialog'
+
+/** Why an item is shown muted at the time cursor. */
+export const POSSIBLE = 'Possibly valid then: the moment is inside an uncertain date of this link.'
 
 interface Group {
   key: string
@@ -66,7 +71,8 @@ export function RelationsPanel({
   /** Link types another section of the page shows (an event's causes and participants). */
   exclude?: readonly string[]
 }) {
-  const links = useLinks(vault, entity.id)
+  const asOf = useEntityAsOf(vault, entity.id)
+  const links = useLinks(vault, entity.id, asOf ?? {})
   const registry = useKindRegistry(vault)
   const remove = useDeleteLink(vault)
   const [dialog, setDialog] = useState<LinkDialogMode | null>(null)
@@ -84,7 +90,7 @@ export function RelationsPanel({
         <section key={group.key} aria-label={group.label} className="flex flex-col gap-1">
           <h3 className="text-xs font-medium text-muted-foreground uppercase">{group.label}</h3>
           <ul className="flex flex-col">
-            {group.items.map(({ link, other, label }) => {
+            {group.items.map(({ link, other, label, certainty }) => {
               const kind = registry?.kind(other.kind)
               const Icon = kind?.icon
               const Renderer = registry?.linkType(link.link_type)?.renderer ?? null
@@ -92,7 +98,12 @@ export function RelationsPanel({
               return (
                 <li
                   key={link.id}
-                  className="group flex flex-wrap items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent/50"
+                  className={cn(
+                    'group flex flex-wrap items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-accent/50',
+                    certainty === 'possible' && 'text-muted-foreground italic',
+                  )}
+                  title={certainty === 'possible' ? POSSIBLE : undefined}
+                  data-certainty={certainty ?? undefined}
                 >
                   {Icon && (
                     <Icon aria-hidden className="size-4 shrink-0" style={{ color: kind.color }} />

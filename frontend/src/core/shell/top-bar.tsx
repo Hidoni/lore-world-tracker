@@ -13,7 +13,7 @@ import { ThemeMenu } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { isTyping, usePalette } from '@/core/palette'
 import { NewEntityMenu } from '@/core/entities'
-import { CalendarSelector, DimensionSwitcher } from '@/core/time'
+import { CalendarSelector, DimensionSwitcher, TimeCursorControl } from '@/core/time'
 import { useVault } from '@/data'
 
 import { useShell } from './shell-store'
@@ -54,7 +54,7 @@ function useGlobalShortcuts(vault: string | undefined) {
   }, [vault])
 }
 
-/** The shell's top bar (frontend.md §3). Dimension, timeline and time controls arrive with M5. */
+/** The shell's top bar (frontend.md §3): vault, dimension, display calendar and time cursor. */
 export function TopBar() {
   const { vault } = useParams({ strict: false })
   const sidebarOpen = useShell((state) => state.sidebarOpen)
@@ -96,6 +96,7 @@ export function TopBar() {
           <VaultSwitcher vault={vault} />
           <DimensionSwitcher vault={vault} />
           <CalendarSelector vault={vault} />
+          <TimeCursorControl vault={vault} />
         </>
       )}
       <div className="flex-1" />

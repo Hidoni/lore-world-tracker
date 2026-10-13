@@ -81,6 +81,24 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
           'EntityOut',
         ),
       ),
+    entityState: async (vault, id, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/entities/{entity_id}/state`, {
+            params: { path: { vault_id: vault, entity_id: id }, query },
+          }),
+        ),
+        'EntityStateOut',
+      ),
+    facts: async (vault, id, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/entities/{entity_id}/facts`, {
+            params: { path: { vault_id: vault, entity_id: id }, query },
+          }),
+        ),
+        'FactList',
+      ),
     children: async (vault, id, query) =>
       toDomain(
         await unwrap(

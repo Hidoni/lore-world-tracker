@@ -13,6 +13,10 @@ export const keys = {
   entities: (vault: string, params?: object) => [vault, 'entities', params ?? {}] as const,
   entity: (vault: string, id: string, params?: object) =>
     [vault, 'entity', id, params ?? {}] as const,
+  entityState: (vault: string, id: string, params: object) =>
+    [vault, 'entityState', id, params] as const,
+  facts: (vault: string, id: string, params?: object) =>
+    [vault, 'facts', id, params ?? {}] as const,
   children: (vault: string, id: string, params?: object) =>
     [vault, 'children', id, params ?? {}] as const,
   tree: (vault: string, params?: object) => [vault, 'tree', params ?? {}] as const,

@@ -22,6 +22,7 @@ import { isRevisionConflict } from '@/data'
 import { LazyRichTextEditor, RichTextView, isDoc, type SaveOutcome } from '@/editor'
 import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity } from '@/data'
 
+import { ExistenceNote, useEntityTime } from './as-of'
 import { EntityHeader } from './entity-header'
 import { useEntitySaver, type EntityChange, type SaveResult } from './save'
 import { PurgeDialog } from './trash-dialogs'
@@ -143,6 +144,7 @@ function EntityView({
   kind: Kind | undefined
 }) {
   const saver = useEntitySaver(vault, data)
+  const time = useEntityTime(vault, data)
   useEffect(() => {
     visit(vault, { id: data.id, name: data.name, kind: data.kind })
   }, [vault, data.id, data.name, data.kind])
@@ -161,6 +163,7 @@ function EntityView({
           <EntityHeader vault={vault} entity={data} kind={kind} saver={saver} />
         </div>
       </div>
+      <ExistenceNote vault={vault} entity={data} time={time} />
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -178,6 +181,7 @@ function EntityView({
                   fields={kind?.fields ?? []}
                   editable={editable}
                   save={saver.save}
+                  asOf={time.fields}
                 />
               </Section>
               {kind?.capabilities.has_body !== false && (

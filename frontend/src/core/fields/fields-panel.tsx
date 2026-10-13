@@ -17,6 +17,20 @@ interface Change {
 }
 type Saver = (change: Change) => Promise<{ ok: true } | { ok: false; error: unknown }>
 
+/** A temporal field at the time cursor (time-model.md §10.5), from `GET …/state`. */
+export interface AsOfField {
+  /** The value then (a fact's, else the static one). */
+  value: unknown
+  /** From a fact covering the moment (else the static value). */
+  fromFact: boolean
+  /** The moment is inside a bound's uncertainty extent. */
+  possible: boolean
+  /** Several facts cover the moment (the latest start wins). */
+  ambiguous: boolean
+  /** How many facts the field has (its history). */
+  changes: number
+}
+
 const IMMEDIATE = new Set(['boolean', 'enum', 'multi_enum'])
 const GENERAL = 'General'
 
@@ -104,6 +118,44 @@ function RichTextField({
   )
 }
 
+/**
+ * A temporal field's value at the time cursor: muted with an explanation when only possible, and
+ * the static (timeless) value it stands in for.
+ */
+function AsOfValue({
+  vault,
+  field,
+  asOf,
+  staticValue,
+}: {
+  vault: string
+  field: FieldDef
+  asOf: AsOfField
+  staticValue: unknown
+}) {
+  const notes = [
+    asOf.possible ? 'Possibly: the moment is inside an uncertain date of this value.' : null,
+    asOf.ambiguous ? 'Several values overlap here; the latest one is shown.' : null,
+  ].filter((note): note is string => note !== null)
+  return (
+    <div className="flex min-h-9 flex-col justify-center text-sm">
+      <span
+        className={asOf.possible ? 'text-muted-foreground italic' : undefined}
+        title={notes.length > 0 ? notes.join(' ') : undefined}
+        data-certainty={asOf.possible ? 'possible' : 'certain'}
+      >
+        <FieldDisplay vault={vault} field={field} value={asOf.value} />
+        {notes.length > 0 && <span className="sr-only"> ({notes.join(' ')})</span>}
+      </span>
+      {staticValue !== null && staticValue !== undefined && staticValue !== '' && (
+        <span className="text-xs text-muted-foreground">
+          Timeless value: <FieldDisplay vault={vault} field={field} value={staticValue} />
+        </span>
+      )}
+    </div>
+  )
+}
+
 function FieldRow({
   vault,
   kind,
@@ -112,6 +164,7 @@ function FieldRow({
   visibility,
   editable,
   save,
+  asOf,
 }: {
   vault: string
   kind: string
@@ -120,6 +173,7 @@ function FieldRow({
   visibility: Visibility | undefined
   editable: boolean
   save: Saver
+  asOf?: AsOfField
 }) {
   const id = useId()
   const [editing, setEditing] = useState(false)
@@ -209,6 +263,8 @@ function FieldRow({
               setError(null)
             }}
           />
+        ) : asOf?.fromFact === true ? (
+          <AsOfValue vault={vault} field={field} asOf={asOf} staticValue={value} />
         ) : (
           <div className="flex min-h-9 items-center text-sm">
             {Renderer !== undefined ? (
@@ -217,6 +273,11 @@ function FieldRow({
               <FieldDisplay vault={vault} field={field} value={value} />
             )}
           </div>
+        )}
+        {asOf !== undefined && asOf.changes > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Changed {asOf.changes === 1 ? 'once' : `${String(asOf.changes)} times`} over time
+          </p>
         )}
         {error !== null && (
           <p role="alert" className="text-sm text-destructive">
@@ -260,7 +321,9 @@ function FieldRow({
  * remembered per kind), each shown by its type's renderer (or a module's `fieldTypeRenderers`)
  * and edited inline: text saves on Enter or blur, choices at once, rich text in the editor
  * (autosaved). Values are checked against
- * the field definitions before saving; the per-field visibility select sets an override.
+ * the field definitions before saving; the per-field visibility select sets an override. With
+ * `asOf` (the time cursor), temporal fields show their value then and how often they changed;
+ * editing still changes the timeless value.
  */
 export function FieldsPanel({
   vault,
@@ -268,12 +331,15 @@ export function FieldsPanel({
   fields,
   editable,
   save,
+  asOf,
 }: {
   vault: string
   entity: Entity
   fields: readonly FieldDef[]
   editable: boolean
   save: Saver
+  /** Temporal fields at the time cursor, by key (none in all-time mode). */
+  asOf?: Record<string, AsOfField>
 }) {
   const [collapsed, setCollapsed] = useState(() => readCollapsed(entity.kind))
   const live = fields
@@ -328,6 +394,7 @@ export function FieldsPanel({
                     visibility={overrides[field.key]}
                     editable={editable}
                     save={save}
+                    asOf={asOf?.[field.key]}
                   />
                 ))}
               </div>

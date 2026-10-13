@@ -15,6 +15,8 @@ export type EntityPage = D<'EntityPage'>
 export type EntityWriteResult = D<'EntityWriteResult'>
 /** A link seen from one entity (resolved validity moments as `bigint`). */
 export type EntityLink = D<'EntityLink'>
+export type EntityState = D<'EntityStateOut'>
+export type Fact = D<'FactOut'>
 export type Affected = Schemas['Affected']
 
 /**
@@ -31,6 +33,10 @@ export interface DataSource {
   backups(vault: string): Promise<Schemas['BackupList']>
   entities(vault: string, query?: Query<'entities_list'>): Promise<EntityPage>
   entity(vault: string, id: string, query?: Query<'entities_get'>): Promise<Entity>
+  /** As-of state (time-model.md §10.5): existence, name and temporal fields at a moment. */
+  entityState(vault: string, id: string, query: Query<'entities_state'>): Promise<EntityState>
+  /** An entity's facts (temporal field values, existence, names over time). */
+  facts(vault: string, id: string, query?: Query<'facts_list_facts'>): Promise<D<'FactList'>>
   children(vault: string, id: string, query?: Query<'entities_children'>): Promise<D<'TreePage'>>
   tree(vault: string, query?: Query<'tree_get'>): Promise<D<'TreePage'>>
   trash(vault: string, query?: Query<'trash_list'>): Promise<D<'TrashPage'>>

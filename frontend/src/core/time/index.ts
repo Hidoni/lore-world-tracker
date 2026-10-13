@@ -29,6 +29,13 @@ export { pointMoment } from './point-moment'
 export { TimeRefView } from './time-ref-view'
 export { CalendarSelector, DimensionSwitcher } from './switchers'
 export { TimePointPicker } from './time-point-picker'
+export {
+  TimeCursorControl,
+  cursorLabel,
+  stepMoment,
+  useAsOf,
+  useEntityAsOf,
+} from './time-cursor-control'
 export { timeProblemMessage, timeWriteProblem } from './time-problems'
 export {
   useDimensionLenses,

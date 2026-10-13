@@ -41,7 +41,15 @@ const VAULT_WIDE = [
   'speciesDescentTree',
 ]
 /** Areas keyed by an entity id. */
-const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']
+const PER_ENTITY = [
+  'entity',
+  'entityState',
+  'facts',
+  'links',
+  'backlinks',
+  'history',
+  'occurrences',
+]
 /** Areas that show resolved moments. */
 const TIME = [
   'window',
@@ -52,6 +60,11 @@ const TIME = [
   'resolve',
   'locationEvents',
   'characterLife',
+  // As-of reads: a moved event moves the facts and links anchored to it.
+  'entityState',
+  'facts',
+  'links',
+  'backlinks',
 ]
 const SEARCH = ['search', 'quickSearch']
 
