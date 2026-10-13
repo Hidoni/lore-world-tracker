@@ -1363,6 +1363,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/groups/{group_id}/org-chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Org Chart
+         * @description The group's org chart: sub-groups and parts ``depth`` levels down, each with its leaders
+         *     and member count, as of ``at`` (all links without it). ``404`` for a group or timeline the
+         *     request may not see.
+         */
+        get: operations["groups_org_chart"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/languages/family-tree": {
         parameters: {
             query?: never;
@@ -3519,6 +3541,13 @@ export interface components {
              */
             group_id: string;
             item: components["schemas"]["EntityLink"];
+            /**
+             * From T
+             * @description Start of the membership's validity (`null`: open; resolved validity comes with temporal links).
+             */
+            from_t: MomentString | null;
+            /** To T */
+            to_t: MomentString | null;
         };
         /**
          * MentionCountsOut
@@ -3646,6 +3675,58 @@ export interface components {
              * @description When truncated: how many overlap (exact when the rule can be counted).
              */
             estimated_count: MomentString | null;
+        };
+        /** OrgChart */
+        OrgChart: {
+            /** Root Id */
+            root_id: string;
+            /**
+             * Units
+             * @description The group first, then level by level.
+             */
+            units: components["schemas"]["OrgUnit"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** OrgLeader */
+        OrgLeader: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Title
+             * @description The `led_by` link's `data.title`.
+             */
+            title: string | null;
+        };
+        /** OrgUnit */
+        OrgUnit: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Parent Id
+             * @description The unit above it in the chart (`null`: the group).
+             */
+            parent_id: string | null;
+            /**
+             * Via
+             * @description How it is below its parent: a sub-group (`parent_id`) or a `part_of` link.
+             * @enum {string}
+             */
+            via: "root" | "subgroup" | "part_of";
+            /** Depth */
+            depth: number;
+            /** Leaders */
+            leaders: components["schemas"]["OrgLeader"][];
+            /**
+             * Member Count
+             * @description Its own members (`member_of`), not its sub-groups'.
+             */
+            member_count: number;
         };
         /**
          * PresetChoice
@@ -7648,6 +7729,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    groups_org_chart: {
+        parameters: {
+            query?: {
+                /** @description Levels below the group. */
+                depth?: number;
+                /** @description The timeline `at` is read on. */
+                timeline?: string | null;
+                /** @description Only links valid at this moment (`part_of`, leaders, members). */
+                at?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Group id. */
+                group_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgChart"];
                 };
             };
             /** @description Problem */

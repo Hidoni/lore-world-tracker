@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import update
 
+from lore.core.links.models import Link
 from tests.entity_api import LinkApi, make_client, problem
 from tests.entity_modules import with_real_modules
 
@@ -143,3 +145,89 @@ def test_disabling_keeps_groups(api: LinkApi) -> None:
     assert api.links_of(e.ilsa) == []
     assert api.modules("groups", enabled=True).status_code == 200
     assert [link["other"]["name"] for link in api.links_of(e.ilsa)] == ["Empire"]
+
+
+def resolve(api: LinkApi, link: dict[str, Any], start: int | None, end: int | None) -> None:
+    """Sets a link's resolved validity as temporal links will (M7)."""
+    vault = api.client.app.state.vaults.open(api.vault)  # type: ignore[attr-defined]
+    with vault.write_sessions.begin() as session:
+        session.execute(
+            update(Link).where(Link.id == link["id"]).values(valid_from_t=start, valid_to_t=end)
+        )
+
+
+def test_membership_bounds(api: LinkApi) -> None:
+    e = Empire(api)
+    first = api.made_link("groups.member_of", e.ilsa, e.empire)
+    api.made_link("groups.member_of", e.oren, e.empire)
+    resolve(api, first, 100, 250)
+    items = m(api, f"/{e.empire['id']}/members").json()["items"]
+    assert [(i["item"]["other"]["name"], i["from_t"], i["to_t"]) for i in items] == [
+        ("Ilsa", "100", "250"),
+        ("Oren", None, None),
+    ]
+
+
+def test_org_chart(api: LinkApi) -> None:
+    e = Empire(api)
+    home = {"dimension_id": e.dimension["id"]}
+    guild = api.make("group", "Pilots' Guild", **home)
+    part = api.made_link("groups.part_of", guild, e.empire)
+    api.made_link("groups.led_by", e.empire, e.ilsa, data={"title": "Empress"})
+    old = api.made_link("groups.led_by", e.ministry, e.oren)
+    api.made_link("groups.member_of", e.tam, e.ministry)
+    api.made_link("groups.member_of", e.oren, e.ministry)
+    api.made_link("groups.member_of", e.ilsa, e.empire)
+
+    def chart(**params: Any) -> dict[str, Any]:
+        response = m(api, f"/{e.empire['id']}/org-chart", **params)
+        assert response.status_code == 200, response.json()
+        body: dict[str, Any] = response.json()
+        return body
+
+    def units(body: dict[str, Any]) -> list[tuple[str, str | None, str, int]]:
+        names = {u["id"]: u["name"] for u in body["units"]}
+        return [
+            (u["name"], names.get(u["parent_id"]), u["via"], u["member_count"])
+            for u in body["units"]
+        ]
+
+    body = chart()
+    assert body["root_id"] == e.empire["id"]
+    assert units(body) == [
+        ("Empire", None, "root", 1),
+        ("Ministry of Tides", "Empire", "subgroup", 2),
+        ("Pilots' Guild", "Empire", "part_of", 0),
+        ("Harbor Office", "Ministry of Tides", "subgroup", 0),
+    ]
+    assert body["units"][0]["leaders"] == [{"id": e.ilsa["id"], "name": "Ilsa", "title": "Empress"}]
+    assert [u["depth"] for u in body["units"]] == [0, 1, 1, 2]
+    assert [u[0] for u in units(chart(depth=1))] == ["Empire", "Ministry of Tides", "Pilots' Guild"]
+
+    # As of a moment: links valid then (open bounds count).
+    resolve(api, part, 100, 200)
+    resolve(api, old, None, 150)
+    assert [u[0] for u in units(chart(at="300"))] == [
+        "Empire",
+        "Ministry of Tides",
+        "Harbor Office",
+    ]
+    then = chart(at="120", timeline=e.timeline)
+    assert "Pilots' Guild" in [u[0] for u in units(then)]
+    assert [leader["name"] for leader in then["units"][1]["leaders"]] == ["Oren"]
+    assert chart(at="160")["units"][1]["leaders"] == []
+
+    # Readers count only the members they see.
+    secret = api.make("character", "Spy", visibility="private", **home)
+    api.made_link("groups.member_of", secret, e.ministry)
+    assert units(chart())[1][3] == 3
+    assert units(chart(as_reader="true"))[1][3] == 2
+    # …and parts by links they see.
+    school = api.make("group", "Pilot School", **home)
+    api.made_link("groups.part_of", school, e.empire, visibility="private")
+    assert "Pilot School" in [u[0] for u in units(chart())]
+    assert "Pilot School" not in [u[0] for u in units(chart(as_reader="true"))]
+
+    problem(m(api, f"/{e.ilsa['id']}/org-chart"), 404, "not_found")
+    problem(m(api, f"/{e.empire['id']}/org-chart", timeline=e.ilsa["id"]), 404, "not_found")
+    problem(m(api, f"/{e.empire['id']}/org-chart", at="soon"), 422, "validation_error")

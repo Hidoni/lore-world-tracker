@@ -361,6 +361,9 @@ def _groups(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("groups.led_by", empire, spy)
     vault = b.hidden("location", visibility="private", **home)
     b.api.made_link("groups.controls", empire, vault)
+    # The org chart: a part by a private link.
+    guild = b.public("group", "Guild", **home)
+    b.hidden_link("groups.part_of", guild, empire, visibility="private")
 
 
 def _languages(b: _Builder, home: dict[str, Any]) -> None:
