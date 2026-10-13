@@ -295,7 +295,8 @@ def _events(
 
 def _facts(b: _Builder, home: dict[str, Any]) -> None:
     """Facts: a private fact, a fact of a private field, a name over time anchored to a hidden
-    event and caused by it, and a private rich-text value (time-model.md §10.2)."""
+    event and caused by it, a private rich-text value and private existence (time-model.md
+    §10.2-§10.4)."""
     holder = b.public("gadget", "Fact Holder", **home)
     timeline = b.canary.public["Prime"]
     start = {"start": {"anchor": {"kind": "absolute", "t": "40"}, "precision": "base"}}
@@ -327,6 +328,10 @@ def _facts(b: _Builder, home: dict[str, Any]) -> None:
             "content": [{"type": "text", "text": b.canary_string()}]}]}  # fmt: skip
     private_lore = fact(field_key="lore", value=lore, visibility="private")
     b.canary.hidden_ids.add(private_lore["id"])
+    # Existence only the author knows of (as-of state, §10.4-§10.5): readers see "unknown".
+    until = {"anchor": {"kind": "absolute", "t": "60"}, "precision": "base"}
+    private_existence = fact(field_key="core.exists", valid_to=until, visibility="private")
+    b.canary.hidden_ids.add(private_existence["id"])
 
 
 def _module_content(b: _Builder, home: dict[str, Any]) -> None:

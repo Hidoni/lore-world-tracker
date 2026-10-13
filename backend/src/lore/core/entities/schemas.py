@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
 from lore.core.links.schemas import EntityLinkAdd
-from lore.core.types import Affected
+from lore.core.types import Affected, Certainty, Existence, MomentStr
 
 ID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 MAX_NAME_LENGTH = 500
@@ -106,6 +106,43 @@ class TagOut(BaseModel):
     color: str | None
 
 
+AT_PATTERN = r"^(present|0|[1-9][0-9]*)$"
+
+
+class FieldStateOut(BaseModel):
+    value: Any
+    source: Literal["fact", "static"] = Field(
+        description="`fact`: a fact covering the moment; `static`: the entity's timeless value."
+    )
+    fact_ids: list[str] = Field(description="The covering facts used (latest start first).")
+    certainty: Certainty = Field(
+        description="`possible` when the moment lies inside a used fact's bound's uncertainty "
+        "extent."
+    )
+    ambiguous: bool = Field(
+        description="Several facts of a single-valued field cover the moment (the latest start "
+        "wins)."
+    )
+
+
+class EntityStateOut(BaseModel):
+    """What was true of an entity at a moment in a timeline (``time-model.md`` §10.5)."""
+
+    entity_id: str
+    timeline_id: str
+    at: MomentStr
+    existence: Existence = Field(
+        description="`unknown`: no existence facts in the timeline (treated as existing)."
+    )
+    existence_fact_ids: list[str] = Field(description="The existence facts covering the moment.")
+    name: str
+    name_certainty: Certainty
+    name_fact_id: str | None = Field(description="The `core.name` fact giving the name, if any.")
+    fields: dict[str, FieldStateOut] = Field(
+        description="Temporal fields the request may see (static fields are on the entity)."
+    )
+
+
 class EntityOut(BaseModel):
     """A full entity. ``fields`` and ``field_visibility`` only hold the kind's active fields
     (values of archived fields and of disabled modules' fields are kept but not shown)."""
@@ -134,6 +171,9 @@ class EntityOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+    state: EntityStateOut | None = Field(
+        default=None, description="With `at`: the entity's state then (`time-model.md` §10.5)."
+    )
 
 
 class EntityWriteResult(BaseModel):
@@ -174,6 +214,11 @@ class EntitySummary(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+    existence: Existence | None = Field(
+        default=None,
+        description="With `at`: `exists`, `unknown` (no existence facts) or `possible` (the "
+        "moment is inside a bound's uncertainty extent).",
+    )
 
 
 class EntityPage(BaseModel):
@@ -201,6 +246,9 @@ class TreeNode(BaseModel):
     has_children: bool
     child_counts: dict[str, int]
     group: str | None = None
+    existence: Existence | None = Field(
+        default=None, description="With `at`: as in entity lists (`exists|unknown|possible`)."
+    )
 
 
 class TreePage(BaseModel):

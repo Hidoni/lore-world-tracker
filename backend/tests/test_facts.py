@@ -33,7 +33,7 @@ class World:
     def __init__(self, api: Api) -> None:
         self.api = api
         self.dimension = api.make("dimension", "Aetheria")
-        api.calendar(self.dimension["id"])
+        self.calendar = api.calendar(self.dimension["id"])
         self.timeline = self.dimension["ext"]["prime_timeline_id"]
         self.gadget = api.make("gadget", "Engine", dimension_id=self.dimension["id"])
         self.event = api.make(
