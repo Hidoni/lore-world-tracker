@@ -596,6 +596,47 @@ export function serveVault(
         })
       return HttpResponse.json(paged(items, url))
     }),
+    // The characters module's reads (docs/modules/characters.md).
+    http.get('*/api/v1/vaults/v1/m/characters/:id/relationships', ({ params }) => {
+      const category = (key: string) =>
+        /^characters\.(parent_of|sibling_of|spouse_of)$/.test(key)
+          ? 'family'
+          : key === 'characters.relationship' || key.startsWith('custom.')
+            ? 'custom'
+            : key.startsWith('characters.')
+              ? 'social'
+              : null
+      const items = entityLinks(String(params.id))
+      return HttpResponse.json({
+        groups: ['family', 'social', 'custom'].map((name) => ({
+          category: name,
+          items: items.filter((item) => category(item.link.link_type) === name),
+        })),
+      })
+    }),
+    http.get('*/api/v1/vaults/v1/m/characters/:id/life', ({ params }) => {
+      const id = String(params.id)
+      const items = [...links.values()]
+        .filter((link) => link.link_type === 'core.participant' && link.target_id === id)
+        .map((link) => ({ link, event: found(link.source_id) }))
+        .filter(({ event }) => event?.deleted_at === null)
+        .map(({ link, event }) => {
+          const start = (event?.ext as { start_t?: string } | undefined)?.start_t ?? '0'
+          return {
+            id: event?.id ?? '',
+            name: event?.name ?? '',
+            visibility: 'public',
+            start_t: start,
+            end_t: start,
+            time_status: 'ok',
+            importance: 3,
+            display: { calendar_id: 'absolute', start: `${start} s`, end: `${start} s` },
+            roles: link.role ? [link.role] : [],
+          }
+        })
+        .sort((a, b) => (BigInt(a.start_t) < BigInt(b.start_t) ? -1 : 1))
+      return HttpResponse.json({ items, truncated: false })
+    }),
     // The locations module's reads (docs/modules/locations.md).
     http.get('*/api/v1/vaults/v1/m/locations/tree', ({ request }) => {
       const url = new URL(request.url)

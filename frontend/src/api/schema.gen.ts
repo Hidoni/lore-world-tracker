@@ -1192,6 +1192,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/characters/{character_id}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Relationships
+         * @description The character's relationships by category: family, social, and custom (the generic
+         *     `characters.relationship` and user-defined link types to characters), at any time (as-of
+         *     filtering comes with the time cursor). ``404`` for a character the request may not see.
+         */
+        get: operations["characters_relationships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/characters/{character_id}/life": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Life
+         * @description The events on the timeline the character takes part in (`core.participant`), by start,
+         *     with their roles. ``404`` for a character or timeline the request may not see.
+         */
+        get: operations["characters_life"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1621,6 +1664,8 @@ export interface components {
         };
         /** @enum {string} */
         CalendarStrategy: "keep_date" | "pin_moment" | "constrain";
+        /** @enum {string} */
+        Category: "family" | "social" | "custom";
         /** CausalityEdgeOut */
         CausalityEdgeOut: {
             /**
@@ -2461,6 +2506,35 @@ export interface components {
             fields: components["schemas"]["FieldOut"][];
         };
         Label: string;
+        /** Life */
+        Life: {
+            /** Items */
+            items: components["schemas"]["LifeEvent"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** LifeEvent */
+        LifeEvent: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Importance */
+            importance: number;
+            display: components["schemas"]["EventDisplay"];
+            /**
+             * Roles
+             * @description The roles of the character's participant links.
+             */
+            roles: string[];
+        };
         /** LinkCreate */
         LinkCreate: {
             role?: components["schemas"]["Role"] | null;
@@ -3226,6 +3300,20 @@ export interface components {
             consistency_rules: components["schemas"]["RuleOut"][];
             /** Referenceable Slots */
             referenceable_slots: components["schemas"]["TimeSlotsOut"][];
+        };
+        /** RelationshipGroup */
+        RelationshipGroup: {
+            category: components["schemas"]["Category"];
+            /** Items */
+            items: components["schemas"]["EntityLink"][];
+        };
+        /** Relationships */
+        Relationships: {
+            /**
+             * Groups
+             * @description Family, social and custom relationships, in that order (empty ones too).
+             */
+            groups: components["schemas"]["RelationshipGroup"][];
         };
         /**
          * RelativeAnchor
@@ -6594,6 +6682,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    characters_relationships: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Character id. */
+                character_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Relationships"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    characters_life: {
+        parameters: {
+            query: {
+                /** @description The timeline to read. */
+                timeline: string;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Character id. */
+                character_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Life"];
                 };
             };
             /** @description Problem */

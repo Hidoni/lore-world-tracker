@@ -64,6 +64,9 @@ None.
 - `GET /m/characters/{id}/family-tree?up=3&down=3&include_spouses=true&include_siblings=true&timeline=`:
   nodes (with existence spans) and edges (parent/spouse/sibling) for the genealogy layout.
 
+- `GET /m/characters/{id}/life?timeline=`: the events the character takes part in
+  (`core.participant`) on a timeline, by start, with their roles (the Life panel; #92).
+
 ## UI
 
 - Sidebar section "Characters" (alphabetical, grouped by first tag or by misc parent).
@@ -75,6 +78,16 @@ None.
   elkjs layered with marriage junction nodes, rendered in React Flow. A spike decides whether a
   dedicated genealogy layout library is better (issue in M6).
 - **Relationship web** = the local graph filtered to character relationship types (graph module).
+
+Implementation (#92): `backend/src/lore/modules/characters/` and
+`frontend/src/modules/characters/`. `characters.serves` targets characters until the groups
+module (#94) adds its kind. Panels: **Relationships** (Family, Social, Other, with `data.kind`,
+capacity and roles, and "Add relationship" through the link dialog), **Life** (the time
+context's timeline), **Affiliations** (the `out` links of `groups.member_of`,
+`locations.resides_in`, `locations.origin`, `species.is_a` and `languages.speaks` of the enabled
+modules). The family tree (view, endpoint and panel) and as-of filtering come with their own
+issues. The sample world has the royal house of Varn over three generations, a rival with a
+secret and roles in events.
 
 ## Consistency rules
 

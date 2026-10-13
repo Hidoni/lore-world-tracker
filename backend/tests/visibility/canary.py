@@ -234,7 +234,7 @@ def build_canary_vault(data_dir: Path) -> Canary:
         )
 
         _events(b, home, secret, secret_year, realm)
-        _locations(b, home)
+        _module_content(b, home)
 
         canary.tags = {t["name"]: t["id"] for t in api.get(ghost["id"]).json()["tags"]}
         canary.hidden_ids.update(canary.tags.values())
@@ -293,6 +293,12 @@ def _events(
     b.hidden("event", dimension_id=realm["id"])
 
 
+def _module_content(b: _Builder, home: dict[str, Any]) -> None:
+    """Private content of the real modules' kinds and links."""
+    _locations(b, home)
+    _characters(b, home)
+
+
 def _locations(b: _Builder, home: dict[str, Any]) -> None:
     """Locations: a private location inside a public city (its contents, events and residents
     stay hidden), events there, a private event at the city, a private site link, and residents
@@ -312,6 +318,24 @@ def _locations(b: _Builder, home: dict[str, Any]) -> None:
     b.hidden_link("locations.resides_in", lantern, varn, visibility="private")
     spy = b.hidden("gadget", visibility="private", **home)
     b.api.made_link("locations.resides_in", spy, varn, data={"kind": "base"})
+
+
+def _characters(b: _Builder, home: dict[str, Any]) -> None:
+    """Characters: a private secret (by the field's default), a private relative, a relationship
+    by a private link, a private event the queen takes part in and a private participant link."""
+    queen = b.public("character", "Queen Ilsa", fields={"secret": b.canary_string()}, **home)
+    heir = b.public("character", "Prince Oren", **home)
+    b.api.made_link("characters.parent_of", queen, heir, data={"kind": "biological"})
+    lover = b.hidden("character", visibility="private", **home)
+    b.api.made_link("characters.romance", queen, lover)
+    b.hidden_link("characters.rival_of", queen, heir, visibility="private")
+    start = {"start": {"anchor": {"kind": "absolute", "t": "7"}, "precision": "base"}}
+    coronation = b.public("event", "Crowning", ext=start, **home)
+    b.api.made_link("core.participant", coronation, queen, role="queen")
+    tryst = b.hidden("event", visibility="private", ext=start, **home)
+    b.api.made_link("core.participant", tryst, queen)
+    duel = b.public("event", "Duel", ext=start, **home)
+    b.hidden_link("core.participant", duel, heir, visibility="private", role=b.canary_string())
 
 
 def _series(

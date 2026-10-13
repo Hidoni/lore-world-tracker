@@ -203,6 +203,27 @@ def location_residents(c: Canary) -> Iterator[Call]:
     yield from _locations(c, "/residents")
 
 
+CHARACTERS = ("Queen Ilsa", "Prince Oren")
+
+
+def _characters(c: Canary, suffix: str, params: dict[str, Any] | None = None) -> Iterator[Call]:
+    """The route for every visible character (200) and every hidden id (404)."""
+    for name in CHARACTERS:
+        yield Call(f"{_v(c)}/m/characters/{c.public[name]}{suffix}", dict(params or {}))
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/characters/{hidden_id}{suffix}", dict(params or {}), status=404)
+
+
+@recipe(f"{V}/m/characters/{{character_id}}/relationships")
+def character_relationships(c: Canary) -> Iterator[Call]:
+    yield from _characters(c, "/relationships")
+
+
+@recipe(f"{V}/m/characters/{{character_id}}/life")
+def character_life(c: Canary) -> Iterator[Call]:
+    yield from _characters(c, "/life", {"timeline": c.public["Prime"]})
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

@@ -235,6 +235,24 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'EntityLinks',
       ),
+    characterRelationships: async (vault, character) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/characters/{character_id}/relationships`, {
+            params: { path: { vault_id: vault, character_id: character } },
+          }),
+        ),
+        'Relationships',
+      ),
+    characterLife: async (vault, character, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/characters/{character_id}/life`, {
+            params: { path: { vault_id: vault, character_id: character }, query },
+          }),
+        ),
+        'Life',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(
