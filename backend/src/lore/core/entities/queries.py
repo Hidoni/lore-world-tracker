@@ -336,7 +336,9 @@ class EntityQueries:
         if group_by is not None:
             if kinds is None or len(set(kinds)) != 1:
                 raise _invalid("group_by", "Grouping needs exactly one kind.")
-            group_field = self._text_field(next(iter(kinds)), group_by, "group_by")
+            group_field = self._text_field(
+                next(iter(kinds)), group_by, "group_by", types=("text", "enum")
+            )
         e = Entity
         conditions = self._in_tree(e, dimension, kinds)
         if parent is not None:
@@ -455,16 +457,21 @@ class EntityQueries:
             ]
         )
 
-    def _text_field(self, kind: str, field: str, name: str = "field") -> FieldDef:
-        """The active ``text`` field ``field`` of ``kind`` (``name``: the parameter, for errors)."""
+    def _text_field(
+        self, kind: str, field: str, name: str = "field", types: tuple[str, ...] = ("text",)
+    ) -> FieldDef:
+        """The active single ``text`` field ``field`` of ``kind`` (or of another of ``types``;
+        ``name``: the parameter, for errors)."""
         registered = self.service.kinds.get(kind)
         if registered is None:
             if kind in self.service.registry.all_kind_keys():
                 raise ModuleDisabledError(f"The module of kind {kind!r} is disabled.")
             raise _invalid("kind", f"Unknown kind {kind!r}.")
         definition = self.service.kind_fields(registered).active.get(field)
-        if definition is None or definition.type != "text":
+        if definition is None or definition.type not in types:
             raise _invalid(name, f"{field!r} is not a text field of this kind.")
+        if name == "group_by" and definition.multiple:
+            raise _invalid(name, f"{field!r} has several values.")
         return definition
 
     def field_values(

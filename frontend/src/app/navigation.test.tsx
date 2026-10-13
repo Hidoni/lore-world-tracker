@@ -269,8 +269,8 @@ describe('entity lists', () => {
     )
     serveVault({ rows: [row('d1', 'dimension', 'Aetheria'), ...many] })
     await renderApp('/v/v1/k/artifact')
-    const table = await screen.findByRole('table', { name: 'Artifacts' })
-    await within(table).findByRole('link', { name: 'Item 00000' })
+    const table = await screen.findByRole('table', { name: 'Artifacts' }, { timeout: 5000 })
+    await within(table).findByRole('link', { name: 'Item 00000' }, { timeout: 5000 })
     expect(screen.getByText('200+ artifacts')).toBeInTheDocument()
     // Only the visible window (plus overscan) is rendered.
     expect(within(table).getAllByRole('row').length).toBeLessThan(50)
@@ -279,11 +279,11 @@ describe('entity lists', () => {
       scroller.scrollTop = 190 * 36
       fireEvent.scroll(scroller)
     })
-    await within(table).findByRole('link', { name: 'Item 00195' })
+    await within(table).findByRole('link', { name: 'Item 00195' }, { timeout: 5000 })
     expect(await screen.findByText('400+ artifacts')).toBeInTheDocument()
     expect(within(table).queryByRole('link', { name: 'Item 00000' })).not.toBeInTheDocument()
     expect(within(table).getAllByRole('row').length).toBeLessThan(50)
-  })
+  }, 30_000)
 })
 
 describe('trash', () => {

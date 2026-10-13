@@ -1125,6 +1125,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/locations/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tree
+         * @description The containment tree of locations, ``depth`` levels from ``root`` (or the top-level
+         *     locations, in ``dimension`` when given), with their types and child counts. Deeper levels
+         *     load with ``root``. ``404`` for a root the request may not see.
+         */
+        get: operations["locations_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/locations/{location_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events
+         * @description What happened here: events the timeline shows whose `locations.event_site` is this
+         *     location (or, with ``include_descendants``, a location inside it), by start. ``from``/``to``
+         *     keep those overlapping the half-open window. ``404`` for a location or timeline the request
+         *     may not see.
+         */
+        get: operations["locations_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/locations/{location_id}/residents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Residents
+         * @description Everyone and everything that `locations.resides_in` the location, at any time (with each
+         *     link's validity; as-of filtering comes with the time cursor). ``404`` for a location the
+         *     request may not see.
+         */
+        get: operations["locations_residents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2654,6 +2721,76 @@ export interface components {
             dimension_id: string | null;
             /** Deleted At */
             deleted_at: string | null;
+        };
+        /** LocationEvent */
+        LocationEvent: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Importance */
+            importance: number;
+            display: components["schemas"]["EventDisplay"];
+            /**
+             * Site Ids
+             * @description The listed locations (this one or its descendants) where it took place.
+             */
+            site_ids: string[];
+        };
+        /** LocationEvents */
+        LocationEvents: {
+            /** Items */
+            items: components["schemas"]["LocationEvent"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** LocationNode */
+        LocationNode: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Multiversal */
+            multiversal: boolean;
+            /**
+             * Location Type
+             * @description The `location_type` option key (`null`: none, or hidden from the request).
+             */
+            location_type: string | null;
+            /**
+             * Child Count
+             * @description Child locations the request sees.
+             */
+            child_count: number;
+            /**
+             * Children
+             * @description The child locations, when within `depth` (`null`: not loaded).
+             */
+            children: components["schemas"]["LocationNode"][] | null;
+        };
+        /** LocationTree */
+        LocationTree: {
+            /** Root Id */
+            root_id: string | null;
+            /** Items */
+            items: components["schemas"]["LocationNode"][];
+            /**
+             * Truncated
+             * @description Some levels were cut at `limit` nodes.
+             */
+            truncated: boolean;
         };
         /**
          * MentionCountsOut
@@ -6333,6 +6470,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurrenceApplyOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    locations_tree: {
+        parameters: {
+            query?: {
+                dimension?: string | null;
+                /** @description A location: list what it contains (default: top). */
+                root?: string | null;
+                /** @description Levels to load. */
+                depth?: number;
+                /** @description Nodes per level at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationTree"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    locations_events: {
+        parameters: {
+            query: {
+                /** @description The timeline to read. */
+                timeline: string;
+                include_descendants?: boolean;
+                /** @description Window start. */
+                from?: string | null;
+                /** @description Window end. */
+                to?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Location id. */
+                location_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationEvents"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    locations_residents: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Location id. */
+                location_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityLinks"];
                 };
             };
             /** @description Problem */

@@ -19,7 +19,7 @@ The world has two parts:
   precision, with every end kind; a chain of relative anchors; recurring events of every rule
   type, with referenced, modified and cancelled occurrences, a sub-event of an occurrence and an
   anchor to an occurrence; sub-events and causes. Misc entries (M6): a topic holding
-  children of several kinds.
+  children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -29,9 +29,9 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-characters, places and other module kinds (M6, M7; misc entries since #89), correspondences
-(M9), media (M10), custom fields and kinds (M11). Old fixtures are never regenerated: the next
-milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
+characters and other module kinds (M6, M7; misc entries since #89, locations since #90),
+correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
+regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
 
 import argparse
@@ -1156,6 +1156,44 @@ def _core_misc(writer: Writer, core: Core) -> None:
         )
 
 
+def _core_locations(writer: Writer, core: Core) -> None:
+    """Locations (M6): a galaxy → … → room hierarchy in Aetheria, a multiversal plane, event
+    sites, an origin, a resident and a portal."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    chain = (
+        ("The Shimmering Reach", "galaxy"),
+        ("Elsmere System", "star_system"),
+        ("Aeth", "planet"),
+        ("Thalassa", "continent"),
+        ("Kingdom of Varn", "country"),
+        ("Varn", "city"),
+        ("The Spire", "building"),
+        ("Hall of Tides", "room"),
+    )
+    with writer.transaction("Sample world: locations") as s:
+        parent: str | None = None
+        for name, location_type in chain:
+            fields: dict[str, Any] = {"location_type": location_type}
+            if name == "Varn":
+                fields["population"] = 48000
+            parent = s.entity("location", name, parent_id=parent, fields=fields, **home)
+            core.ids[name] = parent
+        core.ids["The Void Between Worlds"] = s.entity(
+            "location", "The Void Between Worlds", fields={"location_type": "plane"}
+        )
+        s.link("locations.event_site", core["Founding of Varn"], core["Varn"])
+        s.link("locations.event_site", core["Coronation of Ilsa"], core["Hall of Tides"])
+        s.link("locations.event_site", core["The Sundering"], core["Thalassa"])
+        s.link("locations.origin", core["The Chronolith"], core["The Spire"])
+        s.link("locations.resides_in", core["Tide Magic"], core["Varn"], data={"kind": "base"})
+        s.link(
+            "locations.connected_to",
+            core["The Spire"],
+            core["The Void Between Worlds"],
+            data={"kind": "portal"},
+        )
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1227,6 +1265,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_chain(writer, core)
     _core_series(writer, core, world)
     _core_misc(writer, core)
+    _core_locations(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)

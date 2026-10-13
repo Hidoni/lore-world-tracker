@@ -64,7 +64,7 @@
 | DELETE | `/vaults/{v}/entities/{id}` | move to trash (idempotent), or `?purge=true` for permanent (author only) → `{id, purged, entity, affected}` |
 | POST | `/vaults/{v}/entities/{id}/restore` | restore from trash (idempotent) → `{entity, affected}` |
 | GET | `/vaults/{v}/entities/{id}/children` | children by `parent_id` (every dimension, not trashed; `kind`, `cursor`, `limit`), sorted like the tree → `{items: TreeNode[], next_cursor}` |
-| GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `group_by` (a single text field of the one `kind`: each node's `group` is its trimmed value, `null` when empty or the request can't see the field; #89), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal`, `group` |
+| GET | `/vaults/{v}/tree` | lazy navigation tree, one level: `dimension, parent, kind` (repeatable), `group_by` (a single text or enum field of the one `kind`: each node's `group` is its trimmed value, `null` when empty or the request can't see the field; #89), `cursor, limit` → nodes with `has_children`, `child_counts` by kind, `multiversal`, `group` |
 | GET | `/vaults/{v}/entities/{id}/links` | outgoing/incoming links: `direction, type, timeline, at` |
 | GET | `/vaults/{v}/entities/{id}/backlinks` | entities pointing at this one: incoming (and symmetric) links and mentions with counts by block visibility, by name (decided 2026-10-04); `include_trashed` → `{items: [{entity, links, mentions: {public, spoiler, private}}]}` |
 | GET | `/vaults/{v}/entities/{id}/unlinked-mentions` | name/alias occurrences without links |
@@ -232,7 +232,7 @@ understood, or that only leaves out, answers `422` with the reason on `q`.
 |--------|-----------|
 | characters | `GET /m/characters/{id}/family-tree?up=&down=&include_spouses=&include_siblings=&timeline=`, `GET /m/characters/{id}/relationships?timeline=&at=` |
 | groups | `GET /m/groups/{id}/org-chart?timeline=&at=&depth=`, `GET /m/groups/{id}/members?timeline=&at=&include_subgroups=`, `GET /m/groups/{id}/leaders?timeline=`, `GET /m/groups/{id}/territory?timeline=&at=` |
-| locations | `GET /m/locations/tree?dimension=&root=&depth=`, `GET /m/locations/{id}/events?include_descendants=&timeline=&from=&to=`, `GET /m/locations/{id}/residents?timeline=&at=` |
+| locations | `GET /m/locations/tree?dimension=&root=&depth=&limit=` (nested `LocationNode`s with `location_type` and `child_count`; `children` within `depth`, else `null`), `GET /m/locations/{id}/events?timeline=&include_descendants=&from=&to=&limit=` (events the timeline shows whose `event_site` is the location or a visible location inside it, by start, with `site_ids`; `timeline` is required), `GET /m/locations/{id}/residents` (the `resides_in` links to it, as `EntityLinks`; `timeline=&at=` come with the time cursor, M7) (#90) |
 | species | `GET /m/species/{id}/members?timeline=&at=`, `GET /m/species/descent-tree?dimension=` |
 | languages | CRUD `/m/languages/{language_id}/lexicon`, `POST …/lexicon/import` (CSV), `GET …/lexicon/export`, `GET /m/languages/family-tree?dimension=` |
 | media | `POST /m/media/items` (upload), `GET /m/media/items`, `GET /m/media/items/{id}/file?size=`, `PATCH/DELETE /m/media/items/{id}`, gallery CRUD |

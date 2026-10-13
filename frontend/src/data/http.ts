@@ -212,6 +212,29 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'CausalityGraphOut',
       ),
+    locationTree: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/locations/tree`, { params: { ...path(vault), query } })),
+        'LocationTree',
+      ),
+    locationEvents: async (vault, location, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/locations/{location_id}/events`, {
+            params: { path: { vault_id: vault, location_id: location }, query },
+          }),
+        ),
+        'LocationEvents',
+      ),
+    locationResidents: async (vault, location) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/locations/{location_id}/residents`, {
+            params: { path: { vault_id: vault, location_id: location } },
+          }),
+        ),
+        'EntityLinks',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(

@@ -103,7 +103,9 @@ Sidebar navigation (`core/navigation/`, #65):
   has a "New …" button. A kind whose UI config sets `groupBy` (a text field; misc: `category`,
   #89) shows its top level in groups: `/tree?group_by=<field>` gives each node its `group`, and
   the section lists the groups by name (case variants merged under the most used spelling), then
-  "No <field>" for the rest; below the top level the tree is unchanged.
+  "No <field>" for the rest; below the top level the tree is unchanged. A kind whose config sets
+  `iconBy: {field, icons}` (locations: `location_type`, #90) gets `group_by=<field>` at every
+  level and shows each node with the icon of its value (`KindIcon`).
 - **Events** (`EventsSection`, #84): the event hierarchy of the time context's timeline, under
   Pinned. Top-level events by start (with their start in the display of the dimension's default
   calendar), each level loaded from `/timelines/{id}/event-tree` when it opens, with "Show more"

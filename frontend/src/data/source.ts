@@ -70,6 +70,14 @@ export interface DataSource {
     event: string,
     query: Query<'events_occurrences'>,
   ): Promise<D<'OccurrencePage'>>
+  // The locations module (docs/modules/locations.md).
+  locationTree(vault: string, query?: Query<'locations_tree'>): Promise<D<'LocationTree'>>
+  locationEvents(
+    vault: string,
+    location: string,
+    query: Query<'locations_events'>,
+  ): Promise<D<'LocationEvents'>>
+  locationResidents(vault: string, location: string): Promise<D<'EntityLinks'>>
 }
 
 /**

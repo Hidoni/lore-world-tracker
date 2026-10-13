@@ -168,6 +168,41 @@ def tree(c: Canary) -> Iterator[Call]:
         yield Call(path, {"kind": "gadget", "group_by": name, "limit": 500})
 
 
+LOCATIONS = ("Varn", "Undercroft", "Market")
+
+
+def _locations(c: Canary, suffix: str, params: dict[str, Any] | None = None) -> Iterator[Call]:
+    """The route for every visible location (200) and every hidden id (404)."""
+    for name in LOCATIONS:
+        yield Call(f"{_v(c)}/m/locations/{c.public[name]}{suffix}", dict(params or {}))
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/locations/{hidden_id}{suffix}", dict(params or {}), status=404)
+
+
+@recipe(f"{V}/m/locations/tree")
+def location_tree(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/locations/tree"
+    yield Call(path, {"depth": 6, "limit": 500})
+    for name in LOCATIONS:
+        yield Call(path, {"root": c.public[name], "depth": 6})
+    for entity_id in c.hidden_ids:
+        yield Call(path, {"root": entity_id}, status=404)
+    for entity_id in [*c.public.values(), *c.hidden_ids]:
+        yield Call(path, {"dimension": entity_id, "depth": 6})
+
+
+@recipe(f"{V}/m/locations/{{location_id}}/events")
+def location_events(c: Canary) -> Iterator[Call]:
+    timeline = {"timeline": c.public["Prime"]}
+    yield from _locations(c, "/events", timeline)
+    yield from _locations(c, "/events", {**timeline, "include_descendants": "false"})
+
+
+@recipe(f"{V}/m/locations/{{location_id}}/residents")
+def location_residents(c: Canary) -> Iterator[Call]:
+    yield from _locations(c, "/residents")
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

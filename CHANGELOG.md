@@ -13,6 +13,11 @@ All notable changes to this project are documented here. The format follows
   hold entities of any kind; its page lists its children by kind with an "Add child" menu, and
   the sidebar groups misc entries by category. Text fields suggest the values other entities of
   the kind use. The sample world gains "Time Travel" and "Tide Magic".
+- **Locations** (#90): places from galaxies to rooms, nested in a containment tree with type
+  icons, can be event sites and have residents, origins and connections (including portals
+  between dimensions). A location page lists its contents, the events there (and inside it) and
+  its residents and connections. There is a location tree page, and event pages get a
+  "Location" field. The sample world gains a galaxy-to-room hierarchy.
 
 ## [0.4.0] - 2026-10-12
 
