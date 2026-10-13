@@ -29,6 +29,7 @@ from jsonschema import Draft202012Validator
 from sqlalchemy import ColumnElement, Select, and_, case, func, or_, select, true
 from sqlalchemy.orm import Session, aliased
 
+from lore.chronology.schema import TimePoint
 from lore.core.consistency.schemas import request_suppress
 from lore.core.db.base import new_id
 from lore.core.db.types import utc_now
@@ -174,8 +175,10 @@ class LinkService:
             times = self._reader_times = ReaderTimes(
                 VaultContext(self.vault, self.session, self.registry), self.policy
             )
-        out.valid_from = times.point(out.valid_from, dimension_id)
-        out.valid_to = times.point(out.valid_to, dimension_id)
+        shown = [times.point(point, dimension_id) for point in (out.valid_from, out.valid_to)]
+        out.valid_from, out.valid_to = (
+            None if point is None else TimePoint.model_validate(point) for point in shown
+        )
         return out
 
     # --- writes ---------------------------------------------------------------------------------
