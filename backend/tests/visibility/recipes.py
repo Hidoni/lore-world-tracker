@@ -259,6 +259,21 @@ def language_family_tree(c: Canary) -> Iterator[Call]:
         yield Call(path, {"dimension": entity_id})
 
 
+@recipe(f"{V}/m/species/descent-tree")
+def species_descent_tree(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/species/descent-tree"
+    yield Call(path, {"limit": 2000})
+    for entity_id in [*c.public.values(), *c.hidden_ids]:
+        yield Call(path, {"dimension": entity_id})
+
+
+@recipe(f"{V}/m/species/{{species_id}}/members")
+def species_members(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/species/{c.public['Elves']}/members")
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/species/{hidden_id}/members", status=404)
+
+
 @recipe(f"{V}/tags")
 def tags(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/tags")

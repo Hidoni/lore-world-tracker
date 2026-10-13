@@ -9,9 +9,10 @@ from lore.modules.groups import MODULE as GROUPS
 from lore.modules.languages import MODULE as LANGUAGES
 from lore.modules.locations import MODULE as LOCATIONS
 from lore.modules.misc import MODULE as MISC
+from lore.modules.species import MODULE as SPECIES
 
 # Every module's spec, in dependency order. Explicit: no entry points, no discovery (§2.2).
-ALL_MODULES: list[ModuleSpec] = [MISC, LOCATIONS, CHARACTERS, GROUPS, LANGUAGES]
+ALL_MODULES: list[ModuleSpec] = [MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES]
 
 
 def load_metadata() -> MetaData:

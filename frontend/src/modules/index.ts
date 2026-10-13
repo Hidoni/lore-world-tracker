@@ -5,6 +5,7 @@ import groups from './groups'
 import languages from './languages'
 import locations from './locations'
 import misc from './misc'
+import species from './species'
 
 // Module frontends (modules.md §3). Lists every module definition; the app activates the enabled
 // ones after loading the vault registry. A module lives in `modules/<id>/` with an `index.ts`
@@ -12,6 +13,7 @@ import misc from './misc'
 export const moduleDefinitions: readonly ModuleDefinition[] = [
   misc,
   locations,
+  species,
   characters,
   groups,
   languages,

@@ -56,6 +56,16 @@ None.
 - **Descent tree view** (React Flow + elkjs, time-ordered by emergence).
 - Character pages show the species as a header chip (from `species.is_a`).
 
+Implementation (#91): `backend/src/lore/modules/species/` and `frontend/src/modules/species/`.
+`species.native_to` names the `location` kind, so it is offered only while the locations module is
+enabled. Panels: **Members**, **Descent** (descended from, ancestor of, subspecies; a link to the
+tree view) and **Native to**. The descent tree view (`/v/<vault>/m/species/descent-tree`, also in
+the command palette) draws the time context's dimension with React Flow and ELK (ancestors above
+descendants, subspecies dotted) with an "As a list" alternative; ordering by emergence comes with
+existence (M7). The species chip is the module's `entityHeaderMedia` for `character`. The sample
+world has First Folk → Tideborn (with Shoal Tideborn), the multiversal Leviathans, members and a
+native land.
+
 ## Consistency rules
 
 | Id | Default | Check |

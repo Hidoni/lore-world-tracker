@@ -32,6 +32,8 @@ const VAULT_WIDE = [
   'groupLeaders',
   'groupTerritory',
   'languageFamilyTree',
+  'speciesMembers',
+  'speciesDescentTree',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = ['entity', 'links', 'backlinks', 'history', 'occurrences']

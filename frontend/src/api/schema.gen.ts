@@ -1192,6 +1192,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/species/descent-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descent Tree
+         * @description The descent graph: species the request sees with the `descended_from` links between
+         *     them, and subspecies edges to their parent species.
+         */
+        get: operations["species_descent_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/species/{species_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members
+         * @description Everyone and everything that `species.is_a` the species, at any time (as-of filtering
+         *     comes with the time cursor). ``404`` for a species the request may not see.
+         */
+        get: operations["species_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/characters/{character_id}/relationships": {
         parameters: {
             query?: never;
@@ -1969,6 +2011,53 @@ export interface components {
             /** Display */
             display?: string | null;
             error?: components["schemas"]["TimeProblem"] | null;
+        };
+        /** DescentEdge */
+        DescentEdge: {
+            /**
+             * Id
+             * @description The link's id, or `subspecies:<child id>` for a subspecies.
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "descended_from" | "subspecies";
+            /**
+             * Source Id
+             * @description The descendant or the subspecies.
+             */
+            source_id: string;
+            /**
+             * Target Id
+             * @description The ancestor or the parent species.
+             */
+            target_id: string;
+        };
+        /** DescentNode */
+        DescentNode: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Dimension Id */
+            dimension_id: string | null;
+            /**
+             * Parent Id
+             * @description The species it is a subspecies of, if shown.
+             */
+            parent_id: string | null;
+        };
+        /** DescentTree */
+        DescentTree: {
+            /** Nodes */
+            nodes: components["schemas"]["DescentNode"][];
+            /** Edges */
+            edges: components["schemas"]["DescentEdge"][];
+            /** Truncated */
+            truncated: boolean;
         };
         /** DimensionCreated */
         DimensionCreated: {
@@ -6833,6 +6922,82 @@ export interface operations {
             path: {
                 /** @description Location id. */
                 location_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityLinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    species_descent_tree: {
+        parameters: {
+            query?: {
+                /** @description Species of a dimension (and multiversal ones). */
+                dimension?: string | null;
+                /** @description Species at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DescentTree"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    species_members: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Species id. */
+                species_id: string;
                 /** @description Vault id (UUID). */
                 vault_id: string;
             };
