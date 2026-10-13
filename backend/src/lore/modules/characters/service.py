@@ -1,9 +1,13 @@
-"""Reads of the characters module: relationships by category and the events of a life. Every
-read goes through the request's ``VisibilityPolicy``; events through ``TimelineView``."""
+"""Reads of the characters module: relationships by category, the events of a life and the
+family tree. Every read goes through the request's ``VisibilityPolicy``; events through
+``TimelineView``."""
 
-from dataclasses import dataclass
+from collections.abc import Collection, Iterable
+from dataclasses import dataclass, field
+from typing import Literal
 
-from sqlalchemy import and_
+from sqlalchemy import and_, or_, select
+from sqlalchemy.orm import aliased
 
 from lore.core.entities.models import Entity
 from lore.core.entities.service import EntityService
@@ -18,8 +22,17 @@ from lore.core.time.models import Event
 from lore.core.time.schemas import EventDisplay
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.characters.kinds import CHARACTER
-from lore.modules.characters.links import CATEGORIES, Category
+from lore.modules.characters.links import (
+    CATEGORIES,
+    PARENT_OF,
+    SIBLING_OF,
+    SPOUSE_OF,
+    Category,
+)
 from lore.modules.characters.schemas import (
+    Genealogy,
+    GenealogyEdge,
+    GenealogyPerson,
     Life,
     LifeEvent,
     RelationshipGroup,
@@ -28,6 +41,33 @@ from lore.modules.characters.schemas import (
 
 PARTICIPANT = "core.participant"
 ORDER: tuple[Category, ...] = ("family", "social", "custom")
+FAMILY: dict[str, Literal["parent", "spouse", "sibling"]] = {
+    PARENT_OF: "parent",
+    SPOUSE_OF: "spouse",
+    SIBLING_OF: "sibling",
+}
+
+
+@dataclass
+class _Tree:
+    """The people of a family tree being gathered: generation by id, in the order found."""
+
+    limit: int
+    generations: dict[str, int] = field(default_factory=dict)
+    truncated: bool = False
+
+    def add(self, ids: Iterable[str], generation: int) -> list[str]:
+        """Adds the people not in the tree yet; returns them (none once the limit is reached)."""
+        added = []
+        for person in ids:
+            if person in self.generations:
+                continue
+            if len(self.generations) >= self.limit:
+                self.truncated = True
+                break
+            self.generations[person] = generation
+            added.append(person)
+        return added
 
 
 @dataclass
@@ -114,3 +154,147 @@ class Characters:
             ],
             truncated=truncated,
         )
+
+    # --- family tree ----------------------------------------------------------------------------
+
+    def _family_links(
+        self, ids: Collection[str], types: Collection[str], *, side: str = "any"
+    ) -> list[Link]:
+        """The visible family links of ``types`` touching ``ids`` (``side``: ``source``,
+        ``target`` or ``any``) whose ends are both characters that aren't in the trash."""
+        if not ids:
+            return []
+        source = aliased(Entity)
+        target = aliased(Entity)
+        touching = {
+            "source": Link.source_id.in_(ids),
+            "target": Link.target_id.in_(ids),
+            "any": or_(Link.source_id.in_(ids), Link.target_id.in_(ids)),
+        }[side]
+        statement = (
+            select(Link)
+            .join(source, source.id == Link.source_id)
+            .join(target, target.id == Link.target_id)
+            .where(
+                Link.link_type.in_(list(types)),
+                Link.deleted_at.is_(None),
+                touching,
+                *self.policy.links(Link),
+                *(
+                    condition
+                    for end in (source, target)
+                    for condition in (
+                        end.kind == CHARACTER,
+                        end.deleted_at.is_(None),
+                        *self.policy.entities(end),
+                    )
+                ),
+            )
+            .order_by(Link.id)
+        )
+        return list(self.session.scalars(statement))
+
+    def _add_symmetric(self, tree: _Tree, among: list[str], link_type: str) -> None:
+        """Adds the people linked to ``among`` by a symmetric ``link_type``, in their generation."""
+        for link in self._family_links(among, [link_type]):
+            for person, other in (
+                (link.source_id, link.target_id),
+                (link.target_id, link.source_id),
+            ):
+                if person in among:
+                    tree.add([other], tree.generations[person])
+
+    def _add_siblings(self, tree: _Tree, line: list[str], root_id: str) -> None:
+        """The siblings of the character and their ancestors: linked ones, and the other
+        children of the parents in the tree."""
+        self._add_symmetric(tree, line, SIBLING_OF)
+        ancestors = [person for person in line if person != root_id]
+        for link in self._family_links(ancestors, [PARENT_OF], side="source"):
+            tree.add([link.target_id], tree.generations[link.source_id] + 1)
+
+    def _add_spouses(self, tree: _Tree, root_id: str, up: int) -> None:
+        """Everyone's spouses, and the other parents of children in the tree within the
+        generations asked for (the parents of a half-sibling or of a grandchild)."""
+        people = list(tree.generations)
+        self._add_symmetric(tree, people, SPOUSE_OF)
+        offspring = [
+            person for person in people if person != root_id and tree.generations[person] - 1 >= -up
+        ]
+        for link in self._family_links(offspring, [PARENT_OF], side="target"):
+            tree.add([link.source_id], tree.generations[link.target_id] - 1)
+
+    def family_tree(
+        self,
+        character_id: str,
+        *,
+        up: int,
+        down: int,
+        include_spouses: bool,
+        include_siblings: bool,
+        timeline_id: str | None,
+        limit: int,
+    ) -> Genealogy:
+        """The character's family: ``up`` generations of ancestors and ``down`` of descendants,
+        with the siblings of the character and their ancestors, and everyone's spouses (and the
+        other parents of their children), as people by generation and the family links between
+        them. Gathered generation by generation, a set of links at a time."""
+        root = self.character(character_id)
+        if timeline_id is not None:
+            timeline = self.entities.load_visible(timeline_id)
+            if timeline.kind != TIMELINE or timeline.deleted_at is not None:
+                raise NotFoundError(f"No timeline {timeline_id}.")
+        tree = _Tree(limit)
+        tree.add([root.id], 0)
+        line = [root.id]
+        frontier = [root.id]
+        for generation in range(1, up + 1):
+            parents = self._family_links(frontier, [PARENT_OF], side="target")
+            frontier = tree.add((link.source_id for link in parents), -generation)
+            line += frontier
+        frontier = [root.id]
+        for generation in range(1, down + 1):
+            children = self._family_links(frontier, [PARENT_OF], side="source")
+            frontier = tree.add((link.target_id for link in children), generation)
+        if include_siblings:
+            self._add_siblings(tree, line, root.id)
+        if include_spouses:
+            self._add_spouses(tree, root.id, up)
+        ids = list(tree.generations)
+        names = {
+            entity.id: entity
+            for entity in self.session.scalars(select(Entity).where(Entity.id.in_(ids)))
+        }
+        edges = [
+            GenealogyEdge(
+                id=link.id,
+                kind=FAMILY[link.link_type],
+                source_id=link.source_id,
+                target_id=link.target_id,
+                relation=_relation(link.data),
+            )
+            for link in self._family_links(ids, list(FAMILY), side="source")
+            if link.target_id in tree.generations
+        ]
+        order = sorted(ids, key=lambda person: (person != root.id, tree.generations[person]))
+        return Genealogy(
+            root_id=root.id,
+            people=[
+                GenealogyPerson(
+                    id=person,
+                    name=names[person].name,
+                    visibility=names[person].visibility,
+                    generation=tree.generations[person],
+                    # Existence (born, died) comes with temporal facts (M7).
+                    from_t=None,
+                    to_t=None,
+                )
+                for person in order
+            ],
+            edges=edges,
+            truncated=tree.truncated,
+        )
+
+
+def _relation(data: object) -> str | None:
+    kind = data.get("kind") if isinstance(data, dict) else None
+    return kind if isinstance(kind, str) else None
