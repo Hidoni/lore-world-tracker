@@ -11,6 +11,7 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.links.schemas import (
     ID_PATTERN,
@@ -27,8 +28,9 @@ from lore.core.links.schemas import (
     LinkUpdate,
     LinkWriteResult,
 )
-from lore.core.links.service import LinkService
+from lore.core.links.service import LinkService, link_cursor
 from lore.core.links.types_service import LinkTypeService
+from lore.core.modules.spec import VaultContext
 
 router = APIRouter(prefix="/vaults/{vault_id}/links", tags=["links"])
 types_router = APIRouter(prefix="/vaults/{vault_id}/link-types", tags=["link_types"])
@@ -40,29 +42,29 @@ KeyPath = Annotated[str, Path(pattern=LINK_TYPE_KEY_PATTERN, description="Link t
 
 @router.post("", name="create", status_code=201)
 def create_link(
-    body: LinkCreate, _vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+    body: LinkCreate, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
 ) -> LinkWriteResult:
     """Create a link (``422 link_type_not_allowed`` when the type doesn't fit, ``409 conflict``
     when a uniqueness or cardinality limit is reached)."""
-    return LinkService(session, registry).create(body)
+    return LinkService(session, registry, vault=vault).create(body)
 
 
 @router.patch("/{link_id}", name="update")
 def update_link(
     link_id: LinkIdPath,
     body: LinkUpdate,
-    _vault: WritableVaultDep,
+    vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
 ) -> LinkWriteResult:
     """Change role, data, visibility, validity or manual order (revision required)."""
-    return LinkService(session, registry).update(link_id, body)
+    return LinkService(session, registry, vault=vault).update(link_id, body)
 
 
 @router.delete("/{link_id}", name="delete")
 def delete_link(
     link_id: LinkIdPath,
-    _vault: WritableVaultDep,
+    vault: WritableVaultDep,
     session: SessionDep,
     registry: ModuleRegistryDep,
     suppress: Annotated[
@@ -71,7 +73,7 @@ def delete_link(
 ) -> LinkDeleteResult:
     """Move the link to the trash."""
     request_suppress(session, suppress.suppress if suppress else None)
-    return LinkService(session, registry).trash(link_id)
+    return LinkService(session, registry, vault=vault).trash(link_id)
 
 
 @types_router.get("", name="list")
@@ -128,10 +130,16 @@ def list_entity_links(
     include_trashed: Annotated[
         bool, Query(description="Also links whose other end is in the trash.")
     ] = False,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> EntityLinks:
-    """The entity's links in both directions (symmetric ones as ``both``)."""
-    return LinkService(session, registry, policy, vault).entity_links(
-        entity_id, direction=direction, types=types, include_trashed=include_trashed
+    """The entity's links in both directions (symmetric ones as ``both``). With ``at`` (and
+    ``timeline``, default: the prime timeline of the entity's dimension): timeless links and the
+    temporal links valid then, with ``certainty``."""
+    links = LinkService(session, registry, policy, vault)
+    as_of = link_cursor(VaultContext(vault, session, registry), policy, entity_id, timeline, at)
+    return links.entity_links(
+        entity_id, direction=direction, types=types, include_trashed=include_trashed, as_of=as_of
     )
 
 
@@ -144,9 +152,11 @@ def list_backlinks(
     registry: ModuleRegistryDep,
     policy: PolicyDep,
     include_trashed: Annotated[bool, Query(description="Also entities in the trash.")] = False,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> Backlinks:
     """Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
-    block visibility, by name."""
-    return LinkService(session, registry, policy, vault).backlinks(
-        entity_id, include_trashed=include_trashed
-    )
+    block visibility, by name. ``at`` filters the links as in ``…/links``."""
+    links = LinkService(session, registry, policy, vault)
+    as_of = link_cursor(VaultContext(vault, session, registry), policy, entity_id, timeline, at)
+    return links.backlinks(entity_id, include_trashed=include_trashed, as_of=as_of)

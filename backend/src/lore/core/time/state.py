@@ -20,15 +20,18 @@ the fact covers it only **possibly**; exact bounds (``base`` precision) are cert
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
+from lore.chronology.schema import TimePoint
 from lore.core.entities.models import Entity
+from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
 from lore.core.facts.models import EntityFact
 from lore.core.facts.schemas import EXISTS, NAME
 from lore.core.modules.spec import VaultContext
 from lore.core.time.dependencies import SlotNode
+from lore.core.time.dimensions import prime_timeline
 from lore.core.time.models import Dimension, Timeline
 from lore.core.time.resolve import Resolver
 from lore.core.time.timeline_view import Conditions, RowFilter, TimelineView
@@ -71,6 +74,154 @@ def present_of(context: VaultContext, timeline_id: str) -> int | None:
     return None if row is None else row.present_t
 
 
+PRESENT = "present"
+
+
+def _invalid(path: str, message: str) -> InvalidInputError:
+    return InvalidInputError(
+        message, errors=[ErrorItem(path=path, code="invalid_value", message=message)]
+    )
+
+
+@dataclass
+class AsOf:
+    """A resolved ``(timeline, at)`` pair of a request."""
+
+    timeline_id: str
+    dimension_id: str
+    t: int
+
+
+def resolve_as_of(
+    context: VaultContext, policy: VisibilityPolicy, timeline_id: str, at: str
+) -> AsOf:
+    """The timeline (a live one the policy shows, else ``404``) and the moment: a decimal moment,
+    or ``present`` for its dimension's present (``422`` when the dimension has none)."""
+    session = context.session
+    row = session.get(Timeline, timeline_id)
+    entity = session.get(Entity, timeline_id)
+    if (
+        row is None
+        or entity is None
+        or entity.deleted_at is not None
+        or timeline_id not in policy.visible_ids(session, [timeline_id])
+    ):
+        raise NotFoundError(f"No timeline {timeline_id}.")
+    if at == PRESENT:
+        t = present_of(context, timeline_id)
+        if t is None:
+            raise _invalid("at", "The timeline's dimension has no present moment.")
+    else:
+        t = int(at)
+    return AsOf(timeline_id, row.dimension_id, t)
+
+
+def as_of_for(
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    *,
+    timeline_id: str | None,
+    at: str | None,
+    dimension_id: str | None,
+) -> AsOf | None:
+    """A request's time cursor (``None`` without ``at``); the timeline defaults to the prime
+    timeline of ``dimension_id`` (``422`` without either)."""
+    if at is None:
+        return None
+    if timeline_id is None:
+        prime = None if dimension_id is None else prime_timeline(context.session, dimension_id)
+        if prime is None:
+            raise _invalid("timeline", "`at` needs a timeline here.")
+        timeline_id = prime.id
+    return resolve_as_of(context, policy, timeline_id, at)
+
+
+class Bounded(Protocol):
+    """A record valid in ``[valid_from, valid_to)`` (facts, links, …)."""
+
+    @property
+    def id(self) -> str: ...
+    @property
+    def valid_from_t(self) -> int | None: ...
+    @property
+    def valid_to_t(self) -> int | None: ...
+    @property
+    def valid_from_spec(self) -> TimePoint | None: ...
+    @property
+    def valid_to_spec(self) -> TimePoint | None: ...
+
+
+def timeline_resolver(
+    context: VaultContext, policy: VisibilityPolicy, timeline_id: str
+) -> Resolver | None:
+    """A resolver for the extents of records of a timeline (``None``: no such timeline)."""
+    dimension_id = context.session.scalar(
+        select(Timeline.dimension_id).where(Timeline.entity_id == timeline_id)
+    )
+    return (
+        None if dimension_id is None else Resolver(context, str(dimension_id), timeline_id, policy)
+    )
+
+
+def maybe_covers(row: Any, t: int) -> Conditions:
+    """SQL conditions every record that covers ``t``, certainly or possibly, meets (a resolved
+    bound is the start of its extent): ``Coverage`` decides on what they return."""
+    return [
+        or_(row.valid_from_t.is_(None), row.valid_from_t <= t),
+        or_(
+            row.valid_to_t.is_(None),
+            row.valid_to_t > t,
+            func.coalesce(func.json_extract(row.valid_to_spec, "$.precision"), "") != "base",
+        ),
+    ]
+
+
+class Coverage:
+    """Whether records of one type cover ``t``: certainly, possibly, or not. An exact bound is a
+    moment; a coarser one (its precision isn't ``base``) may lie anywhere in its uncertainty
+    extent ``[lo, hi)``, read from the resolver (``preload`` first, for a set of records)."""
+
+    def __init__(self, resolver: Resolver | None, record_type: str, t: int) -> None:
+        self.resolver = resolver
+        self.record_type = record_type
+        self.t = t
+        self.extents: dict[tuple[str, str], tuple[int, int]] = {}
+
+    def preload(self, records: Iterable[Bounded]) -> None:
+        wanted = [
+            SlotNode(self.record_type, record.id, slot)
+            for record in records
+            for slot, spec, t in (
+                ("valid_from", record.valid_from_spec, record.valid_from_t),
+                ("valid_to", record.valid_to_spec, record.valid_to_t),
+            )
+            if spec is not None and t is not None and spec.precision != "base"
+        ]
+        if not wanted or self.resolver is None:
+            return
+        self.resolver.preload(wanted)
+        for node in wanted:
+            resolution = self.resolver.slot(self.record_type, node.id, node.slot)
+            if resolution.extent is not None and resolution.extent[1] - resolution.extent[0] > 1:
+                self.extents[(node.id, node.slot)] = resolution.extent
+
+    def of(self, record: Bounded) -> Certainty | None:
+        t, possible = self.t, False
+        if record.valid_from_t is not None:
+            exact = (record.valid_from_t, record.valid_from_t + 1)
+            lo, hi = self.extents.get((record.id, "valid_from"), exact)
+            if t < lo:
+                return None
+            possible = t < hi - 1  # the start may still lie ahead (never for an exact bound)
+        if record.valid_to_t is not None:
+            exact = (record.valid_to_t, record.valid_to_t + 1)
+            lo, hi = self.extents.get((record.id, "valid_to"), exact)
+            if t >= hi - 1:
+                return None  # the end is at or before t whatever moment it is
+            possible = possible or t >= lo
+        return "possible" if possible else "certain"
+
+
 class StateReader:
     """As-of state in one timeline at one moment, for one request's policy."""
 
@@ -83,14 +234,7 @@ class StateReader:
         self.timeline_id = timeline_id
         self.t = t
         self.view = TimelineView.for_timeline(self.session, timeline_id)
-        dimension_id = self.session.scalar(
-            select(Timeline.dimension_id).where(Timeline.entity_id == timeline_id)
-        )
-        self.resolver = (
-            None
-            if dimension_id is None
-            else Resolver(context, str(dimension_id), timeline_id, policy)
-        )
+        self.resolver = timeline_resolver(context, policy, timeline_id)
 
     def facts(
         self, entity_ids: Sequence[str], *, keys: Sequence[str] | None = None
@@ -119,47 +263,6 @@ class StateReader:
 
         return where
 
-    def _extents(self, facts: Iterable[EntityFact]) -> dict[tuple[str, str], tuple[int, int]]:
-        """The uncertainty extents of the bounds given at a coarser precision than base."""
-        wanted = [
-            SlotNode(FACT, fact.id, slot)
-            for fact in facts
-            for slot, spec, t in (
-                ("valid_from", fact.valid_from_spec, fact.valid_from_t),
-                ("valid_to", fact.valid_to_spec, fact.valid_to_t),
-            )
-            if spec is not None and t is not None and spec.precision != "base"
-        ]
-        if not wanted or self.resolver is None:
-            return {}
-        self.resolver.preload(wanted)
-        extents: dict[tuple[str, str], tuple[int, int]] = {}
-        for node in wanted:
-            resolution = self.resolver.slot(FACT, node.id, node.slot)
-            if resolution.extent is not None and resolution.extent[1] - resolution.extent[0] > 1:
-                extents[(node.id, node.slot)] = resolution.extent
-        return extents
-
-    def _cover(
-        self, fact: EntityFact, extents: dict[tuple[str, str], tuple[int, int]]
-    ) -> Certainty | None:
-        """Whether the fact covers ``t``: certainly, possibly, or not (``None``). An exact bound
-        is a moment; a coarser one may lie anywhere in its extent ``[lo, hi)``."""
-        t, possible = self.t, False
-        if fact.valid_from_t is not None:
-            lo, hi = extents.get(
-                (fact.id, "valid_from"), (fact.valid_from_t, fact.valid_from_t + 1)
-            )
-            if t < lo:
-                return None
-            possible = t < hi - 1  # the start may still lie ahead (never for an exact bound)
-        if fact.valid_to_t is not None:
-            lo, hi = extents.get((fact.id, "valid_to"), (fact.valid_to_t, fact.valid_to_t + 1))
-            if t >= hi - 1:
-                return None  # the end is at or before t whatever moment it is
-            possible = possible or t >= lo
-        return "possible" if possible else "certain"
-
     def existence(self, entities: Sequence[Entity]) -> dict[str, Existence]:
         """Only the existence of each entity (for lists: reads only ``core.exists`` facts)."""
         return {key: state.existence for key, state in self.states(entities, keys=[EXISTS]).items()}
@@ -170,7 +273,8 @@ class StateReader:
         """The state of each entity at ``t``: one query for all their facts (of ``keys`` only,
         when given)."""
         facts = self.facts([e.id for e in entities], keys=keys)
-        extents = self._extents(f for found in facts.values() for f in found)
+        coverage = Coverage(self.resolver, FACT, self.t)
+        coverage.preload(f for found in facts.values() for f in found)
         result: dict[str, EntityState] = {}
         for entity in entities:
             covering: dict[str, list[Cover]] = defaultdict(list)
@@ -178,7 +282,7 @@ class StateReader:
             for fact in facts.get(entity.id, []):
                 if fact.field_key == EXISTS:
                     has_existence = True
-                certainty = self._cover(fact, extents)
+                certainty = coverage.of(fact)
                 if certainty is not None:
                     covering[fact.field_key].append(Cover(fact, certainty))
             result[entity.id] = self._state(entity, covering, has_existence)

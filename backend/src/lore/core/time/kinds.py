@@ -3,6 +3,7 @@
 
 from lore.core.entities.extensions import KindExtension
 from lore.core.facts.models import EntityFact
+from lore.core.links.models import Link
 from lore.core.time import calendars, dimensions, events, series
 from lore.core.time.fields import ENTITY_FIELD_SLOTS
 from lore.core.time.models import Calendar, Dimension, Event, Timeline
@@ -68,6 +69,16 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
         timeline_column="timeline_id",
     ),
     ENTITY_FIELD_SLOTS,
+    # Temporal links' validity (time-model.md §10.3): "married from the Wedding until her Death".
+    SlotProvider(
+        "link",
+        Link,
+        (
+            SlotDef("valid_from", referenceable=True),
+            SlotDef("valid_to", referenceable=True),
+        ),
+        timeline_column="timeline_id",
+    ),
 )
 
 CORE_KIND_EXTENSIONS: tuple[KindExtension, ...] = (

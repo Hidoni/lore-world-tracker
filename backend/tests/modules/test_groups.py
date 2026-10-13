@@ -119,14 +119,18 @@ def test_leaders_in_succession(api: LinkApi) -> None:
     lead(e.oren, 100, 200)
     lead(e.ilsa, None)
     items = m(api, f"/{e.empire['id']}/leaders").json()["items"]
-    # Link validity resolves to moments with temporal links (M7): until then every leader is
-    # unordered by time, so by name; the stored specs come along.
-    assert [(i["item"]["other"]["name"], i["from_t"]) for i in items] == [
-        ("Ilsa", None),
-        ("Oren", None),
-        ("Tam", None),
+    # Timeless leaders first, then by the start of their validity.
+    assert [(i["item"]["other"]["name"], i["from_t"], i["to_t"]) for i in items] == [
+        ("Ilsa", None, None),
+        ("Oren", "100", "200"),
+        ("Tam", "200", None),
     ]
     assert items[1]["item"]["link"]["valid_from"]["anchor"] == point(100)["anchor"]
+    # As of a moment: the timeless leader and the one leading then.
+    for at, expected in (("150", ["Ilsa", "Oren"]), ("200", ["Ilsa", "Tam"]), ("50", ["Ilsa"])):
+        then = m(api, f"/{e.empire['id']}/leaders", at=at).json()["items"]
+        assert [i["item"]["other"]["name"] for i in then] == expected
+        assert {i["item"]["certainty"] for i in then} == {"certain"}
 
 
 def test_territory(api: LinkApi) -> None:

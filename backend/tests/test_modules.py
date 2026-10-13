@@ -293,6 +293,7 @@ def test_registry_endpoint(client: TestClient) -> None:
         {"record_type": "timeline", "module": "core", "slots": ["branch_point"]},
         {"record_type": "event", "module": "core", "slots": ["start", "end"]},
         {"record_type": "fact", "module": "core", "slots": ["valid_from", "valid_to"]},
+        {"record_type": "link", "module": "core", "slots": ["valid_from", "valid_to"]},
         {"record_type": "sample.note", "module": "sample", "slots": ["noted"]},
     ]
     assert registry["modules"][1] == {
@@ -481,7 +482,8 @@ def test_openapi_operations(client: TestClient) -> None:
 def test_unused_extension_points_are_stored() -> None:
     assert len(SAMPLE.publish_contributors) == 1
     assert REGISTRY.slot_registry().record_types() == [
-        "dimension", "timeline", "event", "calendar", "fact", "entity_field", "sample.note"
+        "dimension", "timeline", "event", "calendar", "fact", "entity_field", "link",
+        "sample.note"
     ]  # fmt: skip
     assert SAMPLE.settings_model is not None
     assert SAMPLE.settings_model().greeting == "hello"  # type: ignore[attr-defined]

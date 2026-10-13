@@ -20,6 +20,11 @@ All notable changes to this project are documented here. The format follows
   its name then and its time-dependent field values, flagged when facts overlap. The moment can be
   the dimension's present. Entity lists, the navigation tree and children can show only what
   exists at a moment.
+- **Temporal links** (#102): a relationship can hold for a period ("married from the Wedding
+  until her death"). Its start and end can be anchored to events and move with them, and other
+  dates can refer to them. Links, backlinks, relationships, members, leaders, territory,
+  residents and species members can be shown as of a moment, with uncertain ones flagged. Links
+  from earlier versions resolve their dates once, when the vault first opens.
 
 ## [0.5.0] - 2026-10-13
 

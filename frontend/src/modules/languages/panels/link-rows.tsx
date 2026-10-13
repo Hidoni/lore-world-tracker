@@ -1,8 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import type { components } from '@/data'
-
-type EntityLink = components['schemas']['EntityLink']
+import type { EntityLink } from '@/data'
 
 const FLUENCY: Record<string, string> = {
   native: 'native',

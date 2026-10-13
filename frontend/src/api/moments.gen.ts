@@ -5,6 +5,24 @@ import type { MomentShape } from './moment'
 
 /** Where moments sit in each API schema that holds any (`MomentShape`). */
 export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
+  "Backlink": {
+    "o": {
+      "links": {
+        "a": {
+          "r": "EntityLink"
+        }
+      }
+    }
+  },
+  "Backlinks": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "Backlink"
+        }
+      }
+    }
+  },
   "CalendarProposalItem": {
     "o": {
       "old_t": "m",
@@ -58,6 +76,22 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "items": {
         "a": {
           "r": "ConvertItem"
+        }
+      }
+    }
+  },
+  "EntityLink": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
+  "EntityLinks": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityLink"
         }
       }
     }
@@ -144,6 +178,9 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
   },
   "Leadership": {
     "o": {
+      "item": {
+        "r": "EntityLink"
+      },
       "from_t": "m",
       "to_t": "m"
     }
@@ -185,6 +222,26 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "end_t": "m"
     }
   },
+  "LinkDeleteResult": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
+  "LinkOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "LinkWriteResult": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
   "LocationEvent": {
     "o": {
       "start_t": "m",
@@ -211,6 +268,9 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
   },
   "Membership": {
     "o": {
+      "item": {
+        "r": "EntityLink"
+      },
       "from_t": "m",
       "to_t": "m"
     }
@@ -244,6 +304,24 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "items": {
         "a": {
           "r": "RecurrenceProposalItem"
+        }
+      }
+    }
+  },
+  "RelationshipGroup": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityLink"
+        }
+      }
+    }
+  },
+  "Relationships": {
+    "o": {
+      "groups": {
+        "a": {
+          "r": "RelationshipGroup"
         }
       }
     }

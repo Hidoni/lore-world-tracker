@@ -64,6 +64,8 @@ def upgraded(fixture: Path, tmp_path: Path) -> Iterator[tuple[TestClient, dict[s
         status = client.get(f"/api/v1/vaults/{vault_id}").json()["schema_status"]
         assert status["state"] == "current"
         assert status["revision"] == status["head"]
+        # The first open runs the one-time data upgrades (time-point fields, link validity).
+        assert client.get(f"/api/v1/vaults/{vault_id}/entities").status_code == 200
         yield client, expected
 
 

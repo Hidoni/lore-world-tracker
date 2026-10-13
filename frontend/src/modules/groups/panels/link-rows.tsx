@@ -1,9 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { useKindRegistry } from '@/core/registry'
-import type { components } from '@/data'
-
-type EntityLink = components['schemas']['EntityLink']
+import type { EntityLink } from '@/data'
 
 /** What a link adds to its label: rank, title, a leader flag, its role. */
 export function linkDetail(item: EntityLink): string | null {

@@ -6,11 +6,9 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useKindRegistry } from '@/core/registry'
-import { useDeleteLink, useLinks, type components } from '@/data'
+import { useDeleteLink, useLinks, type EntityLink } from '@/data'
 
 import { LinkDialog, type LinkDialogMode } from './link-dialog'
-
-type EntityLink = components['schemas']['EntityLink']
 
 interface Group {
   key: string

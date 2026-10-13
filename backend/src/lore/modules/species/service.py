@@ -12,6 +12,7 @@ from lore.core.links.models import Link
 from lore.core.links.schemas import EntityLinks
 from lore.core.links.service import LinkService
 from lore.core.modules.spec import VaultContext
+from lore.core.time.state import AsOf
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.species.kinds import SPECIES
 from lore.modules.species.links import DESCENDED_FROM, IS_A
@@ -23,14 +24,14 @@ class Species:
     context: VaultContext
     policy: VisibilityPolicy
 
-    def members(self, species_id: str) -> EntityLinks:
-        """Everyone and everything that `is_a` the species, at any time."""
+    def members(self, species_id: str, *, as_of: AsOf | None = None) -> EntityLinks:
+        """Everyone and everything that `is_a` the species, at any time (``as_of``: then)."""
         entity = EntityService(self.context, self.policy).load_visible(species_id)
         if entity.kind != SPECIES:
             raise NotFoundError(f"No species {species_id}.")
         context = self.context
         links = LinkService(context.session, context.registry, self.policy, context.vault)
-        return links.entity_links(species_id, direction="in", types=[IS_A])
+        return links.entity_links(species_id, direction="in", types=[IS_A], as_of=as_of)
 
     def descent_tree(self, *, dimension: str | None, limit: int) -> DescentTree:
         """Species (of ``dimension`` and multiversal ones, or all) with the descent links

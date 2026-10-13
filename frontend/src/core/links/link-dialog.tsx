@@ -19,6 +19,7 @@ import {
   useQuickSearch,
   useUpdateLink,
   type components,
+  type EntityLink,
 } from '@/data'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +27,7 @@ import { LinkDataForm } from './link-data-form'
 import { linkOptions, type LinkOption } from './link-options'
 
 type Visibility = components['schemas']['Visibility']
-type LinkOut = components['schemas']['LinkOut']
+type LinkOut = EntityLink['link']
 
 const SELECT_CLASS =
   'h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'

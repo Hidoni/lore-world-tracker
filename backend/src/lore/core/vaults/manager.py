@@ -91,6 +91,7 @@ OPTIMIZE_EVERY = timedelta(days=1)
 # The schema revision the vault's consistency findings were last fully scanned at.
 CONSISTENCY_SCANNED = "consistency_scanned_revision"
 TIME_FIELDS_SYNCED = "time_fields_synced"
+LINK_TIMES_SYNCED = "link_times_synced"
 # How often the scheduler deletes expired proposals of an open vault (data-model.md §5.9).
 CLEANUP_EVERY = timedelta(hours=1)
 
@@ -697,6 +698,7 @@ class VaultManager:
                         _record_module_states(session, self.module_registry)
                     with opened.write_sessions.begin() as session:
                         _ensure_time_fields(opened, session, self.module_registry)
+                        _ensure_link_times(opened, session, self.module_registry)
                     with opened.write_sessions.begin() as session:
                         _ensure_search_index(opened, session, self.module_registry)
                     with opened.write_sessions.begin() as session:
@@ -891,6 +893,44 @@ def _ensure_time_fields(opened: OpenVault, session: Session, registry: ModuleReg
             count += 1
     set_meta(session, TIME_FIELDS_SYNCED, "1")
     logger.info("synced time-point fields of vault %s (%d entities)", opened.id, count)
+
+
+def _ensure_link_times(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:
+    """Once per vault (vaults from before v0.6.0): the validity bounds of links resolve and take
+    part in time (``time-model.md`` §10.3). Bounds that don't resolve keep their spec, with a
+    status, and don't block."""
+    # Imported here: these packages depend on core packages that import this one.
+    from sqlalchemy import or_, select  # noqa: PLC0415
+
+    from lore.core.consistency.engine import record_only  # noqa: PLC0415
+    from lore.core.history.recorder import context as history_context  # noqa: PLC0415
+    from lore.core.links.models import Link  # noqa: PLC0415
+    from lore.core.modules.spec import VaultContext  # noqa: PLC0415
+    from lore.core.time.propagate import TimeWriter  # noqa: PLC0415
+
+    if get_meta(session, LINK_TIMES_SYNCED) is not None:
+        return
+    links = list(
+        session.scalars(
+            select(Link).where(
+                Link.timeline_id.is_not(None),
+                or_(Link.valid_from_spec.is_not(None), Link.valid_to_spec.is_not(None)),
+            )
+        )
+    )
+    if links:
+        record_only(session)
+        history = history_context(session)
+        history.origin, history.summary = "migration", "Link validity takes part in time"
+        writer = TimeWriter(VaultContext(opened, session, registry))
+        for link in links:
+            for slot in ("valid_from", "valid_to"):
+                spec = getattr(link, f"{slot}_spec")
+                if spec is not None:
+                    writer.set_spec("link", link.id, slot, spec)
+        writer.propagate(strict=False, path="")
+    set_meta(session, LINK_TIMES_SYNCED, "1")
+    logger.info("resolved link validity of vault %s (%d links)", opened.id, len(links))
 
 
 def _ensure_search_index(opened: OpenVault, session: Session, registry: ModuleRegistry) -> None:

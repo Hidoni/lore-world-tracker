@@ -337,11 +337,22 @@ def _facts(b: _Builder, home: dict[str, Any]) -> None:
 def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     """Private content of the real modules' kinds and links, and facts."""
     _facts(b, home)
+    _temporal_links(b, home)
     _locations(b, home)
     _characters(b, home)
     _groups(b, home)
     _languages(b, home)
     _species(b, home)
+
+
+def _temporal_links(b: _Builder, home: dict[str, Any]) -> None:
+    """A private temporal link between public entities in the prime timeline (as-of reads must
+    not show it, time-model.md §10.3)."""
+    sundial = b.public("gadget", "Sundial", **home)
+    hourglass = b.public("gadget", "Hourglass", **home)
+    b.hidden_link("core.related", sundial, hourglass, visibility="private",
+                  role=b.canary_string(), timeline_id=b.canary.public["Prime"],
+                  valid_from=POINT)  # fmt: skip
 
 
 def _locations(b: _Builder, home: dict[str, Any]) -> None:

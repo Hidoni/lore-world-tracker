@@ -1,9 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { useKindRegistry } from '@/core/registry'
-import type { components } from '@/data'
-
-type EntityLink = components['schemas']['EntityLink']
+import type { EntityLink } from '@/data'
 
 /** Words for the `data.kind` values of the module's link types. */
 const KINDS: Record<string, string> = {

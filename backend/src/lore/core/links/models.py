@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import JSON, Boolean, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from lore.chronology.schema import TimePoint
 from lore.core.db.base import (
     Base,
     IdMixin,
@@ -13,15 +14,15 @@ from lore.core.db.base import (
     TimestampsMixin,
     VisibilityMixin,
 )
-from lore.core.db.types import SortableBigInt
+from lore.core.time.specs import moment_column, spec_column, status_column
 
 RESTRICT = "RESTRICT"
 
 
 class Link(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDeleteMixin, Base):
     """A typed edge between two entities. Symmetric types are stored once with
-    ``source_id < target_id``. The time columns are used from M3/M7; a link with no validity
-    bounds is timeless (``timeline_id`` NULL)."""
+    ``source_id < target_id``. A link with no validity bounds is timeless (``timeline_id``
+    NULL); the bounds are slots ``link:<id>.valid_from|valid_to`` (``time-model.md`` §10.3)."""
 
     __tablename__ = "links"
 
@@ -33,11 +34,11 @@ class Link(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDeleteM
     # Timelines are entities (kind timeline); the timelines extension table arrives with M3.
     timeline_id: Mapped[str | None] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
     overrides_id: Mapped[str | None] = mapped_column(ForeignKey("links.id", ondelete=RESTRICT))
-    valid_from_spec: Mapped[Any | None] = mapped_column(JSON)
-    valid_from_t: Mapped[int | None] = mapped_column(SortableBigInt)
-    valid_to_spec: Mapped[Any | None] = mapped_column(JSON)
-    valid_to_t: Mapped[int | None] = mapped_column(SortableBigInt)
-    time_status: Mapped[str | None] = mapped_column(String)
+    valid_from_spec: Mapped[TimePoint | None] = spec_column()
+    valid_from_t: Mapped[int | None] = moment_column()
+    valid_to_spec: Mapped[TimePoint | None] = spec_column()
+    valid_to_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
     sort_key: Mapped[str | None] = mapped_column(String)
 
     __table_args__ = (

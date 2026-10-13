@@ -87,6 +87,7 @@ export type {
   Affected,
   DataSource,
   Entity,
+  EntityLink,
   EntityPage,
   EntityWriteResult,
   Meta,

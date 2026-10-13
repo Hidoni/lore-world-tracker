@@ -17,6 +17,7 @@ from lore.core.links.schemas import EntityLinks
 from lore.core.links.service import LinkService
 from lore.core.modules.spec import VaultContext
 from lore.core.time.dimensions import TIMELINE
+from lore.core.time.state import AsOf
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.groups.kinds import GROUP
 from lore.modules.groups.links import CONTROLS, LED_BY, MEMBER_OF, PART_OF
@@ -101,15 +102,19 @@ class Groups:
             )
         }
 
-    def members(self, group_id: str, *, include_subgroups: bool) -> Members:
-        """Members of the group (and of its sub-groups), at any time, with the validity of their
-        memberships (the history Gantt)."""
+    def members(
+        self, group_id: str, *, include_subgroups: bool, as_of: AsOf | None = None
+    ) -> Members:
+        """Members of the group (and of its sub-groups), at any time (``as_of``: then), with the
+        validity of their memberships (the history Gantt)."""
         self.group(group_id)
         groups = [group_id, *(self.subgroups(group_id) if include_subgroups else [])]
         found = [
             (group, item)
             for group in groups
-            for item in self.links.entity_links(group, direction="in", types=[MEMBER_OF]).items
+            for item in self.links.entity_links(
+                group, direction="in", types=[MEMBER_OF], as_of=as_of
+            ).items
         ]
         bounds = self._bounds([item.link.id for _, item in found])
         return Members(
@@ -124,11 +129,13 @@ class Groups:
             ]
         )
 
-    def leaders(self, group_id: str) -> Leaders:
+    def leaders(self, group_id: str, *, as_of: AsOf | None = None) -> Leaders:
         """The leadership succession: ``led_by`` links, timeless ones first, then by the start
         and end of their validity."""
         self.group(group_id)
-        items = self.links.entity_links(group_id, direction="out", types=[LED_BY]).items
+        items = self.links.entity_links(
+            group_id, direction="out", types=[LED_BY], as_of=as_of
+        ).items
         bounds = self._bounds([item.link.id for item in items])
 
         def key(leadership: Leadership) -> tuple[bool, int, bool, int, str]:
@@ -151,10 +158,11 @@ class Groups:
         ]
         return Leaders(items=sorted(leaderships, key=key))
 
-    def territory(self, group_id: str) -> EntityLinks:
-        """The locations the group controls (``controls`` links), at any time."""
+    def territory(self, group_id: str, *, as_of: AsOf | None = None) -> EntityLinks:
+        """The locations the group controls (``controls`` links), at any time (``as_of``:
+        then)."""
         self.group(group_id)
-        return self.links.entity_links(group_id, direction="out", types=[CONTROLS])
+        return self.links.entity_links(group_id, direction="out", types=[CONTROLS], as_of=as_of)
 
     # --- org chart ------------------------------------------------------------------------------
 

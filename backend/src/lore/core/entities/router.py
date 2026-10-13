@@ -12,6 +12,7 @@ from lore.core.api.deps import (
     VaultDep,
     WritableVaultDep,
 )
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.entities.queries import EntityQueries, ExistenceOf
 from lore.core.entities.schemas import (
@@ -48,18 +49,6 @@ KindsQuery = Annotated[
     list[str] | None, Query(alias="kind", description="Kind keys (repeat for several).")
 ]
 CursorQuery = Annotated[str | None, Query(max_length=4096)]
-TimelineQuery = Annotated[
-    str | None,
-    Query(pattern=ID_PATTERN, description="The time cursor's timeline (with `at`)."),
-]
-AtQuery = Annotated[
-    str | None,
-    Query(
-        pattern=AT_PATTERN,
-        max_length=1000,
-        description="The time cursor: a moment, or `present` (the timeline's dimension's).",
-    ),
-]
 
 
 def _service(

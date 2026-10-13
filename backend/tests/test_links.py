@@ -146,26 +146,45 @@ def test_uniqueness(api: LinkApi) -> None:
     api.made_link("world.owns", owner, gadget, timeline_id=timeline["id"], valid_from=POINT)
     # per_pair counts every link, temporal ones too
     problem(api.link("world.owns", owner, gadget), 409, "conflict")
-    # per_pair_per_period: timeless links are unique, links with bounds are accepted (#102)
+    # per_pair_per_period: one link of a pair at a time (a timeless one holds at every time)
     a, b = api.make("misc", "A"), api.make("misc", "B")
     api.made_link("world.ally", a, b)
     problem(api.link("world.ally", a, b), 409, "conflict")
-    for bound in (POINT, LATER):
-        api.made_link("world.ally", a, b, timeline_id=timeline["id"], valid_from=bound)
+    problem(api.link("world.ally", a, b, timeline_id=timeline["id"], valid_from=POINT), 409,
+            "conflict")  # fmt: skip
+    c, d = api.make("misc", "C"), api.make("misc", "D")
+    api.made_link("world.ally", c, d, timeline_id=timeline["id"], valid_from=POINT,
+                  valid_to=LATER)  # fmt: skip
+    api.made_link("world.ally", c, d, timeline_id=timeline["id"], valid_from=LATER)
+    overlapping = {"anchor": {"kind": "absolute", "t": "15"}, "precision": "base"}
+    problem(api.link("world.ally", c, d, timeline_id=timeline["id"], valid_from=overlapping),
+            409, "conflict")  # fmt: skip
+    # In another timeline the periods don't overlap.
+    elsewhere = api.timeline()
+    api.made_link("world.ally", c, d, timeline_id=elsewhere["id"], valid_from=POINT)
     # a trashed link doesn't count
     owned = api.links_of(gadget)[0]["link"]
     api.delete_link(owned["id"])
     api.made_link("world.owns", other, gadget)
 
 
-def test_cardinality_counts_timeless_links_only(api: LinkApi) -> None:
+def test_cardinality_counts_links_at_the_same_time(api: LinkApi) -> None:
     owner, rival = api.make("misc", "Owner"), api.make("misc", "Rival")
     gadget = api.make("gadget")
     api.made_link("world.owns", owner, gadget)
     body = problem(api.link("world.owns", rival, gadget), 409, "conflict")
     assert body["context"] == {"limit": "max_sources_per_target", "max": 1}
     timeline = api.timeline()
-    api.made_link("world.owns", rival, gadget, timeline_id=timeline["id"], valid_from=POINT)
+    # A timeless owner owns it at every time.
+    problem(api.link("world.owns", rival, gadget, timeline_id=timeline["id"], valid_from=POINT),
+            409, "conflict")  # fmt: skip
+    # Successive owners: one at a time.
+    heirloom = api.make("gadget", "Heirloom")
+    api.made_link("world.owns", owner, heirloom, timeline_id=timeline["id"], valid_to=LATER)
+    api.made_link("world.owns", rival, heirloom, timeline_id=timeline["id"], valid_from=LATER)
+    thief = api.make("misc", "Thief")
+    problem(api.link("world.owns", thief, heirloom, timeline_id=timeline["id"], valid_from=POINT),
+            409, "conflict")  # fmt: skip
     # symmetric max: links on either side count
     hub = api.make("misc", "Hub")
     for name in ("X", "Y"):
@@ -201,7 +220,7 @@ def test_validity_rules(api: LinkApi) -> None:
     link = api.made_link("world.reigns", a, b, timeline_id=timeline["id"], valid_to=LATER)
     assert link["valid_to"] == {**LATER, "approximate": False}
     assert link["valid_from"] is None
-    assert link["time_status"] is None  # resolved by #102
+    assert (link["time_status"], link["valid_to_t"]) == ("ok", "20")
     api.delete(timeline["dimension_id"])  # its prime timeline follows it into the trash
     assert invalid(
         api.link("world.reigns", b, a, timeline_id=timeline["id"], valid_from=POINT)
@@ -261,8 +280,9 @@ def test_update(api: LinkApi) -> None:
 def test_update_rechecks_limits(api: LinkApi) -> None:
     a, b = api.make("misc", "A"), api.make("misc", "B")
     timeline = api.timeline()
-    api.made_link("world.ally", a, b)
-    period = api.made_link("world.ally", a, b, timeline_id=timeline["id"], valid_from=POINT)
+    api.made_link("world.ally", a, b, timeline_id=timeline["id"], valid_to=POINT)
+    period = api.made_link("world.ally", a, b, timeline_id=timeline["id"], valid_from=LATER)
+    problem(api.patch_link(period, valid_from=None), 409, "conflict")  # now overlapping
     problem(api.patch_link(period, timeline_id=None, valid_from=None), 409, "conflict")
 
 
