@@ -32,6 +32,10 @@ All notable changes to this project are documented here. The format follows
   scripts and speakers. A language page shows its family, speakers and scripts, and a language
   family tree view draws the descent of a dimension's languages. The sample world gains a
   language family with a dialect and two scripts.
+- **Species** (#91): peoples and creatures with subspecies, descent, members and native lands. A
+  species page lists its members, descent and native lands, a descent tree view draws a
+  dimension's species, and character pages show their species as a chip. The sample world gains
+  the Tideborn and their ancestors.
 
 ## [0.4.0] - 2026-10-12
 

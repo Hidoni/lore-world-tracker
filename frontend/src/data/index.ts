@@ -140,6 +140,7 @@ export {
   type Membership,
 } from './groups'
 export { useLanguageFamilyTree, type FamilyTree } from './languages'
+export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,
   useLocationResidents,

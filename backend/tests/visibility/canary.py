@@ -299,6 +299,7 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _characters(b, home)
     _groups(b, home)
     _languages(b, home)
+    _species(b, home)
 
 
 def _locations(b: _Builder, home: dict[str, Any]) -> None:
@@ -366,6 +367,19 @@ def _languages(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("languages.descended_from", varnish, secret)
     b.hidden("language", visibility="private", parent_id=varnish["id"], **home)
     b.hidden_link("languages.borrowed_from", trade, varnish, visibility="private")
+
+
+def _species(b: _Builder, home: dict[str, Any]) -> None:
+    """Species: a private ancestor, a private subspecies, a private member and a member by a
+    private link."""
+    elves = b.public("species", "Elves", **home)
+    elder = b.hidden("species", visibility="private", **home)
+    b.api.made_link("species.descended_from", elves, elder)
+    b.hidden("species", visibility="private", parent_id=elves["id"], **home)
+    changeling = b.hidden("character", visibility="private", **home)
+    b.api.made_link("species.is_a", changeling, elves)
+    hermit = b.public("character", "Hermit", **home)
+    b.hidden_link("species.is_a", hermit, elves, visibility="private")
 
 
 def _series(

@@ -57,4 +57,7 @@ export const keys = {
   groupTerritory: (vault: string, group: string) => [vault, 'groupTerritory', group] as const,
   languageFamilyTree: (vault: string, params: object) =>
     [vault, 'languageFamilyTree', params] as const,
+  speciesMembers: (vault: string, species: string) => [vault, 'speciesMembers', species] as const,
+  speciesDescentTree: (vault: string, params: object) =>
+    [vault, 'speciesDescentTree', params] as const,
 }

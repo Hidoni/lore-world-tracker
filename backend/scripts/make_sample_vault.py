@@ -22,7 +22,7 @@ The world has two parts:
   children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
   Characters (M6): three generations with spouses, siblings and a rival. Groups (M6): an empire
   with ministries, a secret society and a war. Languages (M6): a family with a dialect and two
-  scripts.
+  scripts. Species (M6): descent, a subspecies and members.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -32,7 +32,8 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-other module kinds (M6, M7; since #89: misc, locations, characters, groups, languages),
+other module kinds (M6, M7; since #89: misc, locations, characters, groups, languages,
+species),
 correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
 regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
 """
@@ -1331,6 +1332,32 @@ def _core_languages(writer: Writer, core: Core) -> None:
         s.link("languages.speaks", core["Empire of the Tides"], core["Varnish"])
 
 
+def _core_species(writer: Writer, core: Core) -> None:
+    """Species (M6): an ancestor, a descendant with a subspecies, a multiversal creature,
+    members and native lands."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    with writer.transaction("Sample world: species") as s:
+        core.ids["First Folk"] = s.entity(
+            "species", "First Folk", fields={"sapience": "sapient"}, **home
+        )
+        core.ids["Tideborn"] = s.entity(
+            "species",
+            "Tideborn",
+            fields={"sapience": "sapient", "classification": "Humanoid", "diet": "Omnivore"},
+            **home,
+        )
+        core.ids["Shoal Tideborn"] = s.entity(
+            "species", "Shoal Tideborn", parent_id=core["Tideborn"], **home
+        )
+        core.ids["Leviathans"] = s.entity(
+            "species", "Leviathans", fields={"sapience": "non_sapient"}
+        )
+        s.link("species.descended_from", core["Tideborn"], core["First Folk"])
+        for name in ("Ilsa the Tidebound", "Duke Halvard", "Wren"):
+            s.link("species.is_a", core[name], core["Tideborn"])
+        s.link("species.native_to", core["Tideborn"], core["Thalassa"])
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1406,6 +1433,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_characters(writer, core)
     _core_groups(writer, core, world)
     _core_languages(writer, core)
+    _core_species(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)

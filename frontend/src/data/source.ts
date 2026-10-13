@@ -94,6 +94,12 @@ export interface DataSource {
     vault: string,
     query?: Query<'languages_family_tree'>,
   ): Promise<D<'FamilyTree'>>
+  // The species module (docs/modules/species.md).
+  speciesMembers(vault: string, species: string): Promise<D<'EntityLinks'>>
+  speciesDescentTree(
+    vault: string,
+    query?: Query<'species_descent_tree'>,
+  ): Promise<D<'DescentTree'>>
 }
 
 /**

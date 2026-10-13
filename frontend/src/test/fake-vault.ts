@@ -596,6 +596,54 @@ export function serveVault(
         })
       return HttpResponse.json(paged(items, url))
     }),
+    // The species module's reads (docs/modules/species.md).
+    http.get('*/api/v1/vaults/v1/m/species/:id/members', ({ params }) =>
+      HttpResponse.json({
+        items: entityLinks(String(params.id)).filter(
+          (item) => item.link.link_type === 'species.is_a' && item.direction === 'in',
+        ),
+      }),
+    ),
+    http.get('*/api/v1/vaults/v1/m/species/descent-tree', () => {
+      const found = [...rows.values()]
+        .filter((entity) => entity.kind === 'species' && entity.deleted_at === null)
+        .sort((a, b) => a.name.localeCompare(b.name))
+      const ids = new Set(found.map((species) => species.id))
+      const shown = (id: string | null): id is string => id !== null && ids.has(id)
+      return HttpResponse.json({
+        nodes: found.map((species) => ({
+          id: species.id,
+          name: species.name,
+          visibility: species.visibility,
+          dimension_id: species.dimension_id,
+          parent_id: shown(species.parent_id) ? species.parent_id : null,
+        })),
+        edges: [
+          ...[...links.values()]
+            .filter(
+              (link) =>
+                link.link_type === 'species.descended_from' &&
+                ids.has(link.source_id) &&
+                ids.has(link.target_id),
+            )
+            .map((link) => ({
+              id: link.id,
+              kind: 'descended_from',
+              source_id: link.source_id,
+              target_id: link.target_id,
+            })),
+          ...found
+            .filter((species) => shown(species.parent_id))
+            .map((species) => ({
+              id: `subspecies:${species.id}`,
+              kind: 'subspecies',
+              source_id: species.id,
+              target_id: species.parent_id,
+            })),
+        ],
+        truncated: false,
+      })
+    }),
     // The languages module's family graph (docs/modules/languages.md).
     http.get('*/api/v1/vaults/v1/m/languages/family-tree', () => {
       const languages = [...rows.values()]

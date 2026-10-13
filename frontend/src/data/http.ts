@@ -287,6 +287,22 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'FamilyTree',
       ),
+    speciesMembers: async (vault, species) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/species/{species_id}/members`, {
+            params: { path: { vault_id: vault, species_id: species } },
+          }),
+        ),
+        'EntityLinks',
+      ),
+    speciesDescentTree: async (vault, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/species/descent-tree`, { params: { ...path(vault), query } }),
+        ),
+        'DescentTree',
+      ),
     timelineWindow: async (vault, timeline, query) =>
       toDomain(
         await unwrap(
