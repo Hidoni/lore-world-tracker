@@ -913,7 +913,8 @@ export function serveVault(
         'characters.sibling_of': 'sibling',
       }
       if (url.searchParams.get('include_spouses') === 'false') delete kinds['characters.spouse_of']
-      if (url.searchParams.get('include_siblings') === 'false') delete kinds['characters.sibling_of']
+      if (url.searchParams.get('include_siblings') === 'false')
+        delete kinds['characters.sibling_of']
       const family = [...links.values()].filter(
         (link) =>
           kinds[link.link_type] !== undefined &&
