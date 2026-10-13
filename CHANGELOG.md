@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-13
+
+The content modules (M6): the things a world is made of get their own kinds, fields, link types,
+panels and views. Misc entries hold anything, locations nest from galaxies to rooms, characters
+have relationships, a life and a family tree, groups have members, leaders, an org chart and a
+membership history, languages have families, speakers, scripts and a full lexicon editor, and
+species have descent and native lands. The sample world gains them all, and the v0.5.0 fixture
+vault keeps them under upgrade tests.
+
 ### Added
 
 - **Misc entries** (#89): the first feature module. A misc entry (with a free-text category) can
@@ -52,6 +61,9 @@ All notable changes to this project are documented here. The format follows
   alternative. Clicking a relative re-centers the tree on them. Lifespans show as unknown until
   temporal facts arrive. The layout uses relatives-tree (ADR-0015), which handles 300 people
   in well under a second.
+- **Release v0.5.0** (#99): the v0.5.0 golden fixture vault, now with lexicons (an alphabet with
+  a digraph, an etymology across languages, a private word and a page referring to a word), and
+  upgrade tests for them.
 - **Lexicon editor** (#98): each language page has a Lexicon panel (and a full page) with a
   keyboard-first table: type new words in the entry row, edit any cell in place, search, filter
   by part of speech or tag, and sort by the language's own alphabet. 10,000 words scroll
@@ -383,7 +395,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.1.0...v0.2.0

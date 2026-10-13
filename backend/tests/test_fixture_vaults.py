@@ -31,7 +31,13 @@ FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:4] == ["v0.1.0", "v0.2.0", "v0.3.0", "v0.4.0"]
+    assert [path.name for path in FIXTURE_DIRS][:5] == [
+        "v0.1.0",
+        "v0.2.0",
+        "v0.3.0",
+        "v0.4.0",
+        "v0.5.0",
+    ]
 
 
 @pytest.fixture(params=FIXTURE_DIRS, ids=[path.name for path in FIXTURE_DIRS])
@@ -142,6 +148,23 @@ def test_readers_never_see_the_fixtures_private_content(upgraded: Any) -> None:
     assert names.isdisjoint(expected["reader_hidden"])
 
 
+def test_fixture_lexicons_survive_the_upgrade(upgraded: Any) -> None:
+    """Lexicons (v0.5.0 on): in the language's alphabet order, private words for authors only."""
+    client, expected = upgraded
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    languages = {
+        entity["name"]: entity["id"]
+        for entity in _all(client, f"{base}/entities", kind=["language"])
+    }
+    for name, headwords in expected.get("lexicon", {}).items():
+        path = f"{base}/m/languages/{languages[name]}/lexicon"
+        items = client.get(path, params={"limit": 500}).json()["items"]
+        assert [item["headword"] for item in items] == headwords, name
+        hidden = set(expected.get("lexicon_hidden", []))
+        readers = client.get(path, params={"limit": 500, "as_reader": True}).json()["items"]
+        assert [i["headword"] for i in readers] == [h for h in headwords if h not in hidden]
+
+
 def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
     client, expected = upgraded
     base = f"/api/v1/vaults/{expected['vault_id']}"
@@ -220,7 +243,7 @@ def test_the_generator_is_deterministic_for_a_seed(
         "group": 6,
         "language": 5,
         "location": 9,
-        "misc": 4,
+        "misc": 5,
         "species": 4,
         "timeline": 4,
         "writing_system": 2,
@@ -277,7 +300,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "105 entities, 62 links" in capsys.readouterr().out
+    assert "106 entities, 62 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 

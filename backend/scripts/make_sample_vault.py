@@ -80,6 +80,8 @@ from lore.core.time.series import RuleProblem, compute_occurrence
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import DATABASE_NAME, MANIFEST_NAME
 from lore.modules import ALL_MODULES
+from lore.modules.languages.lexicon import Lexicon
+from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
 
 type Size = Literal["tiny", "small", "medium", "large"]
 type Doc = dict[str, Any]
@@ -132,6 +134,10 @@ class SampleWorld:
     search: dict[str, str] = field(default_factory=dict)
     # Entity name -> the names of the entities mentioning or linking to it.
     backlinks: dict[str, list[str]] = field(default_factory=dict)
+    # Language name -> its lexicon's headwords in alphabet order (authors).
+    lexicon: dict[str, list[str]] = field(default_factory=dict)
+    # Headwords readers must never see (private entries).
+    lexicon_hidden: list[str] = field(default_factory=list)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -563,6 +569,11 @@ class Services:
     def link(self, link_type: str, source: str, target: str, **body: Any) -> str:
         data = {"link_type": link_type, "source_id": source, "target_id": target, **body}
         return self.links.create(LinkCreate.model_validate(data)).link.id
+
+    def word(self, language: str, headword: str, **body: Any) -> str:
+        """A lexicon entry (the languages module)."""
+        data = LexiconEntryCreate.model_validate({"headword": headword, **body})
+        return Lexicon(self.context).create(language, data).entry.id
 
 
 class Writer:
@@ -1291,9 +1302,10 @@ def _core_groups(writer: Writer, core: Core, world: SampleWorld) -> None:
     world.reader_hidden.append("The Whisperers")
 
 
-def _core_languages(writer: Writer, core: Core) -> None:
-    """Languages (M6): a family with a dialect, a multiversal trade language, two scripts and
-    speakers."""
+def _core_languages(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Languages (M6): a family with a dialect, a multiversal trade language, two scripts,
+    speakers, and lexicons (an alphabet with a digraph, an etymology across languages, a private
+    word and a page referring to a word)."""
     home = {"dimension_id": core[WORLD_NAME]}
     with writer.transaction("Sample world: languages") as s:
         core.ids["Old Tidespeech"] = s.entity(
@@ -1302,7 +1314,12 @@ def _core_languages(writer: Writer, core: Core) -> None:
         core.ids["Varnish"] = s.entity(
             "language",
             "Varnish",
-            fields={"status": "living", "word_order": "SOV", "modality": ["spoken", "written"]},
+            fields={
+                "status": "living",
+                "word_order": "SOV",
+                "modality": ["spoken", "written"],
+                "alphabet_order": "a e i k l o r s th t v",
+            },
             **home,
         )
         core.ids["Harbor Cant"] = s.entity(
@@ -1330,6 +1347,46 @@ def _core_languages(writer: Writer, core: Core) -> None:
         s.link("languages.speaks", core["Duke Halvard"], core["Common Trade"],
                data={"fluency": "fluent"})  # fmt: skip
         s.link("languages.speaks", core["Empire of the Tides"], core["Varnish"])
+    with writer.transaction("Sample world: lexicons") as s:
+        thal = s.word(core["Old Tidespeech"], "thal", part_of_speech="noun",
+                      definitions=[{"gloss": "water"}])  # fmt: skip
+        sea = s.word(
+            core["Varnish"],
+            "thalass",
+            pronunciation="θaˈlas",  # noqa: RUF001 (IPA stress mark)
+            part_of_speech="noun",
+            definitions=[{"gloss": "the sea",
+                          "examples": [{"text": "thalass ven", "translation": "the wide sea"}]}],
+            etymology={"text": "From Old Tidespeech thal, water.",
+                       "sources": [{"entry_id": thal, "language_id": core["Old Tidespeech"]}]},
+            tags=["nature"],
+        )  # fmt: skip
+        s.word(core["Varnish"], "ven", part_of_speech="adjective", definitions=[{"gloss": "wide"}])
+        s.word(
+            core["Varnish"], "sorrel", part_of_speech="verb", definitions=[{"gloss": "to drift"}]
+        )
+        s.word(core["Varnish"], "velkorran", part_of_speech="noun", visibility="private",
+               definitions=[{"gloss": "the hidden current"}])  # fmt: skip
+        s.entity(
+            "misc",
+            "Sailors' Glossary",
+            fields={"category": "Notes"},
+            body=doc(
+                p(
+                    "Every sailor knows the word ",
+                    {
+                        "type": "lexiconRef",
+                        "attrs": {"entryId": sea, "languageId": core["Varnish"]},
+                    },
+                    ".",
+                )
+            ),
+            **home,
+        )
+    # Varnish's alphabet puts "th" between "s" and "t"; "n" isn't in it, so it sorts after "l".
+    world.lexicon.update({"Old Tidespeech": ["thal"],
+                          "Varnish": ["sorrel", "thalass", "velkorran", "ven"]})  # fmt: skip
+    world.lexicon_hidden.append("velkorran")
 
 
 def _core_species(writer: Writer, core: Core) -> None:
@@ -1432,7 +1489,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_locations(writer, core)
     _core_characters(writer, core)
     _core_groups(writer, core, world)
-    _core_languages(writer, core)
+    _core_languages(writer, core, world)
     _core_species(writer, core)
     _core_links(writer, core)
     _core_history(writer, core)

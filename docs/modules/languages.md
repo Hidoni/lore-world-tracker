@@ -123,7 +123,10 @@ also in the command palette) draws the time context's dimension with React Flow 
 ancestors above descendants, dialects below their language, borrowings dashed and not shaping
 the layout; "As a list" gives the same graph as text. The sample world has Old Tidespeech →
 Varnish (with the Harbor Cant dialect) and Shoal Tongue, the multiversal Common Trade, Tide Runes
-and Spire Glyphs, and speakers.
+and Spire Glyphs, and speakers. Since v0.5.0 (#99) it also has lexicons: Varnish has its own
+alphabet ("th" a letter after "s"), "thalass" comes from Old Tidespeech "thal" (an etymology
+source), "velkorran" is private, and the "Sailors' Glossary" refers to "thalass" with a
+`lexiconRef`.
 
 Lexicon backend (#97): the model and migration (`languages_lexicon_entries`, on the core
 declarative base: the registry tells module tables from core ones by their models), the service
