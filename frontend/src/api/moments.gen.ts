@@ -83,6 +83,29 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "hi": "m"
     }
   },
+  "FactList": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "FactOut"
+        }
+      }
+    }
+  },
+  "FactOut": {
+    "o": {
+      "value_t": "m",
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "FactWriteResult": {
+    "o": {
+      "fact": {
+        "r": "FactOut"
+      }
+    }
+  },
   "Genealogy": {
     "o": {
       "people": {

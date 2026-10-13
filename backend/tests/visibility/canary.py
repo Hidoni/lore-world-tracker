@@ -293,8 +293,45 @@ def _events(
     b.hidden("event", dimension_id=realm["id"])
 
 
+def _facts(b: _Builder, home: dict[str, Any]) -> None:
+    """Facts: a private fact, a fact of a private field, a name over time anchored to a hidden
+    event and caused by it, and a private rich-text value (time-model.md §10.2)."""
+    holder = b.public("gadget", "Fact Holder", **home)
+    timeline = b.canary.public["Prime"]
+    start = {"start": {"anchor": {"kind": "absolute", "t": "40"}, "precision": "base"}}
+    cause = b.hidden("event", visibility="private", ext=start, **home)
+
+    def fact(**body: Any) -> dict[str, Any]:
+        response = b.api.client.post(
+            f"{b.api.base}/entities/{holder['id']}/facts", json={"timeline_id": timeline, **body}
+        )
+        assert response.status_code == 201, response.json()
+        made: dict[str, Any] = response.json()["fact"]
+        return made
+
+    hidden = fact(field_key="core.name", value=b.canary_string(), visibility="private")
+    b.canary.hidden_ids.add(hidden["id"])
+    secret_field = fact(field_key="hidden_rank", value="9")
+    b.canary.hidden_ids.add(secret_field["id"])
+    ref = {"type": "event", "id": cause["id"], "slot": "start"}
+    fact(
+        field_key="core.name",
+        value="Renamed",
+        source_event_id=cause["id"],
+        valid_from={
+            "anchor": {"kind": "relative", "ref": ref, "offset": {"kind": "base", "units": "1"}},
+            "precision": "base",
+        },
+    )
+    lore = {"type": "doc", "content": [{"type": "paragraph",
+            "content": [{"type": "text", "text": b.canary_string()}]}]}  # fmt: skip
+    private_lore = fact(field_key="lore", value=lore, visibility="private")
+    b.canary.hidden_ids.add(private_lore["id"])
+
+
 def _module_content(b: _Builder, home: dict[str, Any]) -> None:
-    """Private content of the real modules' kinds and links."""
+    """Private content of the real modules' kinds and links, and facts."""
+    _facts(b, home)
     _locations(b, home)
     _characters(b, home)
     _groups(b, home)

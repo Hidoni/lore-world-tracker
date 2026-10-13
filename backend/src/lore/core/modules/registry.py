@@ -14,6 +14,7 @@ from sqlalchemy import MetaData
 
 from lore.core.consistency.rules import CORE_RULES
 from lore.core.entities.extensions import CORE_PURGE_HOOKS, KindExtension, PurgeHook
+from lore.core.facts.purge import purge_facts
 from lore.core.history.tables import HistoryTable, core_history_tables
 from lore.core.modules.spec import ModuleSpec
 from lore.core.registry.core import CORE_FIELD_TYPES, CORE_KINDS, CORE_LINK_TYPES
@@ -196,6 +197,7 @@ class ModuleRegistry:
         return [
             *CORE_PURGE_HOOKS,
             freeze_on_purge,  # anchor freezing (time-model §7.3)
+            purge_facts,  # after freezing: it reads the entity's facts
             *(hook for m in self.modules for hook in m.purge_hooks),
         ]
 

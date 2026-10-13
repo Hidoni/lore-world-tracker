@@ -131,10 +131,14 @@ def entity_document(
     kind_fields: KindFields | None,
     texts: Mapping[str, FieldText],
     richtext: Mapping[str, RichTextNodeHandler],
+    *,
+    facts: Iterable[tuple[str, Any, Visibility]] = (),
 ) -> SearchDocument:
     """The document of an entity. Private aliases, private field values and private rich-text
     blocks go to the restricted columns. ``kind_fields`` is ``None`` for entities of disabled
-    modules: their fields aren't indexed until the module is enabled again."""
+    modules: their fields aren't indexed until the module is enabled again. ``facts`` (field
+    key, value, visibility) add the values fields hold over time (``core.name``: names over
+    time, like aliases); a private fact or field makes the value restricted."""
     aliases = list(aliases)
     body = extract(entity.body, richtext)
     public_fields: list[str] = []
@@ -154,6 +158,24 @@ def entity_document(
         render = texts.get(field.type, _nothing)
         rendered = _lines(render(item, field) for item in values)
         (restricted_fields if level == "private" else public_fields).append(rendered)
+    active = kind_fields.active if kind_fields else {}
+    for key, value, visibility in facts:
+        if key == "core.name" and isinstance(value, str):
+            rendered, private = value, visibility == "private"
+        else:
+            definition = active.get(key)
+            if definition is None or value is None or not definition.searchable:
+                continue
+            level = entity.field_visibility.get(key, definition.default_visibility)
+            values = value if definition.multiple and isinstance(value, list) else [value]
+            if definition.type == "rich_text":
+                rendered = _lines(extract(doc, richtext, visibility=level).public_text
+                                  for doc in values)  # fmt: skip
+            else:
+                render = texts.get(definition.type, _nothing)
+                rendered = _lines(render(item, definition) for item in values)
+            private = visibility == "private" or level == "private"
+        (restricted_fields if private else public_fields).append(rendered)
     return SearchDocument(
         doc_id=entity.id,
         entity_id=entity.id,

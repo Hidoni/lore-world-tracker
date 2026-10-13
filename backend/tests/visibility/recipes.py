@@ -148,6 +148,14 @@ def links(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/entities/{entity_id}/links", {"include_trashed": "true"})
 
 
+@recipe(f"{V}/entities/{{entity_id}}/facts")
+def facts(c: Canary) -> Iterator[Call]:
+    yield from _entities(c, "/facts")
+    holder = c.public["Fact Holder"]
+    yield Call(f"{_v(c)}/entities/{holder}/facts", {"field": "core.name"})
+    yield Call(f"{_v(c)}/entities/{holder}/facts", {"timeline": c.public["Prime"]})
+
+
 @recipe(f"{V}/entities/{{entity_id}}/backlinks")
 def backlinks(c: Canary) -> Iterator[Call]:
     yield from _entities(c, "/backlinks")

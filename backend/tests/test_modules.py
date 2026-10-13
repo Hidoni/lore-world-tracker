@@ -292,6 +292,7 @@ def test_registry_endpoint(client: TestClient) -> None:
     assert registry["referenceable_slots"] == [
         {"record_type": "timeline", "module": "core", "slots": ["branch_point"]},
         {"record_type": "event", "module": "core", "slots": ["start", "end"]},
+        {"record_type": "fact", "module": "core", "slots": ["valid_from", "valid_to"]},
         {"record_type": "sample.note", "module": "sample", "slots": ["noted"]},
     ]
     assert registry["modules"][1] == {

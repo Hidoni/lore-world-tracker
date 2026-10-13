@@ -15,11 +15,14 @@ transaction (``data-model.md`` §9).
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict
+from typing import Any
 
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
+from lore.core.db.base import Visibility
 from lore.core.entities.models import Entity, EntityAlias
+from lore.core.facts.models import EntityFact
 from lore.core.fields import KindFields
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import enabled_modules
@@ -79,7 +82,25 @@ class SearchIndexer:
 
     def entity_documents(self, entities: Sequence[Entity]) -> list[SearchDocument]:
         """The current search documents of these entities (what the index should hold)."""
-        return [self._entity_document(e, a) for e, a in self._with_aliases(entities)]
+        facts = self._facts(entities)
+        return [
+            self._entity_document(e, a, facts.get(e.id, []))
+            for e, a in self._with_aliases(entities)
+        ]
+
+    def _facts(self, entities: Sequence[Entity]) -> dict[str, list[tuple[str, Any, Visibility]]]:
+        """The live facts of these entities: field key, value and visibility."""
+        found: dict[str, list[tuple[str, Any, Visibility]]] = defaultdict(list)
+        ids = [e.id for e in entities]
+        for start in range(0, len(ids), 500):
+            for fact in self.session.scalars(
+                select(EntityFact)
+                .where(EntityFact.entity_id.in_(ids[start : start + 500]),
+                       EntityFact.deleted_at.is_(None))
+                .order_by(EntityFact.entity_id, EntityFact.id)
+            ):  # fmt: skip
+                found[fact.entity_id].append((fact.field_key, fact.value, fact.visibility))
+        return found
 
     def _with_aliases(
         self, entities: Sequence[Entity]
@@ -93,13 +114,19 @@ class SearchIndexer:
             aliases[alias.entity_id].append((alias.alias, alias.visibility))
         return [(entity, aliases[entity.id]) for entity in entities]
 
-    def _entity_document(self, entity: Entity, aliases: list[tuple[str, str]]) -> SearchDocument:
+    def _entity_document(
+        self,
+        entity: Entity,
+        aliases: list[tuple[str, str]],
+        facts: list[tuple[str, Any, Visibility]],
+    ) -> SearchDocument:
         return entity_document(
             entity,
             aliases,  # type: ignore[arg-type]
             self.kind_fields.get(entity.kind),
             self.texts,
             self.richtext,
+            facts=facts,
         )
 
     # --- module documents -----------------------------------------------------------------------
