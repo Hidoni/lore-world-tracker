@@ -98,6 +98,28 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "to_t": "m"
     }
   },
+  "LexiconEntryOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "LexiconPage": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "LexiconEntryOut"
+        }
+      }
+    }
+  },
+  "LexiconWriteResult": {
+    "o": {
+      "entry": {
+        "r": "LexiconEntryOut"
+      }
+    }
+  },
   "Life": {
     "o": {
       "items": {

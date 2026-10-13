@@ -312,12 +312,13 @@ def test_undo_conflicts_and_redo(api: LinkApi) -> None:
 
 def test_revert_hooks(api: LinkApi, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
+    registered = list(REVERT_HOOKS)  # the modules' own (the lexicon re-indexes its entries)
     hooks = [lambda _s, changes: calls.append([c.table_name for c in changes])]
     monkeypatch.setattr("lore.core.history.service.REVERT_HOOKS", hooks)
     api.make("misc")
     revert(api, latest(api)["id"])
     assert calls == [["entities"]]
-    assert REVERT_HOOKS == []
+    assert registered == REVERT_HOOKS
 
 
 # --- merging --------------------------------------------------------------------------------

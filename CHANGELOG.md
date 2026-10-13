@@ -36,6 +36,11 @@ All notable changes to this project are documented here. The format follows
   species page lists its members, descent and native lands, a descent tree view draws a
   dimension's species, and character pages show their species as a chip. The sample world gains
   the Tideborn and their ancestors.
+- **Lexicon backend** (#97): a dictionary per language, with headwords, romanization,
+  pronunciation, parts of speech, definitions with examples, etymology, tags and attestation
+  periods. Entries sort by the language's own alphabet (multigraphs such as "ch" included) and
+  re-sort when it changes. They can be searched, imported from CSV (with a dry run) and exported.
+  Private entries, and the entries of hidden languages, stay hidden from readers.
 
 ## [0.4.0] - 2026-10-12
 
