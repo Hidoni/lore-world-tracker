@@ -26,10 +26,12 @@ from sqlalchemy import func, or_, select
 
 from lore.chronology.schema import TimePoint
 from lore.core.entities.models import Entity
+from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
 from lore.core.facts.models import EntityFact
 from lore.core.facts.schemas import EXISTS, NAME
 from lore.core.modules.spec import VaultContext
 from lore.core.time.dependencies import SlotNode
+from lore.core.time.dimensions import prime_timeline
 from lore.core.time.models import Dimension, Timeline
 from lore.core.time.resolve import Resolver
 from lore.core.time.timeline_view import Conditions, RowFilter, TimelineView
@@ -70,6 +72,68 @@ def present_of(context: VaultContext, timeline_id: str) -> int | None:
         return None
     row = context.session.get(Dimension, dimension_id)
     return None if row is None else row.present_t
+
+
+PRESENT = "present"
+
+
+def _invalid(path: str, message: str) -> InvalidInputError:
+    return InvalidInputError(
+        message, errors=[ErrorItem(path=path, code="invalid_value", message=message)]
+    )
+
+
+@dataclass
+class AsOf:
+    """A resolved ``(timeline, at)`` pair of a request."""
+
+    timeline_id: str
+    dimension_id: str
+    t: int
+
+
+def resolve_as_of(
+    context: VaultContext, policy: VisibilityPolicy, timeline_id: str, at: str
+) -> AsOf:
+    """The timeline (a live one the policy shows, else ``404``) and the moment: a decimal moment,
+    or ``present`` for its dimension's present (``422`` when the dimension has none)."""
+    session = context.session
+    row = session.get(Timeline, timeline_id)
+    entity = session.get(Entity, timeline_id)
+    if (
+        row is None
+        or entity is None
+        or entity.deleted_at is not None
+        or timeline_id not in policy.visible_ids(session, [timeline_id])
+    ):
+        raise NotFoundError(f"No timeline {timeline_id}.")
+    if at == PRESENT:
+        t = present_of(context, timeline_id)
+        if t is None:
+            raise _invalid("at", "The timeline's dimension has no present moment.")
+    else:
+        t = int(at)
+    return AsOf(timeline_id, row.dimension_id, t)
+
+
+def as_of_for(
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    *,
+    timeline_id: str | None,
+    at: str | None,
+    dimension_id: str | None,
+) -> AsOf | None:
+    """A request's time cursor (``None`` without ``at``); the timeline defaults to the prime
+    timeline of ``dimension_id`` (``422`` without either)."""
+    if at is None:
+        return None
+    if timeline_id is None:
+        prime = None if dimension_id is None else prime_timeline(context.session, dimension_id)
+        if prime is None:
+            raise _invalid("timeline", "`at` needs a timeline here.")
+        timeline_id = prime.id
+    return resolve_as_of(context, policy, timeline_id, at)
 
 
 class Bounded(Protocol):

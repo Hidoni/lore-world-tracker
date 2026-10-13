@@ -26,7 +26,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from jsonschema import Draft202012Validator
-from sqlalchemy import ColumnElement, case, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, case, func, or_, select, true
 from sqlalchemy.orm import Session, aliased
 
 from lore.core.consistency.schemas import request_suppress
@@ -66,7 +66,9 @@ from lore.core.time.dimensions import prime_timeline
 from lore.core.time.models import Timeline
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
-from lore.core.types import Affected
+from lore.core.time.state import AsOf, Coverage, as_of_for, maybe_covers, timeline_resolver
+from lore.core.time.timeline_view import TimelineView
+from lore.core.types import Affected, Certainty
 from lore.core.vaults import OpenVault
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
@@ -207,10 +209,10 @@ class LinkService:
         )
         sent = set(data.model_fields_set) | {"data"}
         self._apply(link, info, data, sent, source=source, target=target)
-        self._check_limits(info, link)
         self.session.add(link)
         self.session.flush()
         self._write_times(link, {s for s in SLOTS if getattr(link, f"{s}_spec") is not None})
+        self._check_limits(info, link)  # after the bounds resolve: periods are compared
         return link
 
     def update(self, link_id: str, data: LinkUpdate) -> LinkWriteResult:
@@ -235,12 +237,12 @@ class LinkService:
             link.sort_key = data.sort_key
         timeline_before = link.timeline_id
         self._apply(link, info, data, sent)
-        self._check_limits(info, link)
         self.session.flush()
         slots = {slot for slot in SLOTS if slot in sent}
         if link.timeline_id != timeline_before:  # another dimension: the bounds resolve again
             slots.update(s for s in SLOTS if getattr(link, f"{s}_spec") is not None)
         self._write_times(link, slots)
+        self._check_limits(info, link)
         return LinkWriteResult(link=link_out(link), affected=self.affected([link]))
 
     def trash(self, link_id: str) -> LinkDeleteResult:
@@ -291,10 +293,13 @@ class LinkService:
         direction: Literal["out", "in", "both"] = "both",
         types: Sequence[str] | None = None,
         include_trashed: bool = False,
+        as_of: AsOf | None = None,
     ) -> EntityLinks:
         """The entity's links, by type, then manual order, then the other end's name.
         ``include_trashed`` also lists links whose other end is in the trash (never for readers).
-        Hook point: the time cursor (#102) adds conditions here."""
+        With ``as_of`` (the time cursor, ``time-model.md`` §10.5 item 3): timeless links, and the
+        temporal links the timeline sees whose validity covers the moment (certainly or
+        possibly, ``certainty``)."""
         entity = self.session.get(Entity, entity_id)
         if entity is None or not self.policy.visible_ids(self.session, [entity_id]):
             raise NotFoundError(f"No entity {entity_id}.")
@@ -316,6 +321,8 @@ class LinkService:
             conditions.append(other.deleted_at.is_(None))
         if types:
             conditions.append(Link.link_type.in_(types))
+        if as_of is not None:
+            conditions.append(or_(timeless(Link), Link.id.in_(self._covering(entity_id, as_of))))
         if direction == "out":
             conditions.append(or_(Link.source_id == entity_id, Link.link_type.in_(symmetric)))
         elif direction == "in":
@@ -332,8 +339,11 @@ class LinkService:
                 Link.id,
             )
         ).all()
+        certainty = self._certainty([link for link, _end in rows], as_of)
         items = []
         for link, end in rows:
+            if as_of is not None and link.id not in certainty:
+                continue  # its bounds' extents say it doesn't cover the moment after all
             definition = offered[link.link_type].definition
             if definition.symmetric:
                 side: Literal["out", "in", "both"] = "both"
@@ -348,9 +358,46 @@ class LinkService:
                     direction=side,
                     label=label,
                     other=_linked(end),
+                    certainty=certainty.get(link.id),
                 )
             )
         return EntityLinks(items=items)
+
+    def _covering(self, entity_id: str, as_of: AsOf) -> Select[tuple[str]]:
+        """Ids of the entity's temporal links the timeline sees (lineage, overrides) that may
+        cover the moment."""
+        view = TimelineView.for_timeline(self.session, as_of.timeline_id)
+        shown = view.select(
+            Link,
+            where=lambda row: [
+                row.deleted_at.is_(None),
+                or_(row.source_id == entity_id, row.target_id == entity_id),
+            ],
+        ).subquery()
+        return select(shown.c.id).where(*maybe_covers(shown.c, as_of.t))
+
+    def _certainty(self, links: Sequence[Link], as_of: AsOf | None) -> dict[str, Certainty]:
+        """For the time cursor: the certainty of each link covering the moment (timeless ones
+        are certain); links missing from the result don't cover it."""
+        if as_of is None:
+            return {}
+        bounded = [link for link in links if link.timeline_id is not None]
+        result: dict[str, Certainty] = {
+            link.id: "certain" for link in links if link.timeline_id is None
+        }
+        if bounded:
+            if self.vault is None:
+                raise RuntimeError("as-of link reads need the vault")
+            context = VaultContext(self.vault, self.session, self.registry)
+            # Extents only tell how precise a bound is: the author's resolver reads them.
+            coverage = Coverage(timeline_resolver(context, AUTHOR, as_of.timeline_id), LINK,
+                                as_of.t)  # fmt: skip
+            coverage.preload(bounded)
+            for link in bounded:
+                found = coverage.of(link)
+                if found is not None:
+                    result[link.id] = found
+        return result
 
     def stored_problems(self, link: Link) -> list[str]:
         """Rules a stored link (not trashed) breaks (used to vet an undo): its type, the kinds of
@@ -376,10 +423,15 @@ class LinkService:
                 problems.append(exc.detail)
         return problems
 
-    def backlinks(self, entity_id: str, *, include_trashed: bool = False) -> Backlinks:
+    def backlinks(
+        self, entity_id: str, *, include_trashed: bool = False, as_of: AsOf | None = None
+    ) -> Backlinks:
         """Entities pointing at this one through incoming links (and symmetric ones) or mentions
-        in their text, by name (decided 2026-10-04). Self-mentions aren't recorded."""
-        incoming = self.entity_links(entity_id, direction="in", include_trashed=include_trashed)
+        in their text, by name (decided 2026-10-04). Self-mentions aren't recorded. ``as_of``
+        filters the links (mentions are timeless)."""
+        incoming = self.entity_links(
+            entity_id, direction="in", include_trashed=include_trashed, as_of=as_of
+        )
         source = aliased(Entity)
         conditions = [
             Mention.target_entity_id == entity_id,
@@ -498,10 +550,27 @@ class LinkService:
             if errors:
                 raise InvalidInputError("The link data doesn't match its type.", errors=errors)
             link.data = data.data
+        self._apply_validity(link, data, sent, source, target)
+        self._check_validity(info, link)
+
+    def _apply_validity(
+        self,
+        link: Link,
+        data: LinkCreate | LinkUpdate,
+        sent: set[str],
+        source: Entity | None,
+        target: Entity | None,
+    ) -> None:
         if "valid_from" in sent:
             link.valid_from_spec = data.valid_from
+            if data.valid_from is None:
+                link.valid_from_t = None
         if "valid_to" in sent:
             link.valid_to_spec = data.valid_to
+            if data.valid_to is None:
+                link.valid_to_t = None
+        if link.valid_from_spec is None and link.valid_to_spec is None:
+            link.time_status = None
         if "timeline_id" in sent:
             link.timeline_id = data.timeline_id
         elif "valid_from" in sent or "valid_to" in sent:
@@ -510,7 +579,6 @@ class LinkService:
                 link.timeline_id = None
             elif link.timeline_id is None:
                 link.timeline_id = self._default_timeline(link, source, target)
-        self._check_validity(info, link)
 
     def _default_timeline(
         self, link: Link, source: Entity | None, target: Entity | None
@@ -572,25 +640,30 @@ class LinkService:
                 raise _invalid("timeline_id", "The timeline is in the trash.")
 
     def _check_limits(self, info: LinkTypeInfo, link: Link) -> None:
+        """Uniqueness and cardinality. ``per_pair`` counts every link of the pair; the others
+        count the links that hold at the same time as this one (``_concurrent``)."""
         definition = info.definition
         others = select(Link.id).where(
-            Link.link_type == link.link_type, Link.deleted_at.is_(None), Link.id != link.id
+            Link.link_type == link.link_type,
+            Link.deleted_at.is_(None),
+            Link.id != link.id,
+            self._concurrent(link) if definition.unique != "per_pair" else true(),
         )
-        is_timeless = link.timeline_id is None
-        if definition.unique == "per_pair" or (
-            definition.unique == "per_pair_per_period" and is_timeless
-        ):
+        if definition.unique in ("per_pair", "per_pair_per_period"):
             pair = others.where(Link.source_id == link.source_id, Link.target_id == link.target_id)
-            if definition.unique == "per_pair_per_period":
-                pair = pair.where(timeless(Link))
             existing = list(self.session.scalars(pair))
             if existing:
                 raise ConflictError(
-                    f"These entities already have a {definition.label!r} link.",
+                    f"These entities already have a {definition.label!r} link"
+                    + (" then." if definition.unique == "per_pair_per_period" else "."),
                     context={"links": existing},
                 )
-        if not is_timeless:
-            return  # max_* limits count timeless links only until #102 (decided 2026-10-04)
+        concurrent = select(Link.id).where(
+            Link.link_type == link.link_type,
+            Link.deleted_at.is_(None),
+            Link.id != link.id,
+            self._concurrent(link),
+        )
         limits = (
             (
                 "max_targets_per_source",
@@ -614,10 +687,48 @@ class LinkService:
                 else column == entity_id
             )
             count = self.session.scalar(
-                select(func.count()).select_from(others.where(touching, timeless(Link)).subquery())
+                select(func.count()).select_from(concurrent.where(touching).subquery())
             )
             if (count or 0) >= limit:
                 raise ConflictError(
-                    f"{definition.label!r} allows at most {limit} such links per entity.",
+                    f"{definition.label!r} allows at most {limit} such links per entity"
+                    + (" at a time." if link.timeline_id is not None else "."),
                     context={"limit": name, "max": limit},
                 )
+
+    @staticmethod
+    def _concurrent(link: Link) -> ColumnElement[bool]:
+        """Links holding at the same time as ``link`` (resolved periods; open bounds are
+        unbounded): a timeless link holds at every time, so it meets every link; a temporal one
+        meets the timeless ones and those of its timeline whose periods overlap it."""
+        if link.timeline_id is None:
+            return true()
+        overlap = and_(
+            Link.timeline_id == link.timeline_id,
+            true() if link.valid_to_t is None else or_(
+                Link.valid_from_t.is_(None), Link.valid_from_t < link.valid_to_t
+            ),
+            true() if link.valid_from_t is None else or_(
+                Link.valid_to_t.is_(None), Link.valid_to_t > link.valid_from_t
+            ),
+        )  # fmt: skip
+        return or_(timeless(Link), overlap)
+
+
+def link_cursor(
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    entity_id: str,
+    timeline_id: str | None,
+    at: str | None,
+) -> AsOf | None:
+    """The time cursor of an entity's link list: the timeline defaults to the prime timeline of
+    the entity's dimension (multiversal entities need one). ``404`` for a hidden entity."""
+    if at is None:
+        return None
+    entity = context.session.get(Entity, entity_id)
+    if entity is None or not policy.visible_ids(context.session, [entity_id]):
+        raise NotFoundError(f"No entity {entity_id}.")
+    return as_of_for(
+        context, policy, timeline_id=timeline_id, at=at, dimension_id=entity.dimension_id
+    )

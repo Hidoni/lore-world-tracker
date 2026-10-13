@@ -741,6 +741,14 @@ Links whose type allows validity (`temporal: optional|required`) may have bounds
 `characters.spouse_of` "from the Wedding (end) until the Death of Ana (start)". Bounds are normal
 time points, so they are live-linked to events.
 
+Implementation (#102): the bounds are slots of record type `link` (`valid_from`, `valid_to`,
+referenceable), written through `TimeWriter` by the link service. A link given bounds without a
+timeline gets the prime timeline of its source's dimension (else its target's). Links are a
+`TimelineView` table, so as-of reads (§10.5 item 3: `GET …/links`, `…/backlinks` and the modules'
+relationship lists with `timeline`, `at`) show timeless links and the temporal links the timeline
+sees whose validity covers `t`, with the precision-aware certainty of facts (`lore.core.time.state.
+Coverage`). Vaults from before v0.6.0 resolve their links' bounds once when they open.
+
 ### 10.4 Existence
 
 Existence is stored as facts with `field_key = "core.exists"` and `value = true`. An entity can

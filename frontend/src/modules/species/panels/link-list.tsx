@@ -1,8 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import type { components } from '@/data'
-
-type EntityLink = components['schemas']['EntityLink']
+import type { EntityLink } from '@/data'
 
 /** The other ends of links, as a wrapping list of names. */
 export function LinkList({

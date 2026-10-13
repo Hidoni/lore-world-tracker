@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from lore.chronology.schema import TimePoint
 from lore.core.consistency.schemas import SUPPRESS_DESCRIPTION, SuppressItem
 from lore.core.db.base import Visibility
-from lore.core.types import Affected, MomentStr
+from lore.core.types import Affected, Certainty, MomentStr
 
 ID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 LINK_TYPE_KEY_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
@@ -195,6 +195,11 @@ class EntityLink(BaseModel):
     direction: Literal["out", "in", "both"]
     label: str
     other: LinkedEntity
+    certainty: Certainty | None = Field(
+        default=None,
+        description="With `at`: `possible` when the moment is inside the uncertainty extent of "
+        "a bound (a temporal link); `certain` otherwise.",
+    )
 
 
 class EntityLinks(BaseModel):

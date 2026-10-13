@@ -6,9 +6,10 @@ from fastapi import APIRouter, Path, Query
 
 from lore.chronology.schema import MOMENT_PATTERN
 from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.links.schemas import EntityLinks
-from lore.core.links.service import LinkService
+from lore.core.links.service import LinkService, link_cursor
 from lore.core.modules.spec import VaultContext
 from lore.modules.locations.links import RESIDES_IN
 from lore.modules.locations.schemas import LocationEvents, LocationTree
@@ -85,11 +86,15 @@ def get_residents(
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> EntityLinks:
     """Everyone and everything that `locations.resides_in` the location, at any time (with each
-    link's validity; as-of filtering comes with the time cursor). ``404`` for a location the
+    link's validity), or with ``at`` those residing there then. ``404`` for a location the
     request may not see."""
-    Locations(VaultContext(vault, session, registry), policy).location(location_id)
+    context = VaultContext(vault, session, registry)
+    Locations(context, policy).location(location_id)
+    as_of = link_cursor(context, policy, location_id, timeline, at)
     return LinkService(session, registry, policy, vault).entity_links(
-        location_id, direction="in", types=[RESIDES_IN]
+        location_id, direction="in", types=[RESIDES_IN], as_of=as_of
     )

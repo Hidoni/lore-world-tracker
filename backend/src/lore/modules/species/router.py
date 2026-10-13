@@ -5,8 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query
 
 from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.links.schemas import EntityLinks
+from lore.core.links.service import link_cursor
 from lore.core.modules.spec import VaultContext
 from lore.modules.species.schemas import DescentTree
 from lore.modules.species.service import Species
@@ -42,7 +44,11 @@ def get_members(
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> EntityLinks:
-    """Everyone and everything that `species.is_a` the species, at any time (as-of filtering
-    comes with the time cursor). ``404`` for a species the request may not see."""
-    return Species(VaultContext(vault, session, registry), policy).members(species_id)
+    """Everyone and everything that `species.is_a` the species, at any time (with ``at``:
+    then, as in entity links). ``404`` for a species the request may not see."""
+    context = VaultContext(vault, session, registry)
+    as_of = link_cursor(context, policy, species_id, timeline, at)
+    return Species(context, policy).members(species_id, as_of=as_of)

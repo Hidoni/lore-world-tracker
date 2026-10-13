@@ -17,55 +17,19 @@ from lore.core.entities.models import Entity
 from lore.core.entities.queries import ExistenceOf
 from lore.core.entities.schemas import EntityStateOut, FieldStateOut
 from lore.core.entities.service import EntityService
-from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
+from lore.core.errors import ErrorItem, InvalidInputError
 from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import FieldDef
 from lore.core.time.dimensions import prime_timeline
-from lore.core.time.models import Timeline
 from lore.core.time.redact import ReaderTimes
-from lore.core.time.state import Cover, EntityState, StateReader, present_of
+from lore.core.time.state import Cover, EntityState, StateReader, as_of_for, resolve_as_of
 from lore.core.visibility import AUTHOR, VisibilityPolicy
-
-PRESENT = "present"
 
 
 def _invalid(path: str, message: str) -> InvalidInputError:
     return InvalidInputError(
         message, errors=[ErrorItem(path=path, code="invalid_value", message=message)]
     )
-
-
-@dataclass
-class AsOf:
-    """A resolved ``(timeline, at)`` pair of a request."""
-
-    timeline_id: str
-    dimension_id: str
-    t: int
-
-
-def resolve_as_of(
-    context: VaultContext, policy: VisibilityPolicy, timeline_id: str, at: str
-) -> AsOf:
-    """The timeline (a live one the policy shows, else ``404``) and the moment: a decimal moment,
-    or ``present`` for its dimension's present (``422`` when the dimension has none)."""
-    session = context.session
-    row = session.get(Timeline, timeline_id)
-    entity = session.get(Entity, timeline_id)
-    if (
-        row is None
-        or entity is None
-        or entity.deleted_at is not None
-        or timeline_id not in policy.visible_ids(session, [timeline_id])
-    ):
-        raise NotFoundError(f"No timeline {timeline_id}.")
-    if at == PRESENT:
-        t = present_of(context, timeline_id)
-        if t is None:
-            raise _invalid("at", "The timeline's dimension has no present moment.")
-    else:
-        t = int(at)
-    return AsOf(timeline_id, row.dimension_id, t)
 
 
 @dataclass
@@ -189,12 +153,7 @@ def existence_of(
 ) -> ExistenceOf | None:
     """The existence reader of a list's time cursor (``None`` without ``at``). The timeline
     defaults to the prime timeline of ``dimension_id``."""
-    if at is None:
+    as_of = as_of_for(context, policy, timeline_id=timeline_id, at=at, dimension_id=dimension_id)
+    if as_of is None:
         return None
-    if timeline_id is None:
-        prime = None if dimension_id is None else prime_timeline(context.session, dimension_id)
-        if prime is None:
-            raise _invalid("timeline", "`at` needs a timeline (or a dimension).")
-        timeline_id = prime.id
-    as_of = resolve_as_of(context, policy, timeline_id, at)
     return StateReader(context, policy, as_of.timeline_id, as_of.t).existence

@@ -531,7 +531,9 @@ export interface paths {
         };
         /**
          * Links
-         * @description The entity's links in both directions (symmetric ones as ``both``).
+         * @description The entity's links in both directions (symmetric ones as ``both``). With ``at`` (and
+         *     ``timeline``, default: the prime timeline of the entity's dimension): timeless links and the
+         *     temporal links valid then, with ``certainty``.
          */
         get: operations["entities_links"];
         put?: never;
@@ -552,7 +554,7 @@ export interface paths {
         /**
          * Backlinks
          * @description Entities pointing at this one: incoming (and symmetric) links and mentions with counts by
-         *     block visibility, by name.
+         *     block visibility, by name. ``at`` filters the links as in ``…/links``.
          */
         get: operations["entities_backlinks"];
         put?: never;
@@ -1258,7 +1260,7 @@ export interface paths {
         /**
          * Residents
          * @description Everyone and everything that `locations.resides_in` the location, at any time (with each
-         *     link's validity; as-of filtering comes with the time cursor). ``404`` for a location the
+         *     link's validity), or with ``at`` those residing there then. ``404`` for a location the
          *     request may not see.
          */
         get: operations["locations_residents"];
@@ -1300,8 +1302,8 @@ export interface paths {
         };
         /**
          * Members
-         * @description Everyone and everything that `species.is_a` the species, at any time (as-of filtering
-         *     comes with the time cursor). ``404`` for a species the request may not see.
+         * @description Everyone and everything that `species.is_a` the species, at any time (with ``at``:
+         *     then, as in entity links). ``404`` for a species the request may not see.
          */
         get: operations["species_members"];
         put?: never;
@@ -1322,8 +1324,9 @@ export interface paths {
         /**
          * Relationships
          * @description The character's relationships by category: family, social, and custom (the generic
-         *     `characters.relationship` and user-defined link types to characters), at any time (as-of
-         *     filtering comes with the time cursor). ``404`` for a character the request may not see.
+         *     `characters.relationship` and user-defined link types to characters), at any time, or with
+         *     ``at`` those valid then (as in entity links). ``404`` for a character the request may not
+         *     see.
          */
         get: operations["characters_relationships"];
         put?: never;
@@ -1387,8 +1390,8 @@ export interface paths {
         /**
          * Members
          * @description Everyone and everything `groups.member_of` the group (and, with ``include_subgroups``,
-         *     its sub-groups), at any time (as-of filtering comes with the time cursor). ``404`` for a
-         *     group the request may not see.
+         *     its sub-groups), at any time, or with ``at`` those members then (as in entity links).
+         *     ``404`` for a group the request may not see.
          */
         get: operations["groups_members"];
         put?: never;
@@ -1409,7 +1412,8 @@ export interface paths {
         /**
          * Leaders
          * @description The leadership succession (`groups.led_by`): timeless leaders first, then by the start of
-         *     their validity. ``404`` for a group the request may not see.
+         *     their validity (with ``at``: the leaders then). ``404`` for a group the request may not
+         *     see.
          */
         get: operations["groups_leaders"];
         put?: never;
@@ -1429,8 +1433,8 @@ export interface paths {
         };
         /**
          * Territory
-         * @description The locations the group controls (`groups.controls`), at any time. ``404`` for a group
-         *     the request may not see.
+         * @description The locations the group controls (`groups.controls`), at any time (with ``at``: then).
+         *     ``404`` for a group the request may not see.
          */
         get: operations["groups_territory"];
         put?: never;
@@ -2414,6 +2418,8 @@ export interface components {
             /** Label */
             label: string;
             other: components["schemas"]["LinkedEntity"];
+            /** @description With `at`: `possible` when the moment is inside the uncertainty extent of a bound (a temporal link); `certain` otherwise. */
+            certainty?: components["schemas"]["Certainty"] | null;
         };
         /**
          * EntityLinkAdd
@@ -3576,14 +3582,18 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** Timeline Id */
             timeline_id: string | null;
-            /** Valid From */
-            valid_from: {
-                [key: string]: unknown;
-            } | null;
-            /** Valid To */
-            valid_to: {
-                [key: string]: unknown;
-            } | null;
+            valid_from: components["schemas"]["TimePoint"] | null;
+            valid_to: components["schemas"]["TimePoint"] | null;
+            /**
+             * Valid From T
+             * @description The start's resolved moment.
+             */
+            valid_from_t: MomentString | null;
+            /**
+             * Valid To T
+             * @description The end's resolved moment (excluded).
+             */
+            valid_to_t: MomentString | null;
             /** Time Status */
             time_status: string | null;
             /** Sort Key */
@@ -6515,6 +6525,10 @@ export interface operations {
                 type?: string[] | null;
                 /** @description Also links whose other end is in the trash. */
                 include_trashed?: boolean;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -6554,6 +6568,10 @@ export interface operations {
             query?: {
                 /** @description Also entities in the trash. */
                 include_trashed?: boolean;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -7936,6 +7954,10 @@ export interface operations {
     locations_residents: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8012,6 +8034,10 @@ export interface operations {
     species_members: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8049,6 +8075,10 @@ export interface operations {
     characters_relationships: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8174,6 +8204,10 @@ export interface operations {
         parameters: {
             query?: {
                 include_subgroups?: boolean;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8211,6 +8245,10 @@ export interface operations {
     groups_leaders: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8248,6 +8286,10 @@ export interface operations {
     groups_territory: {
         parameters: {
             query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };

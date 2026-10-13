@@ -65,7 +65,7 @@ None.
 Implementation (#94): `backend/src/lore/modules/groups/` and `frontend/src/modules/groups/`.
 `groups.controls` names the `location` kind, so it is offered only while the locations module is
 enabled; `characters.serves` now also targets groups. The leadership succession is ordered by
-the links' resolved validity, which arrives with temporal links (M7): until then, by name. Panels:
+the links' resolved validity (timeless leaders first). Panels:
 **Members** (ranks, titles, leaders; "Include sub-groups"), **Structure** (sub-groups and
 `part_of` parts), **Leadership**, **Group relations** (alliances, wars, vassalage; the core
 Relations panel lists every link) and **Territory**. The sample world has the Empire of the Tides with
@@ -78,8 +78,8 @@ Org chart and membership Gantt (#95):
   its leaders (`led_by`, with `data.title`) and a count of its own members (`member_of`), both
   limited to links valid at `at`, or all of them without `at`. Counts include only what the
   request sees. Units: at most 500 (`truncated`).
-- Memberships (`/members`) report their resolved validity (`from_t`, `to_t`). It stays `null`
-  until temporal links resolve it (M7).
+- Memberships (`/members`) report their resolved validity (`from_t`, `to_t`; #102 resolves it).
+  Members, leaders and territory take `timeline` and `at` (the links valid then, #102).
 - The **org chart view** (`/v/<vault>/m/groups/<group>/org-chart`, linked from the Structure
   panel) draws the units top down (ELK `mrtree`, React Flow). Parts hang from dashed edges, each
   box shows the leaders and member count, and a click opens the group. It has a "Levels" control

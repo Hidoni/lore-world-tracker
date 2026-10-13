@@ -1,9 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { useKindRegistry } from '@/core/registry'
-import type { components } from '@/data'
-
-type EntityLink = components['schemas']['EntityLink']
+import type { EntityLink } from '@/data'
 
 /** Linked entities with their kind's icon and the link's `data.kind` (e.g. home, portal). */
 export function LinkList({

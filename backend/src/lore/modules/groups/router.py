@@ -6,8 +6,10 @@ from fastapi import APIRouter, Path, Query
 
 from lore.chronology.schema import MOMENT_PATTERN
 from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.links.schemas import EntityLinks
+from lore.core.links.service import link_cursor
 from lore.core.modules.spec import VaultContext
 from lore.modules.groups.schemas import Leaders, Members, OrgChart
 from lore.modules.groups.service import Groups
@@ -26,12 +28,16 @@ def get_members(
     registry: ModuleRegistryDep,
     policy: PolicyDep,
     include_subgroups: bool = False,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> Members:
     """Everyone and everything `groups.member_of` the group (and, with ``include_subgroups``,
-    its sub-groups), at any time (as-of filtering comes with the time cursor). ``404`` for a
-    group the request may not see."""
-    return Groups(VaultContext(vault, session, registry), policy).members(
-        group_id, include_subgroups=include_subgroups
+    its sub-groups), at any time, or with ``at`` those members then (as in entity links).
+    ``404`` for a group the request may not see."""
+    context = VaultContext(vault, session, registry)
+    as_of = link_cursor(context, policy, group_id, timeline, at)
+    return Groups(context, policy).members(
+        group_id, include_subgroups=include_subgroups, as_of=as_of
     )
 
 
@@ -43,10 +49,15 @@ def get_leaders(
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> Leaders:
     """The leadership succession (`groups.led_by`): timeless leaders first, then by the start of
-    their validity. ``404`` for a group the request may not see."""
-    return Groups(VaultContext(vault, session, registry), policy).leaders(group_id)
+    their validity (with ``at``: the leaders then). ``404`` for a group the request may not
+    see."""
+    context = VaultContext(vault, session, registry)
+    as_of = link_cursor(context, policy, group_id, timeline, at)
+    return Groups(context, policy).leaders(group_id, as_of=as_of)
 
 
 @router.get("/{group_id}/territory", name="territory")
@@ -57,10 +68,14 @@ def get_territory(
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> EntityLinks:
-    """The locations the group controls (`groups.controls`), at any time. ``404`` for a group
-    the request may not see."""
-    return Groups(VaultContext(vault, session, registry), policy).territory(group_id)
+    """The locations the group controls (`groups.controls`), at any time (with ``at``: then).
+    ``404`` for a group the request may not see."""
+    context = VaultContext(vault, session, registry)
+    as_of = link_cursor(context, policy, group_id, timeline, at)
+    return Groups(context, policy).territory(group_id, as_of=as_of)
 
 
 @router.get("/{group_id}/org-chart", name="org_chart")

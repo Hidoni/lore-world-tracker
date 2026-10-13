@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query
 
 from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
+from lore.core.api.time_cursor import AtQuery, TimelineQuery
 from lore.core.entities.schemas import ID_PATTERN
+from lore.core.links.service import link_cursor
 from lore.core.modules.spec import VaultContext
 from lore.modules.characters.schemas import Genealogy, Life, Relationships
 from lore.modules.characters.service import Characters
@@ -23,12 +25,16 @@ def get_relationships(
     session: SessionDep,
     registry: ModuleRegistryDep,
     policy: PolicyDep,
+    timeline: TimelineQuery = None,
+    at: AtQuery = None,
 ) -> Relationships:
     """The character's relationships by category: family, social, and custom (the generic
-    `characters.relationship` and user-defined link types to characters), at any time (as-of
-    filtering comes with the time cursor). ``404`` for a character the request may not see."""
-    characters = Characters(VaultContext(vault, session, registry), policy)
-    return characters.relationships(character_id)
+    `characters.relationship` and user-defined link types to characters), at any time, or with
+    ``at`` those valid then (as in entity links). ``404`` for a character the request may not
+    see."""
+    context = VaultContext(vault, session, registry)
+    as_of = link_cursor(context, policy, character_id, timeline, at)
+    return Characters(context, policy).relationships(character_id, as_of=as_of)
 
 
 @router.get("/{character_id}/life", name="life")

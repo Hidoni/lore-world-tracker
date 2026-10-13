@@ -13,6 +13,8 @@ export type VaultList = Schemas['VaultList']
 export type Entity = D<'EntityOut'>
 export type EntityPage = D<'EntityPage'>
 export type EntityWriteResult = D<'EntityWriteResult'>
+/** A link seen from one entity (resolved validity moments as `bigint`). */
+export type EntityLink = D<'EntityLink'>
 export type Affected = Schemas['Affected']
 
 /**

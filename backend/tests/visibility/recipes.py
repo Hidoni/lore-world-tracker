@@ -172,11 +172,27 @@ def children(c: Canary) -> Iterator[Call]:
         )
 
 
+def _cursors(c: Canary) -> Iterator[tuple[dict[str, str], int]]:
+    """Time cursors (params, the reader's status): moments in the prime timeline, and a hidden
+    timeline (404)."""
+    for at in ("0", "15", "500"):
+        yield {"timeline": c.public["Prime"], "at": at}, 200
+    for hidden_id in c.hidden_ids:
+        yield {"timeline": hidden_id, "at": "0"}, 404
+
+
+def _as_of_links(c: Canary, paths: Iterator[str]) -> Iterator[Call]:
+    for path in paths:
+        for params, status in _cursors(c):
+            yield Call(path, params, status=status)
+
+
 @recipe(f"{V}/entities/{{entity_id}}/links")
 def links(c: Canary) -> Iterator[Call]:
     yield from _entities(c, "/links")
     for entity_id in c.public.values():
         yield Call(f"{_v(c)}/entities/{entity_id}/links", {"include_trashed": "true"})
+    yield from _as_of_links(c, (f"{_v(c)}/entities/{e}/links" for e in c.public.values()))
 
 
 @recipe(f"{V}/entities/{{entity_id}}/facts")
@@ -192,6 +208,7 @@ def backlinks(c: Canary) -> Iterator[Call]:
     yield from _entities(c, "/backlinks")
     for entity_id in c.public.values():
         yield Call(f"{_v(c)}/entities/{entity_id}/backlinks", {"include_trashed": "true"})
+    yield from _as_of_links(c, (f"{_v(c)}/entities/{e}/backlinks" for e in c.public.values()))
 
 
 @recipe(f"{V}/tree")
@@ -241,6 +258,8 @@ def location_events(c: Canary) -> Iterator[Call]:
 @recipe(f"{V}/m/locations/{{location_id}}/residents")
 def location_residents(c: Canary) -> Iterator[Call]:
     yield from _locations(c, "/residents")
+    paths = (f"{_v(c)}/m/locations/{c.public[name]}/residents" for name in LOCATIONS)
+    yield from _as_of_links(c, paths)
 
 
 CHARACTERS = ("Queen Ilsa", "Prince Oren")
@@ -257,6 +276,8 @@ def _characters(c: Canary, suffix: str, params: dict[str, Any] | None = None) ->
 @recipe(f"{V}/m/characters/{{character_id}}/relationships")
 def character_relationships(c: Canary) -> Iterator[Call]:
     yield from _characters(c, "/relationships")
+    paths = (f"{_v(c)}/m/characters/{c.public[name]}/relationships" for name in CHARACTERS)
+    yield from _as_of_links(c, paths)
 
 
 @recipe(f"{V}/m/characters/{{character_id}}/family-tree")
@@ -285,11 +306,13 @@ def _groups(c: Canary, suffix: str, params: dict[str, Any] | None = None) -> Ite
 def group_members(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/members")
     yield from _groups(c, "/members", {"include_subgroups": "true"})
+    yield from _as_of_links(c, (f"{_v(c)}/m/groups/{c.public[n]}/members" for n in GROUPS))
 
 
 @recipe(f"{V}/m/groups/{{group_id}}/leaders")
 def group_leaders(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/leaders")
+    yield from _as_of_links(c, (f"{_v(c)}/m/groups/{c.public[n]}/leaders" for n in GROUPS))
 
 
 @recipe(f"{V}/m/groups/{{group_id}}/org-chart")
@@ -301,6 +324,7 @@ def group_org_chart(c: Canary) -> Iterator[Call]:
 @recipe(f"{V}/m/groups/{{group_id}}/territory")
 def group_territory(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/territory")
+    yield from _as_of_links(c, (f"{_v(c)}/m/groups/{c.public[n]}/territory" for n in GROUPS))
 
 
 @recipe(f"{V}/m/languages/family-tree")
@@ -324,6 +348,7 @@ def species_members(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/species/{c.public['Elves']}/members")
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/species/{hidden_id}/members", status=404)
+    yield from _as_of_links(c, iter([f"{_v(c)}/m/species/{c.public['Elves']}/members"]))
 
 
 @recipe(f"{V}/m/languages/{{language_id}}/lexicon")

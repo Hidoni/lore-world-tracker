@@ -12,15 +12,13 @@ import {
   useFindings,
   useLinks,
   useMutations,
-  type components,
   type Entity,
+  type EntityLink,
 } from '@/data'
 
 import { EventDialog } from './event-dialog'
 import { eventTime } from './event-time'
 import { LinkAdder } from './link-adder'
-
-type EntityLink = components['schemas']['EntityLink']
 
 const CAUSES = 'core.causes'
 const PARTICIPANT = 'core.participant'

@@ -20,6 +20,7 @@ from lore.core.time.dimensions import TIMELINE
 from lore.core.time.events import EventTimes, shown_events
 from lore.core.time.models import Event
 from lore.core.time.schemas import EventDisplay
+from lore.core.time.state import AsOf
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.characters.kinds import CHARACTER
 from lore.modules.characters.links import (
@@ -86,16 +87,16 @@ class Characters:
             raise NotFoundError(f"No character {character_id}.")
         return entity
 
-    def relationships(self, character_id: str) -> Relationships:
+    def relationships(self, character_id: str, *, as_of: AsOf | None = None) -> Relationships:
         """The character's relationship links: the module's types by category, and links of
-        user-defined types to other characters as custom ones."""
+        user-defined types to other characters as custom ones (``as_of``: those valid then)."""
         self.character(character_id)
         context = self.context
         links = LinkService(context.session, context.registry, self.policy, context.vault)
         groups: dict[Category, RelationshipGroup] = {
             category: RelationshipGroup(category=category, items=[]) for category in ORDER
         }
-        for item in links.entity_links(character_id).items:
+        for item in links.entity_links(character_id, as_of=as_of).items:
             category = CATEGORIES.get(item.link.link_type)
             if category is None and item.link.link_type.startswith("custom."):
                 category = "custom" if item.other.kind == CHARACTER else None
