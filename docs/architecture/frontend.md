@@ -259,7 +259,7 @@ Document JSON is stored as-is (`entities.body`). Node/mark schema, versioned by
 | `visibilityBlock` (block wrapper, attrs `{level: 'spoiler' \| 'private', label?}`) | block-level secrets (D12). Author mode shows a labeled frame. Reader mode: private is removed server-side, spoiler folds. |
 | `callout` (block, attrs `{tone}`) | notes, warnings, quotes |
 | `image` (media module, attrs `{mediaId, alt, caption, width}`) | embedded media |
-| module nodes (registered via `editorExtensions`) | e.g. lexicon word references |
+| module nodes (registered via `editorExtensions`) | e.g. lexicon word references (`lexiconRef`). Read-only views render them with the module's `richTextNodeRenderers`; with the module disabled they render as nothing (atoms) or their content. |
 
 Behaviors: a slash menu (`/`), markdown shortcuts, paste-from-Markdown (`[[Name]]` turns into
 `entityLink` when the name resolves uniquely), and a word count. The backend validates allowed node

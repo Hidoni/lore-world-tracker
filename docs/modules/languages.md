@@ -91,6 +91,31 @@ Indexes: `(language_id, collation_key)`, `(language_id, headword)`, `(language_i
   tooltip. Inserted via `@@` or the slash menu.
 - IPA input helper (a character palette popover) for the pronunciation field.
 
+Implementation (#98): `frontend/src/modules/languages/lexicon/` and `editor/`. The **Lexicon**
+panel (on language pages, first in the main column) and the full page
+(`/v/<vault>/m/languages/<language>/lexicon`) share one component: a find box (headword or
+romanization start, gloss words), part-of-speech and tag filters, sorting (alphabet, headword,
+recently changed), Import CSV / Export CSV, and a virtualized table that fetches pages of 200 as
+it nears their end (10,000 words keep only a window of rows in the DOM). Authors type new words in
+the entry row at the top (headword, romanization, pronunciation, part of speech, gloss; Enter adds
+and returns to the headword) and edit any cell in place (click, type, Enter or leaving saves,
+Escape cancels; glosses are `;`-separated and keep each definition's notes and examples by
+position; tags are `,`-separated). "Details" opens the **entry drawer**: definitions with notes and
+examples, etymology text and sources (a language, a form, and optionally a word of that lexicon),
+tags, visibility, attestation (first and last, two time points on the current timeline) and
+rich-text notes (autosaved). The **import wizard** takes a file or pasted CSV, maps each column to
+a field (headers that name one are mapped already), runs a dry run that lists each row's problems,
+and imports only when there are none. Pronunciation inputs have the IPA palette (vowels,
+consonants, marks; inserts at the caret). `GET /m/languages/lexicon/{entry_id}` serves one entry
+(the drawer, `lexiconRef`), `404` when it may not be seen.
+
+`lexiconRef` (attrs `{entryId, languageId}`): `@@` opens a word menu (full-text search of
+`languages.lexicon_entry`; the core `@` menu stays closed), and the slash menu's "Word" types
+`@@`. Editor and reader show the headword with pronunciation, part of speech and glosses in a
+tooltip, or "a word" when the entry is gone or hidden. The backend handler accepts only those two
+id attrs, and reader filtering drops a reference whose language the reader may not see. Search
+results render lexicon hits with their language, linking to the lexicon page.
+
 Implementation (#96): `backend/src/lore/modules/languages/` and `frontend/src/modules/languages/`. Panels: **Family** (descended from, ancestor of, dialects, borrows from, lends to; a link
 to the tree view), **Speakers** (`speaks` with fluency) and **Scripts** (on languages and, the
 other way round, on writing systems). The family tree view (`/v/<vault>/m/languages/family-tree`,

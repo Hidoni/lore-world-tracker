@@ -279,6 +279,50 @@ export function rule(id: string, title: string, extra: Record<string, unknown> =
 }
 
 /** A finding that blocks a write (`422 consistency_error` `context.findings`). */
+/** A lexicon entry of the languages module (`LexiconEntryOut` in the fake's terms). */
+export interface LexiconRow {
+  id: string
+  language_id: string
+  headword: string
+  romanization?: string | null
+  pronunciation?: string | null
+  part_of_speech?: string | null
+  definitions?: {
+    gloss: string
+    notes?: string | null
+    examples?: { text: string; translation?: string | null }[]
+  }[]
+  tags?: string[]
+  visibility?: 'public' | 'spoiler' | 'private'
+}
+
+/** The wire form of a lexicon entry. */
+export function lexiconOut(entry: LexiconRow & { revision?: number }) {
+  return {
+    romanization: null,
+    pronunciation: null,
+    part_of_speech: null,
+    definitions: [],
+    etymology: { text: null, sources: [] },
+    notes: null,
+    tags: [] as string[],
+    visibility: 'public' as 'public' | 'spoiler' | 'private',
+    timeline_id: null,
+    valid_from: null,
+    valid_to: null,
+    valid_from_t: null,
+    valid_to_t: null,
+    time_status: null,
+    sort_key: null,
+    revision: 1,
+    collation_key: entry.headword,
+    created_at: '2026-10-11T10:00:00.000000+00:00',
+    updated_at: '2026-10-11T10:00:00.000000+00:00',
+    deleted_at: null as string | null,
+    ...entry,
+  }
+}
+
 export interface BlockingRow {
   fingerprint: string
   rule_id: string
@@ -325,6 +369,8 @@ export function serveVault(
     /** Entity writes (create, update) without `suppress` answer `422 consistency_error` with
      * these findings, `times` times (default: always). */
     refusals?: { findings: BlockingRow[]; times?: number }
+    /** Lexicon entries (the languages module). */
+    lexicon?: LexiconRow[]
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
@@ -365,6 +411,12 @@ export function serveVault(
       { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
     )
   }
+  const lexicon = new Map((options.lexicon ?? []).map((entry) => [entry.id, lexiconOut(entry)]))
+  let lexiconSeq = 0
+  const lexiconWrite = (entry: ReturnType<typeof lexiconOut>) => ({
+    entry,
+    affected: { entities: [entry.language_id], ...NOTHING },
+  })
   const changesets = [...(options.changesets ?? [])]
   const summary = (changeset: FakeChangeset) => ({
     id: changeset.id,
@@ -644,6 +696,115 @@ export function serveVault(
         truncated: false,
       })
     }),
+    // The languages module's lexicon: headword/romanization prefix or gloss words, by headword.
+    http.get('*/api/v1/vaults/v1/m/languages/:language/lexicon', ({ request, params }) => {
+      const url = new URL(request.url)
+      const q = (url.searchParams.get('q') ?? '').toLowerCase()
+      const pos = url.searchParams.get('pos')
+      const tag = url.searchParams.get('tag')
+      const items = [...lexicon.values()]
+        .filter((entry) => entry.language_id === params.language && entry.deleted_at === null)
+        .filter(
+          (entry) =>
+            q === '' ||
+            entry.headword.toLowerCase().startsWith(q) ||
+            (entry.romanization ?? '').toLowerCase().startsWith(q) ||
+            entry.definitions.some((d) => d.gloss.toLowerCase().includes(q)),
+        )
+        .filter((entry) => pos === null || entry.part_of_speech === pos)
+        .filter((entry) => tag === null || entry.tags.includes(tag))
+        .sort((a, b) => (a.headword < b.headword ? -1 : a.headword > b.headword ? 1 : 0))
+      return HttpResponse.json(paged(items, url))
+    }),
+    http.get('*/api/v1/vaults/v1/m/languages/lexicon/:id', ({ params }) => {
+      const entry = lexicon.get(String(params.id))
+      return entry?.deleted_at === null
+        ? HttpResponse.json(entry)
+        : HttpResponse.json(
+            { status: 404, code: 'not_found', title: 'Not found', detail: 'No such entry.' },
+            { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
+          )
+    }),
+    http.post('*/api/v1/vaults/v1/m/languages/:language/lexicon', async ({ request, params }) => {
+      const body = await record(request)
+      lexiconSeq += 1
+      const entry = lexiconOut({
+        ...(body as unknown as LexiconRow),
+        id: `w${lexiconSeq}`,
+        language_id: String(params.language),
+      })
+      lexicon.set(entry.id, entry)
+      return HttpResponse.json(lexiconWrite(entry), { status: 201 })
+    }),
+    http.patch('*/api/v1/vaults/v1/m/languages/lexicon/:id', async ({ request, params }) => {
+      const body = await record(request)
+      const entry = lexicon.get(String(params.id))
+      if (!entry) return new HttpResponse(null, { status: 404 })
+      const change = { ...body }
+      delete change.revision
+      const updated = lexiconOut({
+        ...entry,
+        ...(change as Partial<LexiconRow>),
+        revision: entry.revision + 1,
+      })
+      lexicon.set(updated.id, updated)
+      return HttpResponse.json(lexiconWrite(updated))
+    }),
+    http.delete('*/api/v1/vaults/v1/m/languages/lexicon/:id', async ({ request, params }) => {
+      await record(request)
+      const entry = lexicon.get(String(params.id))
+      if (!entry) return new HttpResponse(null, { status: 404 })
+      const deleted = { ...entry, deleted_at: '2026-10-11T11:00:00.000000+00:00' }
+      lexicon.set(deleted.id, deleted)
+      return HttpResponse.json(lexiconWrite(deleted))
+    }),
+    http.post(
+      '*/api/v1/vaults/v1/m/languages/:language/lexicon/import',
+      async ({ request, params }) => {
+        // Rows without a headword are problems; a real import without problems creates them all.
+        const body = (await record(request)) as {
+          csv: string
+          columns: Record<string, string> | null
+        }
+        const dryRun = new URL(request.url).searchParams.get('dry_run') === 'true'
+        const [header = '', ...lines] = body.csv.trim().split('\n')
+        const headers = header.split(',').map((cell) => cell.trim())
+        const columns =
+          body.columns ?? Object.fromEntries(headers.map((name) => [name, name.toLowerCase()]))
+        const field = (cells: string[], name: string) => {
+          const at = headers.findIndex((h) => columns[h] === name)
+          return at < 0 ? '' : (cells[at] ?? '').trim()
+        }
+        const rows = lines.map((line) => line.split(','))
+        const errors = rows.flatMap((cells, index) =>
+          field(cells, 'headword') === ''
+            ? [{ row: index + 1, column: null, message: 'A headword is required.' }]
+            : [],
+        )
+        let created = 0
+        if (!dryRun && errors.length === 0) {
+          for (const cells of rows) {
+            lexiconSeq += 1
+            const gloss = field(cells, 'definitions')
+            const entry = lexiconOut({
+              id: `w${lexiconSeq}`,
+              language_id: String(params.language),
+              headword: field(cells, 'headword'),
+              definitions: gloss === '' ? [] : [{ gloss }],
+            })
+            lexicon.set(entry.id, entry)
+            created += 1
+          }
+        }
+        return HttpResponse.json({
+          rows: rows.length,
+          created,
+          columns,
+          errors,
+          affected: created > 0 ? { entities: [String(params.language)], ...NOTHING } : null,
+        })
+      },
+    ),
     // The languages module's family graph (docs/modules/languages.md).
     http.get('*/api/v1/vaults/v1/m/languages/family-tree', () => {
       const languages = [...rows.values()]
@@ -904,7 +1065,31 @@ export function serveVault(
             },
           ]
         })
-      return HttpResponse.json(paged(items, url))
+      // Lexicon entries (`languages.lexicon_entry`): headword starts, or gloss words.
+      const words = [...lexicon.values()]
+        .filter((entry) => entry.deleted_at === null)
+        .filter(() => kinds.length === 0 || kinds.includes('languages.lexicon_entry'))
+        .filter(
+          (entry) =>
+            entry.headword.toLowerCase().startsWith(q) ||
+            entry.definitions.some((d) => d.gloss.toLowerCase().includes(q)),
+        )
+        .map((entry) => ({
+          doc_type: 'languages.lexicon_entry',
+          doc_id: entry.id,
+          entity_id: entry.language_id,
+          kind: 'language',
+          name: entry.headword,
+          icon: 'book',
+          color: null,
+          dimension_id: null,
+          visibility: entry.visibility,
+          snippet: {
+            source: 'summary',
+            parts: [{ text: entry.definitions.map((d) => d.gloss).join('; '), match: false }],
+          },
+        }))
+      return HttpResponse.json(paged([...items, ...words], url))
     }),
     http.get('*/api/v1/vaults/v1/search/quick', ({ request }) => {
       const q = (new URL(request.url).searchParams.get('q') ?? '').toLowerCase()

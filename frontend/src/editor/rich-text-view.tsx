@@ -1,12 +1,15 @@
 import type { SlotRef, TimePoint } from '@lore/chronology'
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
+import { useExtensionRecord, type RichTextNodeProps } from '@/core/modules'
 import { TimeRefView } from '@/core/time'
 
 import { EntityLinkView } from './entity-link-view'
 import { isSafeHref, type RichTextDoc } from './schema'
 
 type Mark = NonNullable<RichTextDoc['marks']>[number]
+/** Module node renderers by node type (`richTextNodeRenderers`). */
+type Renderers = Readonly<Record<string, ComponentType<RichTextNodeProps>>>
 
 const text = (value: unknown, fallback: string): string =>
   typeof value === 'string' ? value : fallback
@@ -57,12 +60,24 @@ function withMark(vault: string, mark: Mark, content: ReactNode, key: string): R
   }
 }
 
-function children(vault: string, node: RichTextDoc, path: string): ReactNode[] {
-  return (node.content ?? []).map((child, index) => renderNode(vault, child, `${path}.${index}`))
+function children(
+  vault: string,
+  renderers: Renderers,
+  node: RichTextDoc,
+  path: string,
+): ReactNode[] {
+  return (node.content ?? []).map((child, index) =>
+    renderNode(vault, renderers, child, `${path}.${index}`),
+  )
 }
 
-function renderNode(vault: string, node: RichTextDoc, key: string): ReactNode {
-  const inner = () => children(vault, node, key)
+function renderNode(
+  vault: string,
+  renderers: Renderers,
+  node: RichTextDoc,
+  key: string,
+): ReactNode {
+  const inner = () => children(vault, renderers, node, key)
   switch (node.type) {
     case 'text': {
       // The innermost mark wraps the text first; entity links end up outermost.
@@ -171,14 +186,18 @@ function renderNode(vault: string, node: RichTextDoc, key: string): ReactNode {
           hidden={attr(node, 'hidden_ref') === true}
         />
       )
-    default:
-      // Module nodes without a renderer yet: their content, if any.
+    default: {
+      // Module nodes: the module's renderer, else (module disabled) their content, if any.
+      const Renderer = node.type === undefined ? undefined : renderers[node.type]
+      if (Renderer) return <Renderer key={key} vault={vault} attrs={node.attrs ?? {}} />
       return <span key={key}>{inner()}</span>
+    }
   }
 }
 
 /** The read-only renderer (reader mode and previews), same schema as the editor. */
 export function RichTextView({ vault, doc }: { vault: string; doc: RichTextDoc | null }) {
+  const renderers = useExtensionRecord('richTextNodeRenderers', vault)
   if (!doc || (doc.content ?? []).length === 0) return null
-  return <div className="rich-text">{children(vault, doc, 'n')}</div>
+  return <div className="rich-text">{children(vault, renderers, doc, 'n')}</div>
 }

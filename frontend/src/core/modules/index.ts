@@ -21,6 +21,7 @@ export {
   type LinkRowProps,
   type ModuleDefinition,
   type NavSection,
+  type RichTextNodeProps,
   type RouteFactory,
   type SearchHitProps,
   type SettingsPage,

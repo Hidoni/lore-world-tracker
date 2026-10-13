@@ -3,6 +3,10 @@ import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
 import { defineModule, type EntityViewProps } from '@/core/modules'
 
+import { LexiconHit } from './editor/lexicon-hit'
+import { LexiconRef } from './editor/lexicon-ref'
+import { LexiconRefNode } from './editor/lexicon-ref-view'
+
 /** A panel loaded with the first page that shows it. */
 function lazyPanel(
   load: () => Promise<ComponentType<EntityViewProps>>,
@@ -76,6 +80,9 @@ export default defineModule({
       order: 11,
     },
   ],
+  editorExtensions: [LexiconRef],
+  richTextNodeRenderers: { lexiconRef: LexiconRefNode },
+  searchResultRenderers: { 'languages.lexicon_entry': LexiconHit },
   commands: [
     {
       id: 'languages.family-tree',

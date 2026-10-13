@@ -96,6 +96,12 @@ export interface EditorExtension {
   readonly name: string
 }
 
+/** A module's rendering of one of its rich-text nodes in read-only views (`RichTextView`). */
+export interface RichTextNodeProps {
+  vault: string
+  attrs: Readonly<Record<string, unknown>>
+}
+
 export interface SearchHitProps {
   vault: string
   hit: Readonly<Record<string, unknown>>
@@ -129,6 +135,8 @@ export interface ModuleDefinition {
   commands?: readonly Command[]
   settingsPages?: readonly SettingsPage[]
   searchResultRenderers?: Readonly<Record<string, ComponentType<SearchHitProps>>>
+  /** Read-only renderers of the module's rich-text nodes, by node type (`lexiconRef`). */
+  richTextNodeRenderers?: Readonly<Record<string, ComponentType<RichTextNodeProps>>>
   /** Media shown in the entity header (e.g. a portrait), per kind. */
   entityHeaderMedia?: Readonly<Record<string, ComponentType<EntityViewProps>>>
 }
