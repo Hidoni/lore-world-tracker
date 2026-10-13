@@ -80,6 +80,11 @@ export interface DataSource {
   locationResidents(vault: string, location: string): Promise<D<'EntityLinks'>>
   // The characters module (docs/modules/characters.md).
   characterRelationships(vault: string, character: string): Promise<D<'Relationships'>>
+  characterFamilyTree(
+    vault: string,
+    character: string,
+    query?: Query<'characters_family_tree'>,
+  ): Promise<D<'Genealogy'>>
   characterLife(
     vault: string,
     character: string,

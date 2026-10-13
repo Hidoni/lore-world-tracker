@@ -83,6 +83,21 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "hi": "m"
     }
   },
+  "Genealogy": {
+    "o": {
+      "people": {
+        "a": {
+          "r": "GenealogyPerson"
+        }
+      }
+    }
+  },
+  "GenealogyPerson": {
+    "o": {
+      "from_t": "m",
+      "to_t": "m"
+    }
+  },
   "Leaders": {
     "o": {
       "items": {

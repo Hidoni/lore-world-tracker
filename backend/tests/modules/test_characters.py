@@ -153,3 +153,123 @@ def test_disabling_keeps_relationships(api: LinkApi) -> None:
     assert api.modules("characters", enabled=True).status_code == 200
     assert api.get(ilsa["id"]).json()["fields"]["secret"] == "a spy"
     assert groups(api, ilsa)["family"] == [("spouse of", "Oren", {})]
+
+
+def family(api: LinkApi) -> dict[str, dict[str, Any]]:
+    """Three generations: Aldric and Bera (married) have Cyra and Dain; Aldric remarried Elin
+    and has Fenn (Cyra's half-brother); Cyra married Gord and has Hale; Dain has a linked
+    sister Ivy with no recorded parents."""
+    people = {
+        name: api.make("character", name)
+        for name in ["Aldric", "Bera", "Cyra", "Dain", "Elin", "Fenn", "Gord", "Hale", "Ivy"]
+    }
+    a, b, c, d, e, f, g, h, i = people.values()
+
+    def parent(x: dict[str, Any], y: dict[str, Any]) -> None:
+        api.made_link("characters.parent_of", x, y, data={"kind": "biological"})
+
+    api.made_link("characters.spouse_of", a, b, data={"kind": "marriage"})
+    api.made_link("characters.spouse_of", a, e)
+    api.made_link("characters.spouse_of", c, g)
+    for child in (c, d):
+        parent(a, child)
+        parent(b, child)
+    parent(a, f)
+    parent(e, f)
+    parent(c, h)
+    parent(g, h)
+    api.made_link("characters.sibling_of", d, i, data={"kind": "half"})
+    return people
+
+
+def tree(api: LinkApi, root: dict[str, Any], **params: Any) -> dict[str, Any]:
+    response = m(api, f"/{root['id']}/family-tree", **params)
+    assert response.status_code == 200, response.json()
+    body: dict[str, Any] = response.json()
+    return body
+
+
+def generations(body: dict[str, Any]) -> dict[str, int]:
+    return {person["name"]: person["generation"] for person in body["people"]}
+
+
+def test_family_tree_generations_spouses_and_siblings(api: LinkApi) -> None:
+    people = family(api)
+    body = tree(api, people["Cyra"])
+    assert body["root_id"] == people["Cyra"]["id"]
+    assert body["people"][0]["name"] == "Cyra"
+    assert generations(body) == {
+        "Cyra": 0,
+        "Aldric": -1,
+        "Bera": -1,
+        "Dain": 0,
+        "Fenn": 0,
+        "Elin": -1,
+        "Gord": 0,
+        "Hale": 1,
+    }
+    # Existence comes with temporal facts: unknown for now.
+    assert {(p["from_t"], p["to_t"]) for p in body["people"]} == {(None, None)}
+    names = {person["id"]: person["name"] for person in body["people"]}
+    edges = {
+        (edge["kind"], names[edge["source_id"]], names[edge["target_id"]], edge["relation"])
+        for edge in body["edges"]
+    }
+    assert ("parent", "Aldric", "Fenn", "biological") in edges
+    assert ("spouse", "Aldric", "Elin", None) in edges
+    assert ("spouse", "Cyra", "Gord", None) in edges
+    assert len(edges) == len(body["edges"]) == 11
+    assert body["truncated"] is False
+
+    # Dain's linked sister Ivy (no recorded parents) comes with his siblings.
+    assert generations(tree(api, people["Dain"], up=0, down=0))["Ivy"] == 0
+
+
+def test_family_tree_depth_and_options(api: LinkApi) -> None:
+    people = family(api)
+    # From the grandson: grandparents two generations up, the mother's (half-)brothers, and
+    # the half-uncle's mother.
+    up = generations(tree(api, people["Hale"], up=2, down=0))
+    assert up == {
+        "Hale": 0,
+        "Cyra": -1,
+        "Gord": -1,
+        "Dain": -1,
+        "Fenn": -1,
+        "Aldric": -2,
+        "Bera": -2,
+        "Elin": -2,
+    }
+    assert generations(tree(api, people["Hale"], up=1, down=0)) == {
+        "Hale": 0,
+        "Cyra": -1,
+        "Gord": -1,
+    }
+    bare = tree(api, people["Aldric"], include_spouses=False, include_siblings=False)
+    assert generations(bare) == {"Aldric": 0, "Cyra": 1, "Dain": 1, "Fenn": 1, "Hale": 2}
+    assert {edge["kind"] for edge in bare["edges"]} == {"parent"}
+    # With spouses: the other parents of the children (Bera, Elin, Gord).
+    assert set(generations(tree(api, people["Aldric"]))) == {
+        "Aldric",
+        "Bera",
+        "Elin",
+        "Cyra",
+        "Dain",
+        "Fenn",
+        "Gord",
+        "Hale",
+    }
+    limited = tree(api, people["Aldric"], limit=3)
+    assert len(limited["people"]) == 3
+    assert limited["truncated"] is True
+
+
+def test_family_tree_leaves_out_the_trash_and_other_kinds(api: LinkApi) -> None:
+    people = family(api)
+    assert api.client.delete(f"{api.base}/entities/{people['Fenn']['id']}").status_code == 200
+    assert "Fenn" not in generations(tree(api, people["Aldric"]))
+    place = api.make("misc", "Hearth")
+    problem(m(api, f"/{place['id']}/family-tree"), 404, "not_found")
+    problem(
+        m(api, f"/{people['Aldric']['id']}/family-tree", timeline=place["id"]), 404, "not_found"
+    )

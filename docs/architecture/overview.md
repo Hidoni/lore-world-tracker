@@ -44,7 +44,7 @@ every change must respect. Detailed specs live in the sibling documents (see the
 | Forms | react-hook-form + zod (schemas generated from field definitions) | |
 | Rich text | TipTap v3 (ProseMirror) | JSON documents stored server-side. |
 | Graph view | sigma.js v3 + graphology (+ ForceAtlas2 in a web worker) | |
-| Structured diagrams | React Flow (@xyflow/react) + elkjs layouts | causality DAG, family tree, org chart. |
+| Structured diagrams | React Flow (@xyflow/react) + elkjs layouts (family trees: relatives-tree, ADR-0015) | causality DAG, family tree, org chart. |
 | Maps | Leaflet (CRS.Simple image maps) + react-leaflet | |
 | Timeline view | custom React/SVG component on top of `@lore/chronology` viewport math | no off-the-shelf lib supports BigInt time. |
 | API client | openapi-typescript (types) + openapi-fetch | generated from the backend's OpenAPI; CI checks drift. |

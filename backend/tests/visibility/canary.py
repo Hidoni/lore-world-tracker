@@ -339,6 +339,10 @@ def _characters(b: _Builder, home: dict[str, Any]) -> None:
     b.api.made_link("core.participant", tryst, queen)
     duel = b.public("event", "Duel", ext=start, **home)
     b.hidden_link("core.participant", duel, heir, visibility="private", role=b.canary_string())
+    # The family tree: a private child and a marriage by a private link.
+    bastard = b.hidden("character", visibility="private", **home)
+    b.api.made_link("characters.parent_of", queen, bastard)
+    b.hidden_link("characters.spouse_of", queen, heir, visibility="private")
 
 
 def _groups(b: _Builder, home: dict[str, Any]) -> None:

@@ -219,6 +219,12 @@ def character_relationships(c: Canary) -> Iterator[Call]:
     yield from _characters(c, "/relationships")
 
 
+@recipe(f"{V}/m/characters/{{character_id}}/family-tree")
+def character_family_tree(c: Canary) -> Iterator[Call]:
+    yield from _characters(c, "/family-tree")
+    yield from _characters(c, "/family-tree", {"timeline": c.public["Prime"], "up": 5, "down": 5})
+
+
 @recipe(f"{V}/m/characters/{{character_id}}/life")
 def character_life(c: Canary) -> Iterator[Call]:
     yield from _characters(c, "/life", {"timeline": c.public["Prime"]})

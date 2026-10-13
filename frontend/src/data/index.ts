@@ -127,8 +127,11 @@ export {
   useWindowTiles,
 } from './time'
 export {
+  useCharacterFamilyTree,
   useCharacterLife,
   useCharacterRelationships,
+  type FamilyTreeQuery,
+  type Genealogy,
   type LifeEvent,
   type RelationshipGroup,
 } from './characters'

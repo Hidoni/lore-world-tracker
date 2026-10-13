@@ -244,6 +244,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'Relationships',
       ),
+    characterFamilyTree: async (vault, character, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/characters/{character_id}/family-tree`, {
+            params: { path: { vault_id: vault, character_id: character }, query },
+          }),
+        ),
+        'Genealogy',
+      ),
     characterLife: async (vault, character, query) =>
       toDomain(
         await unwrap(

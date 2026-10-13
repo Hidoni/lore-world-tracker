@@ -20,3 +20,4 @@ status to `Superseded by ADR-XXXX`). Use `0000-template.md`.
 | [0012](0012-frontend-stack.md) | Frontend stack and DataSource abstraction | Accepted |
 | [0013](0013-api-contract.md) | REST + OpenAPI-generated TypeScript client | Accepted |
 | [0014](0014-agent-workflow.md) | Issue-driven agent workflow with self-merge on green CI | Accepted |
+| [0015](0015-genealogy-layout.md) | relatives-tree for the family tree layout | Accepted |

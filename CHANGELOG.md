@@ -41,6 +41,13 @@ All notable changes to this project are documented here. The format follows
   periods. Entries sort by the language's own alphabet (multigraphs such as "ch" included) and
   re-sort when it changes. They can be searched, imported from CSV (with a dry run) and exported.
   Private entries, and the entries of hidden languages, stay hidden from readers.
+- **Family trees** (#93): character pages have a Family tree panel, and there is a full family
+  tree view. Generations run top to bottom, spouses sit side by side (remarriages too), and
+  half-siblings and siblings without known parents are placed correctly. You choose how many
+  generations to show each way and whether to include spouses and siblings, and there is a list
+  alternative. Clicking a relative re-centers the tree on them. Lifespans show as unknown until
+  temporal facts arrive. The layout uses relatives-tree (ADR-0015), which handles 300 people
+  in well under a second.
 - **Lexicon editor** (#98): each language page has a Lexicon panel (and a full page) with a
   keyboard-first table: type new words in the entry row, edit any cell in place, search, filter
   by part of speech or tag, and sort by the language's own alphabet. 10,000 words scroll

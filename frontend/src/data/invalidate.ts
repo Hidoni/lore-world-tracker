@@ -28,6 +28,7 @@ const VAULT_WIDE = [
   'locationResidents',
   'characterRelationships',
   'characterLife',
+  'characterFamilyTree',
   'groupMembers',
   'groupLeaders',
   'groupTerritory',

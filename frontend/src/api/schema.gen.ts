@@ -1277,6 +1277,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/characters/{character_id}/family-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Family Tree
+         * @description The character's family for the genealogy layout: people (by generation, with existence)
+         *     and the parent, spouse and sibling links between them that the request sees. ``404`` for a
+         *     character or timeline the request may not see.
+         */
+        get: operations["characters_family_tree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/groups/{group_id}/members": {
         parameters: {
             query?: never;
@@ -2768,6 +2790,71 @@ export interface components {
             name: string | null;
             /** Kind */
             kind: string | null;
+        };
+        /** Genealogy */
+        Genealogy: {
+            /** Root Id */
+            root_id: string;
+            /**
+             * People
+             * @description The character first, then by generation.
+             */
+            people: components["schemas"]["GenealogyPerson"][];
+            /** Edges */
+            edges: components["schemas"]["GenealogyEdge"][];
+            /**
+             * Truncated
+             * @description More relatives than the limit: the farthest are left out.
+             */
+            truncated: boolean;
+        };
+        /** GenealogyEdge */
+        GenealogyEdge: {
+            /**
+             * Id
+             * @description The link's id.
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "parent" | "spouse" | "sibling";
+            /**
+             * Source Id
+             * @description The parent for `parent` edges.
+             */
+            source_id: string;
+            /**
+             * Target Id
+             * @description The child for `parent` edges.
+             */
+            target_id: string;
+            /**
+             * Relation
+             * @description The link's `data.kind`: biological, adoptive, half, marriage, …
+             */
+            relation: string | null;
+        };
+        /** GenealogyPerson */
+        GenealogyPerson: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Generation
+             * @description Generations from the character: negative for ancestors, 0 for the character (and siblings and spouses), positive for descendants.
+             */
+            generation: number;
+            /**
+             * From T
+             * @description Start of the existence on the timeline (`null`: unknown; existence comes with temporal facts).
+             */
+            from_t: MomentString | null;
+            /** To T */
+            to_t: MomentString | null;
         };
         /** GraphStyleIn */
         GraphStyleIn: {
@@ -7402,6 +7489,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Life"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    characters_family_tree: {
+        parameters: {
+            query?: {
+                /** @description Generations of ancestors. */
+                up?: number;
+                /** @description Generations of descendants. */
+                down?: number;
+                include_spouses?: boolean;
+                include_siblings?: boolean;
+                /** @description The timeline existence is read on (M7). */
+                timeline?: string | null;
+                /** @description People at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Character id. */
+                character_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Genealogy"];
                 };
             };
             /** @description Problem */

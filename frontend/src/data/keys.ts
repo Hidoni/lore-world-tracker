@@ -49,6 +49,8 @@ export const keys = {
     [vault, 'locationResidents', location] as const,
   characterRelationships: (vault: string, character: string) =>
     [vault, 'characterRelationships', character] as const,
+  characterFamilyTree: (vault: string, character: string, params: object) =>
+    [vault, 'characterFamilyTree', character, params] as const,
   characterLife: (vault: string, character: string, params: object) =>
     [vault, 'characterLife', character, params] as const,
   groupMembers: (vault: string, group: string, params: object) =>
