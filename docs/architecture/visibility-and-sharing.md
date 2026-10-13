@@ -129,7 +129,7 @@ The reader UI may only use these read operations (DataSource methods). The post-
 `links`, `backlinks`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
 `graph`, `characterRelationships`, `characterLife`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
 `orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
-`speciesDescentTree`, `lexicon`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaFile`,
+`speciesDescentTree`, `lexicon`, `lexiconEntry`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaFile`,
 `gallery`, `correspondenceMap`, `personalTimeline`, `presence`, `timelines` (tree),
 `timelineDiff`, `timelineNotes`.
 
