@@ -32,6 +32,7 @@ const VAULT_WIDE = [
   'groupMembers',
   'groupLeaders',
   'groupTerritory',
+  'groupOrgChart',
   'languageFamilyTree',
   // Lexicon writes return no entity: every write refreshes the lexicon (pages and entries).
   'lexicon',

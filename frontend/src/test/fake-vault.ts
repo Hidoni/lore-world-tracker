@@ -162,6 +162,9 @@ export interface LinkRow {
   data?: Record<string, unknown>
   visibility?: 'public' | 'spoiler' | 'private'
   revision?: number
+  /** The resolved validity (temporal links, M7), for module reads that report it. */
+  valid_from_t?: string | null
+  valid_to_t?: string | null
 }
 
 function linkOut(link: LinkRow) {
@@ -863,7 +866,15 @@ export function serveVault(
         items: groups.flatMap((group) =>
           entityLinks(group)
             .filter((item) => item.link.link_type === 'groups.member_of' && item.direction === 'in')
-            .map((item) => ({ group_id: group, item })),
+            .map((item) => {
+              const link = links.get(item.link.id)
+              return {
+                group_id: group,
+                item,
+                from_t: link?.valid_from_t ?? null,
+                to_t: link?.valid_to_t ?? null,
+              }
+            }),
         ),
       })
     }),
@@ -874,6 +885,57 @@ export function serveVault(
           .map((item) => ({ item, from_t: null, to_t: null })),
       }),
     ),
+    // The org chart: sub-groups by parent and parts (`part_of`), with leaders and member counts.
+    http.get('*/api/v1/vaults/v1/m/groups/:id/org-chart', ({ request, params }) => {
+      const root = found(params.id)
+      if (root?.kind !== 'group') return new HttpResponse(null, { status: 404 })
+      const depth = Number(new URL(request.url).searchParams.get('depth') ?? '3')
+      const units = [{ entity: root, parent_id: null as string | null, via: 'root', depth: 0 }]
+      // `for … of` visits the units pushed while it runs.
+      for (const unit of units) {
+        if (unit.depth >= depth) continue
+        const below = [
+          ...[...rows.values()]
+            .filter((e) => e.kind === 'group' && e.parent_id === unit.entity.id && !e.deleted_at)
+            .map((entity) => ({ entity, via: 'subgroup' })),
+          ...entityLinks(unit.entity.id)
+            .filter((item) => item.link.link_type === 'groups.part_of' && item.direction === 'in')
+            .flatMap((item) => {
+              const entity = found(item.other.id)
+              return entity ? [{ entity, via: 'part_of' }] : []
+            }),
+        ]
+        for (const { entity, via } of below) {
+          if (units.some((known) => known.entity.id === entity.id)) continue
+          units.push({ entity, parent_id: unit.entity.id, via, depth: unit.depth + 1 })
+        }
+      }
+      return HttpResponse.json({
+        root_id: root.id,
+        units: units.map((unit) => {
+          const own = entityLinks(unit.entity.id)
+          return {
+            id: unit.entity.id,
+            name: unit.entity.name,
+            visibility: unit.entity.visibility,
+            parent_id: unit.parent_id,
+            via: unit.via,
+            depth: unit.depth,
+            leaders: own
+              .filter((item) => item.link.link_type === 'groups.led_by' && item.direction === 'out')
+              .map((item) => ({
+                id: item.other.id,
+                name: item.other.name,
+                title: (item.link.data as { title?: string }).title ?? null,
+              })),
+            member_count: own.filter(
+              (item) => item.link.link_type === 'groups.member_of' && item.direction === 'in',
+            ).length,
+          }
+        }),
+        truncated: false,
+      })
+    }),
     http.get('*/api/v1/vaults/v1/m/groups/:id/territory', ({ params }) =>
       HttpResponse.json({
         items: entityLinks(String(params.id)).filter(

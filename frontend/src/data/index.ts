@@ -138,9 +138,11 @@ export {
 export {
   useGroupLeaders,
   useGroupMembers,
+  useGroupOrgChart,
   useGroupTerritory,
   type Leadership,
   type Membership,
+  type OrgChart,
 } from './groups'
 export {
   lexiconExportUrl,

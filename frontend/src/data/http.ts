@@ -280,6 +280,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'Leaders',
       ),
+    groupOrgChart: async (vault, group, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/groups/{group_id}/org-chart`, {
+            params: { path: { vault_id: vault, group_id: group }, query },
+          }),
+        ),
+        'OrgChart',
+      ),
     groupTerritory: async (vault, group) =>
       toDomain(
         await unwrap(
