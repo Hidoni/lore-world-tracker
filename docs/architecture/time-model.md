@@ -730,6 +730,11 @@ visibility, source_event_id?, note)`:
 - `source_event_id` optionally records the event that caused the change. The event page lists
   "changes caused".
 
+Implementation (#100): `lore.core.facts` (`data-model.md` §6.3), API in `api.md` (Entities).
+Fact bounds are slots of record type `fact` (referenceable). A `time_point` fact's value is the
+`entity_field` slot `fact:<id>` (§6). The overlap warning, as-of state (§10.5) and existence
+semantics in views come with their own M7 issues.
+
 ### 10.3 Temporal links
 
 Links whose type allows validity (`temporal: optional|required`) may have bounds, e.g.
