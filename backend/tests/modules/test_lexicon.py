@@ -239,3 +239,23 @@ def test_disabled_module_and_purge(api: LinkApi) -> None:
     assert api.client.delete(f"{api.base}/entities/{varnish['id']}").status_code == 200
     purged = api.client.delete(f"{api.base}/entities/{varnish['id']}", params={"purge": "true"})
     assert purged.status_code in {200, 204}, purged.text
+
+
+def test_get_entry_and_lexicon_refs(api: LinkApi) -> None:
+    varnish = api.make("language", "Varnish")
+    entry = add(api, varnish, "thalass", definitions=[{"gloss": "the sea"}])
+    got = api.client.get(path(api, f"/lexicon/{entry['id']}"))
+    assert got.status_code == 200, got.json()
+    assert got.json()["headword"] == "thalass"
+    api.client.delete(path(api, f"/lexicon/{entry['id']}"))
+    problem(api.client.get(path(api, f"/lexicon/{entry['id']}")), 404, "not_found")
+
+    ref = {"type": "lexiconRef", "attrs": {"entryId": entry["id"], "languageId": varnish["id"]}}
+    body = {"type": "doc", "content": [{"type": "paragraph", "content": [ref]}]}
+    note = api.make("gadget", "Note", body=body)
+    assert api.get(note["id"]).json()["body"]["content"][0]["content"] == [ref]
+    bad = dict(ref, attrs={"entryId": entry["id"], "languageId": varnish["id"], "word": "x"})
+    refused = api.patch(
+        note, body={"type": "doc", "content": [{"type": "paragraph", "content": [bad]}]}
+    )
+    problem(refused, 422, "validation_error")

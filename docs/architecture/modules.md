@@ -193,6 +193,7 @@ defineModule({
   commands: [...],                               // command-palette actions
   settingsPages: [...],
   searchResultRenderers: { 'languages.lexicon_entry': LexiconHit },
+  richTextNodeRenderers: { lexiconRef: LexiconRefNode }, // module nodes in read-only rich text
 })
 ```
 

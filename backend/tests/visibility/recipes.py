@@ -285,6 +285,12 @@ def lexicon(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/m/languages/{hidden_id}/lexicon", status=404)
 
 
+@recipe(f"{V}/m/languages/lexicon/{{entry_id}}")
+def lexicon_entry(c: Canary) -> Iterator[Call]:
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/languages/lexicon/{hidden_id}", status=404)
+
+
 @recipe(f"{V}/m/languages/{{language_id}}/lexicon/export")
 def lexicon_export(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/languages/{c.public['Varnish']}/lexicon/export")

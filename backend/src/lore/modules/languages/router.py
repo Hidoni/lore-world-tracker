@@ -14,12 +14,13 @@ from lore.core.api.deps import (
 from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.modules.spec import VaultContext
-from lore.modules.languages.lexicon import Lexicon
+from lore.modules.languages.lexicon import Lexicon, entry_out
 from lore.modules.languages.lexicon_csv import export_csv, import_csv
 from lore.modules.languages.lexicon_schemas import (
     ImportIn,
     ImportReport,
     LexiconEntryCreate,
+    LexiconEntryOut,
     LexiconEntryUpdate,
     LexiconPage,
     LexiconSort,
@@ -94,6 +95,21 @@ def create_lexicon_entry(
     period needs `timeline_id`)."""
     request_suppress(session, body.suppress)
     return Lexicon(VaultContext(vault, session, registry)).create(language_id, body)
+
+
+@router.get("/lexicon/{entry_id}", name="lexicon_get")
+def get_lexicon_entry(
+    *,
+    entry_id: EntryIdPath,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+) -> LexiconEntryOut:
+    """One entry (`lexiconRef` nodes and the entry drawer). ``404`` when the request may not see
+    it or its language, or it is in the trash."""
+    lexicon = Lexicon(VaultContext(vault, session, registry), policy)
+    return entry_out(lexicon.entry(entry_id))
 
 
 @router.patch("/lexicon/{entry_id}", name="lexicon_update")

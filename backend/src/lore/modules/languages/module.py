@@ -21,6 +21,7 @@ from lore.modules.languages.lexicon import (
 )
 from lore.modules.languages.links import LINK_TYPES
 from lore.modules.languages.models import LexiconEntry
+from lore.modules.languages.richtext import LEXICON_REF
 from lore.modules.languages.router import router
 
 
@@ -64,6 +65,7 @@ MODULE = ModuleSpec(
         ),
     ),
     purge_hooks=(purge_entries,),
+    richtext_nodes=(LEXICON_REF,),
 )
 
 __all__ = ["ALPHABET_FIELD", "MODULE"]

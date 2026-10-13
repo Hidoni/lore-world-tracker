@@ -94,6 +94,12 @@ export interface DataSource {
     vault: string,
     query?: Query<'languages_family_tree'>,
   ): Promise<D<'FamilyTree'>>
+  lexicon(
+    vault: string,
+    language: string,
+    query?: Query<'languages_lexicon_list'>,
+  ): Promise<D<'LexiconPage'>>
+  lexiconEntry(vault: string, entry: string): Promise<D<'LexiconEntryOut'>>
   // The species module (docs/modules/species.md).
   speciesMembers(vault: string, species: string): Promise<D<'EntityLinks'>>
   speciesDescentTree(
@@ -197,4 +203,22 @@ export interface Mutations {
     proposal: string,
     body: Schemas['RecurrenceApplyIn'],
   ): Promise<D<'RecurrenceApplyOut'>>
+  // The languages module's lexicon.
+  createLexiconEntry(
+    vault: string,
+    language: string,
+    body: Schemas['LexiconEntryCreate'],
+  ): Promise<D<'LexiconWriteResult'>>
+  updateLexiconEntry(
+    vault: string,
+    entry: string,
+    body: Schemas['LexiconEntryUpdate'],
+  ): Promise<D<'LexiconWriteResult'>>
+  deleteLexiconEntry(vault: string, entry: string): Promise<D<'LexiconWriteResult'>>
+  importLexicon(
+    vault: string,
+    language: string,
+    body: Schemas['ImportIn'],
+    dryRun: boolean,
+  ): Promise<Schemas['ImportReport']>
 }

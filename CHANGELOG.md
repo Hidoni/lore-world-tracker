@@ -41,6 +41,14 @@ All notable changes to this project are documented here. The format follows
   periods. Entries sort by the language's own alphabet (multigraphs such as "ch" included) and
   re-sort when it changes. They can be searched, imported from CSV (with a dry run) and exported.
   Private entries, and the entries of hidden languages, stay hidden from readers.
+- **Lexicon editor** (#98): each language page has a Lexicon panel (and a full page) with a
+  keyboard-first table: type new words in the entry row, edit any cell in place, search, filter
+  by part of speech or tag, and sort by the language's own alphabet. 10,000 words scroll
+  smoothly. An entry drawer edits definitions with examples, etymology sources, notes, visibility
+  and attestation. The CSV import maps columns and runs a dry run that lists problems before
+  importing; Export CSV downloads the lexicon. Pronunciation fields have an IPA palette. In rich
+  text, `@@` (or "Word" in the slash menu) inserts a word that shows its glosses on hover, and
+  search results show lexicon words with their language.
 
 ## [0.4.0] - 2026-10-12
 

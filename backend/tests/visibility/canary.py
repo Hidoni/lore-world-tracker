@@ -383,6 +383,12 @@ def _languages(b: _Builder, home: dict[str, Any]) -> None:
     )
     assert hidden.status_code == 201, hidden.json()
     b.canary.hidden_ids.add(hidden.json()["entry"]["id"])
+    # A page referring to a word of the private language (readers lose the reference).
+    ref = {
+        "type": "lexiconRef",
+        "attrs": {"entryId": hidden.json()["entry"]["id"], "languageId": secret["id"]},
+    }
+    b.public("gadget", "Glossary", body=doc(p(text("The word "), ref)), **home)
 
 
 def _species(b: _Builder, home: dict[str, Any]) -> None:

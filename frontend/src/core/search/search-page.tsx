@@ -28,8 +28,8 @@ const SOURCE_LABEL: Record<Snippet['source'], string> = {
   extra: 'in details',
 }
 
-/** A snippet with its matches highlighted. */
-function SnippetText({ snippet }: { snippet: Snippet }) {
+/** A snippet with its matches highlighted (module hit renderers use it too). */
+export function SnippetText({ snippet }: { snippet: Snippet }) {
   return (
     <p className="text-sm text-muted-foreground">
       {snippet.parts.map((part, index) =>
