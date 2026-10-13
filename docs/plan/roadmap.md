@@ -22,7 +22,7 @@ product owner's request.
 | M4 Frontend foundation | Shell, data layer, module framework, entity pages, editor, navigation, links, search, history, settings | Generic wiki usable in the browser; E5 green | #58–#71 | v0.3.0 |
 | M5 Time UI & timeline view | Time pickers, dimension wizard, calendar editor + impact previews, events, recurrence UI, timeline view | E1–E4 green | #72–#88 | v0.4.0 |
 | M6 Content modules | Misc, locations, species, characters, groups, languages + lexicon | All brief components usable | #89–#99 | v0.5.0 |
-| M7 Temporal world state | Facts, existence, temporal links, as-of cursor, ages, narrative rules | E6 green | #100–#108 | v0.6.0 |
+| M7 Temporal world state | Facts, existence, temporal links, as-of cursor, ages, narrative rules | E6 green | #100–#108, #308 | v0.6.0 |
 | M8 Exploration | Graph (global/local), visual linking, unlinked mentions | Graph of 10k nodes interactive | #109–#113 | v0.7.0 |
 | M9 Advanced time | Branches, correspondences, worldlines, advanced rules | E7–E9 green | #114–#125 | v0.8.0 |
 | M10 Media & maps | Uploads, galleries, image nodes; interactive time-aware maps | E10 green | #126–#132 | v0.9.0 |
@@ -255,6 +255,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #106 | M7-07 | Narrative consistency rules for core and content modules (existence-aware, precision-aware) | L | P1 | #102, #90, #91, #92, #94, #97 |
 | #107 | M7-08 | E2E journey E6: relationships with validity, family tree, time cursor | S | P1 | #104, #93 |
 | #108 | M7-09 | Release v0.6.0: temporal world state (fixture vault, changelog) | S | P2 | #105, #106, #107 |
+| #308 | M7-10 | Family tree lifespans and existence at the time cursor | S | P2 | – |
 
 ### M8: Exploration
 

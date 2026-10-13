@@ -124,7 +124,8 @@ describe('relations panel', () => {
     await userEvent.click(within(dialog).getByLabelText('Cursed'))
     await userEvent.type(within(dialog).getByLabelText('Role'), 'heirloom')
     await userEvent.selectOptions(within(dialog).getByLabelText('Visibility'), 'Private')
-    expect(within(dialog).getByLabelText('From')).toBeDisabled()
+    // A timeless link type has no validity.
+    expect(within(dialog).queryByText('Always')).toBeNull()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add link' }))
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

@@ -499,6 +499,21 @@ Implementation (`core/time/`, #72):
     explanation (`certaintyProps`), as do tree nodes and list rows whose `existence` is
     `possible`.
   - All time shows everything, as before.
+- **Temporal editing** (#104; time-model.md §10.2-§10.4):
+  - **Field history:** each temporal field has a "… over time" toggle in the fields panel. It
+    opens `FactHistory`: the field's facts (value, period, source event, note, visibility,
+    unresolved status), edited in place with `FactForm` (the value editor of the field type,
+    `BoundsEditor` for the period, a source-event search, note, visibility), deleted, and added.
+    Overlapping values of a single-valued field are flagged inline (the later start wins).
+  - **Lifespan:** kinds with `has_existence` get a Lifespan section under the header with the
+    existence periods (several allowed) in the kind's words (Born/Died, Founded/Dissolved,
+    Founded/Destroyed, Emerged/Extinct). "Create birth/death event…" creates the event at a
+    picked moment and anchors the period's open start (or end) to its start, the only open
+    period's, else a new one, with the event as its source.
+  - **Link validity:** the link dialog (add and edit) has From/Until bounds (`BoundsEditor`,
+    with the Relative tab for event anchors) unless the type is timeless; `required` types
+    need one. Only changed bounds are sent.
+  - **Changes caused:** an event's page lists the facts it caused (`GET /facts?source_event=`).
 - **Formatting:** a moment shows at its precision when the display calendar has that level, else
   at the coarsest level whose unit fits in its extent (the extent given, or the precision's unit
   in the calendar that has it), like the backend's `display_level`. The Absolute calendar uses

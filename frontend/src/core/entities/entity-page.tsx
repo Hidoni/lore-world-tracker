@@ -7,6 +7,7 @@ import { FieldsPanel } from '@/core/fields'
 import {
   CausalityPanel,
   CausesSection,
+  ChangesCausedSection,
   EventTimeSection,
   eventTime,
   OccurrenceHeader,
@@ -23,6 +24,7 @@ import { LazyRichTextEditor, RichTextView, isDoc, type SaveOutcome } from '@/edi
 import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity } from '@/data'
 
 import { ExistenceNote, useEntityTime } from './as-of'
+import { Lifespan } from './lifespan'
 import { EntityHeader } from './entity-header'
 import { useEntitySaver, type EntityChange, type SaveResult } from './save'
 import { PurgeDialog } from './trash-dialogs'
@@ -164,6 +166,7 @@ function EntityView({
         </div>
       </div>
       <ExistenceNote vault={vault} entity={data} time={time} />
+      <Lifespan vault={vault} entity={data} kind={kind} />
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -215,6 +218,9 @@ function EntityView({
                   </Section>
                   <Section title="Participants">
                     <ParticipantsSection vault={vault} entity={data} editable={editable} />
+                  </Section>
+                  <Section title="Changes caused">
+                    <ChangesCausedSection vault={vault} eventId={data.id} />
                   </Section>
                 </>
               )}
