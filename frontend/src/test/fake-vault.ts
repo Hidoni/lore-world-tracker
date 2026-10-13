@@ -646,10 +646,10 @@ export function serveVault(
                 sites.includes(link.target_id),
             )
             .map((link) => link.target_id),
-          start: String((entity.ext as { start_t?: string } | undefined)?.start_t ?? '0'),
+          start: (entity.ext as { start_t?: string } | undefined)?.start_t ?? '0',
         }))
         .filter((item) => item.at.length > 0)
-        .sort((a, b) => Number(BigInt(a.start) - BigInt(b.start)))
+        .sort((a, b) => (BigInt(a.start) < BigInt(b.start) ? -1 : 1))
         .map(({ entity, at, start }) => ({
           id: entity.id,
           name: entity.name,

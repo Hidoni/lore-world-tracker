@@ -127,8 +127,10 @@ describe('locations module', () => {
       'Building',
       'Other places',
     ])
+    const [buildings] = groups
+    if (buildings === undefined) throw new Error('no groups')
     expect(
-      within(groups[0] as HTMLElement)
+      within(buildings)
         .getAllByRole('link')
         .map((l) => l.textContent),
     ).toEqual(['Harbor', 'Spire'])

@@ -11,8 +11,6 @@ from lore.modules.locations import MODULE as LOCATIONS
 from tests.entity_api import LinkApi, make_client, problem
 from tests.entity_modules import ENTITY_MODULES
 
-POINT = "anchor"
-
 
 @pytest.fixture
 def api(tmp_path: Path) -> Iterator[LinkApi]:
@@ -84,12 +82,11 @@ def test_kind_and_link_types(api: LinkApi) -> None:
 def test_link_rules(api: LinkApi) -> None:
     world = World(api)
     # Only events have sites; connections join locations and may cross dimensions (portals).
-    problem(api.link("locations.event_site", world.galaxy, world.varn), 422, "link_type_not_allowed")
+    refused = api.link("locations.event_site", world.galaxy, world.varn)
+    problem(refused, 422, "link_type_not_allowed")
     other = api.make("dimension", "Umbra")
     shadow = api.make("location", "Shadow Gate", dimension_id=other["id"])
-    portal = api.made_link(
-        "locations.connected_to", world.spire, shadow, data={"kind": "portal"}
-    )
+    portal = api.made_link("locations.connected_to", world.spire, shadow, data={"kind": "portal"})
     assert portal["data"] == {"kind": "portal"}
     bad = api.link("locations.connected_to", world.spire, world.void, data={"kind": "teleport"})
     problem(bad, 422, "validation_error")
@@ -111,10 +108,8 @@ def test_the_tree(api: LinkApi) -> None:
     (spire,) = varn["children"]
     assert (spire["name"], spire["location_type"], spire["children"]) == ("Spire", None, [])
     # A dimension's tree has its locations and the multiversal ones.
-    assert [n["name"] for n in m(api, "/tree", dimension=world.dimension["id"]).json()["items"]] == [
-        "Galaxy",
-        "The Void",
-    ]
+    in_dimension = m(api, "/tree", dimension=world.dimension["id"]).json()["items"]
+    assert [n["name"] for n in in_dimension] == ["Galaxy", "The Void"]
     problem(m(api, "/tree", root=world.founding["id"]), 404, "not_found")
 
 
