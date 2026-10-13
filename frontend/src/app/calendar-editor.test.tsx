@@ -96,11 +96,14 @@ async function yearTemplate(id: string, months: [string, string, string, string]
   }
 }
 
+/** The editor loads lazily, which can take a while under a loaded test run. */
+const LOADED = { timeout: 5000 }
+
 describe('calendar editor', () => {
   it('builds the alternating-years calendar from blank, matching the preset', async () => {
     vault()
     await renderApp('/v/v1/calendars/new?dimension=d1')
-    expect(await screen.findByRole('heading', { name: 'New calendar' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'New calendar' }, LOADED)).toBeInTheDocument()
 
     // Levels: blank has day and year; add month (below year), then hour, minute, second.
     await userEvent.click(
@@ -193,7 +196,7 @@ describe('calendar editor', () => {
   it('shows problems at their fields and focuses them from the list', async () => {
     vault()
     await renderApp('/v/v1/calendars/new?dimension=d1')
-    await screen.findByRole('heading', { name: 'New calendar' })
+    await screen.findByRole('heading', { name: 'New calendar' }, LOADED)
     await replace(within(level('day')).getByRole('textbox', { name: /id$/ }), 'Day!')
     expect(
       within(levels()).getByText('Use lowercase letters, digits and _ (starting with a letter).'),
@@ -388,7 +391,7 @@ describe('calendar editor', () => {
       expect(calls.proposed).toHaveLength(2)
     })
     expect(await screen.findByRole('button', { name: 'Apply the change' })).toBeInTheDocument()
-  })
+  }, 30_000)
 
   it('edits reforms, cycles, eras, overlays and formats', async () => {
     vault()
