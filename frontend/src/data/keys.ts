@@ -56,6 +56,8 @@ export const keys = {
   groupMembers: (vault: string, group: string, params: object) =>
     [vault, 'groupMembers', group, params] as const,
   groupLeaders: (vault: string, group: string) => [vault, 'groupLeaders', group] as const,
+  groupOrgChart: (vault: string, group: string, params: object) =>
+    [vault, 'groupOrgChart', group, params] as const,
   groupTerritory: (vault: string, group: string) => [vault, 'groupTerritory', group] as const,
   languageFamilyTree: (vault: string, params: object) =>
     [vault, 'languageFamilyTree', params] as const,

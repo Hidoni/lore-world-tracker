@@ -93,6 +93,11 @@ export interface DataSource {
   // The groups module (docs/modules/groups.md).
   groupMembers(vault: string, group: string, query?: Query<'groups_members'>): Promise<D<'Members'>>
   groupLeaders(vault: string, group: string): Promise<D<'Leaders'>>
+  groupOrgChart(
+    vault: string,
+    group: string,
+    query?: Query<'groups_org_chart'>,
+  ): Promise<D<'OrgChart'>>
   groupTerritory(vault: string, group: string): Promise<D<'EntityLinks'>>
   // The languages module (docs/modules/languages.md).
   languageFamilyTree(

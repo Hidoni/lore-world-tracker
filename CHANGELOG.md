@@ -41,6 +41,10 @@ All notable changes to this project are documented here. The format follows
   periods. Entries sort by the language's own alphabet (multigraphs such as "ch" included) and
   re-sort when it changes. They can be searched, imported from CSV (with a dry run) and exported.
   Private entries, and the entries of hidden languages, stay hidden from readers.
+- **Org charts and membership history** (#95): a group's org chart view shows its sub-groups
+  and parts top down, with each one's leaders and member count, drawn or as a list. The Members
+  panel has a History toggle that shows memberships as bars on the display calendar's time axis,
+  ready for membership dates once temporal links arrive.
 - **Family trees** (#93): character pages have a Family tree panel, and there is a full family
   tree view. Generations run top to bottom, spouses sit side by side (remarriages too), and
   half-siblings and siblings without known parents are placed correctly. You choose how many

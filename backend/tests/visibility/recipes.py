@@ -252,6 +252,12 @@ def group_leaders(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/leaders")
 
 
+@recipe(f"{V}/m/groups/{{group_id}}/org-chart")
+def group_org_chart(c: Canary) -> Iterator[Call]:
+    yield from _groups(c, "/org-chart")
+    yield from _groups(c, "/org-chart", {"depth": 5, "at": "7", "timeline": c.public["Prime"]})
+
+
 @recipe(f"{V}/m/groups/{{group_id}}/territory")
 def group_territory(c: Canary) -> Iterator[Call]:
     yield from _groups(c, "/territory")

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { renderApp } from '@/test/render-app'
 
@@ -116,4 +117,105 @@ describe('groups module', () => {
       await within(screen.getByRole('region', { name: 'Leadership' })).findByText('No leaders.'),
     ).toBeVisible()
   })
+})
+
+describe('membership history and org chart', () => {
+  // Aetheria (Gregorian) holds the empire; Ilsa was a member from 100 to 250 days, Oren is
+  // undated.
+  const DAY = 86_400n
+  function dated() {
+    return serveVault({
+      modules: ['groups'],
+      kinds: [...KINDS, GROUP, kind('character', 'Character'), kind('calendar', 'Calendar')],
+      linkTypes: LINK_TYPES,
+      rows: [
+        ...defaultRows().filter((entity) => entity.id !== 'd1'),
+        dimensionRow('d1', 'Aetheria', 'c-greg'),
+        calendarRow('c-greg', 'Gregorian', 'gregorian'),
+        row('empire', 'group', 'Empire', { dimension_id: 'd1' }),
+        row('ministry', 'group', 'Ministry of Tides', { parent_id: 'empire', dimension_id: 'd1' }),
+        row('office', 'group', 'Harbor Office', { parent_id: 'ministry', dimension_id: 'd1' }),
+        row('guard', 'group', 'Harbor Guard', { dimension_id: 'd1' }),
+        row('ilsa', 'character', 'Ilsa'),
+        row('oren', 'character', 'Oren'),
+      ],
+      links: [
+        {
+          id: 'm1',
+          link_type: 'groups.member_of',
+          source_id: 'ilsa',
+          target_id: 'empire',
+          valid_from_t: (100n * DAY).toString(),
+          valid_to_t: (250n * DAY).toString(),
+        },
+        { id: 'm2', link_type: 'groups.member_of', source_id: 'oren', target_id: 'empire' },
+        { id: 'm3', link_type: 'groups.member_of', source_id: 'oren', target_id: 'ministry' },
+        {
+          id: 'l1',
+          link_type: 'groups.led_by',
+          source_id: 'empire',
+          target_id: 'ilsa',
+          data: { title: 'Empress' },
+        },
+        { id: 'p1', link_type: 'groups.part_of', source_id: 'guard', target_id: 'empire' },
+      ],
+    })
+  }
+
+  it('draws memberships as bars on the display calendar’s axis', async () => {
+    dated()
+    await renderApp('/v/v1/e/empire?cal=c-greg')
+    const panel = await screen.findByRole('region', { name: 'Members' }, WAIT)
+    await within(panel).findByRole('list', { name: 'Members' }, WAIT)
+    await userEvent.click(within(panel).getByRole('checkbox', { name: 'History' }))
+    const history = await within(panel).findByRole('list', { name: 'Membership history' }, WAIT)
+    const rows = within(history).getAllByTestId('gantt-row')
+    expect(rows.map((item) => within(item).getByRole('link').textContent)).toEqual(['Ilsa', 'Oren'])
+    // Ilsa's bar lies inside the chart; Oren's (open both ways) spans it.
+    const [ilsa, oren] = within(history).getAllByTestId('gantt-bar')
+    const x = (bar: Element | undefined, name: string) => Number(bar?.getAttribute(name))
+    expect(x(ilsa, 'x')).toBeGreaterThan(0)
+    expect(oren).toHaveAttribute('data-open-start', 'true')
+    expect(oren).toHaveAttribute('data-open-end', 'true')
+    expect(x(oren, 'x')).toBe(0)
+    expect(x(oren, 'width')).toBeGreaterThan(x(ilsa, 'width'))
+    // The spans read in the display calendar; the axis has its ticks.
+    expect(rows[0]).toHaveTextContent(/11 April AD 1.* – 8 September AD 1/)
+    expect(rows[1]).toHaveTextContent('always – ongoing')
+    expect(await within(panel).findByRole('img', { name: 'Time axis' }, WAIT)).toBeVisible()
+    expect(within(panel).getAllByTestId(/-tick$/).length).toBeGreaterThan(0)
+  })
+
+  it('shows the org chart with leaders and member counts, drawn or as a list', async () => {
+    dated()
+    await renderApp('/v/v1/e/empire')
+    const structure = await screen.findByRole('region', { name: 'Structure' }, WAIT)
+    const link = await within(structure).findByRole('link', { name: 'Open the org chart' }, WAIT)
+    expect(link).toHaveAttribute('href', '/v/v1/m/groups/empire/org-chart')
+    await userEvent.click(link)
+    expect(await screen.findByRole('heading', { name: 'Org chart of Empire' }, WAIT)).toBeVisible()
+    const figure = await screen.findByRole('figure', { name: 'Org chart' }, WAIT)
+    await waitFor(
+      () => {
+        expect(
+          within(figure)
+            .getAllByTestId('org-unit')
+            .map((unit) => unit.getAttribute('title'))
+            .sort(),
+        ).toEqual(['Empire', 'Harbor Guard', 'Harbor Office', 'Ministry of Tides'])
+      },
+      { timeout: 10_000 },
+    )
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    expect(screen.getAllByTestId('org-item').map((item) => item.textContent)).toEqual([
+      'Empire · led by Ilsa (Empress) · 2 members',
+      'Ministry of Tides · 1 member',
+      'Harbor Guard (part) · 0 members',
+      'Harbor Office · 0 members',
+    ])
+    await userEvent.selectOptions(screen.getByLabelText('Levels'), '1')
+    await waitFor(() => {
+      expect(screen.getAllByTestId('org-item')).toHaveLength(3)
+    })
+  }, 20_000)
 })

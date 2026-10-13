@@ -1,13 +1,19 @@
 import { useState } from 'react'
 
 import type { EntityViewProps } from '@/core/modules'
-import { useChildren, useGroupMembers } from '@/data'
+import { useChildren, useEntity, useGroupMembers } from '@/data'
 
 import { LinkRows } from './link-rows'
+import { MembershipGantt } from './membership-gantt'
 
-/** Members with their ranks and titles, optionally with the members of sub-groups. */
+/**
+ * Members with their ranks and titles, optionally with the members of sub-groups; "History"
+ * shows the memberships as a Gantt chart.
+ */
 export function MembersPanel({ vault, entityId }: EntityViewProps) {
   const [inside, setInside] = useState(false)
+  const [history, setHistory] = useState(false)
+  const group = useEntity(vault, entityId)
   const members = useGroupMembers(vault, entityId, inside)
   const children = useChildren(vault, entityId, { kind: ['group'], limit: 500 })
   const names = new Map((children.data?.items ?? []).map((child) => [child.id, child.name]))
@@ -25,10 +31,26 @@ export function MembersPanel({ vault, entityId }: EntityViewProps) {
         />
         Include sub-groups
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={history}
+          onChange={(event) => {
+            setHistory(event.target.checked)
+          }}
+        />
+        History
+      </label>
       {members.isPending ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">No members.</p>
+      ) : history ? (
+        <MembershipGantt
+          vault={vault}
+          dimensionId={group.data?.dimension_id ?? null}
+          items={items}
+        />
       ) : (
         <LinkRows
           vault={vault}

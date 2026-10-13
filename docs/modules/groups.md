@@ -68,9 +68,27 @@ enabled; `characters.serves` now also targets groups. The leadership succession 
 the links' resolved validity, which arrives with temporal links (M7): until then, by name. Panels:
 **Members** (ranks, titles, leaders; "Include sub-groups"), **Structure** (sub-groups and
 `part_of` parts), **Leadership**, **Group relations** (alliances, wars, vassalage; the core
-Relations panel lists every link) and **Territory**. The org chart (endpoint and view) and the
-membership Gantt come with their own issues. The sample world has the Empire of the Tides with
+Relations panel lists every link) and **Territory**. The sample world has the Empire of the Tides with
 two ministries, House Varn (vassal), the private Whisperers and a war with the Free Shoals.
+
+Org chart and membership Gantt (#95):
+
+- `GET /m/groups/{id}/org-chart` walks `depth` levels (1–10, default 3) below the group. Each
+  level brings sub-groups (`parent_id`) and parts (`part_of` links valid at `at`). Each unit has
+  its leaders (`led_by`, with `data.title`) and a count of its own members (`member_of`), both
+  limited to links valid at `at`, or all of them without `at`. Counts include only what the
+  request sees. Units: at most 500 (`truncated`).
+- Memberships (`/members`) report their resolved validity (`from_t`, `to_t`). It stays `null`
+  until temporal links resolve it (M7).
+- The **org chart view** (`/v/<vault>/m/groups/<group>/org-chart`, linked from the Structure
+  panel) draws the units top down (ELK `mrtree`, React Flow). Parts hang from dashed edges, each
+  box shows the leaders and member count, and a click opens the group. It has a "Levels" control
+  and "As a list". It asks for the time context's cursor (`at`, `timeline`).
+- The Members panel's **History** toggle shows a Gantt chart: one bar per membership, positioned
+  with the `@lore/chronology` viewport over the known bounds (plus a margin). The axis uses the
+  group's dimension's display calendar (`ticks`). Open bounds run to the edge (lighter), and the
+  bounds read as dates in the display calendar ("always", "ongoing" when open). Until validity
+  resolves, every bar spans the chart and a note says so.
 
 ## Consistency rules
 

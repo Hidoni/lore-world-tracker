@@ -165,6 +165,21 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "Members": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "Membership"
+        }
+      }
+    }
+  },
+  "Membership": {
+    "o": {
+      "from_t": "m",
+      "to_t": "m"
+    }
+  },
   "OccurrenceOut": {
     "o": {
       "start_t": "m",

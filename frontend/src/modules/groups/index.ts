@@ -1,3 +1,4 @@
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
 import { defineModule, type EntityViewProps } from '@/core/modules'
@@ -36,13 +37,21 @@ const panel = (
 
 /**
  * The groups module (docs/modules/groups.md): organizations in a sub-group tree, with members and
- * their ranks, the leadership succession, structure, relations with other groups and territory.
+ * their ranks (and their history as a Gantt chart), the leadership succession, structure (and an
+ * org chart view), relations with other groups and territory.
  */
 export default defineModule({
   id: 'groups',
   kinds: {
     group: { icon: 'users', listColumns: ['group_type', 'motto'] },
   },
+  routes: (parent) => [
+    createRoute({
+      getParentRoute: () => parent,
+      path: '$group/org-chart',
+      component: lazyRouteComponent(() => import('./views/org-chart-page')),
+    }),
+  ],
   entityPanels: [
     panel('members', 'Members', MembersPanel, 'main', 10),
     panel('structure', 'Structure', StructurePanel, 'main', 11),
