@@ -1199,7 +1199,7 @@ def _core_characters(writer: Writer, core: Core) -> None:
     """Characters (M6): three generations of the royal house with spouses and siblings, a rival
     with a secret, a mentor, a resident and roles in events."""
     home = {"dimension_id": core[WORLD_NAME]}
-    people = (
+    people: tuple[tuple[str, dict[str, Any]], ...] = (
         ("King Aldric", {"epithet": "the Elder", "title": ["King of Varn"]}),
         ("Queen Maren", {"occupation": ["Tidecaller"]}),
         ("Ilsa the Tidebound", {"full_name": "Ilsa Maren-Varn", "title": ["Queen of Varn"]}),
