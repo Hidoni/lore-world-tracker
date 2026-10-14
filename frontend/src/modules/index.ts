@@ -2,6 +2,7 @@ import type { ModuleDefinition } from '@/core/modules'
 
 import branches from './branches'
 import characters from './characters'
+import correspondences from './correspondences'
 import graph from './graph'
 import groups from './groups'
 import languages from './languages'
@@ -21,4 +22,5 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   languages,
   graph,
   branches,
+  correspondences,
 ]

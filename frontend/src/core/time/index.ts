@@ -65,3 +65,13 @@ export {
 export { CreateBranchDialog, type CreateBranchOptions } from './create-branch-dialog'
 export { TimelineSwitcher } from './timeline-switcher'
 export { RecordBranchBadge } from './branch-badge'
+export {
+  compileStored,
+  correspondenceGraph,
+  mapper,
+  reachableFrom,
+  shortestPath,
+  useCorrespondenceGraph,
+  type CorrespondenceEdge,
+  type CorrespondenceGraph,
+} from './correspondences'
