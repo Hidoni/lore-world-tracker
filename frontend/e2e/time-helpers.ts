@@ -25,14 +25,15 @@ export async function createGregorianDimension(page: Page, lore: Lore, name: str
   return match[1]
 }
 
-/** Fills the event dialog's start with a Gregorian date at day precision. */
+/** Fills a time point picker (the event dialog's start) with a Gregorian date at day precision. */
 export async function typeDay(
   scope: ReturnType<Page['getByRole']>,
   year: number,
   month: string,
   day: number,
+  picker = 'Start',
 ) {
-  const start = scope.getByRole('group', { name: 'Start' })
+  const start = scope.getByRole('group', { name: picker })
   await start.getByLabel('Precision').selectOption('day')
   await start.getByLabel('year', { exact: true }).fill(String(year))
   await start.getByLabel('month', { exact: true }).selectOption({ label: month })
@@ -47,4 +48,32 @@ export function yearStart(year: number): bigint {
     days += leap ? 366n : 365n
   }
   return days * 86_400n
+}
+
+/** Moves the top bar's time cursor to a Gregorian day. */
+export async function moveCursor(page: Page, year: number, month: string, day: number) {
+  await page.getByRole('button', { name: /^Time cursor:/ }).click()
+  const popover = page.getByRole('dialog')
+  await typeDay(popover, year, month, day, 'Moment')
+  await popover.getByRole('button', { name: 'Go to this moment' }).click()
+  await expect(page.getByRole('button', { name: /^Time cursor:/ })).toHaveAccessibleName(
+    new RegExp(`${day} ${month} AD ${year}`),
+  )
+}
+
+/** An absolute time point at a moment. */
+export function absolute(t: bigint) {
+  return { anchor: { kind: 'absolute', t: t.toString() }, precision: 'base' }
+}
+
+/** A time point anchored to the start of an event. */
+export function atStartOf(eventId: string) {
+  return {
+    anchor: {
+      kind: 'relative',
+      ref: { type: 'event', id: eventId, slot: 'start' },
+      offset: { kind: 'base', units: '0' },
+    },
+    precision: 'base',
+  }
 }

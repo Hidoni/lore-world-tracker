@@ -92,6 +92,17 @@ export class Lore {
     return result.link
   }
 
+  /** A fact of an entity (`core.exists` for its existence, a temporal field's value…). */
+  async fact(entityId: string, body: Record<string, unknown>): Promise<{ id: string }> {
+    const result = await ok<{ fact: { id: string } }>(
+      await this.request.post(`${this.base}/entities/${entityId}/facts`, {
+        data: body,
+        headers: HEADERS,
+      }),
+    )
+    return result.fact
+  }
+
   /** The id of the entity named `name` (the quick switcher's first exact match). */
   async findByName(name: string): Promise<string> {
     const result = await ok<{ items: { entity_id: string; name: string }[] }>(
