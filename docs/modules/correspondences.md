@@ -31,6 +31,24 @@ Core: `correspondences`, `correspondence_points`. Sync points are time slots (`s
 - `GET /m/correspondences/map-batch` (POST body with many moments), used by timeline dimension
   lanes.
 
+### Implemented (#118)
+
+- Core: `correspondences` and `correspondence_points` (each point keeps the dimension of each
+  side, `a_dimension_id`/`b_dimension_id`, and its `position`), the `sync_point` slot provider
+  (slots `a` and `b`, each resolving in its own dimension: `SlotDef.dimension_column`),
+  `lore.core.time.correspondences` (compiling stored points through the engine, the graph of
+  dimensions and shortest-path mapping) and the hard rule `core.correspondence.non_monotonic`
+  (subjects: both dimensions), which refuses a change that moves an anchor event so the sync
+  points no longer increase in both dimensions.
+- The module: the API above (`lore.modules.correspondences`), and the warning
+  `correspondences.inconsistent_paths`: a correspondence and the shortest other path between its
+  dimensions disagree at one of its sync points by a whole base unit or more (compared exactly,
+  without the flooring of each step).
+- A sync point may only be anchored to its own side's dimension (`422`); cross-dimension anchors
+  in general (`time-model.md` §5.2) are not resolved through correspondences yet.
+- The sample world's "The Drowned Gate": Aetheria ↔ The Dreaming, from the Sundering, a day here
+  a year there.
+
 ## UI
 
 - **Correspondence editor** (from the dimension overview page): choose the other dimension, then

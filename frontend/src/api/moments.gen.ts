@@ -100,6 +100,31 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "CorrespondenceList": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "CorrespondenceOut"
+        }
+      }
+    }
+  },
+  "CorrespondenceOut": {
+    "o": {
+      "points": {
+        "a": {
+          "r": "SyncPointOut"
+        }
+      }
+    }
+  },
+  "CorrespondenceWriteResult": {
+    "o": {
+      "correspondence": {
+        "r": "CorrespondenceOut"
+      }
+    }
+  },
   "DiffRecord": {
     "o": {
       "start_t": "m",
@@ -283,6 +308,34 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "MapBatchIn": {
+    "o": {
+      "t": {
+        "a": "m"
+      }
+    }
+  },
+  "MapBatchOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "MappedMoment"
+        }
+      }
+    }
+  },
+  "MapOut": {
+    "o": {
+      "t": "m",
+      "result_t": "m"
+    }
+  },
+  "MappedMoment": {
+    "o": {
+      "t": "m",
+      "result_t": "m"
+    }
+  },
   "Members": {
     "o": {
       "items": {
@@ -392,6 +445,12 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "old_end_t": "m",
       "new_start_t": "m",
       "new_end_t": "m"
+    }
+  },
+  "SyncPointOut": {
+    "o": {
+      "a_t": "m",
+      "b_t": "m"
     }
   },
   "TimelineNode": {

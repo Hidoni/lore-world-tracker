@@ -886,6 +886,12 @@ map_ab(a) = b_i + floor((a − a_i) × (b_{i+1} − b_i) / (a_{i+1} − a_i))
 slopes absorb the conversion. Results outside the target dimension's `[0, D]` mean "no
 corresponding moment".
 
+Stored (#118, `data-model.md` §5.7): each sync point is a `sync_point` record whose slot `a`
+resolves in dimension A and `b` in dimension B; either may be anchored, to its own dimension's
+records only. After propagation the hard rule `core.correspondence.non_monotonic` refuses points
+out of order (an anchor event moved too far). Server side, `lore.core.time.correspondences`
+compiles the stored points and maps along the shortest path.
+
 Details (Python: `lore.chronology.correspondence`; TS: `validateCorrespondence`, `mapAB`/`mapBA`,
 `compose` in `@lore/chronology`; vectors in `cases/correspondences/`):
 
@@ -909,7 +915,8 @@ Dimensions and correspondences form a graph. `map(A → C)` composes along the s
 (`compose(path, t)`: each step maps with its own direction and target `D` and floors; any undefined
 step makes the result undefined). Choosing the path is the server's job. If two
 distinct paths between the same dimensions disagree at any sync point by more than rounding, rule
-`core.correspondence.inconsistent_paths` warns. Correspondences apply to **all timelines** of both
+`correspondences.inconsistent_paths` warns (the paths are compared exactly, unfloored: a whole
+base unit apart or more). Correspondences apply to **all timelines** of both
 dimensions (they describe how time flows, not history).
 
 ## 13. Worked examples

@@ -31,6 +31,12 @@ All notable changes to this project are documented here. The format follows
   own below the one you're viewing, with a marker where each branch diverges and what it changed
   outlined. A timeline's page shows its lineage, branch point, branches and what it changed, and
   entities can have notes for each branch ("In this timeline she became a pirate").
+- **Correspondences** (#118): say which moments of two dimensions happen at the same time, with
+  time flowing at different rates if need be ("a day here is a year there"). Sync points can be
+  anchored to events and move with them; a move that would make time run backwards in one
+  dimension is refused. Moments map across dimensions, through other dimensions when there is no
+  direct correspondence, and a warning appears when two routes disagree. The sample world's
+  Drowned Gate joins Aetheria and the Dreaming. New tables (migrated automatically).
 
 ## [0.7.0] - 2026-10-14
 

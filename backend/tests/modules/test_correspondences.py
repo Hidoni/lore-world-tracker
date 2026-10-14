@@ -174,3 +174,16 @@ def test_composes_along_the_shortest_path(api: LinkApi, worlds: Worlds) -> None:
         "points": [{"a": at(100), "b": at(10)}, {"a": at(200), "b": at(15)}]})  # fmt: skip
     assert fixed.status_code == 200, fixed.json()
     assert worlds.findings("correspondences.inconsistent_paths") == []
+
+
+def test_undo_and_redo(api: LinkApi, worlds: Worlds) -> None:
+    worlds.made(worlds.aetheria, worlds.dream, [(100, 1000), (200, 3000)])
+    latest = api.client.get(f"{api.base}/changes", params={"limit": 1}).json()["items"][0]
+    undone = api.client.post(f"{api.base}/changes/{latest['id']}/revert", json={})
+    assert undone.status_code == 200, undone.json()
+    assert api.client.get(worlds.base).json()["items"] == []
+    assert worlds.map(worlds.aetheria, worlds.dream, 150)["defined"] is False
+    redo = undone.json()["changeset"]["id"]
+    redone = api.client.post(f"{api.base}/changes/{redo}/revert", json={})
+    assert redone.status_code == 200, redone.json()
+    assert worlds.map(worlds.aetheria, worlds.dream, 150)["result_t"] == "2000"

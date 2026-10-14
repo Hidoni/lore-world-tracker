@@ -1770,6 +1770,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/correspondences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description The live correspondences (with their sync points), by name.
+         */
+        get: operations["correspondences_list"];
+        put?: never;
+        /**
+         * Create
+         * @description A correspondence between two dimensions (``time-model.md`` §12.1). The sync points
+         *     resolve (they may be anchored to events of their dimension) and must increase strictly in
+         *     both dimensions; rates must be positive, and a single point extrapolating needs both
+         *     (``422 validation_error``, paths ``points.<i>``, ``rate_before``, ``rate_after``).
+         */
+        post: operations["correspondences_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/correspondences/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Map
+         * @description The moment of `to_dimension` happening at `t` of `from_dimension`, mapped along the
+         *     shortest path of correspondences (``time-model.md`` §12.3); `defined: false` outside the
+         *     mappings, their extrapolation or the target dimension's time.
+         */
+        get: operations["correspondences_map"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/correspondences/map-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Map Batch
+         * @description Many moments mapped at once (timeline dimension lanes), like `GET /map`. A `POST` (the
+         *     moments go in the body): read-only servers refuse it, like the other read helpers that
+         *     post.
+         */
+        post: operations["correspondences_map_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/correspondences/{correspondence_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["correspondences_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Move a correspondence to the trash: mapping stops using it.
+         */
+        delete: operations["correspondences_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change a correspondence (`revision` as read; `409 revision_conflict` otherwise). Its
+         *     dimensions never change; `points` replaces every sync point.
+         */
+        patch: operations["correspondences_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2465,6 +2562,111 @@ export interface components {
             /** Display */
             display?: string | null;
             error?: components["schemas"]["TimeProblem"] | null;
+        };
+        /** CorrespondenceCreate */
+        CorrespondenceCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            dimension_a_id: components["schemas"]["EntityId"];
+            dimension_b_id: components["schemas"]["EntityId"];
+            name: components["schemas"]["EntityName"];
+            /**
+             * Extrapolation
+             * @default none
+             * @enum {string}
+             */
+            extrapolation?: "none" | "rate";
+            /** @description Dimension B units per dimension A unit beyond the sync points (`rate` extrapolation); null: the slope of the adjacent segment (a single sync point needs both). */
+            rate_before?: components["schemas"]["Rational"] | null;
+            /** @description Dimension B units per dimension A unit beyond the sync points (`rate` extrapolation); null: the slope of the adjacent segment (a single sync point needs both). */
+            rate_after?: components["schemas"]["Rational"] | null;
+            /** Note */
+            note?: string | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+            /** Points */
+            points: components["schemas"]["SyncPointIn"][];
+        };
+        /** CorrespondenceList */
+        CorrespondenceList: {
+            /**
+             * Items
+             * @description By name.
+             */
+            items: components["schemas"]["CorrespondenceOut"][];
+        };
+        /** CorrespondenceOut */
+        CorrespondenceOut: {
+            /** Id */
+            id: string;
+            /** Dimension A Id */
+            dimension_a_id: string;
+            /** Dimension B Id */
+            dimension_b_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Extrapolation
+             * @enum {string}
+             */
+            extrapolation: "none" | "rate";
+            rate_before: components["schemas"]["Rational"] | null;
+            rate_after: components["schemas"]["Rational"] | null;
+            /** Note */
+            note: string | null;
+            visibility: components["schemas"]["Visibility"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /**
+             * Points
+             * @description In the order given.
+             */
+            points: components["schemas"]["SyncPointOut"][];
+        };
+        /**
+         * CorrespondenceUpdate
+         * @description Changes to a correspondence (its dimensions never change); ``points`` replaces them all.
+         */
+        CorrespondenceUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            name?: components["schemas"]["EntityName"] | null;
+            /** Extrapolation */
+            extrapolation?: ("none" | "rate") | null;
+            /** @description Dimension B units per dimension A unit beyond the sync points (`rate` extrapolation); null: the slope of the adjacent segment (a single sync point needs both). */
+            rate_before?: components["schemas"]["Rational"] | null;
+            /** @description Dimension B units per dimension A unit beyond the sync points (`rate` extrapolation); null: the slope of the adjacent segment (a single sync point needs both). */
+            rate_after?: components["schemas"]["Rational"] | null;
+            /** Note */
+            note?: string | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            /** Points */
+            points?: components["schemas"]["SyncPointIn"][] | null;
+        };
+        /** CorrespondenceWriteResult */
+        CorrespondenceWriteResult: {
+            correspondence: components["schemas"]["CorrespondenceOut"];
+            affected: components["schemas"]["Affected"];
         };
         /** Definition */
         Definition: {
@@ -4218,6 +4420,67 @@ export interface components {
              */
             truncated: boolean;
         };
+        /** MapBatchIn */
+        MapBatchIn: {
+            from_dimension: components["schemas"]["EntityId"];
+            to_dimension: components["schemas"]["EntityId"];
+            /** T */
+            t: MomentString[];
+        };
+        /** MapBatchOut */
+        MapBatchOut: {
+            /** From Dimension */
+            from_dimension: string;
+            /** To Dimension */
+            to_dimension: string;
+            /**
+             * Items
+             * @description In the order asked.
+             */
+            items: components["schemas"]["MappedMoment"][];
+            /** Path */
+            path: string[];
+        };
+        /** MapOut */
+        MapOut: {
+            /** From Dimension */
+            from_dimension: string;
+            /** To Dimension */
+            to_dimension: string;
+            /**
+             * T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            t: MomentString;
+            /**
+             * Result T
+             * @description Null when there is no corresponding moment.
+             */
+            result_t: MomentString | null;
+            /** Defined */
+            defined: boolean;
+            /**
+             * Path
+             * @description The correspondences mapped through, in order (empty when unconnected).
+             */
+            path: string[];
+        };
+        /** MappedMoment */
+        MappedMoment: {
+            /**
+             * T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            t: MomentString;
+            /** Result T */
+            result_t: MomentString | null;
+            /** Defined */
+            defined: boolean;
+        };
         /** Members */
         Members: {
             /** Items */
@@ -5160,6 +5423,39 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** SyncPointIn */
+        SyncPointIn: {
+            /** @description The moment in dimension A (may be anchored to its events). */
+            a: components["schemas"]["TimePoint"];
+            /** @description The same moment in dimension B. */
+            b: components["schemas"]["TimePoint"];
+            /** Note */
+            note?: string | null;
+        };
+        /** SyncPointOut */
+        SyncPointOut: {
+            /** Id */
+            id: string;
+            /**
+             * A
+             * @description Readers: as moments when anchored to hidden records.
+             */
+            a: {
+                [key: string]: unknown;
+            } | null;
+            /** B */
+            b: {
+                [key: string]: unknown;
+            } | null;
+            /** A T */
+            a_t: MomentString | null;
+            /** B T */
+            b_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Note */
+            note: string | null;
         };
         /** TagCount */
         TagCount: {
@@ -9528,6 +9824,267 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BranchDiff"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_list: {
+        parameters: {
+            query?: {
+                /** @description Of this dimension (either side). */
+                dimension?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrespondenceList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrespondenceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrespondenceWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_map: {
+        parameters: {
+            query: {
+                from_dimension: string;
+                to_dimension: string;
+                /** @description A moment of `from_dimension`. */
+                t: MomentString;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_map_batch: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapBatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapBatchOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_get: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                correspondence_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrespondenceOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                correspondence_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrespondenceWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    correspondences_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                correspondence_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrespondenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrespondenceWriteResult"];
                 };
             };
             /** @description Problem */
