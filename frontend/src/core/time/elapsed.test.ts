@@ -39,9 +39,7 @@ describe('elapsed time', () => {
     expect(elapsedIn(greg.lens, DEC_2023, DEC_2023 + 3n * DAY + 7n, greg.dimension)?.text).toBe(
       '3 days',
     )
-    expect(elapsedIn(greg.lens, DEC_2023, DEC_2023 + 40n, greg.dimension)?.text).toBe(
-      '40 seconds',
-    )
+    expect(elapsedIn(greg.lens, DEC_2023, DEC_2023 + 40n, greg.dimension)?.text).toBe('40 seconds')
   })
 
   it('counts a leap year as one year', () => {
