@@ -565,6 +565,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/entities/{entity_id}/unlinked-mentions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unlinked Mentions
+         * @description Where other entities' text names this one (by name or alias, ignoring case and
+         *     diacritics) without linking to it: each source with the occurrences' text node paths and
+         *     UTF-16 offsets, for linking them in place.
+         */
+        get: operations["entities_unlinked_mentions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/facts": {
         parameters: {
             query?: never;
@@ -5140,6 +5162,66 @@ export interface components {
              */
             kind: "unknown";
         };
+        /** UnlinkedMentions */
+        UnlinkedMentions: {
+            /**
+             * Terms
+             * @description The names searched for: the entity's name and aliases.
+             */
+            terms: string[];
+            /**
+             * Items
+             * @description Sources by name.
+             */
+            items: components["schemas"]["UnlinkedSource"][];
+            /**
+             * Truncated
+             * @description More sources matched than `limit`.
+             */
+            truncated: boolean;
+        };
+        /**
+         * UnlinkedOccurrence
+         * @description Where a name or alias appears unlinked in a source's body.
+         */
+        UnlinkedOccurrence: {
+            /**
+             * Path
+             * @description The text node: child indices from the document's root (`content` arrays).
+             */
+            path: number[];
+            /**
+             * Offset
+             * @description Start of the match in the text node (UTF-16 code units).
+             */
+            offset: number;
+            /**
+             * Length
+             * @description Length of the match (UTF-16 code units).
+             */
+            length: number;
+            /**
+             * Text
+             * @description The matched text.
+             */
+            text: string;
+            /**
+             * Before
+             * @description Up to 40 characters of the text node before the match.
+             */
+            before: string;
+            /**
+             * After
+             * @description Up to 40 characters after it.
+             */
+            after: string;
+        };
+        /** UnlinkedSource */
+        UnlinkedSource: {
+            entity: components["schemas"]["LinkedEntity"];
+            /** Occurrences */
+            occurrences: components["schemas"]["UnlinkedOccurrence"][];
+        };
         /**
          * Vault
          * @description A vault. ``modified_at`` is derived from its files' modification times.
@@ -6704,6 +6786,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backlinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entities_unlinked_mentions: {
+        parameters: {
+            query?: {
+                /** @description At most this many sources. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Entity id. */
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnlinkedMentions"];
                 };
             };
             /** @description Problem */

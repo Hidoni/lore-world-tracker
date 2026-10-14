@@ -27,6 +27,7 @@ from lore.core.links.schemas import (
     LinkTypeUpdate,
     LinkUpdate,
     LinkWriteResult,
+    UnlinkedMentions,
 )
 from lore.core.links.service import LinkService, link_cursor
 from lore.core.links.types_service import LinkTypeService
@@ -160,3 +161,20 @@ def list_backlinks(
     links = LinkService(session, registry, policy, vault)
     as_of = link_cursor(VaultContext(vault, session, registry), policy, entity_id, timeline, at)
     return links.backlinks(entity_id, include_trashed=include_trashed, as_of=as_of)
+
+
+@entity_router.get("/{entity_id}/unlinked-mentions", name="unlinked_mentions")
+def list_unlinked_mentions(
+    *,
+    entity_id: Annotated[str, Path(pattern=ID_PATTERN, description="Entity id.")],
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    limit: Annotated[int, Query(ge=1, le=200, description="At most this many sources.")] = 50,
+) -> UnlinkedMentions:
+    """Where other entities' text names this one (by name or alias, ignoring case and
+    diacritics) without linking to it: each source with the occurrences' text node paths and
+    UTF-16 offsets, for linking them in place."""
+    links = LinkService(session, registry, policy, vault)
+    return links.unlinked_mentions(entity_id, limit=limit)

@@ -56,7 +56,9 @@ from lore.core.links.schemas import (
     LinkUpdate,
     LinkWriteResult,
     MentionCountsOut,
+    UnlinkedMentions,
 )
+from lore.core.links.unlinked import UnlinkedMentionFinder
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.service import ModuleDisabledError, enabled_modules
 from lore.core.modules.spec import VaultContext
@@ -425,6 +427,17 @@ class LinkService:
             except LoreError as exc:
                 problems.append(exc.detail)
         return problems
+
+    def unlinked_mentions(self, entity_id: str, *, limit: int) -> UnlinkedMentions:
+        """Where other entities' bodies name this one (name or alias) without linking to it
+        (``unlinked.py``), by source name."""
+        entity = self.session.get(Entity, entity_id)
+        if entity is None or not self.policy.visible_ids(self.session, [entity_id]):
+            raise NotFoundError(f"No entity {entity_id}.")
+        if entity.kind not in self.kinds:
+            raise ModuleDisabledError(f"The module of kind {entity.kind!r} is disabled.")
+        finder = UnlinkedMentionFinder(self.session, self.registry, self.policy, self.kinds)
+        return finder.find(entity, limit=limit, linked=_linked)
 
     def backlinks(
         self, entity_id: str, *, include_trashed: bool = False, as_of: AsOf | None = None

@@ -222,6 +222,11 @@ def backlinks(c: Canary) -> Iterator[Call]:
     yield from _as_of_links(c, (f"{_v(c)}/entities/{e}/backlinks" for e in c.public.values()))
 
 
+@recipe(f"{V}/entities/{{entity_id}}/unlinked-mentions")
+def unlinked_mentions(c: Canary) -> Iterator[Call]:
+    yield from _entities(c, "/unlinked-mentions")
+
+
 @recipe(f"{V}/tree")
 def tree(c: Canary) -> Iterator[Call]:
     path = f"{_v(c)}/tree"

@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Unlinked mentions** (#112): the backlinks panel lists the places where other entities'
+  text names this one, by its name or an alias, without linking to it (ignoring case and
+  accents). Each one shows in context and can be linked in place with one click, or all of a
+  source's at once.
 - **Local graph and visual linking** (#111): every entity page shows its neighborhood as a
   small graph that opens the full graph centered on it. In either graph, `Alt`+drag from one
   entity to another opens the link dialog with both filled in. Drop an entity onto a timeline

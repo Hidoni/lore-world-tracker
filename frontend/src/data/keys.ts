@@ -28,6 +28,8 @@ export const keys = {
     [vault, 'links', id, params ?? {}] as const,
   backlinks: (vault: string, id: string, params?: object) =>
     [vault, 'backlinks', id, params ?? {}] as const,
+  unlinkedMentions: (vault: string, id: string, params?: object) =>
+    [vault, 'unlinkedMentions', id, params ?? {}] as const,
   linkTypes: (vault: string) => [vault, 'linkTypes'] as const,
   changes: (vault: string, params?: object) => [vault, 'changes', params ?? {}] as const,
   change: (vault: string, id: string) => [vault, 'change', id] as const,

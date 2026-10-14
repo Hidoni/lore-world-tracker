@@ -46,6 +46,11 @@ export interface DataSource {
   tags(vault: string, query?: Query<'tags_list'>): Promise<D<'TagList'>>
   links(vault: string, id: string, query?: Query<'entities_links'>): Promise<D<'EntityLinks'>>
   backlinks(vault: string, id: string, query?: Query<'entities_backlinks'>): Promise<D<'Backlinks'>>
+  unlinkedMentions(
+    vault: string,
+    id: string,
+    query?: Query<'entities_unlinked_mentions'>,
+  ): Promise<D<'UnlinkedMentions'>>
   linkTypes(vault: string): Promise<D<'LinkTypeList'>>
   changes(vault: string, query?: Query<'changes_list'>): Promise<D<'ChangesetPage'>>
   change(vault: string, id: string, query?: Query<'changes_get'>): Promise<D<'ChangesetDetail'>>

@@ -185,6 +185,7 @@ interface DataSource {          // reads only — implementable from a static sn
   tree(vault, query): Promise<TreeNode[]>
   links(vault, id, query): Promise<Link[]>
   backlinks(vault, id): Promise<Backlinks>
+  unlinkedMentions(vault, id, query): Promise<UnlinkedMentions>
   timelineWindow(vault, timeline, query): Promise<TimelineWindow>
   graph(vault, query): Promise<Graph>
   search(vault, query): Promise<Page<SearchHit>>
@@ -380,7 +381,13 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   excluded). It also takes a role, `data` (a form for object schemas of simple properties, JSON
   otherwise) and visibility. Validity fields are shown disabled until temporal links (M7). The
   context panel shows the current entity's backlinks: linking entities with the links' labels, and
-  mention counts. It refreshes after a save that changes mentions (`affected`).
+  mention counts. It refreshes after a save that changes mentions (`affected`). Below them,
+  **unlinked mentions** (#112) list where other entities' text names the entity (name or alias,
+  ignoring case and diacritics) without linking to it, each occurrence in context. "Link" marks
+  that occurrence with an `entityLink` and "Link all" every occurrence in one source: the source
+  is re-read, its body edited at the given text node paths and offsets (`linkOccurrences`,
+  skipping any that no longer match) and saved at its revision. A conflict asks to try again.
+  Readers see the list without the buttons.
 - **Entity lists** (`/v/$vault/k/$kind`, #65): a table of the kind's entities. Filter by name prefix
   and dimension, and sort. Columns come from the kind's UI config `listColumns`, or else its first
   three short fields, plus dimension and last update. Rows are virtualized (`@tanstack/react-virtual`),

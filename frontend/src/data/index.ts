@@ -72,6 +72,7 @@ export { affectedKeys, invalidateAffected } from './invalidate'
 export { keys } from './keys'
 export {
   useBacklinks,
+  useUnlinkedMentions,
   useCreateLink,
   useDeleteLink,
   useLinks,

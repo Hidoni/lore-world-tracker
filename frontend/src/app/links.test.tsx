@@ -237,3 +237,87 @@ describe('backlinks panel', () => {
     expect(panel()).toHaveTextContent('Gemmentioned once')
   })
 })
+
+describe('unlinked mentions', () => {
+  const doc = (...content: unknown[]) => ({
+    type: 'doc',
+    content: [{ type: 'paragraph', content }],
+  })
+
+  const world = () => {
+    localStorage.setItem(
+      'lore.shell',
+      JSON.stringify({ sidebarWidth: 256, sidebarOpen: true, rightPanelOpen: true }),
+    )
+    return serveVault({
+      kinds: [...KINDS, kind('character', 'Character')],
+      rows: [
+        ...defaultRows(),
+        row('c1', 'character', 'Aria', {
+          body: doc(
+            { type: 'text', text: 'Wore the crown and the ' },
+            { type: 'text', text: 'Diadem', marks: [{ type: 'bold' }] },
+            { type: 'text', text: '.' },
+          ),
+        }),
+        row('c2', 'character', 'Bram', {
+          body: doc({ type: 'text', text: 'Saw a crown, crowned by no one.' }),
+        }),
+      ],
+      linkTypes: TYPES,
+      links: LINKS,
+    })
+  }
+
+  it('links one occurrence, or all of a source’s, in its text', async () => {
+    const writes = world()
+    await renderApp('/v/v1/e/a1')
+    const section = await screen.findByRole('region', { name: 'Unlinked mentions' })
+    expect(section).toHaveTextContent('Unlinked mentions (2)')
+    expect(section).toHaveTextContent('Saw a crown, crowned by no one.')
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Link “crown” in Bram' }))
+    await waitFor(() => {
+      expect(writes.some((w) => w.method === 'PATCH' && w.path.endsWith('/entities/c2'))).toBe(true)
+    })
+    const bram = writes.find((w) => w.path.endsWith('/entities/c2'))?.body as { body: unknown }
+    expect(bram.body).toEqual(
+      doc(
+        { type: 'text', text: 'Saw a ' },
+        { type: 'text', text: 'crown', marks: [{ type: 'entityLink', attrs: { entityId: 'a1' } }] },
+        { type: 'text', text: ', crowned by no one.' },
+      ),
+    )
+    // Bram drops off the list once linked.
+    await waitFor(() => {
+      expect(section).toHaveTextContent('Unlinked mentions (1)')
+    })
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Link all in Aria' }))
+    await waitFor(() => {
+      expect(writes.some((w) => w.path.endsWith('/entities/c1'))).toBe(true)
+    })
+    const aria = writes.find((w) => w.path.endsWith('/entities/c1'))?.body as { body: unknown }
+    const link = { type: 'entityLink', attrs: { entityId: 'a1' } }
+    expect(aria.body).toEqual(
+      doc(
+        { type: 'text', text: 'Wore the ' },
+        { type: 'text', text: 'crown', marks: [link] },
+        { type: 'text', text: ' and the ' },
+        { type: 'text', text: 'Diadem', marks: [{ type: 'bold' }, link] },
+        { type: 'text', text: '.' },
+      ),
+    )
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Unlinked mentions' })).toBeNull()
+    })
+  })
+
+  it('shows readers the mentions without linking', async () => {
+    world()
+    await renderApp('/v/v1/e/a1', undefined, { readOnly: true })
+    const section = await screen.findByRole('region', { name: 'Unlinked mentions' })
+    expect(section).toHaveTextContent('Saw a crown, crowned by no one.')
+    expect(within(section).queryByRole('button')).toBeNull()
+  })
+})

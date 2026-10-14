@@ -61,6 +61,8 @@ correspondences · timelines (as entities) · module rows (map pins, gallery ite
      the fields readers see. `rich_text` values are filtered like bodies.
    - Backlinks report no private mention counts (`private: 0`), and an entity whose only mentions
      are in private blocks isn't listed.
+   - Unlinked mentions search only the aliases readers see, and find occurrences in sources'
+     bodies as filtered for readers (no private blocks), among entities readers see.
 2. **Rich-text filtering** (`lore.core.richtext.filter_for_reader`) removes private
    `visibilityBlock`s, keeps spoilers flagged, and strips links to hidden entities. It is applied
    to bodies, rich-text fields and per-timeline notes.
@@ -126,7 +128,7 @@ The reader UI may only use these read operations (DataSource methods). The post-
 `StaticDataSource` must implement all of them from a snapshot:
 
 `meta`, `registry`, `entities` (list/filter, by existence at `at`), `entity` (+ `state` as-of), `facts`, `causedFacts`, `tree`, `tags`, `children`,
-`links`, `backlinks`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
+`links`, `backlinks`, `unlinkedMentions`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
 `graph`, `characterRelationships`, `characterLife`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
 `orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
 `speciesDescentTree`, `lexicon`, `lexiconEntry`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaFile`,
