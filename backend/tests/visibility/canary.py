@@ -66,6 +66,7 @@ class Canary:
     hidden_ids: set[str] = field(default_factory=set)  # never in a reader response
     public: dict[str, str] = field(default_factory=dict)  # name -> id of visible entities
     tags: dict[str, str] = field(default_factory=dict)  # name -> id
+    records: dict[str, str] = field(default_factory=dict)  # name -> id of visible non-entities
     changeset: str = ""
     backup: str = ""
 
@@ -291,6 +292,7 @@ def _events(
     _series(b, home, secret, plot)
     b.hidden("calendar", ext={"definition": YEARS}, dimension_id=realm["id"])
     b.hidden("event", dimension_id=realm["id"])
+    _correspondences(b, home, realm)
 
 
 def _facts(b: _Builder, home: dict[str, Any]) -> None:
@@ -393,6 +395,39 @@ def _branches(b: _Builder, home: dict[str, Any]) -> None:
         json={"body": note, "revision": 0},
     )
     assert response.status_code == 200, response.json()
+
+
+def _correspondences(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -> None:
+    """A public correspondence to a public Dreamrealm whose sync point is anchored to a private
+    event (readers get its moment), a private one, and one with the private dimension."""
+    api = b.api
+    dream = b.public("dimension", "Dreamrealm")
+    api.calendar(dream["id"])
+    secret_start = {"anchor": {"kind": "absolute", "t": "70"}, "precision": "base"}
+    opening = b.hidden("event", visibility="private", ext={"start": secret_start}, **home)
+    ref = {"type": "event", "id": opening["id"], "slot": "start"}
+    offset = {"kind": "base", "units": "0"}
+    anchored = {"anchor": {"kind": "relative", "ref": ref, "offset": offset}, "precision": "base"}
+
+    def made(a: str, b_: str, name: str, points: list[Any], **body: Any) -> dict[str, Any]:
+        response = api.client.post(f"{api.base}/m/correspondences", json={
+            "dimension_a_id": a, "dimension_b_id": b_, "name": name,
+            "points": [{"a": pa, "b": pb} for pa, pb in points], **body})  # fmt: skip
+        assert response.status_code == 201, response.json()
+        found: dict[str, Any] = response.json()["correspondence"]
+        return found
+
+    def at(t: int) -> dict[str, Any]:
+        return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}
+
+    world = home["dimension_id"]
+    portal = made(world, dream["id"], "Portal", [(anchored, at(1000)), (at(200), at(3000))])
+    b.canary.records["Portal"] = portal["id"]
+    secret = made(world, dream["id"], b.canary_string(), [(at(300), at(5000))],
+                  visibility="private", note=b.canary_string())  # fmt: skip
+    b.canary.hidden_ids.add(secret["id"])
+    realm_link = made(world, realm["id"], b.canary_string(), [(at(10), at(10))])
+    b.canary.hidden_ids.add(realm_link["id"])
 
 
 def _temporal_links(b: _Builder, home: dict[str, Any]) -> None:

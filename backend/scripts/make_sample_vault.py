@@ -90,6 +90,8 @@ from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import DATABASE_NAME, MANIFEST_NAME
 from lore.core.visibility import AUTHOR
 from lore.modules import ALL_MODULES
+from lore.modules.correspondences.schemas import CorrespondenceCreate
+from lore.modules.correspondences.service import Correspondences
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
 
@@ -158,6 +160,9 @@ class SampleWorld:
     # Branch name -> {"parent": timeline name, "branch_t": resolved branch moment, "events":
     # the events its window shows (by name), "own": its branch-only entities} (v0.8.0 on).
     branches: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Correspondence name -> {"from": dimension name, "to": dimension name, "t": a moment of
+    # "from", "mapped": what it maps to} (v0.8.0 on).
+    correspondences: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -603,6 +608,11 @@ class Services:
         """A fact: a temporal field's value, existence (``core.exists``) or a name."""
         data = FactCreate.model_validate({"field_key": field_key, **body})
         return Facts(self.context).create(entity_id, data).fact.id
+
+    def correspondence(self, **body: Any) -> str:
+        """A correspondence between two dimensions (the correspondences module, M9)."""
+        data = CorrespondenceCreate.model_validate(body)
+        return Correspondences(self.context).create(data).correspondence.id
 
     def word(self, language: str, headword: str, **body: Any) -> str:
         """A lexicon entry (the languages module)."""
@@ -1531,6 +1541,29 @@ def _core_branches(writer: Writer, core: Core, world: SampleWorld) -> None:
         }
 
 
+def _core_correspondences(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Correspondences (M9): the Drowned Gate between Aetheria and the Dreaming opened with the
+    Sundering; ever since, a day in Aetheria is a year in the Dreaming (time-model.md §13)."""
+    name = "The Drowned Gate"
+    rate = {"num": "365", "den": "1"}
+    with writer.transaction("Sample world: a correspondence") as s:
+        gate = s.correspondence(
+            dimension_a_id=core[WORLD_NAME], dimension_b_id=core["The Dreaming"], name=name,
+            extrapolation="rate", rate_before=rate, rate_after=rate,
+            note="A day here is a year there.",
+            points=[{"a": after(core["The Sundering"]), "b": point(1000 * YEAR)}],
+        )  # fmt: skip
+        core.ids[name] = gate
+        sundering = Correspondences(s.context).get(gate).points[0].a_t
+        assert sundering is not None
+        t = int(sundering) + 10 * DAY
+        mapped = Correspondences(s.context).map(core[WORLD_NAME], core["The Dreaming"], t)
+        assert mapped.result_t == 1000 * YEAR + 10 * YEAR, mapped
+    world.correspondences[name] = {
+        "from": WORLD_NAME, "to": "The Dreaming", "t": str(t), "mapped": str(mapped.result_t),
+    }  # fmt: skip
+
+
 def _moment(t: int | None) -> str | None:
     return None if t is None else str(t)
 
@@ -1618,6 +1651,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_facts(writer, core, world)
     _core_links(writer, core)
     _core_branches(writer, core, world)
+    _core_correspondences(writer, core, world)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {

@@ -6,8 +6,10 @@ from lore.core.facts.models import EntityFact
 from lore.core.links.models import Link
 from lore.core.time import calendars, dimensions, events, series
 from lore.core.time.fields import ENTITY_FIELD_SLOTS
-from lore.core.time.models import Calendar, Dimension, Event, Timeline
+from lore.core.time.models import Calendar, CorrespondencePoint, Dimension, Event, Timeline
 from lore.core.time.slots import SlotDef, SlotProvider
+
+SYNC_POINT = "sync_point"
 
 CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
     SlotProvider(
@@ -103,6 +105,17 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
             SlotDef("valid_to", referenceable=True),
         ),
         timeline_column="timeline_id",
+    ),
+    # Sync points of correspondences (time-model.md §12): ``a`` resolves in dimension A, ``b``
+    # in dimension B; either may be anchored to an event of its dimension. They describe how
+    # time flows, not history, so their anchors are seen from the prime timelines.
+    SlotProvider(
+        SYNC_POINT,
+        CorrespondencePoint,
+        (
+            SlotDef("a", dimension_column="a_dimension_id"),
+            SlotDef("b", dimension_column="b_dimension_id"),
+        ),
     ),
 )
 

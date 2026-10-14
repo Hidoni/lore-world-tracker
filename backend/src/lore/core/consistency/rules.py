@@ -778,6 +778,24 @@ def _branch_point_findings(
             )
 
 
+def _correspondence_order_findings(
+    ctx: RuleContext, subjects: Iterable[str] | None
+) -> Iterator[FindingDraft]:
+    """Correspondences whose resolved sync points don't increase in both dimensions
+    (``lore.core.time.correspondences``): an anchor event moved, or points were saved so."""
+    from lore.core.time.correspondences import order_problems  # noqa: PLC0415
+
+    for problem in order_problems(ctx.session, subjects):
+        row = problem.correspondence
+        yield FindingDraft(
+            "core.correspondence.non_monotonic",
+            (row.dimension_a_id, row.dimension_b_id),
+            problem.message,
+            discriminator=row.id,
+            data=problem.data,
+        )
+
+
 def _shared_past_findings(
     ctx: RuleContext, subjects: Iterable[str] | None
 ) -> Iterator[FindingDraft]:
@@ -933,6 +951,15 @@ CORE_RULES: tuple[RuleDef, ...] = (
         "its parent timeline doesn't have. Anchor it to a moment of the parent timeline.",
         _branch_point_findings,
         triggers=(Trigger("record", "timeline"),),
+    ),
+    _rule(
+        "core.correspondence.non_monotonic",
+        "Correspondence runs backwards",
+        "A correspondence's sync points, once resolved, don't increase in both dimensions: time "
+        "would flow backwards in one of them. Move the sync points (or what they are anchored "
+        "to) back into order.",
+        _correspondence_order_findings,
+        triggers=(Trigger("record", "dimension"),),
     ),
     _rule(
         "core.branch.shared_past_modified",

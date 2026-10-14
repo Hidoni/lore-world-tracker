@@ -579,3 +579,37 @@ def branch_diff(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/branches/timelines/{c.public['Divergence']}/diff", {"limit": 1})
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/branches/timelines/{hidden_id}/diff", status=404)
+
+
+# --- correspondences -----------------------------------------------------------------------------
+
+
+@recipe(f"{V}/m/correspondences")
+def correspondence_list(c: Canary) -> Iterator[Call]:
+    """A public correspondence anchored to a private event; a private one; one with a private
+    dimension (hidden, and a hidden dimension filter is a 404)."""
+    path = f"{_v(c)}/m/correspondences"
+    yield Call(path)
+    for name in ("Aetheria", "Dreamrealm"):
+        yield Call(path, {"dimension": c.public[name]})
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {"dimension": hidden_id}, status=404)
+
+
+@recipe(f"{V}/m/correspondences/{{correspondence_id}}")
+def correspondence(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/correspondences/{c.records['Portal']}")
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/correspondences/{hidden_id}", status=404)
+
+
+@recipe(f"{V}/m/correspondences/map")
+def correspondence_map(c: Canary) -> Iterator[Call]:
+    """Mapping through the public correspondence only (the private one would map 300)."""
+    path = f"{_v(c)}/m/correspondences/map"
+    world, dream = c.public["Aetheria"], c.public["Dreamrealm"]
+    for t in ("70", "150", "300", "10"):
+        yield Call(path, {"from_dimension": world, "to_dimension": dream, "t": t})
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {"from_dimension": world, "to_dimension": hidden_id, "t": "10"},
+                   status=422)  # fmt: skip

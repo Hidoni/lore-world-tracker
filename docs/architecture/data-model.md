@@ -273,7 +273,10 @@ Implementation (#100): `lore.core.time.models.EntityTimeField` and `lore.core.ti
   `(entity_id, seq)`, `(timeline_id, start_t)`.
 - `correspondences(id, dimension_a_id, dimension_b_id, name, extrapolation, rate_before JSON NULL,
   rate_after JSON NULL, note, visibility, revision, timestamps, deleted_at)`.
-- `correspondence_points(id, correspondence_id, a_spec, a_t, b_spec, b_t, time_status, note)`.
+- `correspondence_points(id, correspondence_id, position, a_dimension_id, b_dimension_id, a_spec,
+  a_t, b_spec, b_t, time_status, note)`: record type `sync_point`; the dimension columns repeat
+  the correspondence's (each slot resolves in its own, a correspondence's dimensions never
+  change).
 
 ### 5.8 `entity_timeline_notes`
 

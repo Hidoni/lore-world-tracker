@@ -346,6 +346,22 @@ def test_the_core_has_a_branch(tmp_path: Path) -> None:
         assert check_vault(_manager(client), world.vault_id).problems == ()
 
 
+def test_the_core_has_a_correspondence(tmp_path: Path) -> None:
+    """The Drowned Gate (M9): a day in Aetheria is a year in the Dreaming, from the Sundering."""
+    world = generate(tmp_path, "tiny")
+    gate = world.correspondences["The Drowned Gate"]
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{world.vault_id}"
+        dimensions = {
+            e["name"]: e["id"] for e in _all(client, f"{base}/entities", kind="dimension")
+        }
+        found = client.get(f"{base}/m/correspondences/map", params={
+            "from_dimension": dimensions[gate["from"]], "to_dimension": dimensions[gate["to"]],
+            "t": gate["t"]}).json()  # fmt: skip
+        assert found["result_t"] == gate["mapped"]
+        assert check_vault(_manager(client), world.vault_id).problems == ()
+
+
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
     target = tmp_path / "v9.9.9"
     world = make_sample_vault.write_fixture(target)
