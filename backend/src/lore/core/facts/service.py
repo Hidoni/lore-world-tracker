@@ -97,6 +97,38 @@ class Facts:
         )
         return FactList(items=self.out_many(entity, facts))
 
+    def caused_by(self, event_id: str) -> FactList:
+        """The live facts the policy shows whose source is the event (its "changes caused"), by
+        entity, field and start. ``404`` for an event the policy hides (or not an event)."""
+        event = self.entities.load_visible(event_id)
+        if event.kind != EVENT:
+            raise NotFoundError(f"No event {event_id}.")
+        facts = list(
+            self.session.scalars(
+                select(EntityFact).where(
+                    EntityFact.source_event_id == event.id,
+                    EntityFact.deleted_at.is_(None),
+                    *self.policy.rows(EntityFact),
+                    *self.policy.entity_ref(EntityFact.timeline_id),
+                )
+            )
+        )
+        shown = self.policy.visible_ids(self.session, {fact.entity_id for fact in facts})
+        by_entity: dict[str, list[EntityFact]] = {}
+        for fact in facts:
+            if fact.entity_id in shown:
+                by_entity.setdefault(fact.entity_id, []).append(fact)
+        items: list[FactOut] = []
+        for entity_id in sorted(by_entity):
+            entity = self.session.get(Entity, entity_id)
+            if entity is None or entity.kind not in self.entities.kinds:
+                continue
+            own = [f for f in by_entity[entity_id] if self._field_shown(entity, f.field_key)]
+            own.sort(key=lambda f: (f.field_key, f.valid_from_t is not None, f.valid_from_t or 0,
+                                    f.created_at, f.id))  # fmt: skip
+            items += self.out_many(entity, own)
+        return FactList(items=items)
+
     def get(self, fact_id: str) -> FactOut:
         fact, entity = self._visible(fact_id)
         return self.out_many(entity, [fact])[0]

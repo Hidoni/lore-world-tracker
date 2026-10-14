@@ -179,6 +179,12 @@ export interface FactRow {
   timeline_id?: string
   /** Covers its moments only possibly (an uncertain bound). */
   possible?: boolean
+  source_event_id?: string | null
+  note?: string | null
+  visibility?: string
+  revision?: number
+  valid_from?: unknown
+  valid_to?: unknown
 }
 
 function factOut(fact: FactRow) {
@@ -431,7 +437,17 @@ export function serveVault(
     ...(options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]),
   ]
   const links = new Map((options.links ?? []).map((link) => [link.id, linkOut(link)]))
-  const facts = options.facts ?? []
+  const facts: FactRow[] = (options.facts ?? []).map((fact) => ({ ...fact }))
+  let factSeq = 0
+  /** A written bound's moment: absolute anchors only (others don't resolve here). */
+  const boundT = (point: unknown): string | null => {
+    const anchor = (point as { anchor?: { kind?: string; t?: string } } | null)?.anchor
+    return anchor?.kind === 'absolute' ? (anchor.t ?? null) : null
+  }
+  const factWrite = (fact: FactRow) => ({
+    fact: factOut(fact),
+    affected: { entities: [fact.entity_id], ...NOTHING },
+  })
   let linkSeq = 0
   const moduleStates = options.moduleStates?.map((state) => ({ ...state }))
   let settings = {
@@ -611,6 +627,50 @@ export function serveVault(
         at: at.toString(),
         ...stateOf(id, at),
       })
+    }),
+    http.get('*/api/v1/vaults/v1/facts', ({ request }) => {
+      const event = new URL(request.url).searchParams.get('source_event')
+      return HttpResponse.json({
+        items: facts.filter((fact) => fact.source_event_id === event).map(factOut),
+      })
+    }),
+    http.post('*/api/v1/vaults/v1/entities/:id/facts', async ({ request, params }) => {
+      const body = await record(request)
+      factSeq += 1
+      const fact: FactRow = {
+        id: `f-new${String(factSeq)}`,
+        entity_id: String(params.id),
+        field_key: String(body.field_key),
+        value: body.field_key === 'core.exists' ? true : body.value,
+        timeline_id: String(body.timeline_id),
+        valid_from: body.valid_from ?? null,
+        valid_to: body.valid_to ?? null,
+        valid_from_t: boundT(body.valid_from),
+        valid_to_t: boundT(body.valid_to),
+        source_event_id: (body.source_event_id as string | null | undefined) ?? null,
+        note: (body.note as string | null | undefined) ?? null,
+        visibility: (body.visibility as string | undefined) ?? 'public',
+      }
+      facts.push(fact)
+      return HttpResponse.json(factWrite(fact), { status: 201 })
+    }),
+    http.patch('*/api/v1/vaults/v1/facts/:id', async ({ request, params }) => {
+      const body = await record(request)
+      const fact = facts.find((candidate) => candidate.id === String(params.id))
+      if (fact === undefined) return new HttpResponse(null, { status: 404 })
+      const change = Object.fromEntries(Object.entries(body).filter(([key]) => key !== 'revision'))
+      Object.assign(fact, change, { revision: (fact.revision ?? 1) + 1 })
+      if ('valid_from' in change) fact.valid_from_t = boundT(change.valid_from)
+      if ('valid_to' in change) fact.valid_to_t = boundT(change.valid_to)
+      return HttpResponse.json(factWrite(fact))
+    }),
+    http.delete('*/api/v1/vaults/v1/facts/:id', async ({ request, params }) => {
+      await record(request)
+      const index = facts.findIndex((candidate) => candidate.id === String(params.id))
+      const fact = facts[index]
+      if (fact === undefined) return new HttpResponse(null, { status: 404 })
+      facts.splice(index, 1)
+      return HttpResponse.json(factWrite(fact))
     }),
     http.get('*/api/v1/vaults/v1/entities/:id/facts', ({ params }) =>
       HttpResponse.json({

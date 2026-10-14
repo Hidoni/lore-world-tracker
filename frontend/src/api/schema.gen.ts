@@ -565,6 +565,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description The facts whose source is the event (its "changes caused"), by entity, field and start.
+         *     ``404`` for an event the request may not see.
+         */
+        get: operations["facts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/facts/{fact_id}": {
         parameters: {
             query?: never;
@@ -6593,6 +6614,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backlinks"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    facts_list: {
+        parameters: {
+            query: {
+                /** @description An event: the facts it caused. */
+                source_event: string;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactList"];
                 };
             };
             /** @description Problem */

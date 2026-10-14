@@ -1,3 +1,4 @@
+import type { TimePoint } from '@lore/chronology'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -12,12 +13,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useKindRegistry } from '@/core/registry'
+import { BoundsEditor, useTimeContext, type Bounds } from '@/core/time'
 import {
   fieldErrors,
   useCreateLink,
+  useEntity,
   useLinkTypes,
   useQuickSearch,
   useUpdateLink,
+  type WireTimePoint,
   type components,
   type EntityLink,
 } from '@/data'
@@ -42,6 +46,7 @@ interface Target {
   id: string
   name: string
   kind: string
+  dimension_id?: string | null
 }
 
 /** What the dialog edits: a new link from `entity`, or an existing link (type and ends fixed). */
@@ -74,6 +79,14 @@ export function LinkDialog({
   const [data, setData] = useState<Record<string, unknown>>(editing?.link.data ?? {})
   const [visibility, setVisibility] = useState<Visibility | ''>(editing?.link.visibility ?? '')
   const [badJson, setBadJson] = useState(false)
+  const initial: Bounds = {
+    from: editing?.link.valid_from ?? null,
+    to: editing?.link.valid_to ?? null,
+  }
+  const [bounds, setBounds] = useState<Bounds>(initial)
+  const self = useEntity(vault, entity.id)
+  const context = useTimeContext(vault)
+  const dimensionId = self.data?.dimension_id ?? target?.dimension_id ?? context.dimensionId
 
   const options = linkOptions(types.data?.items ?? [], entity.kind, target?.kind ?? null)
   const option: LinkOption | undefined = editing
@@ -82,16 +95,27 @@ export function LinkDialog({
   const linkType = editing
     ? types.data?.items.find((type) => type.key === editing.link.link_type)
     : option?.type
-  const needsValidity = linkType?.temporal === 'required'
+  const temporal = linkType?.temporal ?? 'optional'
+  const bounded = bounds.from !== null || bounds.to !== null
+  const needsValidity = temporal === 'required' && !bounded
   const mutation = editing ? update : create
   const errors = fieldErrors(mutation.error)
   const kindLabel = (key: string) => registry?.kind(key)?.label ?? key
 
   const submit = () => {
+    const changed = (a: TimePoint | null, b: TimePoint | null) =>
+      JSON.stringify(a) !== JSON.stringify(b)
+    const validity = {
+      ...(changed(bounds.from, initial.from)
+        ? { valid_from: bounds.from as WireTimePoint | null }
+        : {}),
+      ...(changed(bounds.to, initial.to) ? { valid_to: bounds.to as WireTimePoint | null } : {}),
+    }
     const common = {
       role: role.trim() === '' ? null : role.trim(),
       data,
       ...(visibility === '' ? {} : { visibility }),
+      ...(temporal === 'never' ? {} : validity),
     }
     if (editing) {
       update.mutate(
@@ -212,24 +236,26 @@ export function LinkDialog({
               ))}
             </select>
           </div>
-          <fieldset disabled className="grid grid-cols-2 gap-3 opacity-60">
-            <legend className="mb-1 text-sm font-medium">Valid</legend>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="link-valid-from">From</Label>
-              <Input id="link-valid-from" placeholder="Always" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="link-valid-to">To</Label>
-              <Input id="link-valid-to" placeholder="Always" />
-            </div>
-            <p className="col-span-2 text-xs text-muted-foreground">
-              Dated links arrive with temporal world state (M7).
-            </p>
-          </fieldset>
-          {needsValidity && !editing && (
-            <p className="text-sm text-destructive">
-              This link type needs validity dates, which can’t be entered yet.
-            </p>
+          {temporal !== 'never' && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-medium">Valid</legend>
+              <BoundsEditor
+                vault={vault}
+                dimensionId={dimensionId}
+                value={bounds}
+                onChange={setBounds}
+              />
+              {(errors.valid_from ?? errors.valid_to ?? errors.timeline_id) !== undefined && (
+                <p className="text-sm text-destructive">
+                  {errors.valid_from ?? errors.valid_to ?? errors.timeline_id}
+                </p>
+              )}
+              {needsValidity && (
+                <p className="text-sm text-muted-foreground">
+                  This link type needs a start or an end.
+                </p>
+              )}
+            </fieldset>
           )}
           {mutation.error && Object.keys(errors).length === 0 && (
             <p role="alert" className="text-sm text-destructive">
@@ -245,7 +271,8 @@ export function LinkDialog({
               disabled={
                 mutation.isPending ||
                 badJson ||
-                (!editing && (target === null || option === undefined || needsValidity))
+                needsValidity ||
+                (!editing && (target === null || option === undefined))
               }
             >
               {editing ? 'Save' : 'Add link'}

@@ -68,6 +68,22 @@ def create_fact(
     return Facts(VaultContext(vault, session, registry)).create(entity_id, body)
 
 
+@router.get("", name="list")
+def list_caused_facts(
+    *,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+    source_event: Annotated[
+        str, Query(pattern=ID_PATTERN, description="An event: the facts it caused.")
+    ],
+) -> FactList:
+    """The facts whose source is the event (its "changes caused"), by entity, field and start.
+    ``404`` for an event the request may not see."""
+    return Facts(VaultContext(vault, session, registry), policy).caused_by(source_event)
+
+
 @router.patch("/{fact_id}", name="update")
 def update_fact(
     *,

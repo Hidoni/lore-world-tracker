@@ -39,6 +39,8 @@ const VAULT_WIDE = [
   'lexiconEntry',
   'speciesMembers',
   'speciesDescentTree',
+  // An event's "changes caused" (keyed by the event, written through the entity).
+  'causedFacts',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = [

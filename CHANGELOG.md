@@ -30,6 +30,11 @@ All notable changes to this project are documented here. The format follows
   entity existed ("Not yet born", "Died in 1204"), show its name and time-dependent fields as
   they were, and list the relationships, members, residents and other links valid then;
   uncertain ones are shown muted. Lists and the sidebar can hide what didn't exist then.
+- **Editing over time** (#104): a field's values over time can be added, changed and removed,
+  with a warning where two overlap. Lifespans (born and died, founded and destroyed…) are edited
+  on the entity page, and one click creates the birth or death event and ties the date to it.
+  Links get start and end dates in the link dialog, and an event's page lists the changes it
+  caused.
 
 ## [0.5.0] - 2026-10-13
 

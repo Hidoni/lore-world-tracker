@@ -73,6 +73,44 @@ export function useFacts(
   })
 }
 
+/** An event's "changes caused" (`GET /facts?source_event=`). */
+export function useCausedFacts(vault: string, event: string) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.causedFacts(vault, event),
+    queryFn: () => source.causedFacts(vault, event),
+  })
+}
+
+export function useCreateFact(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ entity, body }: { entity: string; body: Schemas['FactCreate'] }) =>
+      mutations.createFact(vault, entity, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useUpdateFact(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Schemas['FactUpdate'] }) =>
+      mutations.updateFact(vault, id, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useDeleteFact(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => mutations.deleteFact(vault, id),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
 export function useChildren(vault: string, id: string, query: Query<'entities_children'> = {}) {
   const source = useDataSource()
   return useQuery({

@@ -10,3 +10,5 @@ export {
   validateField,
   type FieldDef,
 } from './schema'
+export { EXISTS, FactForm, NAME } from './fact-form'
+export { FactHistory, overlaps } from './fact-history'
