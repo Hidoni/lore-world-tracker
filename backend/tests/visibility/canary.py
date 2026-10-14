@@ -417,7 +417,9 @@ def _correspondences(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -
         found: dict[str, Any] = response.json()["correspondence"]
         return found
 
-    at = lambda t: {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}  # noqa: E731
+    def at(t: int) -> dict[str, Any]:
+        return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}
+
     world = home["dimension_id"]
     portal = made(world, dream["id"], "Portal", [(anchored, at(1000)), (at(200), at(3000))])
     b.canary.records["Portal"] = portal["id"]
