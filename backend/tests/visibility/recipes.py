@@ -566,10 +566,10 @@ def branch_notes(c: Canary) -> Iterator[Call]:
     divergence = c.public["Divergence"]
     for entity_id in c.public.values():
         yield Call(f"{_v(c)}/m/branches/notes/{entity_id}/{divergence}")
-    yield Call(f"{_v(c)}/m/branches/notes/{c.public['Time Traveler']}/{c.public['Prime']}", status=422)
+    yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{c.public['Prime']}", status=422)
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/branches/notes/{hidden_id}/{divergence}", status=404)
-        yield Call(f"{_v(c)}/m/branches/notes/{c.public['Time Traveler']}/{hidden_id}", status=404)
+        yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{hidden_id}", status=404)
 
 
 @recipe(f"{V}/m/branches/timelines/{{timeline_id}}/diff")
