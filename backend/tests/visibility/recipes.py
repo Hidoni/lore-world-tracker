@@ -565,8 +565,8 @@ def branch_notes(c: Canary) -> Iterator[Call]:
     timelines (404)."""
     divergence = c.public["Divergence"]
     for entity_id in c.public.values():
-        status = 422 if entity_id == divergence else 200
-        yield Call(f"{_v(c)}/m/branches/notes/{entity_id}/{divergence}", status=status)
+        yield Call(f"{_v(c)}/m/branches/notes/{entity_id}/{divergence}")
+    yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{c.public['Prime']}", status=422)
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/branches/notes/{hidden_id}/{divergence}", status=404)
         yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{hidden_id}", status=404)
