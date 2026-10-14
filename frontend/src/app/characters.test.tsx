@@ -11,6 +11,7 @@ import {
   linkType,
   row,
   serveVault,
+  type FactRow,
   type LinkRow,
 } from '@/test/fake-vault'
 import { renderApp } from '@/test/render-app'
@@ -40,12 +41,15 @@ const LINK_TYPES = [
   linkType('locations.resides_in', 'resides in', { module: 'locations' }),
 ]
 
-function world(extra: { links?: LinkRow[]; linkTypes?: ReturnType<typeof linkType>[] } = {}) {
+function world(
+  extra: { links?: LinkRow[]; linkTypes?: ReturnType<typeof linkType>[]; facts?: FactRow[] } = {},
+) {
   const at = (t: string) => ({ ext: { start_t: t, end_t: t } })
   return serveVault({
     modules: ['characters', 'locations'],
     kinds: [KINDS[0], KINDS[1], EVENT, CHARACTER, kind('location', 'Location')],
     linkTypes: extra.linkTypes ?? LINK_TYPES,
+    facts: extra.facts ?? [],
     rows: [
       ...defaultRows().filter((entity) => entity.id !== 'd1'),
       dimensionRow('d1', 'Aetheria', null),
@@ -134,6 +138,23 @@ describe('characters module', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual(['100 sBirth of Ilsa', '300 sCrowningas queen'])
+  })
+
+  it('shows the lifespan and the age at each event', async () => {
+    world({
+      facts: [
+        { id: 'life', entity_id: 'ilsa', field_key: 'core.exists', valid_from_t: '100',
+          valid_to_t: '1000' },
+      ], // prettier-ignore
+    })
+    await renderApp('/v/v1/e/ilsa')
+    const life = await screen.findByRole('region', { name: 'Life' }, WAIT)
+    expect(await within(life).findByLabelText('Lifespan', {}, WAIT)).toHaveTextContent(
+      'Born t = 100 s · Died t = 1,000 s (aged 900 seconds)',
+    )
+    const events = await within(life).findByRole('list', { name: 'Life events' }, WAIT)
+    const crowning = within(events).getByRole('link', { name: 'Crowning' }).closest('li')
+    expect(crowning).toHaveTextContent('age 200 seconds')
   })
 
   it('says when there is nothing to show', async () => {

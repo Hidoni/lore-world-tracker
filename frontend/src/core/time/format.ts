@@ -128,6 +128,75 @@ export function relativeToPresent(lens: Lens, t: bigint, present: bigint | null)
   }
 }
 
+/** Above this many top-level units an elapsed time shows only them, in scientific notation. */
+const ONLY_TOP = 1000n
+const SCIENTIFIC = { scientificThreshold: 7, significantDigits: 2 }
+
+/**
+ * How long from `from` to `to` in a display calendar, in words: the two coarsest non-zero units
+ * ("34 years, 2 months"), only the top unit for long spans (scientific beyond a million: "3.2 ×
+ * 10^9 years"), base units under the Absolute calendar or below its finest level. `sign` is
+ * `-1` when `to` is before `from`. `null` when the calendar can't measure it.
+ */
+export function elapsedIn(
+  lens: Lens,
+  from: bigint,
+  to: bigint,
+  dimension: DimensionTime,
+): { text: string; sign: 1 | -1 } | null {
+  const sign: 1 | -1 = to < from ? -1 : 1
+  const calendar = lens.calendar
+  if (calendar === null) {
+    const units = sign === 1 ? to - from : from - to
+    return { text: baseUnits(units, dimension), sign }
+  }
+  const levels = calendar.levels
+  const top = levels[levels.length - 1]
+  if (top === undefined) return null
+  const label = (id: string, count: bigint) => {
+    const level = calendar.definition.levels.find((candidate) => candidate.id === id)
+    const word = count === 1n ? (level?.label ?? id) : (level?.plural ?? id)
+    return `${formatInteger(count, SCIENTIFIC)} ${word.toLowerCase()}`
+  }
+  try {
+    const coarse = diff(calendar, from, to, top, top)
+    const years = coarse.amounts.get(top) ?? 0n
+    if (years >= ONLY_TOP) return { text: label(top, years), sign }
+    const smallest = levels[Math.max(0, levels.length - 3)] ?? top
+    const found = diff(calendar, from, to, top, smallest)
+    const parts = levels
+      .toReversed()
+      .map((id) => [id, found.amounts.get(id) ?? 0n] as const)
+      .filter(([, count]) => count > 0n)
+      .slice(0, 2)
+      .map(([id, count]) => label(id, count))
+    if (parts.length === 0) {
+      const units = sign === 1 ? to - from : from - to
+      return { text: baseUnits(units, dimension), sign }
+    }
+    return { text: parts.join(', '), sign }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * `t` relative to a reference moment in words: "34 years ago", "2 months from now" against the
+ * present, or with other words ("before the cursor"). `null` at the reference itself.
+ */
+export function relativeTo(
+  lens: Lens,
+  t: bigint,
+  reference: bigint,
+  dimension: DimensionTime,
+  words: { before: string; after: string } = { before: 'ago', after: 'from now' },
+): string | null {
+  if (t === reference) return null
+  const found = elapsedIn(lens, t, reference, dimension)
+  if (found === null) return null
+  return `${found.text} ${found.sign === 1 ? words.before : words.after}`
+}
+
 function unitWord(count: bigint, singular: string, plural: string): string {
   return `${formatInteger(count)} ${(count === 1n ? singular : plural).toLowerCase()}`
 }

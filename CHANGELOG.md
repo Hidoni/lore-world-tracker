@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format follows
   on the entity page, and one click creates the birth or death event and ties the date to it.
   Links get start and end dates in the link dialog, and an event's page lists the changes it
   caused.
+- **Ages and elapsed time** (#105): how long ago things happened ("34 years, 2 months ago"),
+  with huge spans in scientific notation. A character's Life panel shows when they were born and
+  died, their age at death and at each event they took part in, and their species' typical
+  lifespan.
 
 ## [0.5.0] - 2026-10-13
 

@@ -10,6 +10,7 @@ import {
   durationSign,
   formatDuration,
   formatDurationIn,
+  relativeTo,
   formatIn,
   timeProblemMessage,
   useDisplayLens,
@@ -228,6 +229,11 @@ export function EventTimeSection({
   const unknownEnd = time.end?.kind === 'unknown'
   const duration =
     start === null || end === null ? null : formatDurationIn(lens, start, end.t, dimension, lenses)
+  const measure = lens.calendar === null ? (lenses.find((c) => c.calendar !== null) ?? lens) : lens
+  const ago =
+    start === null || dimension.present === null
+      ? null
+      : relativeTo(measure, start.t, dimension.present, dimension)
   return (
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -264,7 +270,12 @@ export function EventTimeSection({
       <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-2">
         <dt className="text-muted-foreground">Start</dt>
         <dd className="flex flex-col">
-          <span className="font-medium">{shown(start, 'Not set')}</span>
+          <span className="font-medium">
+            {shown(start, 'Not set')}
+            {ago !== null && (
+              <span className="ml-1 font-normal text-muted-foreground">({ago})</span>
+            )}
+          </span>
           {time.start !== null && (
             <span className="text-xs text-muted-foreground">
               <AnchorText vault={vault} point={time.start} dimension={dimension} lenses={lenses} />

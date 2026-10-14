@@ -81,7 +81,8 @@ None.
 Implementation (#92): `backend/src/lore/modules/characters/` and
 `frontend/src/modules/characters/`. `characters.serves` targets characters and groups (#94). Panels: **Relationships** (Family, Social, Other, with `data.kind`,
 capacity and roles, and "Add relationship" through the link dialog), **Life** (the time
-context's timeline), **Affiliations** (the `out` links of `groups.member_of`,
+context's timeline: born and died with the age at death, the existence periods, the events by
+start with the age at each, and the species' `typical_lifespan`; #105), **Affiliations** (the `out` links of `groups.member_of`,
 `locations.resides_in`, `locations.origin`, `species.is_a` and `languages.speaks` of the enabled
 modules). As-of filtering comes with its own issue. The sample world has the royal house of Varn over three generations, a rival with a
 secret and roles in events.
