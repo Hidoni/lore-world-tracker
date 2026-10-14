@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TimePointPicker, useDimensionLenses, useTimeContext } from '@/core/time'
-import { ApiError, useSaveOverride, type EntityLink, type WireTimePoint } from '@/data'
+import { ApiError, useSaveOverride, type EntityLink } from '@/data'
 
 /**
  * Edit a link in a branch (time-model.md §4.4): an inherited link still valid at the branch point
