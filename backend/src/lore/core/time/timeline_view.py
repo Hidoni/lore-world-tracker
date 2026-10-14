@@ -88,6 +88,11 @@ def register_time_bound(bound: TimeBound) -> TimeBound:
     return bound
 
 
+def registered_time_bounds() -> dict[type, TimeBound]:
+    """Every registered time-bound table, by model."""
+    return dict(_REGISTRY)
+
+
 def time_bound(model: type) -> TimeBound:
     """The registration of ``model``."""
     try:

@@ -16,6 +16,7 @@ from lore.core.consistency.schemas import request_suppress
 from lore.core.db.base import VISIBILITIES, Visibility, new_id
 from lore.core.db.types import utc_now
 from lore.core.entities.errors import ParentNotAllowedError, RevisionConflictError
+from lore.core.entities.extensions import cascading
 from lore.core.entities.models import (
     Entity,
     EntityAlias,
@@ -52,7 +53,7 @@ from lore.core.richtext.schema import validate_document
 from lore.core.search.indexer import SearchIndexer
 from lore.core.time.changes import report as report_time
 from lore.core.time.fields import write_time_fields
-from lore.core.time.models import Event
+from lore.core.time.models import Event, Timeline
 from lore.core.time.propagate import after_trash
 from lore.core.time.redact import ReaderTimes
 from lore.core.types import Affected
@@ -219,7 +220,9 @@ class EntityService:
 
     # --- writes ---------------------------------------------------------------------------------
 
-    def create(self, data: EntityCreate) -> EntityWriteResult:
+    def create(self, data: EntityCreate, *, timeline_id: str | None = None) -> EntityWriteResult:
+        """Create an entity. Created in a branch (``timeline_id``, a timeline of its dimension),
+        it is branch-only there (``origin_timeline_id``, ``time-model.md`` §4.6)."""
         request_suppress(self.session, data.suppress)
         kind = self.kinds.get(data.kind)
         if kind is None:
@@ -249,6 +252,8 @@ class EntityService:
         if data.parent_id is not None:
             self._check_parent(None, kind, data.dimension_id, data.parent_id)
             entity.parent_id = data.parent_id
+        if timeline_id is not None:
+            entity.origin_timeline_id = self._origin(timeline_id, data.dimension_id)
         self.session.add(entity)
         self.session.flush()
         self._replace_aliases(entity, data.aliases)
@@ -362,12 +367,15 @@ class EntityService:
         if "sort_key" in sent:
             entity.sort_key = data.sort_key
 
-    def trash(self, entity_id: str) -> EntityDeleteResult:
+    def trash(self, entity_id: str, *, cascade: bool = False) -> EntityDeleteResult:
         """Move to the trash (idempotent). Children stay where they are: the trash view shows
-        them as orphans of the trashed parent."""
+        them as orphans of the trashed parent. A kind may take other entities along, only when
+        ``cascade`` confirms it (else ``409 cascade_required`` lists them: a branch's descendants
+        and branch-only entities)."""
         entity = self._load(entity_id)
         if entity.deleted_at is None:
-            self._trash_hook(entity, True)
+            with cascading(cascade):
+                self._trash_hook(entity, True)
             entity.deleted_at = utc_now()
             self.session.flush()
             after_trash(self.context, entity.id)
@@ -608,6 +616,22 @@ class EntityService:
         defaults = settings.get("defaults") if isinstance(settings, dict) else None
         value = defaults.get("visibility") if isinstance(defaults, dict) else None
         return value if value in VISIBILITIES else "public"
+
+    def _origin(self, timeline_id: str, dimension_id: str | None) -> str | None:
+        """The origin of an entity created in ``timeline_id``: a live timeline of its dimension
+        the request sees (``None`` for a prime timeline)."""
+        row = self.session.get(Timeline, timeline_id)
+        timeline = self.session.get(Entity, timeline_id)
+        if (
+            row is None
+            or timeline is None
+            or timeline.deleted_at is not None
+            or not self.policy.visible_ids(self.session, [timeline_id])
+        ):
+            raise _invalid("timeline", f"No timeline {timeline_id}.")
+        if row.dimension_id != dimension_id:
+            raise _invalid("timeline", "The timeline must be a timeline of the entity's dimension.")
+        return None if row.is_prime else timeline_id
 
     def _trash_hook(self, entity: Entity, trashing: bool) -> None:
         extension = self.extensions.get(entity.kind)

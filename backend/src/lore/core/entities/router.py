@@ -66,8 +66,10 @@ def _queries(
     registry: ModuleRegistry,
     policy: VisibilityPolicy,
     existence: ExistenceOf | None = None,
+    *,
+    timeline: str | None = None,
 ) -> EntityQueries:
-    return EntityQueries(_service(vault, session, registry, policy), existence)
+    return EntityQueries(_service(vault, session, registry, policy), existence, timeline)
 
 
 def _existence(
@@ -114,11 +116,12 @@ def list_entities(
     """Entities of enabled kinds. ``dimension`` includes multiversal entities unless
     ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value.
     With ``at`` (and ``timeline``, default: the prime timeline of ``dimension``), entities that
-    don't exist then are left out; a page may then be short and still have a ``next_cursor``."""
+    don't exist then are left out; a page may then be short and still have a ``next_cursor``.
+    Branch-only entities are listed only with a ``timeline`` of their branch (or a descendant)."""
     existence = _existence(
         vault, session, registry, policy, timeline=timeline, at=at, dimension=dimension
     )
-    return _queries(vault, session, registry, policy, existence).list_entities(
+    return _queries(vault, session, registry, policy, existence, timeline=timeline).list_entities(
         kinds=kinds,
         dimension=dimension,
         include_multiversal=include_multiversal,
@@ -171,11 +174,12 @@ def get_tree(
 ) -> TreePage:
     """One level of the navigation tree: the roots (entities without a shown parent), or the
     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name. ``at``
-    filters by existence as in entity lists (child counts don't)."""
+    filters by existence as in entity lists (child counts don't). ``timeline`` shows the
+    branch-only entities of its lineage, as in entity lists."""
     existence = _existence(
         vault, session, registry, policy, timeline=timeline, at=at, dimension=dimension
     )
-    return _queries(vault, session, registry, policy, existence).tree(
+    return _queries(vault, session, registry, policy, existence, timeline=timeline).tree(
         dimension=dimension,
         parent=parent,
         kinds=kinds,
@@ -216,10 +220,21 @@ def list_trash(
 
 @router.post("", name="create", status_code=201)
 def create_entity(
-    body: EntityCreate, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+    body: EntityCreate,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    timeline: Annotated[
+        str | None,
+        Query(
+            pattern=ID_PATTERN,
+            description="Create it in this timeline of its dimension: in a branch, the entity is "
+            "branch-only (shown in that branch and its descendants).",
+        ),
+    ] = None,
 ) -> EntityWriteResult:
     """Create an entity of any kind, with its aliases, tags and kind extension data."""
-    return _service(vault, session, registry).create(body)
+    return _service(vault, session, registry).create(body, timeline_id=timeline)
 
 
 @router.get("/{entity_id}", name="get")
@@ -283,11 +298,12 @@ def list_children(
     at: AtQuery = None,
 ) -> TreePage:
     """Children of every kind and dimension (not in the trash), sorted like the tree. ``at``
-    (with ``timeline``) filters by existence as in entity lists."""
+    (with ``timeline``) filters by existence as in entity lists; ``timeline`` shows the
+    branch-only entities of its lineage."""
     existence = _existence(
         vault, session, registry, policy, timeline=timeline, at=at, dimension=None
     )
-    return _queries(vault, session, registry, policy, existence).children(
+    return _queries(vault, session, registry, policy, existence, timeline=timeline).children(
         entity_id, kinds=kinds, cursor=cursor, limit=limit
     )
 
@@ -315,15 +331,23 @@ def delete_entity(
     purge: Annotated[
         bool, Query(description="Delete permanently (only entities already in the trash).")
     ] = False,
+    cascade: Annotated[
+        bool,
+        Query(
+            description="Confirm trashing what goes along (a branch's descendant branches and "
+            "branch-only entities; else `409 cascade_required` lists them)."
+        ),
+    ] = False,
     suppress: Annotated[
         SuppressIn | None, Body(description="Save anyway: findings to suppress.")
     ] = None,
 ) -> EntityDeleteResult:
     """Move to the trash, or purge from it (``409 conflict`` while the entity isn't trashed, has
-    children or is still referenced)."""
+    children or is still referenced). Trashing a branch timeline with descendant branches,
+    branch-only entities or records of its own needs ``cascade=true``."""
     request_suppress(session, suppress.suppress if suppress else None)
     service = _service(vault, session, registry)
-    return service.purge(entity_id) if purge else service.trash(entity_id)
+    return service.purge(entity_id) if purge else service.trash(entity_id, cascade=cascade)
 
 
 @router.post("/{entity_id}/restore", name="restore")
