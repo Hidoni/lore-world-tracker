@@ -325,10 +325,11 @@ def _existing(session: Session, model: Any, root: Any, timeline_id: str) -> Any:
 
 
 def _copy(model: Any, root: Any, timeline_id: str) -> Any:
+    # Unset columns stay unset: an explicit None would store JSON null in JSON columns.
     values = {
         column.key: getattr(root, column.key)
         for column in model.__table__.columns
-        if column.key not in _OWN
+        if column.key not in _OWN and getattr(root, column.key) is not None
     }
     row = model(**values, id=new_id(), timeline_id=timeline_id, overrides_id=root.id)
     if hasattr(model, "created_at"):
