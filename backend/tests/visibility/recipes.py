@@ -566,10 +566,10 @@ def branch_notes(c: Canary) -> Iterator[Call]:
     divergence = c.public["Divergence"]
     for entity_id in c.public.values():
         yield Call(f"{_v(c)}/m/branches/notes/{entity_id}/{divergence}")
-    yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{c.public['Prime']}", status=422)
+    yield Call(f"{_v(c)}/m/branches/notes/{c.public['Time Traveler']}/{c.public['Prime']}", status=422)
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/branches/notes/{hidden_id}/{divergence}", status=404)
-        yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{hidden_id}", status=404)
+        yield Call(f"{_v(c)}/m/branches/notes/{c.public['Time Traveler']}/{hidden_id}", status=404)
 
 
 @recipe(f"{V}/m/branches/timelines/{{timeline_id}}/diff")
@@ -627,7 +627,7 @@ def _worldline_entities(c: Canary, suffix: str) -> Iterator[Call]:
 
 @recipe(f"{V}/m/worldlines/entities/{{entity_id}}/segments")
 def worldline_segments(c: Canary) -> Iterator[Call]:
-    """Every visible entity's worldline (the Wanderer's explicit one, implicit ones of others;
+    """Every visible entity's worldline (the Time Traveler's explicit one, implicit ones of others;
     readers see neither the private segment nor the one in the private dimension, nor the
     private events that anchor and document the visible ones)."""
     yield from _worldline_entities(c, "segments")
@@ -635,7 +635,7 @@ def worldline_segments(c: Canary) -> Iterator[Call]:
 
 @recipe(f"{V}/m/worldlines/entities/{{entity_id}}/presence")
 def worldline_presence(c: Canary) -> Iterator[Call]:
-    path = f"{_v(c)}/m/worldlines/entities/{c.public['Wanderer']}/presence"
+    path = f"{_v(c)}/m/worldlines/entities/{c.public['Time Traveler']}/presence"
     world = c.public["Aetheria"]
     for t in ("55", "150", "750", "0"):
         yield Call(path, {"dimension": world, "t": t})

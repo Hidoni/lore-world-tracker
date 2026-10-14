@@ -445,7 +445,7 @@ def _worldlines(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -> Non
     ref = {"type": "event", "id": secret["id"], "slot": "start"}
     anchored = {"anchor": {"kind": "relative", "ref": ref, "offset": {"kind": "base", "units": "0"}},
                 "precision": "base"}  # fmt: skip
-    traveler = b.public("character", "Wanderer", **home)
+    traveler = b.public("character", "Time Traveler", **home)
     prime = b.canary.public["Prime"]
 
     def segment(start: Any, end: Any, **body: Any) -> dict[str, Any]:
