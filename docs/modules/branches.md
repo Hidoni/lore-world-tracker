@@ -79,7 +79,20 @@ Core tables only (`timelines`, override rows in time-bound tables, `entity_timel
   branch creation or editing. The API still answers for branches (a `tl` in a URL keeps
   working); hiding their records server-side is not done.
 
-Compare mode, the timeline page and per-timeline notes come with #117.
+### Implemented (#117)
+
+- **Compare mode** in the timeline view ("Compare" → the dimension's other timelines): each
+  checked timeline gets lane groups of its own under the viewed one, on the same axis and
+  read-only; a dashed marker shows where each compared branch diverges, and events a branch
+  created or changed (its diff against its parent) are outlined (`frontend.md` §9.5).
+- **Timeline page** (the `branches.timeline` panel on `timeline` entities): lineage, branch
+  point, the diff's counts and its records (created, changed, carried over the branch point,
+  eight of each with the rest counted), child branches, "View this timeline". The premise is the
+  entity's summary.
+- **Per-timeline notes** (the `branches.notes` panel, shown while a branch is viewed): the rich
+  text editor, autosaved against the note's revision (an emptied note is deleted); readers see
+  the note filtered. Module entity panels gained `useShown` for this.
+- e2e E7.
 
 ## UI
 

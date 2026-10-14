@@ -49,4 +49,5 @@ CI uploads that folder as the `playwright-report` artifact. Open one with
 | smoke | `smoke.spec.ts`            | the shell loads; create and reopen a vault                                                                    |
 | E5    | `e5-linking.spec.ts`       | a `[[` link in the editor, the backlink on the target, rename relabels the link                               |
 | E6    | `e6-relationships.spec.ts` | a marriage valid from a wedding to a death, the family tree, the time cursor changes who is married and alive |
+| E7    | `e7-branches.spec.ts` | "What if…" branches at an assassination, the war spanning it ends earlier in the branch, compare mode shows both timelines, the divergence and the shorter war |
 | graph | `graph.spec.ts`            | the graph page draws with WebGL while the layout runs, pans and zooms, freezes, finds and opens an entity     |
