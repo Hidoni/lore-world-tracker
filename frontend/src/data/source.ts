@@ -179,7 +179,11 @@ export interface Mutations {
     id: string,
     suppress?: Schemas['SuppressIn'],
   ): Promise<EntityWriteResult>
-  createFact(vault: string, entity: string, body: Schemas['FactCreate']): Promise<D<'FactWriteResult'>>
+  createFact(
+    vault: string,
+    entity: string,
+    body: Schemas['FactCreate'],
+  ): Promise<D<'FactWriteResult'>>
   updateFact(vault: string, id: string, body: Schemas['FactUpdate']): Promise<D<'FactWriteResult'>>
   deleteFact(vault: string, id: string): Promise<D<'FactWriteResult'>>
   createLink(vault: string, body: Schemas['LinkCreate']): Promise<D<'LinkWriteResult'>>

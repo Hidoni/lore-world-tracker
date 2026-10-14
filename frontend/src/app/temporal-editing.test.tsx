@@ -93,8 +93,9 @@ describe('temporal editing', () => {
       expect(within(history).getAllByRole('note')).toHaveLength(2)
     })
 
-    const rows = within(history).getAllByRole('listitem', { name: 'Value over time' })
-    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Delete this value' }))
+    const [first] = within(history).getAllByRole('listitem', { name: 'Value over time' })
+    if (first === undefined) throw new Error('no values listed')
+    await userEvent.click(within(first).getByRole('button', { name: 'Delete this value' }))
     await waitFor(() => {
       expect(writes.at(-1)).toMatchObject({ method: 'DELETE', path: '/facts/f1' })
     })
