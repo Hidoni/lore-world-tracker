@@ -94,7 +94,10 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
     `graph.color`, else its category's color. The categories are family, social, spatial,
     causal, mention, hierarchy and other, shown in a legend. Edge size grows with the mention
     count. Dashes aren't drawn yet.
-  - Hovering a node highlights its neighbors and their edges. A click selects (a preview panel
+  - Hovering a node highlights its neighbors and their edges. In a large graph (over 2,000
+    edges) the rest isn't dimmed: dimming runs the reducers over every node and edge, a visible
+    stall per hover at 10k nodes. Only the neighborhoods the hover leaves and enters are redrawn
+    (sigma's `partialGraph` refresh). A click selects (a preview panel
     with "Open …" and "Show its neighborhood"), a double click opens the entity.
   - "Find" dims what doesn't match. One match, or the selection, is centered.
 - **Layout:** ForceAtlas2 runs in a web worker (`graphology-layout-forceatlas2/worker`, with

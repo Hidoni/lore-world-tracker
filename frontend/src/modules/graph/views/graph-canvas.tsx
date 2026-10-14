@@ -25,8 +25,12 @@ export interface CanvasEdge {
 }
 
 const DIMMED = '#cbd5e1'
-/** Above this many edges, they're hidden while the camera moves (drawing them is the cost). */
-const HIDE_EDGES_ON_MOVE = 2000
+/**
+ * Above this many edges a graph is large: edges are hidden while the camera moves, and hovering
+ * highlights the neighborhood without dimming the rest, so that only the neighborhood is redrawn
+ * (dimming means running the reducers over every node and edge: a visible stall at 10k nodes).
+ */
+const LARGE_GRAPH_EDGES = 2000
 
 /** Where a node starts without a cached position: on a spiral, so the layout untangles fast. */
 function seed(index: number): [number, number] {
@@ -130,11 +134,12 @@ export default function GraphCanvas({
         graph.addEdge(edge.source, edge.target, { color: edge.color, size: edge.size })
       }
     }
+    const large = graph.size > LARGE_GRAPH_EDGES
     let renderer: Sigma
     try {
       renderer = new Sigma(graph, container.current, {
         labelRenderedSizeThreshold: 6,
-        hideEdgesOnMove: graph.size > HIDE_EDGES_ON_MOVE,
+        hideEdgesOnMove: large,
         zIndex: true,
         nodeReducer: (node, data) => {
           const { hovered, highlighted, selected } = state.current
@@ -143,15 +148,14 @@ export default function GraphCanvas({
           if (node === selected || node === state.current.linking) {
             return { ...data, highlighted: true, zIndex: 2 }
           }
-          if (!near || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
-          return { ...data, zIndex: 1, forceLabel: hovered !== null }
+          if ((!near && !large) || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
+          return { ...data, zIndex: 1, forceLabel: hovered !== null && near }
         },
         edgeReducer: (edge, data) => {
           const { hovered } = state.current
           if (hovered === null) return data
-          return graph.hasExtremity(edge, hovered)
-            ? { ...data, size: Number(data.size) + 1 }
-            : { ...data, hidden: true }
+          if (graph.hasExtremity(edge, hovered)) return { ...data, size: Number(data.size) + 1 }
+          return large ? data : { ...data, hidden: true }
         },
       })
     } catch (error) {
@@ -159,13 +163,32 @@ export default function GraphCanvas({
       return
     }
     sigma.current = renderer
-    renderer.on('enterNode', ({ node }) => {
+    // A large graph redraws only the neighborhoods the hover leaves and enters.
+    const hover = (node: string | null): void => {
+      const previous = state.current.hovered
       state.current.hovered = node
-      renderer.refresh({ skipIndexation: true })
+      if (!large) {
+        renderer.refresh({ skipIndexation: true })
+        return
+      }
+      const nodes = new Set<string>()
+      const edges = new Set<string>()
+      for (const center of [previous, node]) {
+        if (center === null || !graph.hasNode(center)) continue
+        nodes.add(center)
+        graph.forEachNeighbor(center, (neighbor) => nodes.add(neighbor))
+        graph.forEachEdge(center, (edge) => edges.add(edge))
+      }
+      renderer.refresh({
+        partialGraph: { nodes: [...nodes], edges: [...edges] },
+        skipIndexation: true,
+      })
+    }
+    renderer.on('enterNode', ({ node }) => {
+      hover(node)
     })
     renderer.on('leaveNode', () => {
-      state.current.hovered = null
-      renderer.refresh({ skipIndexation: true })
+      hover(null)
     })
     renderer.on('clickNode', ({ node }) => {
       callbacks.current.onSelect(node)
