@@ -554,3 +554,28 @@ def sample_ping(c: Canary) -> Iterator[Call]:
 @recipe(f"{V}/m/addon/ping")
 def addon_ping(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/m/addon/ping")
+
+
+# --- branches ------------------------------------------------------------------------------------
+
+
+@recipe(f"{V}/m/branches/notes/{{entity_id}}/{{timeline_id}}")
+def branch_notes(c: Canary) -> Iterator[Call]:
+    """A note with a private block and a mention of a private event; hidden entities and
+    timelines (404)."""
+    divergence = c.public["Divergence"]
+    for entity_id in c.public.values():
+        status = 422 if entity_id == divergence else 200
+        yield Call(f"{_v(c)}/m/branches/notes/{entity_id}/{divergence}", status=status)
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/branches/notes/{hidden_id}/{divergence}", status=404)
+        yield Call(f"{_v(c)}/m/branches/notes/{c.public['Wanderer']}/{hidden_id}", status=404)
+
+
+@recipe(f"{V}/m/branches/timelines/{{timeline_id}}/diff")
+def branch_diff(c: Canary) -> Iterator[Call]:
+    """The branch's own private event isn't listed; hidden timelines (404)."""
+    yield Call(f"{_v(c)}/m/branches/timelines/{c.public['Divergence']}/diff")
+    yield Call(f"{_v(c)}/m/branches/timelines/{c.public['Divergence']}/diff", {"limit": 1})
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/branches/timelines/{hidden_id}/diff", status=404)

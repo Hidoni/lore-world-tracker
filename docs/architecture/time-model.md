@@ -210,6 +210,16 @@ null = +∞). It does this by creating an **override row** in the same table:
   row per root is returned.
 - A branch "removing" an inherited spanning record means overriding it so it ends at the branch
   moment.
+- **Implemented (#115):** events, facts and links (`POST /m/branches/overrides`; segments with
+  worldlines). An event override is a second `events` row of the same entity (`overrides_id` set,
+  `occurrence_key` null): its slots are the `event_override` slot provider's (keyed by the
+  event), the `event` provider covers home rows only. Anchors of a timeline referencing an event's
+  `end`, `until` or exclusions resolve against the row that timeline sees (`Resolver` per
+  dimension and timeline), and a change to an override reaches the dependents of the event's
+  slots. A changed root start is copied to its overrides in the same changeset
+  (`branches.override_start_changed` reports any that differ). Override rows change through the
+  module only; trashing a root trashes its overrides. `GET /m/branches/timelines/{id}/diff`
+  lists what a branch created, overrode and inherits across its branch point.
 
 Records **created** in a branch that start before the branch moment contradict the shared past.
 They are allowed, but rule `core.branch.shared_past_modified` (warning) reports them.
@@ -280,7 +290,9 @@ them back.
 
 **Per-timeline notes:** `entity_timeline_notes(entity_id, timeline_id, body)` lets a branch carry
 extra rich text for an entity ("In this timeline she became a pirate") without forking the shared
-page body (M9).
+page body (M9). One per entity and branch (`GET|PUT /m/branches/notes/{entity}/{timeline}`, #115),
+for entities the branch shows; readers see it filtered like any rich text. Notes go with their
+entity or timeline when either is purged.
 
 ## 5. Time points and anchors
 

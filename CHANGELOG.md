@@ -15,6 +15,12 @@ All notable changes to this project are documented here. The format follows
   Entities and events created in a branch exist only there (and in its own branches): lists, the
   tree, search and the graph show them when you look at that branch. Trashing a branch asks
   before taking its branches and contents along. The sample world asks "What if Aurel survived".
+- **Changing history in a branch** (#115): a branch can change what it inherited after its branch
+  point: end a reign earlier, end a festival series, let a character die sooner or a rivalry end
+  differently. Events anchored to the changed event follow it in that branch only. A branch can
+  be compared with its parent (what it created, what it changed, what it carries over), and
+  entities can have notes per branch. A new warning flags branch records that start in the shared
+  past. New table `entity_timeline_notes` (migrated automatically).
 
 ## [0.7.0] - 2026-10-14
 

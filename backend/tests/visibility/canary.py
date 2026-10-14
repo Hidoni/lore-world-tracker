@@ -350,6 +350,38 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _groups(b, home)
     _languages(b, home)
     _species(b, home)
+    _branches(b, home)
+
+
+def _branches(b: _Builder, home: dict[str, Any]) -> None:
+    """A public branch with a private sub-branch, a private event of its own (the branch diff)
+    and a note on a public entity with a private block and a mention of a private entity."""
+    api = b.api
+
+    def branch(parent: str, name: str, **body: Any) -> dict[str, Any]:
+        response = api.client.post(f"{api.base}/m/branches/timelines", json={
+            "parent_timeline_id": parent, "branch_point": POINT, "name": name, **body})  # fmt: skip
+        assert response.status_code == 201, response.json()
+        entity: dict[str, Any] = response.json()["entity"]
+        return entity
+
+    divergence = branch(b.canary.public["Prime"], "Divergence")
+    b.canary.public["Divergence"] = divergence["id"]
+    hidden = branch(divergence["id"], f"{b.canary_string()} branch", visibility="private")
+    b.canary.hidden_ids.add(hidden["id"])
+    later = {"anchor": {"kind": "absolute", "t": "50"}, "precision": "base"}
+    plot = b.hidden("event", visibility="private",
+                    ext={"start": later, "timeline_id": divergence["id"]}, **home)  # fmt: skip
+    wanderer = b.public("gadget", "Wanderer", **home)
+    note = doc(
+        p(text("public branch note, "), text("someone", mention(plot["id"]))),
+        private(p(text(b.canary_string()))),
+    )
+    response = api.client.put(
+        f"{api.base}/m/branches/notes/{wanderer['id']}/{divergence['id']}",
+        json={"body": note, "revision": 0},
+    )
+    assert response.status_code == 200, response.json()
 
 
 def _temporal_links(b: _Builder, home: dict[str, Any]) -> None:

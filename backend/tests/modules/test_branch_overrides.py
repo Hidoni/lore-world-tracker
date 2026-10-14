@@ -221,3 +221,84 @@ def test_series_overrides(api: LinkApi, world: World) -> None:
     early = {**rule, "limit": {"kind": "until", "until": at(120)}}
     problem(world.override("event", festival["id"], survives, recurrence=early), 422,
             "validation_error")  # fmt: skip
+
+
+def test_notes_per_timeline(api: LinkApi, world: World) -> None:
+    survives = world.survives["id"]
+    emperor = api.make("character", "Emperor", dimension_id=world.dimension["id"])
+    url = f"{api.base}/m/branches/notes/{emperor['id']}/{survives}"
+    empty = api.client.get(url).json()
+    assert (empty["body"], empty["revision"]) == (None, 0)
+    body = {"type": "doc", "content": [{"type": "paragraph",
+                                         "content": [{"type": "text", "text": "He lives."}]}]}  # fmt: skip
+    saved = api.client.put(url, json={"body": body, "revision": 0})
+    assert saved.status_code == 200, saved.json()
+    assert saved.json()["revision"] == 1
+    assert api.client.get(url).json()["body"] == body
+    # Edits check the revision; an empty body deletes the note.
+    problem(api.client.put(url, json={"body": body, "revision": 0}), 409, "revision_conflict")
+    assert api.client.put(url, json={"body": body, "revision": 1}).json()["revision"] == 2
+    gone = api.client.put(url, json={"body": None, "revision": 2})
+    assert gone.json()["revision"] == 0
+    assert api.client.get(url).json()["body"] is None
+    # Prime timelines have the page itself; branch-only entities only in their lineage.
+    prime = f"{api.base}/m/branches/notes/{emperor['id']}/{world.prime}"
+    problem(api.client.get(prime), 422, "validation_error")
+    rescuer = api.client.post(f"{api.base}/entities", params={"timeline": world.exile["id"]},
+                              json={"kind": "character", "name": "Rescuer",
+                                    "dimension_id": world.dimension["id"]}).json()["entity"]  # fmt: skip
+    problem(api.client.get(f"{api.base}/m/branches/notes/{rescuer['id']}/{survives}"), 404,
+            "not_found")  # fmt: skip
+    assert api.client.get(f"{api.base}/m/branches/notes/{rescuer['id']}/{world.exile['id']}"
+                          ).status_code == 200  # fmt: skip
+
+
+def test_diff_against_the_parent(api: LinkApi, world: World) -> None:
+    survives = world.survives["id"]
+    world.made("event", world.reign["id"], survives, end=end(250))
+    rescue = world.event("Rescue", 210, 220, timeline=survives)
+    world.event("Regency", 150, 400)
+
+    def diff(timeline: str, **params: Any) -> dict[str, Any]:
+        response = api.client.get(f"{api.base}/m/branches/timelines/{timeline}/diff",
+                                  params=params)  # fmt: skip
+        assert response.status_code == 200, response.json()
+        body: dict[str, Any] = response.json()
+        return body
+
+    found = diff(survives)
+    assert found["against_id"] == world.prime
+    assert [r["entity_id"] for r in found["created"]] == [rescue["id"]]
+    [overridden] = found["overridden"]
+    assert (overridden["entity_id"], overridden["name"]) == (world.reign["id"], "Reign")
+    assert overridden["root_id"] is not None
+    assert overridden["before"] == {"end_t": "300"}
+    assert overridden["after"] == {"end_t": "250"}
+    assert [r["name"] for r in found["inherited_spanning"]] == ["Regency"]
+    assert not found["truncated"]
+    # Exile (at 250) inherits Regency; Rescue ended and Survives' Reign ends at its point.
+    nested = diff(world.exile["id"])
+    assert nested["against_id"] == survives
+    assert [r["name"] for r in nested["inherited_spanning"]] == ["Regency"]
+    assert diff(survives, limit=1)["truncated"] is False
+    problem(api.client.get(f"{api.base}/m/branches/timelines/{world.prime}/diff"), 422,
+            "validation_error")  # fmt: skip
+
+
+def test_branch_records_in_the_shared_past(api: LinkApi, world: World) -> None:
+    survives = world.survives["id"]
+    plot = world.event("Plot", 150, 210, timeline=survives)
+    world.event("Rescue", 210, 220, timeline=survives)
+
+    def findings() -> list[dict[str, Any]]:
+        response = api.client.get(f"{api.base}/consistency/findings",
+                                  params={"rule": "core.branch.shared_past_modified"})  # fmt: skip
+        items: list[dict[str, Any]] = response.json()["items"]
+        return items
+
+    [finding] = findings()
+    assert [s["id"] for s in finding["subjects"]] == [plot["id"]], finding
+    assert (finding["severity"], finding["timeline_id"]) == ("warning", survives)
+    # Overrides start where their root does: never a finding.
+    world.made("event", world.reign["id"], survives, end=end(250))
+    assert len(findings()) == 1
