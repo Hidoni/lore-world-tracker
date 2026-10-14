@@ -58,7 +58,8 @@ Implementation (#109, `backend/src/lore/modules/graph/`):
 - The body is built as plain data and serialized directly. Validating tens of thousands of edges
   against the model would use most of the budget. `Graph` stays the documented response model.
 - Budget test `tests/modules/test_graph_perf.py` (`perf`): 10k nodes and 50k links, the graph and
-  its JSON in under a second for the author and for readers.
+  its JSON in under a second for the author and for readers. The page's budget at that size is
+  `make bench-graph`, in a browser on a GPU (`testing.md` §4).
 
 ## UI
 
@@ -93,19 +94,27 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
     `graph.color`, else its category's color. The categories are family, social, spatial,
     causal, mention, hierarchy and other, shown in a legend. Edge size grows with the mention
     count. Dashes aren't drawn yet.
-  - Hovering a node highlights its neighbors and their edges. A click selects (a preview panel
-    with "Open …" and "Show its neighborhood"), a double click opens the entity.
+  - Hovering a node highlights its neighbors and their edges. In a large graph (over 2,000
+    edges) the rest isn't dimmed: dimming runs the reducers over every node and edge, a visible
+    stall per hover at 10k nodes. Only the neighborhoods the hover leaves and enters are redrawn
+    (sigma's `partialGraph` refresh).
+  - A click selects (a preview panel with "Open …" and "Show its neighborhood"), a double click
+    opens the entity. Two releases within 500 ms of a drag aren't a double click: sigma counts
+    every release as a click, drags included (`RecentDrag`).
   - "Find" dims what doesn't match. One match, or the selection, is centered.
 - **Layout:** ForceAtlas2 runs in a web worker (`graphology-layout-forceatlas2/worker`, with
   inferred settings). It starts by itself when some node has no known position and stops after
-  2 to 15 s, depending on size. "Layout" and "Stop" run it again or stop it. "Freeze" stops it and
-  keeps the positions.
+  2 to 15 s, depending on size. "Layout" and "Stop" run it again or stop it. "Freeze" stops it
+  and keeps the positions. Edges stay drawn while the camera moves: sigma's `hideEdgesOnMove`
+  fully refreshes the graph after every drag (sigma 3.0.2), a stall at 10k nodes, and a GPU
+  draws 50k edges well within a frame.
   - New nodes start on a golden-angle spiral.
   - Positions are cached in `localStorage` per vault and filter set (`lore.graph.layout.*`),
     up to 20,000 nodes.
 - **Saved views:** named filter sets in `localStorage` (`lore.graph.views.<vault>`), applied
   from a select.
-- **Notices:** a `truncated` response gets a notice (the best-connected entities are shown).
+- **Notices:** a `truncated` response gets a notice (the best-connected entities are shown) with
+  "Show up to 20,000", which asks again with `limit` 20,000 until the filters change.
   With the time cursor at a moment, the page says it shows what existed then.
 - **Fallbacks:** "As a list" lists the entities by connections (the first 1,000), for keyboard
   and screen-reader use. Without WebGL the drawing says so and points there.

@@ -98,6 +98,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
 | `make test-differential` | random calendars and ops through both chronology engines, results compared (`DIFFERENTIAL_CASES`, default 200; testing.md §6) |
 | `make bench` | chronology benchmarks and perf budgets, both engines (testing.md §4.1) |
+| `make bench-graph` | graph page at 10k nodes in a headed Chromium: frame times, PASS/FAIL per case (testing.md §4; needs a GPU, not in CI) |
 | `make perf` | backend perf budgets (testing.md §4), incl. the `large` sample world (built once and cached in `LORE_SAMPLE_CACHE`, about 45 minutes) |
 | `make e2e` | build the SPA, serve it from `lore serve` on a temp data dir, run Playwright (`scripts/e2e.sh`; args go to Playwright) |
 | `make gen` | regenerate OpenAPI TS types (`frontend/src/api/schema.gen.ts`, with `moments.gen.ts`: where moments sit per schema), chronology JSON Schemas (`spec/chronology/schema/`, from `lore.chronology.schema`) and their TS types (`packages/chronology/src/schema.gen.ts`) plus the calendar JSON Schema the TS engine validates with (`calendar-schema.gen.ts`) |

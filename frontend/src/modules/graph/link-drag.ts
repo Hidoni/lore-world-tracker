@@ -23,3 +23,24 @@ export class LinkDrag {
     return source !== null && node !== null && node !== source ? [source, node] : null
   }
 }
+
+/**
+ * Whether the mouse was just dragging (panning, or an `Alt`+drag), so that a "double click" made of
+ * two quick drag releases doesn't open the node under the cursor: sigma counts every release on
+ * the canvas as a click, drags included.
+ */
+export class RecentDrag {
+  private at = Number.NEGATIVE_INFINITY
+
+  constructor(private readonly windowMs = 500) {}
+
+  /** A mouse move: `pressed` while a button is held. */
+  move(pressed: boolean, now: number): void {
+    if (pressed) this.at = now
+  }
+
+  /** Whether a drag happened within the window before `now`. */
+  dragged(now: number): boolean {
+    return now - this.at < this.windowMs
+  }
+}

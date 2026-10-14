@@ -8,7 +8,7 @@ import {
   writePositions,
   writeViews,
 } from './filters'
-import { LinkDrag } from './link-drag'
+import { LinkDrag, RecentDrag } from './link-drag'
 import { CATEGORY_COLORS, edgeCategory, edgeStyle, mergeStyles, nodeColor } from './styles'
 
 beforeEach(() => {
@@ -105,5 +105,17 @@ describe('Alt+drag', () => {
     drag.down('a', true)
     expect(drag.up('b')).toEqual(['a', 'b'])
     expect(drag.active).toBe(false)
+  })
+})
+
+describe('recent drags', () => {
+  it('tells a double click from two quick drag releases', () => {
+    const recent = new RecentDrag(500)
+    expect(recent.dragged(1000)).toBe(false)
+    recent.move(false, 1000) // hovering
+    expect(recent.dragged(1100)).toBe(false)
+    recent.move(true, 1200) // panning
+    expect(recent.dragged(1500)).toBe(true)
+    expect(recent.dragged(1700)).toBe(false)
   })
 })

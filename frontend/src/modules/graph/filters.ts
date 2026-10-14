@@ -30,10 +30,15 @@ export const DEFAULT_FILTERS: GraphFilters = {
 }
 
 /** The request for the filters, the time context's dimension and the time cursor. */
+/** The most nodes the page asks for ("Show up to …"; the server's maximum). */
+export const MAX_NODES = 20_000
+
 export function graphQuery(
   filters: GraphFilters,
   dimension: string | null,
   asOf: { timeline: string; at: string } | undefined,
+  /** Nodes at most; the server's default (5,000) without it. */
+  limit?: number,
 ): GraphQuery {
   return {
     ...(filters.scope === 'context' && dimension !== null ? { dimension } : {}),
@@ -44,6 +49,7 @@ export function graphQuery(
     ...(filters.mentions ? {} : { include_mentions: false }),
     ...(filters.hierarchy ? {} : { include_hierarchy: false }),
     ...(asOf ?? {}),
+    ...(limit === undefined ? {} : { limit }),
   }
 }
 

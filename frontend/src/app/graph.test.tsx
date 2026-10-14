@@ -158,8 +158,18 @@ describe('graph page', () => {
     world({ graphLimit: 2 })
     await renderApp('/v/v1/m/graph')
     expect(await screen.findByText(/Too many entities/, {}, WAIT)).toBeInTheDocument()
+    expect(lastQuery()).not.toHaveProperty('limit')
+    // More nodes on request, until the filters change.
+    await userEvent.click(screen.getByRole('button', { name: 'Show up to 20,000' }))
+    await waitFor(() => {
+      expect(lastQuery()).toMatchObject({ limit: '20000' })
+    })
+    expect(screen.queryByText(/Too many entities/)).toBeNull()
     const filters = screen.getByRole('complementary', { name: 'Graph filters' })
     await userEvent.click(within(filters).getByRole('checkbox', { name: 'Mentions' }))
+    await waitFor(() => {
+      expect(lastQuery()).not.toHaveProperty('limit')
+    })
     await userEvent.type(screen.getByRole('textbox', { name: 'View name' }), 'Plain')
     await userEvent.click(screen.getByRole('button', { name: 'Save view' }))
     await userEvent.click(within(filters).getByRole('button', { name: 'Reset filters' }))

@@ -8,7 +8,7 @@ import Sigma from 'sigma'
 import { Button } from '@/components/ui/button'
 
 import type { Positions } from '../filters'
-import { LinkDrag } from '../link-drag'
+import { LinkDrag, RecentDrag } from '../link-drag'
 
 export interface CanvasNode {
   id: string
@@ -25,6 +25,13 @@ export interface CanvasEdge {
 }
 
 const DIMMED = '#cbd5e1'
+/**
+ * Above this many edges a graph is large: hovering highlights the neighborhood without dimming the
+ * rest, so that only the neighborhood is redrawn (dimming means running the reducers over every
+ * node and edge: a visible stall at 10k nodes). Edges stay drawn while the camera moves: sigma's
+ * `hideEdgesOnMove` fully refreshes the graph after every drag, a worse stall.
+ */
+const LARGE_GRAPH_EDGES = 2000
 
 /** Where a node starts without a cached position: on a spiral, so the layout untangles fast. */
 function seed(index: number): [number, number] {
@@ -128,6 +135,7 @@ export default function GraphCanvas({
         graph.addEdge(edge.source, edge.target, { color: edge.color, size: edge.size })
       }
     }
+    const large = graph.size > LARGE_GRAPH_EDGES
     let renderer: Sigma
     try {
       renderer = new Sigma(graph, container.current, {
@@ -140,15 +148,14 @@ export default function GraphCanvas({
           if (node === selected || node === state.current.linking) {
             return { ...data, highlighted: true, zIndex: 2 }
           }
-          if (!near || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
-          return { ...data, zIndex: 1, forceLabel: hovered !== null }
+          if ((!near && !large) || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
+          return { ...data, zIndex: 1, forceLabel: hovered !== null && near }
         },
         edgeReducer: (edge, data) => {
           const { hovered } = state.current
           if (hovered === null) return data
-          return graph.hasExtremity(edge, hovered)
-            ? { ...data, size: Number(data.size) + 1 }
-            : { ...data, hidden: true }
+          if (graph.hasExtremity(edge, hovered)) return { ...data, size: Number(data.size) + 1 }
+          return large ? data : { ...data, hidden: true }
         },
       })
     } catch (error) {
@@ -156,13 +163,32 @@ export default function GraphCanvas({
       return
     }
     sigma.current = renderer
-    renderer.on('enterNode', ({ node }) => {
+    // A large graph redraws only the neighborhoods the hover leaves and enters.
+    const hover = (node: string | null): void => {
+      const previous = state.current.hovered
       state.current.hovered = node
-      renderer.refresh({ skipIndexation: true })
+      if (!large) {
+        renderer.refresh({ skipIndexation: true })
+        return
+      }
+      const nodes = new Set<string>()
+      const edges = new Set<string>()
+      for (const center of [previous, node]) {
+        if (center === null || !graph.hasNode(center)) continue
+        nodes.add(center)
+        graph.forEachNeighbor(center, (neighbor) => nodes.add(neighbor))
+        graph.forEachEdge(center, (edge) => edges.add(edge))
+      }
+      renderer.refresh({
+        partialGraph: { nodes: [...nodes], edges: [...edges] },
+        skipIndexation: true,
+      })
+    }
+    renderer.on('enterNode', ({ node }) => {
+      hover(node)
     })
     renderer.on('leaveNode', () => {
-      state.current.hovered = null
-      renderer.refresh({ skipIndexation: true })
+      hover(null)
     })
     renderer.on('clickNode', ({ node }) => {
       callbacks.current.onSelect(node)
@@ -201,9 +227,14 @@ export default function GraphCanvas({
         }
       }, 0)
     })
+    const recent = new RecentDrag()
+    renderer.getMouseCaptor().on('mousemovebody', (event) => {
+      recent.move('buttons' in event.original && event.original.buttons !== 0, performance.now())
+    })
     renderer.on('doubleClickNode', (event) => {
       event.preventSigmaDefault()
-      callbacks.current.onOpen(event.node)
+      // Two quick drag releases aren't a double click.
+      if (!recent.dragged(performance.now())) callbacks.current.onOpen(event.node)
     })
     const timers: ReturnType<typeof setTimeout>[] = []
     if (graph.order > 1 && graph.size > 0) {
