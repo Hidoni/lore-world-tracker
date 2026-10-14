@@ -73,6 +73,7 @@ export const keys = {
   lexiconEntry: (vault: string, entry: string) => [vault, 'lexiconEntry', entry] as const,
   speciesMembers: (vault: string, species: string, params?: object) =>
     [vault, 'speciesMembers', species, params ?? {}] as const,
+  graph: (vault: string, params: object) => [vault, 'graph', params] as const,
   speciesDescentTree: (vault: string, params: object) =>
     [vault, 'speciesDescentTree', params] as const,
 }

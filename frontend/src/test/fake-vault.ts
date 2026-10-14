@@ -405,6 +405,9 @@ export function defaultRows(): Row[] {
  * An in-memory vault `v1` behind MSW (entities, registry, writes, bodies with their mentions and
  * backlinks, the quick switcher); returns the write requests it saw. `conflicts` PATCHes answer `409 revision_conflict` first, as if someone saved meanwhile.
  */
+/** The query parameters of the graph requests of the last `serveVault`'s app. */
+export const graphQueries: Record<string, string>[] = []
+
 export function serveVault(
   options: {
     kinds?: unknown[]
@@ -430,9 +433,12 @@ export function serveVault(
     lexicon?: LexiconRow[]
     /** Facts (temporal field values, existence, names): as-of state and existence filters. */
     facts?: FactRow[]
+    /** The graph's node limit when the request names none (default 5,000). */
+    graphLimit?: number
   } = {},
 ) {
   let conflicts = options.conflicts ?? 0
+  graphQueries.length = 0
   const types = [
     ...(options.linkTypes ?? [linkType('core.related', 'related to', { symmetric: true })]),
   ]
@@ -682,6 +688,9 @@ export function serveVault(
       HttpResponse.json({
         ...makeRegistry(options.modules ?? [], [], {
           kinds: (options.kinds ?? KINDS) as typeof KINDS,
+          link_types: types as unknown as NonNullable<
+            Parameters<typeof makeRegistry>[2]
+          >['link_types'],
         }),
         ...(moduleStates ? { modules: moduleStates } : {}),
       }),
@@ -1253,6 +1262,64 @@ export function serveVault(
         })
         .sort((a, b) => (BigInt(a.start_t) < BigInt(b.start_t) ? -1 : 1))
       return HttpResponse.json({ items, truncated: false })
+    }),
+    // The graph module (docs/modules/graph.md): live entities of the kinds asked for, the links
+    // and parents between them; the request's query is kept for tests (`graphQueries`).
+    http.get('*/api/v1/vaults/v1/m/graph/graph', ({ request }) => {
+      const url = new URL(request.url)
+      graphQueries.push(Object.fromEntries(url.searchParams))
+      const kinds = url.searchParams.getAll('kind')
+      const types = url.searchParams.getAll('link_type')
+      const limit = Number(url.searchParams.get('limit') ?? options.graphLimit ?? 5000)
+      const nodes = [...rows.values()].filter(
+        (entity) =>
+          entity.deleted_at === null && (kinds.length === 0 || kinds.includes(entity.kind)),
+      )
+      const ids = new Set(nodes.map((entity) => entity.id))
+      const edges = [
+        ...[...links.values()]
+          .filter(
+            (link) =>
+              ids.has(link.source_id) &&
+              ids.has(link.target_id) &&
+              (types.length === 0 || types.includes(link.link_type)),
+          )
+          .map((link) => ({
+            source: link.source_id,
+            target: link.target_id,
+            kind: 'link',
+            link_type: link.link_type,
+            label: link.role,
+            weight: 1,
+          })),
+        ...(url.searchParams.get('include_hierarchy') === 'false'
+          ? []
+          : nodes
+              .filter((entity) => entity.parent_id !== null && ids.has(entity.parent_id))
+              .map((entity) => ({
+                source: entity.parent_id,
+                target: entity.id,
+                kind: 'parent',
+                link_type: null,
+                label: null,
+                weight: 1,
+              }))),
+      ]
+      const degree = (id: string) =>
+        edges.filter((edge) => edge.source === id || edge.target === id).length
+      const kept = nodes.slice(0, limit)
+      return HttpResponse.json({
+        nodes: kept.map((entity) => ({
+          id: entity.id,
+          kind: entity.kind,
+          name: entity.name,
+          dimension_id: entity.dimension_id,
+          degree: degree(entity.id),
+          existence: url.searchParams.has('at') ? 'unknown' : null,
+        })),
+        edges,
+        truncated: nodes.length > limit,
+      })
     }),
     // The locations module's reads (docs/modules/locations.md).
     http.get('*/api/v1/vaults/v1/m/locations/tree', ({ request }) => {

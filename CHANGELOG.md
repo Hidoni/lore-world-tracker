@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Graph view** (#110): an explorable map of the whole world (Graph, in the command
+  palette). Entities are colored by kind and sized by how connected they are. Hovering one
+  lights up its neighbors, a click previews it and a double click opens it. Find, filter by
+  kind, link type and tag, hide mentions, the hierarchy or loners, or show one entity's
+  neighborhood. With the time cursor it shows the world as it was. Filters can be saved as named
+  views, and each view remembers its layout.
 - **Graph data** (#109): a new graph module serves the entities and how they connect (links,
   mentions and the parent tree) for the whole vault, a dimension, or the neighborhood of an
   entity. It can filter by kind, link type and tag, and show only what existed at a moment and

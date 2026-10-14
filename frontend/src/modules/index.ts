@@ -1,6 +1,7 @@
 import type { ModuleDefinition } from '@/core/modules'
 
 import characters from './characters'
+import graph from './graph'
 import groups from './groups'
 import languages from './languages'
 import locations from './locations'
@@ -17,4 +18,5 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   characters,
   groups,
   languages,
+  graph,
 ]

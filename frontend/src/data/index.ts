@@ -171,6 +171,7 @@ export {
   type LexiconImportReport,
   type LexiconQuery,
 } from './languages'
+export { useGraph, type GraphData, type GraphQuery } from './graph'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,

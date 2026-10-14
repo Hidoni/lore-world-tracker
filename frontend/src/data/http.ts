@@ -357,6 +357,11 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'LexiconEntryOut',
       ),
+    graph: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/graph/graph`, { params: { ...path(vault), query } })),
+        'Graph',
+      ),
     speciesDescentTree: async (vault, query) =>
       toDomain(
         await unwrap(
