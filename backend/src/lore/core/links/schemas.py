@@ -237,3 +237,27 @@ class Backlink(BaseModel):
 
 class Backlinks(BaseModel):
     items: list[Backlink]
+
+
+class UnlinkedOccurrence(BaseModel):
+    """Where a name or alias appears unlinked in a source's body."""
+
+    path: list[int] = Field(
+        description="The text node: child indices from the document's root (`content` arrays)."
+    )
+    offset: int = Field(description="Start of the match in the text node (UTF-16 code units).")
+    length: int = Field(description="Length of the match (UTF-16 code units).")
+    text: str = Field(description="The matched text.")
+    before: str = Field(description="Up to 40 characters of the text node before the match.")
+    after: str = Field(description="Up to 40 characters after it.")
+
+
+class UnlinkedSource(BaseModel):
+    entity: LinkedEntity
+    occurrences: list[UnlinkedOccurrence]
+
+
+class UnlinkedMentions(BaseModel):
+    terms: list[str] = Field(description="The names searched for: the entity's name and aliases.")
+    items: list[UnlinkedSource] = Field(description="Sources by name.")
+    truncated: bool = Field(description="More sources matched than `limit`.")

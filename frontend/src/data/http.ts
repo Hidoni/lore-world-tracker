@@ -155,6 +155,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'Backlinks',
       ),
+    unlinkedMentions: async (vault, id, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/entities/{entity_id}/unlinked-mentions`, {
+            params: { path: { vault_id: vault, entity_id: id }, query },
+          }),
+        ),
+        'UnlinkedMentions',
+      ),
     linkTypes: async (vault) =>
       toDomain(
         await unwrap(client.GET(`${V}/link-types`, { params: path(vault) })),

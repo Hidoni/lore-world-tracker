@@ -68,7 +68,8 @@ const TIME = [
   'links',
   'backlinks',
 ]
-const SEARCH = ['search', 'quickSearch']
+// Unlinked mentions read every entity's text and the aliases.
+const SEARCH = ['search', 'quickSearch', 'unlinkedMentions']
 
 /**
  * The query keys a write's `affected` makes stale (frontend.md §5.1). Prefixes: each matches every

@@ -94,6 +94,50 @@ function mentioned(doc: unknown): Set<string> {
   return found
 }
 
+/** Where `terms` occur in `doc`'s text nodes not linked to `target` (unlinked mentions). */
+function unlinkedIn(doc: unknown, target: string, terms: string[]) {
+  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${escaped.join('|')})(?![\\p{L}\\p{N}])`, 'giu')
+  const found: {
+    path: number[]
+    offset: number
+    length: number
+    text: string
+    before: string
+    after: string
+  }[] = []
+  const walk = (node: unknown, path: number[]) => {
+    if (typeof node !== 'object' || node === null) return
+    const { type, text, marks, content } = node as {
+      type?: string
+      text?: string
+      marks?: { type: string; attrs?: { entityId?: string } }[]
+      content?: unknown[]
+    }
+    if (type === 'text' && text !== undefined) {
+      if (marks?.some((mark) => mark.type === 'entityLink' && mark.attrs?.entityId === target))
+        return
+      for (const match of text.matchAll(pattern)) {
+        const end = match.index + match[0].length
+        found.push({
+          path,
+          offset: match.index,
+          length: match[0].length,
+          text: match[0],
+          before: text.slice(Math.max(0, match.index - 40), match.index),
+          after: text.slice(end, end + 40),
+        })
+      }
+      return
+    }
+    content?.forEach((child, index) => {
+      walk(child, [...path, index])
+    })
+  }
+  walk(doc, [])
+  return found
+}
+
 export function row(id: string, kindKey: string, name: string, extra: Partial<Row> = {}): Row {
   return {
     id,
@@ -1539,6 +1583,19 @@ export function serveVault(
           }
         }),
       })
+    }),
+    http.get('*/api/v1/vaults/v1/entities/:id/unlinked-mentions', ({ params }) => {
+      // Whole-word, case-insensitive (no diacritics folding, unlike the backend).
+      const target = existing(String(params.id))
+      const terms = [target.name, ...target.aliases.map((alias) => alias.alias)]
+      const items = [...rows.values()]
+        .filter((source) => source.id !== target.id && source.deleted_at === null)
+        .map((source) => ({
+          entity: linked(source),
+          occurrences: unlinkedIn(source.body, target.id, terms),
+        }))
+        .filter((item) => item.occurrences.length > 0)
+      return HttpResponse.json({ terms, items, truncated: false })
     }),
     http.get('*/api/v1/vaults/v1/link-types', () => HttpResponse.json({ items: types })),
     http.get('*/api/v1/vaults/v1/settings', () => HttpResponse.json(settings)),

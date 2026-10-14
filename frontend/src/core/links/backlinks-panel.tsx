@@ -3,6 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { useKindRegistry } from '@/core/registry'
 import { useBacklinks, type components } from '@/data'
 
+import { UnlinkedMentions } from './unlinked-mentions'
+
 type Backlink = components['schemas']['Backlink']
 
 const mentionText = (counts: Backlink['mentions']) => {
@@ -14,7 +16,8 @@ const mentionText = (counts: Backlink['mentions']) => {
 
 /**
  * What points at an entity (frontend.md §3, right panel): the entities linking to it (with the
- * links' labels from their side) and those mentioning it in text, with counts.
+ * links' labels from their side) and those mentioning it in text, with counts; then the unlinked
+ * mentions of its name.
  */
 export function BacklinksPanel({ vault, entityId }: { vault: string; entityId: string }) {
   const backlinks = useBacklinks(vault, entityId)
@@ -60,6 +63,7 @@ export function BacklinksPanel({ vault, entityId }: { vault: string; entityId: s
           )
         })}
       </ul>
+      <UnlinkedMentions vault={vault} entityId={entityId} />
     </section>
   )
 }

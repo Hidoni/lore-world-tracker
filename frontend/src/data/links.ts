@@ -25,6 +25,19 @@ export function useBacklinks(vault: string, id: string, query: Query<'entities_b
   })
 }
 
+/** Where other entities' text names this one without linking to it. */
+export function useUnlinkedMentions(
+  vault: string,
+  id: string,
+  query: Query<'entities_unlinked_mentions'> = {},
+) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.unlinkedMentions(vault, id, query),
+    queryFn: () => source.unlinkedMentions(vault, id, query),
+  })
+}
+
 export function useLinkTypes(vault: string) {
   const source = useDataSource()
   return useQuery({ queryKey: keys.linkTypes(vault), queryFn: () => source.linkTypes(vault) })
