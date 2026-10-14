@@ -134,12 +134,18 @@ for (const [name, showMore] of [
   test(`${name}, layout frozen`, async ({ page }) => {
     const loaded = await graphPage(page, showMore)
     await page.getByRole('button', { name: 'Freeze' }).click()
-    report(record(`${name}, frozen`, loaded, await interact(page)), await renderer(page))
+    const frames = await interact(page)
+    // Still the graph: panning and zooming must not open an entity.
+    expect(new URL(page.url()).pathname).toMatch(/\/m\/graph$/)
+    report(record(`${name}, frozen`, loaded, frames), await renderer(page))
   })
 
   test(`${name}, layout running`, async ({ page }) => {
     const loaded = await graphPage(page, showMore)
     await expect(page.getByRole('button', { name: 'Stop the layout' })).toBeVisible()
-    report(record(`${name}, layout running`, loaded, await interact(page)), await renderer(page))
+    const frames = await interact(page)
+    // Still the graph: panning and zooming must not open an entity.
+    expect(new URL(page.url()).pathname).toMatch(/\/m\/graph$/)
+    report(record(`${name}, layout running`, loaded, frames), await renderer(page))
   })
 }

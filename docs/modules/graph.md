@@ -97,14 +97,17 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
   - Hovering a node highlights its neighbors and their edges. In a large graph (over 2,000
     edges) the rest isn't dimmed: dimming runs the reducers over every node and edge, a visible
     stall per hover at 10k nodes. Only the neighborhoods the hover leaves and enters are redrawn
-    (sigma's `partialGraph` refresh). A click selects (a preview panel
-    with "Open …" and "Show its neighborhood"), a double click opens the entity.
+    (sigma's `partialGraph` refresh).
+  - A click selects (a preview panel with "Open …" and "Show its neighborhood"), a double click
+    opens the entity. Two releases within 500 ms of a drag aren't a double click: sigma counts
+    every release as a click, drags included (`RecentDrag`).
   - "Find" dims what doesn't match. One match, or the selection, is centered.
 - **Layout:** ForceAtlas2 runs in a web worker (`graphology-layout-forceatlas2/worker`, with
   inferred settings). It starts by itself when some node has no known position and stops after
   2 to 15 s, depending on size. "Layout" and "Stop" run it again or stop it. "Freeze" stops it
-  and keeps the positions. Over 2,000 edges, edges are hidden while the camera moves (sigma's
-  `hideEdgesOnMove`): drawing them is most of a frame's cost.
+  and keeps the positions. Edges stay drawn while the camera moves: sigma's `hideEdgesOnMove`
+  fully refreshes the graph after every drag (sigma 3.0.2), a stall at 10k nodes, and a GPU
+  draws 50k edges well within a frame.
   - New nodes start on a golden-angle spiral.
   - Positions are cached in `localStorage` per vault and filter set (`lore.graph.layout.*`),
     up to 20,000 nodes.

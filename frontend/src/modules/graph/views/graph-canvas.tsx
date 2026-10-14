@@ -8,7 +8,7 @@ import Sigma from 'sigma'
 import { Button } from '@/components/ui/button'
 
 import type { Positions } from '../filters'
-import { LinkDrag } from '../link-drag'
+import { LinkDrag, RecentDrag } from '../link-drag'
 
 export interface CanvasNode {
   id: string
@@ -26,9 +26,10 @@ export interface CanvasEdge {
 
 const DIMMED = '#cbd5e1'
 /**
- * Above this many edges a graph is large: edges are hidden while the camera moves, and hovering
- * highlights the neighborhood without dimming the rest, so that only the neighborhood is redrawn
- * (dimming means running the reducers over every node and edge: a visible stall at 10k nodes).
+ * Above this many edges a graph is large: hovering highlights the neighborhood without dimming the
+ * rest, so that only the neighborhood is redrawn (dimming means running the reducers over every
+ * node and edge: a visible stall at 10k nodes). Edges stay drawn while the camera moves: sigma's
+ * `hideEdgesOnMove` fully refreshes the graph after every drag, a worse stall.
  */
 const LARGE_GRAPH_EDGES = 2000
 
@@ -139,7 +140,6 @@ export default function GraphCanvas({
     try {
       renderer = new Sigma(graph, container.current, {
         labelRenderedSizeThreshold: 6,
-        hideEdgesOnMove: large,
         zIndex: true,
         nodeReducer: (node, data) => {
           const { hovered, highlighted, selected } = state.current
@@ -227,9 +227,14 @@ export default function GraphCanvas({
         }
       }, 0)
     })
+    const recent = new RecentDrag()
+    renderer.getMouseCaptor().on('mousemovebody', (event) => {
+      recent.move('buttons' in event.original && event.original.buttons !== 0, performance.now())
+    })
     renderer.on('doubleClickNode', (event) => {
       event.preventSigmaDefault()
-      callbacks.current.onOpen(event.node)
+      // Two quick drag releases aren't a double click.
+      if (!recent.dragged(performance.now())) callbacks.current.onOpen(event.node)
     })
     const timers: ReturnType<typeof setTimeout>[] = []
     if (graph.order > 1 && graph.size > 0) {
