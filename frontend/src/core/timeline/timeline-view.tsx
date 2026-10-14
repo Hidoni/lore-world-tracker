@@ -33,8 +33,10 @@ import {
 import {
   CreateBranchDialog,
   formatIn,
+  reachableFrom,
   TimePointPicker,
   useBranching,
+  useCorrespondenceGraph,
   useTimeContext,
   type Cursor,
   type DimensionTime,
@@ -51,10 +53,18 @@ import {
 } from '@/components/ui/context-menu'
 import { droppedEntity } from '@/core/links'
 import { eventTime } from '@/core/events'
-import { useEntity, useMaterializeOccurrence, useMutations, useUpdateLatest } from '@/data'
+import { useActiveModules } from '@/core/modules'
+import {
+  useDimensions,
+  useEntity,
+  useMaterializeOccurrence,
+  useMutations,
+  useUpdateLatest,
+} from '@/data'
 
 import { CompareMenu, DivergenceMarkers, useDifferences } from './compare'
 import { CursorLine, TickSnap } from './cursor-line'
+import { DimensionLaneGroup, DimensionLaneMenu } from './dimension-lanes'
 import { dragTime, pointAt, type DragMode } from './drag-edit'
 import { EraBands } from './era-bands'
 import { DensityStrip, type DragPreview, type Drawn, type PressHandler } from './event-lanes'
@@ -719,6 +729,20 @@ function Timeline({
     .filter((node) => compare.includes(node.id) && node.id !== timelineId)
   const comparing = compared.length > 0
   const differences = useDifferences(vault, comparing ? [branching.current, ...compared] : [])
+  /** Dimension lanes: other dimensions' events mapped onto this axis (frontend.md §9.5). */
+  const correspondencesOn = useActiveModules(vault).modules.some(
+    (module) => module.id === 'correspondences',
+  )
+  const graph = useCorrespondenceGraph(vault, { enabled: correspondencesOn })
+  const dimensionNames = useDimensions(vault).data?.items
+  const laneOptions: Named[] =
+    graph === null
+      ? []
+      : reachableFrom(graph, dimensionId).map((id) => ({
+          id,
+          name: dimensionNames?.find((item) => item.id === id)?.name ?? 'Dimension',
+        }))
+  const [dimensionLanes, setDimensionLanes] = useState<string[]>([])
   const lane: LaneProps = {
     v,
     layoutV,
@@ -887,6 +911,11 @@ function Timeline({
           ))}
         </select>
         <CompareMenu branching={branching} value={compare} onChange={setCompare} />
+        <DimensionLaneMenu
+          options={laneOptions}
+          value={dimensionLanes}
+          onChange={setDimensionLanes}
+        />
         <FiltersPanel
           vault={vault}
           dimensionId={dimensionId}
@@ -1094,6 +1123,22 @@ function Timeline({
                       }}
                     />
                   ))}
+                  {graph !== null &&
+                    laneOptions
+                      .filter((option) => dimensionLanes.includes(option.id))
+                      .map((option) => (
+                        <DimensionLaneGroup
+                          key={option.id}
+                          vault={vault}
+                          graph={graph}
+                          dimensionId={dimensionId}
+                          other={option}
+                          lane={lane}
+                          onRemove={() => {
+                            setDimensionLanes((current) => current.filter((id) => id !== option.id))
+                          }}
+                        />
+                      ))}
                   {data.items.length === 0 && data.bands.length === 0 && (
                     <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-xs text-muted-foreground">
                       {loading ? 'Loading events…' : 'No events here.'}

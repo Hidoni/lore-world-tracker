@@ -502,7 +502,7 @@ export function CorrespondenceEditor({
             </Button>
           </section>
 
-          <section aria-label="Outside the sync points" className="flex flex-col gap-2">
+          <section aria-label="Extrapolation" className="flex flex-col gap-2">
             <Label htmlFor={`${id}-extrapolation`}>Outside the sync points</Label>
             <select
               id={`${id}-extrapolation`}

@@ -61,6 +61,19 @@ Core: `correspondences`, `correspondence_points`. Sync points are time slots (`s
 - **Timeline view:** "Add dimension lane" shows another dimension's events mapped onto this
   axis (warped), with a secondary tick row in the other dimension's calendar.
 - **Dimension overview:** a small graph of connected dimensions.
+- Implementation (#119, `frontend/src/modules/correspondences`): the dimension overview gets a
+  Correspondences section (`dimensionSections`) listing the dimension's correspondences, the
+  connected dimensions (this one in the middle, the rest of its connected group around it; a node
+  opens that dimension) and, for authors, new / edit / delete. The editor previews a draft as
+  soon as every sync point's moments are known in the browser (absolute or calendar anchors;
+  relative ones resolve on save): the TS engine validates it like the server (points moving
+  backwards are flagged before saving), the chart plots the mapping between the sync points
+  (widened when extrapolating; linear or log scale via `toLogPx`; hovering shows the pair) and
+  the tester maps a moment either way. The rate helper measures one level of each side's first
+  display calendar at the first sync point ("1 month there" is that month), and sets both rates.
+  "Concurrently in…" (event pages, side) maps the event's start to every reachable dimension in
+  the browser, through the same shortest paths as `GET /map`, and is hidden when nothing
+  corresponds. Dimension lanes are core (`frontend.md` §9.5).
 
 ## Consistency rules
 

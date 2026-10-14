@@ -386,9 +386,7 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
       ),
     correspondences: async (vault, query) =>
       toDomain(
-        await unwrap(
-          client.GET(`${V}/m/correspondences`, { params: { ...path(vault), query } }),
-        ),
+        await unwrap(client.GET(`${V}/m/correspondences`, { params: { ...path(vault), query } })),
         'CorrespondenceList',
       ),
     correspondence: async (vault, id) =>
