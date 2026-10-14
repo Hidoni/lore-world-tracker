@@ -61,6 +61,7 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         EntityTimelineNote,
         Event,
         Timeline,
+        WorldlineSegment,
     )
 
     return (
@@ -80,4 +81,5 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         HistoryTable.of(EntityTimelineNote, columns_owner("entity_id", "timeline_id")),
         HistoryTable.of(Correspondence, columns_owner("dimension_a_id", "dimension_b_id")),
         HistoryTable.of(CorrespondencePoint, columns_owner("a_dimension_id", "b_dimension_id")),
+        HistoryTable.of(WorldlineSegment, columns_owner("entity_id")),
     )

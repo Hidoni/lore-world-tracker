@@ -37,6 +37,12 @@ All notable changes to this project are documented here. The format follows
   dimension is refused. Moments map across dimensions, through other dimensions when there is no
   direct correspondence, and a warning appears when two routes disagree. The sample world's
   Drowned Gate joins Aetheria and the Dreaming. New tables (migrated automatically).
+- **Worldlines** (#120): time travelers live through time in their own order. A character's
+  worldline is a list of segments (where and when they were, and how fast time passed for them),
+  with jumps in between; segments can be anchored to events and move with them. The API reports
+  where an entity is at a moment (a traveler can be there twice), and a personal timeline of
+  what it experienced in its own order with its age at each moment. Entities without segments
+  live their lifespan. New table `worldline_segments` (migrated automatically).
 
 ## [0.7.0] - 2026-10-14
 

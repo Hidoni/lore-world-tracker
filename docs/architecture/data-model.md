@@ -269,8 +269,11 @@ Implementation (#100): `lore.core.time.models.EntityTimeField` and `lore.core.ti
 
 ### 5.7 Worldlines and correspondences
 
-- `worldline_segments` per `time-model.md` §11.1 (+ `revision`, timestamps, `deleted_at`). Indexes
-  `(entity_id, seq)`, `(timeline_id, start_t)`.
+- `worldline_segments` per `time-model.md` §11.1 (+ `time_status`, timestamps; `rate` a
+  `{num, den}` JSON rational): record type `segment` (slots `start`, `end` in the segment's
+  timeline). Replaced as a whole by the worldlines module (rows are deleted with their dependency
+  edges, and with the entity on purge). Indexes `(entity_id, seq)`, `(timeline_id, start_t)`,
+  `overrides_id`.
 - `correspondences(id, dimension_a_id, dimension_b_id, name, extrapolation, rate_before JSON NULL,
   rate_after JSON NULL, note, visibility, revision, timestamps, deleted_at)`.
 - `correspondence_points(id, correspondence_id, position, a_dimension_id, b_dimension_id, a_spec,

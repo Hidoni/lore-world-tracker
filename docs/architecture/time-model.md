@@ -832,7 +832,10 @@ end_spec/end_t, rate, departure_event_id?, arrival_event_id?, overrides_id, note
 
 An entity without explicit segments has an implicit worldline: its existence intervals in its
 home dimension's timeline context, in chronological order, rate 1. Most entities never need explicit
-segments.
+segments. Periods are the merged `core.exists` facts (half-open like them: a period doesn't cover
+its end; an open or unresolved bound is the start or end of time). Without existence facts it is
+the whole `[0, D]` of the home dimension; a multiversal entity without segments has none. Readers
+who see none of an entity's explicit segments get an empty worldline, not the implicit one.
 
 ### 11.3 Subjective time
 
@@ -857,7 +860,10 @@ subjective time when a worldline exists, else `diff(birth, t)`.
 ### 11.5 Personal timeline view
 
 Lists the entity's participations and existence changes sorted by **subjective** time, shows jumps
-as discontinuities and shows subjective age. Paradox-aware rules (e.g. "met own past self",
+as discontinuities and shows subjective age. A participation counts in a segment whose timeline
+sees the event (lineage, overrides) at the event's start; an implicit worldline's gaps are
+non-existence, not jumps. Ages are formatted with the calendar `diff` in the personal clock
+dimension's default calendar, counted from the worldline's first moment there. Paradox-aware rules (e.g. "met own past self",
 "caused own birth") are informational. See `consistency.md` §6.
 
 ## 12. Cross-dimension correspondences (D7)

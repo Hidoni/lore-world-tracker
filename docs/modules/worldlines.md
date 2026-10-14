@@ -22,14 +22,20 @@ segments are timeline-bound (branch inheritance and overrides apply).
 ## API
 
 - `GET /m/worldlines/entities/{id}/segments`: explicit segments, or the computed implicit
-  worldline (`implicit: true`).
-- `PUT /m/worldlines/entities/{id}/segments`: replaces the ordered list atomically (validation:
-  `seq` contiguous, each segment `start ≤ end`, within bounds, rates > 0). Propagation runs.
+  worldline (`implicit: true`), with exact subjective starts and ends (#120).
+- `PUT /m/worldlines/entities/{id}/segments`: replaces the ordered list atomically (`seq` is the
+  list's order; validation: the kind can have a worldline, each timeline is one of the segment's
+  dimension, anchors stay in that dimension, `start ≤ end` after resolution, rates > 0).
+  Propagation runs; segments anchored to events move with them. An empty list returns to the
+  implicit worldline. Full shapes: `api.md`.
 - `GET /m/worldlines/entities/{id}/personal-timeline?include=participations,existence,jumps`:
   items in subjective order with `subjective_t` (exact), formatted age (calendar `diff` in the
   personal clock dimension's default calendar), segment ids and jump markers.
 - `GET /m/worldlines/entities/{id}/presence?dimension=&timeline=&t=`: segments covering a moment
   (can be several).
+- Visibility: readers see the segments whose own visibility, dimension and timeline they see;
+  subjective time and ages count only those, jump and anchor events they can't see are left out,
+  and ages are formatted only in a default calendar they see.
 - `POST /m/worldlines/entities/{id}/time-travel` (wizard helper): `{departure: {event_id | time point},
   destination: {dimension, timeline | new_branch: {name, branch_point}, arrival: TimePoint}}`
   splits/creates segments, optionally creates a branch (`branches` module required for

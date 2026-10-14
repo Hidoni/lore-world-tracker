@@ -5,6 +5,11 @@ import type { MomentShape } from './moment'
 
 /** Where moments sit in each API schema that holds any (`MomentShape`). */
 export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
+  "Age": {
+    "o": {
+      "t": "m"
+    }
+  },
   "Backlink": {
     "o": {
       "links": {
@@ -370,6 +375,34 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       "estimated_count": "m"
     }
   },
+  "PersonalItem": {
+    "o": {
+      "age": {
+        "r": "Age"
+      },
+      "t": "m",
+      "to_t": "m"
+    }
+  },
+  "PersonalTimeline": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "PersonalItem"
+        }
+      }
+    }
+  },
+  "Presence": {
+    "o": {
+      "t": "m",
+      "segments": {
+        "a": {
+          "r": "SegmentOut"
+        }
+      }
+    }
+  },
   "RecurrenceProposalItem": {
     "o": {
       "original_start_t": "m",
@@ -430,6 +463,12 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
           "r": "ResolveItem"
         }
       }
+    }
+  },
+  "SegmentOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
     }
   },
   "SeriesBandOut": {
@@ -501,6 +540,22 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
     "o": {
       "start_t": "m",
       "end_t": "m"
+    }
+  },
+  "Worldline": {
+    "o": {
+      "segments": {
+        "a": {
+          "r": "SegmentOut"
+        }
+      }
+    }
+  },
+  "WorldlineWriteResult": {
+    "o": {
+      "worldline": {
+        "r": "Worldline"
+      }
     }
   }
 }

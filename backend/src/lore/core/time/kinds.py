@@ -4,12 +4,26 @@
 from lore.core.entities.extensions import KindExtension
 from lore.core.facts.models import EntityFact
 from lore.core.links.models import Link
-from lore.core.time import calendars, dimensions, events, series
+from lore.core.time import (
+    calendars,
+    dimensions,
+    events,
+    series,
+    worldlines,  # noqa: F401 (registers worldline_segments with TimelineView)
+)
 from lore.core.time.fields import ENTITY_FIELD_SLOTS
-from lore.core.time.models import Calendar, CorrespondencePoint, Dimension, Event, Timeline
+from lore.core.time.models import (
+    Calendar,
+    CorrespondencePoint,
+    Dimension,
+    Event,
+    Timeline,
+    WorldlineSegment,
+)
 from lore.core.time.slots import SlotDef, SlotProvider
 
 SYNC_POINT = "sync_point"
+SEGMENT = "segment"
 
 CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
     SlotProvider(
@@ -116,6 +130,14 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
             SlotDef("a", dimension_column="a_dimension_id"),
             SlotDef("b", dimension_column="b_dimension_id"),
         ),
+    ),
+    # Worldline segments (time-model.md §11): ``start``/``end`` of world time in their
+    # timeline, anchorable to events there (a jump at the moment of a departure event).
+    SlotProvider(
+        SEGMENT,
+        WorldlineSegment,
+        (SlotDef("start"), SlotDef("end")),
+        timeline_column="timeline_id",
     ),
 )
 
