@@ -295,6 +295,11 @@ def character_relationships(c: Canary) -> Iterator[Call]:
 def character_family_tree(c: Canary) -> Iterator[Call]:
     yield from _characters(c, "/family-tree")
     yield from _characters(c, "/family-tree", {"timeline": c.public["Prime"], "up": 5, "down": 5})
+    # Lifespans and existence at the cursor: from the facts the request sees.
+    yield from _characters(c, "/family-tree", {"timeline": c.public["Prime"], "at": "0"})
+    for hidden_id in c.hidden_ids:
+        path = f"{_v(c)}/m/characters/{c.public[CHARACTERS[0]]}/family-tree"
+        yield Call(path, {"timeline": hidden_id, "at": "0"}, status=404)
 
 
 @recipe(f"{V}/m/characters/{{character_id}}/life")

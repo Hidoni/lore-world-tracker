@@ -1388,9 +1388,9 @@ export interface paths {
         };
         /**
          * Family Tree
-         * @description The character's family for the genealogy layout: people (by generation, with existence)
-         *     and the parent, spouse and sibling links between them that the request sees. ``404`` for a
-         *     character or timeline the request may not see.
+         * @description The character's family for the genealogy layout: people (by generation, with their
+         *     lifespans, and their existence at ``at``) and the parent, spouse and sibling links between
+         *     them that the request sees. ``404`` for a character or timeline the request may not see.
          */
         get: operations["characters_family_tree"];
         put?: never;
@@ -3223,11 +3223,16 @@ export interface components {
             generation: number;
             /**
              * From T
-             * @description Start of the existence on the timeline (`null`: unknown; existence comes with temporal facts).
+             * @description The earliest start of the person's existence periods (`core.exists` facts) on the timeline; `null` without existence periods there, or when one has an open start.
              */
             from_t: MomentString | null;
-            /** To T */
+            /**
+             * To T
+             * @description The latest end of the existence periods; `null` without them, or when one has an open end (still alive).
+             */
             to_t: MomentString | null;
+            /** @description Whether the person exists at the time cursor (`at`), as in entity states; `null` without `at`. */
+            existence: components["schemas"]["Existence"] | null;
         };
         /** GraphStyleIn */
         GraphStyleIn: {
@@ -8220,8 +8225,10 @@ export interface operations {
                 down?: number;
                 include_spouses?: boolean;
                 include_siblings?: boolean;
-                /** @description The timeline existence is read on (M7). */
+                /** @description The timeline lifespans (and `at`) are read on (default: the prime timeline of the character's dimension). */
                 timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
                 /** @description People at most. */
                 limit?: number;
                 /** @description Apply reader filtering (preview what readers see). */

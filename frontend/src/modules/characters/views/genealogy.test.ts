@@ -20,6 +20,7 @@ function family(
       generation,
       from_t: null,
       to_t: null,
+      existence: null,
     })),
     edges: edges.map(([kind, source_id, target_id, relation], index) => ({
       id: `l${index}`,

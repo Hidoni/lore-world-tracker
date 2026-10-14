@@ -10,6 +10,8 @@ import pytest
 from lore.modules.characters.links import CATEGORIES
 from tests.entity_api import LinkApi, make_client, problem
 from tests.entity_modules import with_real_modules
+from tests.test_facts import absolute
+from tests.test_state import YEAR, in_year
 
 
 @pytest.fixture
@@ -208,8 +210,10 @@ def test_family_tree_generations_spouses_and_siblings(api: LinkApi) -> None:
         "Gord": 0,
         "Hale": 1,
     }
-    # Existence comes with temporal facts: unknown for now.
-    assert {(p["from_t"], p["to_t"]) for p in body["people"]} == {(None, None)}
+    # Multiversal people without existence periods: no lifespans, and no existence without `at`.
+    assert {(p["from_t"], p["to_t"], p["existence"]) for p in body["people"]} == {
+        (None, None, None)
+    }
     names = {person["id"]: person["name"] for person in body["people"]}
     edges = {
         (edge["kind"], names[edge["source_id"]], names[edge["target_id"]], edge["relation"])
@@ -223,6 +227,56 @@ def test_family_tree_generations_spouses_and_siblings(api: LinkApi) -> None:
 
     # Dain's linked sister Ivy (no recorded parents) comes with his siblings.
     assert generations(tree(api, people["Dain"], up=0, down=0))["Ivy"] == 0
+
+
+def test_family_tree_lifespans_and_existence_at_the_cursor(api: LinkApi) -> None:
+    dimension = api.make("dimension", "Aetheria")
+    calendar = api.calendar(dimension["id"])
+    prime = dimension["ext"]["prime_timeline_id"]
+    mother, father, child = (api.make("character", n, dimension_id=dimension["id"])
+                             for n in ("Mira", "Tobin", "Wren"))  # fmt: skip
+    for parent in (mother, father):
+        api.made_link("characters.parent_of", parent, child)
+
+    def exists(who: dict[str, Any], start: Any, end: Any, **body: Any) -> None:
+        response = api.client.post(
+            f"{api.base}/entities/{who['id']}/facts",
+            json={"field_key": "core.exists", "timeline_id": prime, "valid_from": start,
+                  "valid_to": end, **body},
+        )  # fmt: skip
+        assert response.status_code == 201, response.json()
+
+    # Two periods: the earliest start and the latest end. An open end: no end.
+    exists(mother, absolute(10), absolute(20))
+    exists(mother, absolute(30), absolute(50))
+    exists(father, in_year(calendar, 2), None)
+
+    def people(**params: Any) -> dict[str, tuple[Any, Any, Any]]:
+        body = tree(api, child, **params)
+        return {p["name"]: (p["from_t"], p["to_t"], p["existence"]) for p in body["people"]}
+
+    # The prime timeline of the child's dimension by default.
+    assert people() == {
+        "Wren": (None, None, None),
+        "Mira": ("10", "50", None),
+        "Tobin": (str(YEAR), None, None),
+    }
+    assert people(timeline=prime, at=40) == {
+        "Wren": (None, None, "unknown"),  # no existence periods
+        "Mira": ("10", "50", "exists"),
+        "Tobin": (str(YEAR), None, "not_exists"),
+    }
+    assert people(at=25)["Mira"][2] == "not_exists"
+    # Inside year 2, Tobin's start (known only to the year) may still be ahead.
+    assert people(at=YEAR + 1)["Tobin"][2] == "possible"
+    assert people(at=2 * YEAR)["Tobin"][2] == "exists"
+    # Another timeline: no periods there.
+    other = api.timeline()["id"]
+    assert people(timeline=other)["Mira"] == (None, None, None)
+    # A lifespan only the author knows of: readers don't see it.
+    exists(child, absolute(60), absolute(90), visibility="private")
+    assert people(at=70)["Wren"] == ("60", "90", "exists")
+    assert people(at=70, as_reader="true")["Wren"] == (None, None, "unknown")
 
 
 def test_family_tree_depth_and_options(api: LinkApi) -> None:

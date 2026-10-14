@@ -1163,6 +1163,18 @@ export function serveVault(
       const url = new URL(request.url)
       const root = found(params.id)
       if (root?.kind !== 'character') return new HttpResponse(null, { status: 404 })
+      const cursor = atOf(url)
+      // The earliest start and latest end of the existence periods (null when one is open).
+      const lifespanOf = (id: string) => {
+        const periods = facts.filter((f) => f.entity_id === id && f.field_key === 'core.exists')
+        const starts = periods.map((f) => f.valid_from_t ?? null)
+        const ends = periods.map((f) => f.valid_to_t ?? null)
+        const pick = (values: (string | null)[], later: boolean) =>
+          values.length === 0 || values.includes(null)
+            ? null
+            : (values as string[]).reduce((a, b) => (BigInt(b) > BigInt(a) === later ? b : a))
+        return { from_t: pick(starts, false), to_t: pick(ends, true) }
+      }
       const up = Number(url.searchParams.get('up') ?? '3')
       const down = Number(url.searchParams.get('down') ?? '3')
       const kinds: Record<string, 'parent' | 'spouse' | 'sibling'> = {
@@ -1204,8 +1216,8 @@ export function serveVault(
           name: found(id)?.name ?? id,
           visibility: found(id)?.visibility ?? 'public',
           generation: at,
-          from_t: null,
-          to_t: null,
+          ...lifespanOf(id),
+          existence: existenceAt(id, cursor),
         })),
         edges: family
           .filter((link) => generation.has(link.source_id) && generation.has(link.target_id))
