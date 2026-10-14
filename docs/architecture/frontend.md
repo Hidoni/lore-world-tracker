@@ -908,6 +908,10 @@ chosen from the zoom level. Dragging an event's body or edges edits absolute/cal
 (snapping to tick units). Relative-anchored items show a lock and offer to edit the offset
 instead. A context menu offers create sub-event, add participant, link cause/effect, and
 materialize this occurrence.
+An entity dragged onto an event (from the sidebar, search results or Recent) is added as a
+participant (the role asked); an event dragged onto an event becomes its cause or effect (the
+direction asked). Implemented with #111 (`docs/modules/graph.md`, Local graph and visual
+linking).
 
 ### 9.5 Advanced time (M9)
 

@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Local graph and visual linking** (#111): every entity page shows its neighborhood as a
+  small graph that opens the full graph centered on it. In either graph, `Alt`+drag from one
+  entity to another opens the link dialog with both filled in. Drop an entity onto a timeline
+  event to make it a participant, or another event to make it a cause or an effect.
 - **Graph view** (#110): an explorable map of the whole world (Graph, in the command
   palette). Entities are colored by kind and sized by how connected they are. Hovering one
   lights up its neighbors, a click previews it and a double click opens it. Find, filter by

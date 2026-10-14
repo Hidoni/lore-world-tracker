@@ -42,7 +42,7 @@ const VISIBILITIES: { value: Visibility | ''; label: string }[] = [
   { value: 'private', label: 'Private' },
 ]
 
-interface Target {
+export interface LinkTarget {
   id: string
   name: string
   kind: string
@@ -51,7 +51,8 @@ interface Target {
 
 /** What the dialog edits: a new link from `entity`, or an existing link (type and ends fixed). */
 export type LinkDialogMode =
-  { mode: 'add' } | { mode: 'edit'; link: LinkOut; label: string; other: Target }
+  | { mode: 'add'; target?: LinkTarget }
+  | { mode: 'edit'; link: LinkOut; label: string; other: LinkTarget }
 
 /**
  * Adds or edits a link (frontend.md §7): target search, the link types that fit both ends' kinds
@@ -73,7 +74,9 @@ export function LinkDialog({
   const registry = useKindRegistry(vault)
   const create = useCreateLink(vault)
   const update = useUpdateLink(vault)
-  const [target, setTarget] = useState<Target | null>(editing?.other ?? null)
+  const [target, setTarget] = useState<LinkTarget | null>(
+    editing?.other ?? (props.mode === 'add' ? (props.target ?? null) : null),
+  )
   const [optionId, setOptionId] = useState('')
   const [role, setRole] = useState(editing?.link.role ?? '')
   const [data, setData] = useState<Record<string, unknown>>(editing?.link.data ?? {})
@@ -294,9 +297,9 @@ function TargetPicker({
 }: {
   vault: string
   exclude: string
-  value: Target | null
+  value: LinkTarget | null
   kindLabel: (kind: string) => string
-  onChange: (target: Target | null) => void
+  onChange: (target: LinkTarget | null) => void
 }) {
   const [query, setQuery] = useState('')
   const search = useQuickSearch(vault, { q: query.trim() })

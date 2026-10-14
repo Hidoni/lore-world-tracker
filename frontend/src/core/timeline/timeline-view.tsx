@@ -47,6 +47,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { droppedEntity } from '@/core/links'
 import { eventTime } from '@/core/events'
 import { useEntity, useMaterializeOccurrence, useMutations, useUpdateLatest } from '@/data'
 
@@ -480,6 +481,30 @@ function Timeline({
     },
     [materializeOccurrence, navigate, vault],
   )
+  /** An entity dropped on an item: a computed occurrence is materialized first (to link it). */
+  const dropEntity = useCallback(
+    (item: WindowItem, transfer: DataTransfer) => {
+      const entity = droppedEntity(transfer, vault)
+      if (entity === null) return
+      if (isComputedOccurrence(item) && item.occurrence_key !== null) {
+        materializeOccurrence(
+          { event: item.entity_id, key: item.occurrence_key },
+          {
+            onSuccess: (result) => {
+              setAction({
+                kind: 'drop',
+                event: { id: result.entity.id, name: result.entity.name },
+                entity,
+              })
+            },
+          },
+        )
+        return
+      }
+      setAction({ kind: 'drop', event: { id: item.entity_id, name: item.name }, entity })
+    },
+    [materializeOccurrence, vault],
+  )
   /** Selects the item before (−1) or after (+1) the selected one by start, bringing it into view. */
   const step = (direction: 1 | -1) => {
     if (byStart.length === 0) return
@@ -690,6 +715,7 @@ function Timeline({
     locked: relative ? selected : null,
     onPress: editable ? onPress : undefined,
     onMenu,
+    onDropEntity: editable ? dropEntity : undefined,
   }
   /** What a screen reader hears when an item is selected: its name, dates and importance. */
   const announce = (item: WindowItem) => {

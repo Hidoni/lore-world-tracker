@@ -72,6 +72,8 @@ export interface LaneProps {
   locked: string | null
   onPress: PressHandler | undefined
   onMenu: ((key: string) => void) | undefined
+  /** An entity dragged onto an item (visual linking); off on read-only timelines. */
+  onDropEntity?: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
 }
 
 /** A group's label row, kept at the left while panning. */

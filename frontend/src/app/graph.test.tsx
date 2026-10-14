@@ -6,13 +6,33 @@ import { defaultRows, graphQueries, serveVault } from '@/test/fake-vault'
 import { renderApp } from '@/test/render-app'
 
 // jsdom has no WebGL: the drawing is replaced by the names of its nodes.
+// Alt+drag is a button here: from the first node drawn named `from` to the one named `to`.
 vi.mock('@/modules/graph/views/graph-canvas', () => ({
-  default: ({ nodes }: { nodes: { id: string; label: string }[] }) => (
-    <ul aria-label="Drawn">
-      {nodes.map((node) => (
-        <li key={node.id}>{node.label}</li>
-      ))}
-    </ul>
+  default: ({
+    nodes,
+    onLink,
+  }: {
+    nodes: { id: string; label: string }[]
+    onLink?: (source: string, target: string) => void
+  }) => (
+    <div>
+      <ul aria-label="Drawn">
+        {nodes.map((node) => (
+          <li key={node.id}>{node.label}</li>
+        ))}
+      </ul>
+      {onLink && (
+        <button
+          type="button"
+          onClick={() => {
+            const id = (name: string) => nodes.find((node) => node.label === name)?.id ?? ''
+            onLink(id('Crown'), id('Treasury'))
+          }}
+        >
+          Alt-drag Crown to Treasury
+        </button>
+      )}
+    </div>
   ),
 }))
 
@@ -94,6 +114,44 @@ describe('graph page', () => {
     await waitFor(() => {
       expect(lastQuery()).not.toHaveProperty('center')
     })
+  })
+
+  it('opens the link dialog on Alt+drag, both ends preselected', async () => {
+    const writes = world()
+    await renderApp('/v/v1/m/graph')
+    await screen.findByRole('list', { name: 'Drawn' }, WAIT)
+    await userEvent.click(screen.getByRole('button', { name: 'Alt-drag Crown to Treasury' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Link Crown' })
+    expect(dialog).toHaveTextContent('Treasury')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add link' }))
+    await waitFor(() => {
+      expect(writes.at(-1)).toMatchObject({
+        method: 'POST',
+        path: '/links',
+        body: { link_type: 'core.related', source_id: 'a1', target_id: 'a2' },
+      })
+    })
+  })
+
+  it('shows the local graph on entity pages, and opens the graph on it', async () => {
+    world()
+    await renderApp('/v/v1/e/a1')
+    const panel = await screen.findByRole('region', { name: 'Local graph' }, WAIT)
+    expect(await within(panel).findByText('Treasury', {}, WAIT)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(graphQueries.some((q) => q.center === 'a1' && q.depth === '1')).toBe(true)
+    })
+    await userEvent.selectOptions(within(panel).getByRole('combobox'), '2')
+    await waitFor(() => {
+      expect(lastQuery()).toMatchObject({ center: 'a1', depth: '2' })
+    })
+    const open = within(panel).getByRole('link', { name: 'Open in the graph' })
+    expect(open).toHaveAttribute('href', '/v/v1/m/graph/focus/a1')
+    await userEvent.click(open)
+    await waitFor(() => {
+      expect(lastQuery()).toMatchObject({ center: 'a1' })
+    })
+    expect(await screen.findByRole('heading', { name: 'Graph', level: 1 })).toBeVisible()
   })
 
   it('saves views and says when the graph is truncated', async () => {
