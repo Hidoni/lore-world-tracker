@@ -156,6 +156,10 @@ declarative base: the registry tells module tables from core ones by their model
 | `languages.speaker_outside_existence` | warning | `speaks` validity outside the language's existence |
 | `languages.entry_outside_existence` | warning | lexicon attestation outside the language's existence |
 
+Implemented in `lore.modules.languages.consistency` (#106, `consistency.md` §6): a temporal
+`speaks` link's validity, and a lexicon entry's attestation period in its timeline, within the
+language's existence.
+
 ## Search, graph, visibility, publish
 
 - Search contributor: lexicon entries become search docs (`languages.lexicon_entry`) with

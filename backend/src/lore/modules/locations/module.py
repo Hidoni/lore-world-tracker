@@ -1,6 +1,7 @@
 """The locations module's spec."""
 
 from lore.core.modules import ModuleSpec
+from lore.modules.locations.consistency import CONSISTENCY_RULES
 from lore.modules.locations.kinds import LOCATION_KIND
 from lore.modules.locations.links import LINK_TYPES
 from lore.modules.locations.router import router
@@ -12,4 +13,5 @@ MODULE = ModuleSpec(
     kinds=(LOCATION_KIND,),
     link_types=LINK_TYPES,
     routers=(router,),
+    consistency_rules=CONSISTENCY_RULES,
 )

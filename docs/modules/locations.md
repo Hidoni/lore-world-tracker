@@ -77,7 +77,7 @@ Implementation (#90): `backend/src/lore/modules/locations/` and `frontend/src/mo
   "Location" side panel sets, replaces and removes `event_site` links.
 - The sample world has The Shimmering Reach (galaxy) → … → Hall of Tides (room) and The Void
   Between Worlds (plane) with event sites, an origin, a resident and a portal.
-- Consistency rules come with #106.
+- Consistency rules (#106): below.
 
 ## Consistency rules
 
@@ -85,6 +85,10 @@ Implementation (#90): `backend/src/lore/modules/locations/` and `frontend/src/mo
 |----|---------|-------|
 | `locations.event_at_nonexistent_location` | warning | event's site doesn't exist at the event start |
 | `locations.child_outside_parent_existence` | warning | child location exists outside the parent's existence |
+
+Implemented in `lore.modules.locations.consistency` (#106, `consistency.md` §6): an event's
+start within its `event_site`'s existence; each existence period of a location within the
+existence of its parent location (one finding per pair and timeline).
 
 ## Search, graph, visibility
 

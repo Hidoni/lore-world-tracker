@@ -72,6 +72,9 @@ native land.
 |----|---------|-------|
 | `species.member_before_emergence` | warning | a member exists before the species emerged (or after extinction) |
 
+Implemented in `lore.modules.species.consistency` (#106, `consistency.md` §6): each existence
+period of an `is_a` member within the species' existence (one finding per pair and timeline).
+
 ## Disabling / removal notes
 
 Disabling hides species and their link types. Removal would convert species to `misc` (category

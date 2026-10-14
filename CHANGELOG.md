@@ -39,6 +39,13 @@ All notable changes to this project are documented here. The format follows
   with huge spans in scientific notation. A character's Life panel shows when they were born and
   died, their age at death and at each event they took part in, and their species' typical
   lifespan.
+- **Narrative consistency checks** (#106): warnings when the story contradicts itself in time.
+  Someone takes part in an event while not alive, a value or a relationship holds while its
+  entity doesn't exist, two values of a field overlap, a parent is born after their child,
+  someone belongs to or speaks something that doesn't exist yet, an event happens at a place
+  that is gone, a place outlives the place it lies in, a species member lives before the species
+  emerged, or a word is attested before its language existed. Optional checks flag two spouses at
+  once and leaders who aren't members. Dates known only roughly give "possible" findings.
 
 ## [0.5.0] - 2026-10-13
 
