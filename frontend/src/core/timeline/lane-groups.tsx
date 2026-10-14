@@ -74,6 +74,8 @@ export interface LaneProps {
   onMenu: ((key: string) => void) | undefined
   /** An entity dragged onto an item (visual linking); off on read-only timelines. */
   onDropEntity?: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
+  /** Compare mode: the events (entity ids) that differ, outlined. */
+  highlight?: ReadonlySet<string> | null
 }
 
 /** A group's label row, kept at the left while panning. */
@@ -194,6 +196,64 @@ export function ParticipantLane({
         </p>
       ) : (
         <EventLanes {...lane} items={data.items} bands={data.bands} />
+      )}
+    </section>
+  )
+}
+
+/**
+ * Compare mode (frontend.md §9.5): another timeline's events in lanes of their own under the
+ * main ones, on the same axis, read-only (opening an event still works). Events that timeline
+ * created or changed after its branch point are outlined.
+ */
+export function CompareGroup({
+  vault,
+  timeline,
+  D,
+  filters,
+  lane,
+  highlight,
+  onRemove,
+}: {
+  vault: string
+  timeline: Named
+  D: bigint
+  filters: WindowFilters
+  lane: LaneProps
+  highlight: ReadonlySet<string> | null
+  onRemove: () => void
+}) {
+  const { window: data, loading } = useTimelineWindow(vault, timeline.id, lane.v, D, filters)
+  const readOnly: LaneProps = {
+    ...lane,
+    drag: null,
+    locked: null,
+    onPress: undefined,
+    onMenu: undefined,
+    onDropEntity: undefined,
+    highlight,
+  }
+  return (
+    <section aria-label={`Compared: ${timeline.name}`} data-testid="compare-group">
+      <GroupHeader
+        label={timeline.name}
+        actions={
+          <button
+            type="button"
+            aria-label={`Stop comparing ${timeline.name}`}
+            className="rounded p-0.5 hover:text-foreground"
+            onClick={onRemove}
+          >
+            <XIcon aria-hidden className="size-3" />
+          </button>
+        }
+      />
+      {data.items.length === 0 && data.bands.length === 0 ? (
+        <p className="px-2 py-1 text-xs text-muted-foreground">
+          {loading ? 'Loading…' : 'No events here.'}
+        </p>
+      ) : (
+        <EventLanes {...readOnly} items={data.items} bands={data.bands} />
       )}
     </section>
   )

@@ -1,10 +1,51 @@
-import { defineModule } from '@/core/modules'
+import { createElement, lazy, Suspense, type ComponentType } from 'react'
+
+import { defineModule, type EntityViewProps } from '@/core/modules'
+import { useBranching } from '@/core/time'
+
+const LazyTimeline = lazy(async () => ({
+  default: (await import('./views/timeline-panel')).TimelinePanel,
+}))
+const LazyNotes = lazy(async () => ({
+  default: (await import('./views/notes-panel')).TimelineNotesPanel,
+}))
+
+/** The notes panel shows while a branch is viewed. */
+function useNotesShown({ vault }: EntityViewProps): boolean {
+  const branching = useBranching(vault)
+  return branching.enabled && branching.inBranch
+}
+
+const lazyPanel =
+  (Panel: ComponentType<EntityViewProps>): ComponentType<EntityViewProps> =>
+  (props) =>
+    createElement(Suspense, { fallback: null }, createElement(Panel, props))
 
 /**
  * The branches module (docs/modules/branches.md): "what if" timelines. Branching itself is core
- * (the timeline switcher, badges on inherited records, overrides); this definition marks the
- * module active so the UI offers creating and editing branches.
+ * (the timeline switcher, badges on inherited records, overrides, compare mode); this module adds
+ * the timeline page (lineage, branch point, what a branch changed, its branches) and the notes an
+ * entity has in the viewed branch, and marks branching as available.
  */
 export default defineModule({
   id: 'branches',
+  entityPanels: [
+    {
+      id: 'branches.timeline',
+      kinds: ['timeline'],
+      title: 'Timeline',
+      component: lazyPanel(LazyTimeline),
+      placement: 'main',
+      order: 10,
+    },
+    {
+      id: 'branches.notes',
+      kinds: '*',
+      title: 'Notes in this timeline',
+      component: lazyPanel(LazyNotes),
+      placement: 'main',
+      order: 20,
+      useShown: useNotesShown,
+    },
+  ],
 })

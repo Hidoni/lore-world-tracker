@@ -27,6 +27,10 @@ All notable changes to this project are documented here. The format follows
   values and links say where they come from; what ended before the branch point is the shared
   past and stays read-only, and what was still going can be edited in this timeline (and
   reverted).
+- **Comparing branches** (#117): the timeline shows other timelines' events in lanes of their
+  own below the one you're viewing, with a marker where each branch diverges and what it changed
+  outlined. A timeline's page shows its lineage, branch point, branches and what it changed, and
+  entities can have notes for each branch ("In this timeline she became a pirate").
 
 ## [0.7.0] - 2026-10-14
 

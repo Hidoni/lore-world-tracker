@@ -53,6 +53,7 @@ import { droppedEntity } from '@/core/links'
 import { eventTime } from '@/core/events'
 import { useEntity, useMaterializeOccurrence, useMutations, useUpdateLatest } from '@/data'
 
+import { CompareMenu, DivergenceMarkers, useDifferences } from './compare'
 import { CursorLine, TickSnap } from './cursor-line'
 import { dragTime, pointAt, type DragMode } from './drag-edit'
 import { EraBands } from './era-bands'
@@ -67,6 +68,8 @@ import {
   type TimelineFilters,
 } from './filters-panel'
 import {
+  CompareGroup,
+  GroupHeader,
   groupItems,
   LaneGroupView,
   ParticipantLane,
@@ -709,6 +712,13 @@ function Timeline({
     ],
     [data.items],
   )
+  /** Compare mode: the other timelines shown under the viewed one (frontend.md §9.5). */
+  const [compare, setCompare] = useState<string[]>([])
+  const compared = branching.timelines
+    .map(({ node }) => node)
+    .filter((node) => compare.includes(node.id) && node.id !== timelineId)
+  const comparing = compared.length > 0
+  const differences = useDifferences(vault, comparing ? [branching.current, ...compared] : [])
   const lane: LaneProps = {
     v,
     layoutV,
@@ -721,6 +731,7 @@ function Timeline({
     onPress: editable ? onPress : undefined,
     onMenu,
     onDropEntity: editable ? dropEntity : undefined,
+    highlight: comparing && timelineId !== null ? (differences.get(timelineId) ?? null) : null,
   }
   /** What a screen reader hears when an item is selected: its name, dates and importance. */
   const announce = (item: WindowItem) => {
@@ -875,6 +886,7 @@ function Timeline({
             </option>
           ))}
         </select>
+        <CompareMenu branching={branching} value={compare} onChange={setCompare} />
         <FiltersPanel
           vault={vault}
           dimensionId={dimensionId}
@@ -1010,6 +1022,18 @@ function Timeline({
                       )
                     })}
                   </svg>
+                  {comparing && (
+                    <DivergenceMarkers
+                      v={v}
+                      height={LANES_HEIGHT}
+                      timelines={
+                        branching.current === null ? compared : [branching.current, ...compared]
+                      }
+                    />
+                  )}
+                  {comparing && (
+                    <GroupHeader label={`${branching.current?.name ?? 'This timeline'} (viewed)`} />
+                  )}
                   {grouping === 'participant' ? (
                     filters.participants.length === 0 ? (
                       <p className="p-3 text-xs text-muted-foreground">
@@ -1053,6 +1077,20 @@ function Timeline({
                       lane={lane}
                       onCollapse={() => {
                         setExpanded((current) => current.filter((each) => each.id !== parent.id))
+                      }}
+                    />
+                  ))}
+                  {compared.map((node) => (
+                    <CompareGroup
+                      key={node.id}
+                      vault={vault}
+                      timeline={{ id: node.id, name: node.name }}
+                      D={dimension.duration}
+                      filters={query}
+                      lane={lane}
+                      highlight={differences.get(node.id) ?? null}
+                      onRemove={() => {
+                        setCompare((current) => current.filter((id) => id !== node.id))
                       }}
                     />
                   ))}

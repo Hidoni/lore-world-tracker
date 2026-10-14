@@ -933,7 +933,13 @@ linking).
 ### 9.5 Advanced time (M9)
 
 Compare mode stacks lane groups for several timelines (with divergence markers and highlighted
-differences). Dimension lanes map another dimension's events through a correspondence (warped
+differences).
+- Implementation (#117, `core/timeline/compare.tsx`): the toolbar's Compare menu lists the
+  dimension's other timelines. Each checked one is a `CompareGroup` under the viewed timeline's
+  groups (its own window tiles, same viewport, no editing), headed by its name; the viewed
+  timeline's groups get a "(viewed)" header. Each branch shown draws a dashed divergence marker
+  at its branch point. Events a shown branch created or overrode (`useBranchDiffs`, its diff
+  against its parent) carry `data-diff` and a dashed outline in that branch's lanes. Dimension lanes map another dimension's events through a correspondence (warped
 axis, plus a secondary tick row in that dimension's calendar). The worldline layer draws arcs for
 jumps of selected entities.
 

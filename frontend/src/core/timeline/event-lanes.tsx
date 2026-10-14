@@ -100,7 +100,12 @@ interface ItemProps {
   onPress: PressHandler | undefined
   onMenu: ((key: string) => void) | undefined
   onDropEntity: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
+  /** It differs from the timeline it is compared with (compare mode). */
+  different: boolean
 }
+
+/** Compare mode: an item that differs from the compared timeline (the branch diff). */
+const DIFF_MARKER = 'rounded-sm outline-2 outline-offset-1 outline-amber-500 outline-dashed'
 
 /** One item: a single element (spans: a bar with a gradient; instants: a diamond pseudo-element). */
 const Item = memo(function Item({
@@ -115,6 +120,7 @@ const Item = memo(function Item({
   onPress,
   onMenu,
   onDropEntity,
+  different,
 }: ItemProps) {
   const { key, item, geometry } = drawn
   const occurrence = item.occurrence_key !== null
@@ -127,6 +133,7 @@ const Item = memo(function Item({
     'data-sub-events': subEvents ? '' : undefined,
     'data-locked': locked ? '' : undefined,
     'data-dragging': drag === null ? undefined : drag.mode,
+    'data-diff': different ? '' : undefined,
     title: locked
       ? `${item.name} (relative to another record: edit its offset)`
       : subEvents
@@ -194,6 +201,7 @@ const Item = memo(function Item({
             ? 'before:absolute before:inset-y-0 before:left-[7px] before:w-0.5 before:bg-primary'
             : 'before:absolute before:top-1/2 before:left-[3px] before:size-2.5 before:-translate-y-1/2 before:rotate-45 before:bg-primary',
           subEvents && SUB_EVENTS_MARKER,
+          different && DIFF_MARKER,
           selected && 'rounded-sm ring-2 ring-ring',
           item.occurrence_state === 'cancelled' && 'line-through opacity-60',
         )}
@@ -220,6 +228,7 @@ const Item = memo(function Item({
       className={cn(
         'absolute overflow-hidden rounded-sm px-1 text-left text-[11px] whitespace-nowrap text-foreground',
         subEvents && SUB_EVENTS_MARKER,
+        different && DIFF_MARKER,
         selected && 'ring-2 ring-ring',
         item.occurrence_state === 'cancelled' && 'line-through opacity-60',
       )}
@@ -267,6 +276,7 @@ export function EventLanes({
   onPress,
   onMenu,
   onDropEntity,
+  highlight = null,
 }: {
   /** The current view. */
   v: Viewport
@@ -284,6 +294,8 @@ export function EventLanes({
   onPress?: PressHandler
   onMenu?: (key: string) => void
   onDropEntity?: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
+  /** Compare mode: the events (entity ids) that differ, outlined. */
+  highlight?: ReadonlySet<string> | null
 }) {
   const [anchors] = useState(() => new Anchor())
   const [lanes] = useState(() => new StickyLanes())
@@ -326,6 +338,7 @@ export function EventLanes({
           onPress={onPress}
           onMenu={onMenu}
           onDropEntity={onDropEntity}
+          different={highlight?.has(each.item.entity_id) ?? false}
         />
       )),
     [
@@ -340,6 +353,7 @@ export function EventLanes({
       onPress,
       onMenu,
       onDropEntity,
+      highlight,
     ],
   )
   // The laid-out items moved (and, while a zoom's layout catches up, scaled) to the current view.
