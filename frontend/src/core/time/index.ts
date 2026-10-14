@@ -64,3 +64,4 @@ export {
 } from './branching'
 export { CreateBranchDialog, type CreateBranchOptions } from './create-branch-dialog'
 export { TimelineSwitcher } from './timeline-switcher'
+export { RecordBranchBadge } from './branch-badge'
