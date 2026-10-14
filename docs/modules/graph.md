@@ -76,6 +76,41 @@ Implementation (#109, `backend/src/lore/modules/graph/`):
 - Layout positions are cached per vault+view in `localStorage` to avoid re-layout on each visit
   (best effort).
 
+Implementation of the global graph (#110, `frontend/src/modules/graph/`):
+
+- **Route** `/v/$vault/m/graph` (the module's index route, and the command "Open the graph").
+  The page and its renderer load lazily, so sigma, graphology and ForceAtlas2 stay out of the shell bundle.
+- **Request:** `graphQuery(filters, dimension, asOf)` turns the filters into the request.
+  - The scope is the time context's dimension (with multiversal entities) or the whole vault.
+  - `kind`, `link_type`, `tag`, and `include_mentions`/`include_hierarchy` (only when off) follow
+    the filters. `center` and `depth` are set in local mode.
+  - With the time cursor at a moment, the request also gets its `timeline` and `at`.
+  - Orphans (nodes without edges) are hidden on the client.
+- **Drawing:** a graphology multi-graph drawn by sigma.js 3 (WebGL).
+  - Node color is the kind's color. A module's `graphStyles.nodes[kind]` overrides it, and its
+    `size` is the base size. Node size grows with the square root of the degree.
+  - Edge color is the module's `graphStyles.edges[link type]`, else the link type's registry
+    `graph.color`, else its category's color. The categories are family, social, spatial,
+    causal, mention, hierarchy and other, shown in a legend. Edge size grows with the mention
+    count. Dashes aren't drawn yet.
+  - Hovering a node highlights its neighbors and their edges. A click selects (a preview panel
+    with "Open …" and "Show its neighborhood"), a double click opens the entity.
+  - "Find" dims what doesn't match. One match, or the selection, is centered.
+- **Layout:** ForceAtlas2 runs in a web worker (`graphology-layout-forceatlas2/worker`, with
+  inferred settings). It starts by itself when some node has no known position and stops after
+  2 to 15 s, depending on size. "Layout" and "Stop" run it again or stop it. "Freeze" stops it and
+  keeps the positions.
+  - New nodes start on a golden-angle spiral.
+  - Positions are cached in `localStorage` per vault and filter set (`lore.graph.layout.*`),
+    up to 20,000 nodes.
+- **Saved views:** named filter sets in `localStorage` (`lore.graph.views.<vault>`), applied
+  from a select.
+- **Notices:** a `truncated` response gets a notice (the best-connected entities are shown).
+  With the time cursor at a moment, the page says it shows what existed then.
+- **Fallbacks:** "As a list" lists the entities by connections (the first 1,000), for keyboard
+  and screen-reader use. Without WebGL the drawing says so and points there.
+- The local graph panel on entity pages and visual linking (`Alt`+drag) are separate issues.
+
 ## Visibility
 
 Reader mode gets visibility-filtered nodes and edges. Mentions from private blocks don't produce

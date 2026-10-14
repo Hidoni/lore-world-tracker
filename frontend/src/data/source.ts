@@ -132,6 +132,8 @@ export interface DataSource {
     query?: Query<'languages_lexicon_list'>,
   ): Promise<D<'LexiconPage'>>
   lexiconEntry(vault: string, entry: string): Promise<D<'LexiconEntryOut'>>
+  // The graph module (docs/modules/graph.md).
+  graph(vault: string, query?: Query<'graph_graph'>): Promise<D<'Graph'>>
   // The species module (docs/modules/species.md).
   speciesMembers(
     vault: string,
