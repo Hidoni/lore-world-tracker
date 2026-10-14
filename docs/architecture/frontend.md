@@ -940,7 +940,16 @@ differences).
   timeline's groups get a "(viewed)" header. Each branch shown draws a dashed divergence marker
   at its branch point. Events a shown branch created or overrode (`useBranchDiffs`, its diff
   against its parent) carry `data-diff` and a dashed outline in that branch's lanes. Dimension lanes map another dimension's events through a correspondence (warped
-axis, plus a secondary tick row in that dimension's calendar). The worldline layer draws arcs for
+axis, plus a secondary tick row in that dimension's calendar).
+- Implementation (#119, `core/timeline/dimension-lanes.tsx`): with the correspondences module on,
+  the toolbar's Dimensions menu lists the dimensions reachable from this one
+  (`useCorrespondenceGraph`, `core/time/correspondences.ts`: the correspondences the request sees,
+  compiled by the TS engine, mapped along the same shortest paths as the server). A checked one
+  is a read-only lane group: the view's moments are mapped there (its ends and 64 samples, so a
+  partly defined mapping still shows), that dimension's prime timeline window is read for them,
+  and each item's start and end are mapped back onto this axis (an item whose start has no
+  corresponding moment is left out; an end without one makes it an instant). Above its lanes a
+  tick row shows that dimension's display calendar where its ticks correspond. The worldline layer draws arcs for
 jumps of selected entities.
 
 ### 9.6 Accessibility

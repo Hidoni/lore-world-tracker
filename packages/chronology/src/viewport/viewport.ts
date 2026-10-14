@@ -49,6 +49,25 @@ export function toPx(v: Viewport, t: bigint): number {
   return Number(clamped) / SUBPIXELS
 }
 
+/** `log10(n)` of a non-negative bigint, to double precision (its digits, not its value). */
+function log10(n: bigint): number {
+  const digits = n.toString()
+  const head = digits.slice(0, 17)
+  return digits.length - head.length + Math.log10(Number(head))
+}
+
+/**
+ * The pixel position of `t` on a logarithmic axis over `[start, end]` (`widthPx` wide): moments
+ * are offset by one, so 0 sits at the left of an axis starting at 0. Charts of moments spanning
+ * many orders of magnitude (a correspondence's mapping) use it; timelines stay linear.
+ */
+export function toLogPx(start: bigint, end: bigint, widthPx: number, t: bigint): number {
+  if (start < 0n || end <= start) throw new RangeError('a log axis needs 0 ≤ start < end')
+  const clamped = t < start ? start : t > end ? end : t
+  const lo = log10(start + 1n)
+  return ((log10(clamped + 1n) - lo) / (log10(end + 1n) - lo)) * widthPx
+}
+
 /** The moment at pixel `x`: the latest moment with `toPx ≤ x` (to 1/1024 px). */
 export function fromPx(v: Viewport, x: number): bigint {
   return v.start + floorDiv(scaled(x) * v.span, widthOf(v))

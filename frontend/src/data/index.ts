@@ -130,6 +130,7 @@ export {
   useProposeCalendarChange,
   useCreateDimension,
   useDimensionCalendars,
+  useEntitiesById,
   useDimensions,
   useEventTreeLevel,
   useTimeResolution,
@@ -189,6 +190,17 @@ export {
   type TimelineNote,
   type TimelineNode,
 } from './branches'
+export {
+  useCorrespondences,
+  useCreateCorrespondence,
+  useDeleteCorrespondence,
+  useUpdateCorrespondence,
+  type CorrespondenceCreate,
+  type CorrespondenceOut,
+  type CorrespondenceUpdate,
+  type MapOut,
+  type SyncPointOut,
+} from './correspondences'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,

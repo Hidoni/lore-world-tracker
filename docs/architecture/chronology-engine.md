@@ -808,6 +808,10 @@ place where moments become floating-point pixels: pixel inputs are scaled to 1/1
   ±1e7 px far off-screen, converted to `number` and divided by 1024. Monotonic.
 - `fromPx(x)`: `start + floor(round(x·1024) · span / round(widthPx·1024))`, the latest moment with
   `toPx ≤ x`; `fromPx(toPx(t))` is within one pixel's span of `t`.
+- `toLogPx(start, end, widthPx, t)`: a logarithmic axis for charts (the correspondence editor's
+  mapping chart), `widthPx · (log10(t+1) − log10(start+1)) / (log10(end+1) − log10(start+1))`
+  with `t` clamped to `[start, end]`; logarithms come from the decimal digits, so moments beyond
+  doubles work. Timelines stay linear.
 - `zoomAt(x, factor: Rational)`: the new span is `floor(span · factor)` (at least the minimum) and
   the start is chosen so that `fromPx(x)` is **exactly** the same moment before and after.
 - `panBy(dx)`: the view moves `dx` pixels later in time (negative: earlier).

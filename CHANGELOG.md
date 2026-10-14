@@ -37,6 +37,13 @@ All notable changes to this project are documented here. The format follows
   dimension is refused. Moments map across dimensions, through other dimensions when there is no
   direct correspondence, and a warning appears when two routes disagree. The sample world's
   Drowned Gate joins Aetheria and the Dreaming. New tables (migrated automatically).
+- **Relating dimensions' time** (#119): a dimension's overview lists its correspondences and the
+  dimensions it is connected to, and an editor creates and changes them: sync points picked in
+  each dimension's calendars, rates set with "1 day here = 1 year there", a chart of how time maps
+  across and a tester that converts any moment. Event pages show when the event happens in every
+  connected dimension ("Concurrently in…"), and the timeline can add another dimension's events in
+  a lane of their own, placed where they happen on this timeline, with that dimension's calendar
+  above them.
 - **Worldlines** (#120): time travelers live through time in their own order. A character's
   worldline is a list of segments (where and when they were, and how fast time passed for them),
   with jumps in between; segments can be anchored to events and move with them. The API reports

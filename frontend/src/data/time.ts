@@ -54,6 +54,19 @@ export function useDimensionCalendars(
   }
 }
 
+/** Full entities by id (sharing the entity cache with `useEntity`), those loaded so far. */
+export function useEntitiesById(vault: string, ids: readonly string[]): Entity[] {
+  const source = useDataSource()
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: keys.entity(vault, id, {}),
+      queryFn: () => source.entity(vault, id, {}),
+    })),
+    combine: (results) =>
+      results.flatMap((result) => (result.data === undefined ? [] : [result.data])),
+  })
+}
+
 /** A dimension's timelines (the prime timeline and its branches, as a tree). */
 export function useTimelines(vault: string, dimension: string | null) {
   const source = useDataSource()

@@ -384,6 +384,27 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'NoteOut',
       ),
+    correspondences: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/correspondences`, { params: { ...path(vault), query } })),
+        'CorrespondenceList',
+      ),
+    correspondence: async (vault, id) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/correspondences/{correspondence_id}`, {
+            params: { path: { vault_id: vault, correspondence_id: id } },
+          }),
+        ),
+        'CorrespondenceOut',
+      ),
+    mapMoment: async (vault, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/correspondences/map`, { params: { ...path(vault), query } }),
+        ),
+        'MapOut',
+      ),
     graph: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/m/graph/graph`, { params: { ...path(vault), query } })),
@@ -725,6 +746,30 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           }),
         ),
         'NoteOut',
+      ),
+    createCorrespondence: async (vault, body) =>
+      toDomain(
+        await unwrap(client.POST(`${V}/m/correspondences`, { params: path(vault), body })),
+        'CorrespondenceWriteResult',
+      ),
+    updateCorrespondence: async (vault, id, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/correspondences/{correspondence_id}`, {
+            params: { path: { vault_id: vault, correspondence_id: id } },
+            body,
+          }),
+        ),
+        'CorrespondenceWriteResult',
+      ),
+    deleteCorrespondence: async (vault, id) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/correspondences/{correspondence_id}`, {
+            params: { path: { vault_id: vault, correspondence_id: id } },
+          }),
+        ),
+        'CorrespondenceWriteResult',
       ),
     deleteLexiconEntry: async (vault, entry) =>
       toDomain(

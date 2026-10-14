@@ -14,6 +14,7 @@ export {
   fromPx,
   marginOf,
   panBy,
+  toLogPx,
   toPx,
   viewport,
   zoomAt,

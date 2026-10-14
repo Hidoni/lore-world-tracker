@@ -41,6 +41,9 @@ export const keys = {
   consistencyRules: (vault: string) => [vault, 'consistencyRules'] as const,
   timelines: (vault: string, dimension: string) => [vault, 'timelines', dimension] as const,
   branchDiff: (vault: string, timeline: string) => [vault, 'branchDiff', timeline] as const,
+  correspondences: (vault: string, dimension: string | null) =>
+    [vault, 'correspondences', dimension ?? ''] as const,
+  correspondence: (vault: string, id: string) => [vault, 'correspondences', 'one', id] as const,
   timelineNote: (vault: string, entity: string, timeline: string) =>
     [vault, 'timelineNote', entity, timeline] as const,
   calendarPresets: (vault: string) => [vault, 'calendarPresets'] as const,

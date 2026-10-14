@@ -12,6 +12,7 @@ export {
   defineModule,
   type Command,
   type CommandContext,
+  type DimensionSection,
   type EditorExtension,
   type EntityPanel,
   type EntityViewProps,

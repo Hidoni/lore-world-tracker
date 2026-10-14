@@ -44,6 +44,8 @@ const VAULT_WIDE = [
   // What branches changed: their records and overrides, by name (timeline trees refresh with
   // time changes, which a new branch is).
   'branchDiff',
+  // Correspondences show dimension names and drop out with a trashed dimension.
+  'correspondences',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = [
@@ -70,6 +72,8 @@ const TIME = [
   'facts',
   'links',
   'backlinks',
+  // Sync points anchored to events move with them.
+  'correspondences',
 ]
 // Unlinked mentions read every entity's text and the aliases.
 const SEARCH = ['search', 'quickSearch', 'unlinkedMentions']

@@ -59,6 +59,14 @@ export interface FieldRendererProps {
   value: unknown
 }
 
+/** A section of a dimension's overview page (`/v/$vault/d/$dimension`). */
+export interface DimensionSection {
+  id: string
+  title: string
+  order?: number
+  component: ComponentType<{ vault: string; dimensionId: string }>
+}
+
 export interface TimelineLayer {
   id: string
   title: string
@@ -129,6 +137,8 @@ export interface ModuleDefinition {
   routes?: RouteFactory
   navSections?: readonly NavSection[]
   entityPanels?: readonly EntityPanel[]
+  /** Sections of the dimension overview (the correspondences module: how its time relates). */
+  dimensionSections?: readonly DimensionSection[]
   linkTypeRenderers?: Readonly<Record<string, ComponentType<LinkRowProps>>>
   fieldTypeRenderers?: Readonly<Record<string, ComponentType<FieldRendererProps>>>
   timelineLayers?: readonly TimelineLayer[]

@@ -184,7 +184,8 @@ defineModule({
   kinds: { character: { icon, color, panels: [...], listColumns: [...], createDefaults, groupBy, iconBy } },
   routes: (vaultRoute) => [...],                 // attached under /v/$vault
   navSections: [...],                            // sidebar sections
-  entityPanels: [{ id, kinds, title, component, placement: 'main' | 'side', order }],
+  entityPanels: [{ id, kinds, title, component, placement: 'main' | 'side', order, useShown }],
+  dimensionSections: [{ id, title, component, order }], // sections of the dimension overview
   linkTypeRenderers: { 'groups.member_of': MembershipRow },
   fieldTypeRenderers: { 'media': MediaFieldEditor },
   timelineLayers: [...],                         // extra lanes/overlays on the timeline view

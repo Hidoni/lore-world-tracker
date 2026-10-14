@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useExtensionList } from '@/core/modules'
 import {
   ApiError,
   useEntities,
@@ -289,6 +290,7 @@ export function DimensionOverview({ vault, dimensionId }: { vault: string; dimen
   const entity = useEntity(vault, dimensionId)
   const { dimension, lenses } = useDimensionLenses(vault, dimensionId)
   const timelines = useTimelines(vault, dimensionId)
+  const sections = useExtensionList('dimensionSections', vault)
   const editable = useMutations() !== null
   const update = useUpdateLatest(vault, { toast: false })
   const events = useEntities(vault, {
@@ -446,6 +448,11 @@ export function DimensionOverview({ vault, dimensionId }: { vault: string; dimen
           </dl>
         </Section>
       </div>
+      {sections.map((section) => (
+        <Section key={section.id} title={section.title}>
+          <section.component vault={vault} dimensionId={dimensionId} />
+        </Section>
+      ))}
       <Section title="Recent events">
         {(recent.data?.items.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">No events yet.</p>

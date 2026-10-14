@@ -158,6 +158,15 @@ export interface DataSource {
   ): Promise<D<'BranchDiff'>>
   /** A branch's note on an entity (body `null` and revision 0 when there is none). */
   timelineNote(vault: string, entity: string, timeline: string): Promise<D<'NoteOut'>>
+  // The correspondences module (docs/modules/correspondences.md).
+  /** The live correspondences (of a dimension, either side), with their resolved sync points. */
+  correspondences(
+    vault: string,
+    query?: Query<'correspondences_list'>,
+  ): Promise<D<'CorrespondenceList'>>
+  correspondence(vault: string, id: string): Promise<D<'CorrespondenceOut'>>
+  /** A moment mapped to another dimension along the shortest path of correspondences. */
+  mapMoment(vault: string, query: Query<'correspondences_map'>): Promise<D<'MapOut'>>
 }
 
 /**
@@ -294,4 +303,15 @@ export interface Mutations {
     timeline: string,
     body: Schemas['NoteIn'],
   ): Promise<D<'NoteOut'>>
+  // The correspondences module.
+  createCorrespondence(
+    vault: string,
+    body: Schemas['CorrespondenceCreate'],
+  ): Promise<D<'CorrespondenceWriteResult'>>
+  updateCorrespondence(
+    vault: string,
+    id: string,
+    body: Schemas['CorrespondenceUpdate'],
+  ): Promise<D<'CorrespondenceWriteResult'>>
+  deleteCorrespondence(vault: string, id: string): Promise<D<'CorrespondenceWriteResult'>>
 }

@@ -14,6 +14,7 @@ import {
   panBy,
   tileBounds,
   tileFor,
+  toLogPx,
   toPx,
   viewport,
   zoomAt,
@@ -187,5 +188,22 @@ describe('tiles', () => {
     })
     expect(tileBounds(2, 3n, 1000n)).toEqual({ start: 753n, end: 1001n })
     expect(tileFor(viewport(2000n, 200n, 100), 1000n).indices).toEqual([])
+  })
+})
+
+describe('toLogPx', () => {
+  test('places decades evenly, offset by one', () => {
+    expect(toLogPx(0n, 999n, 300, 0n)).toBe(0)
+    expect(toLogPx(0n, 999n, 300, 9n)).toBeCloseTo(100)
+    expect(toLogPx(0n, 999n, 300, 99n)).toBeCloseTo(200)
+    expect(toLogPx(0n, 999n, 300, 999n)).toBeCloseTo(300)
+  })
+
+  test('clamps to the axis and handles moments beyond doubles', () => {
+    expect(toLogPx(9n, 99n, 100, 0n)).toBe(0)
+    expect(toLogPx(9n, 99n, 100, 10n ** 40n)).toBeCloseTo(100)
+    const huge = 10n ** 400n
+    expect(toLogPx(0n, huge, 400, 10n ** 200n - 1n)).toBeCloseTo(200)
+    expect(() => toLogPx(5n, 5n, 100, 5n)).toThrow(RangeError)
   })
 })
