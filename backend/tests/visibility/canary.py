@@ -443,8 +443,8 @@ def _worldlines(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -> Non
 
     secret = b.hidden("event", visibility="private", ext={"start": at(500)}, **home)
     ref = {"type": "event", "id": secret["id"], "slot": "start"}
-    anchored = {"anchor": {"kind": "relative", "ref": ref, "offset": {"kind": "base", "units": "0"}},
-                "precision": "base"}  # fmt: skip
+    offset = {"kind": "base", "units": "0"}
+    anchored = {"anchor": {"kind": "relative", "ref": ref, "offset": offset}, "precision": "base"}
     traveler = b.public("character", "Time Traveler", **home)
     prime = b.canary.public["Prime"]
 
