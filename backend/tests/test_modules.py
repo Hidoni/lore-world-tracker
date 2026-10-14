@@ -482,7 +482,7 @@ def test_openapi_operations(client: TestClient) -> None:
 def test_unused_extension_points_are_stored() -> None:
     assert len(SAMPLE.publish_contributors) == 1
     assert REGISTRY.slot_registry().record_types() == [
-        "dimension", "timeline", "event", "calendar", "fact", "entity_field", "link",
+        "dimension", "timeline", "event", "event_override", "calendar", "fact", "entity_field", "link",
         "sample.note"
     ]  # fmt: skip
     assert SAMPLE.settings_model is not None
