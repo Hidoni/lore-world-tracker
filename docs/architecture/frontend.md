@@ -514,6 +514,14 @@ Implementation (`core/time/`, #72):
     with the Relative tab for event anchors) unless the type is timeless; `required` types
     need one. Only changed bounds are sent.
   - **Changes caused:** an event's page lists the facts it caused (`GET /facts?source_event=`).
+- **Derived displays** (#105; chronology-engine.md §9.3): `elapsedIn` measures a span with `diff`
+  in the display calendar: the two coarsest non-zero units ("34 years, 2 months"), only the top
+  unit from 1,000 of them (scientific from 10^7: "3.2 × 10^9 years"), base units under Absolute.
+  `relativeTo` words it against a reference ("2 years ago", "from now", "before the cursor").
+  `MomentDisplay`'s tooltip also says how far the moment is from the cursor, and `relative` shows
+  it inline. The event page shows how long ago an event started next to its start, and its
+  duration in calendar units (as before). Ages measure in a calendar even under Absolute (the
+  dimension's first calendar).
 - **Formatting:** a moment shows at its precision when the display calendar has that level, else
   at the coarsest level whose unit fits in its extent (the extent given, or the precision's unit
   in the calendar that has it), like the backend's `display_level`. The Absolute calendar uses

@@ -10,6 +10,8 @@ export {
 export {
   displayLevel,
   durationSign,
+  elapsedIn,
+  relativeTo,
   formatDuration,
   formatDurationIn,
   formatIn,
