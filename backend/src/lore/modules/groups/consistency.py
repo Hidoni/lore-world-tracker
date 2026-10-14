@@ -18,6 +18,7 @@ from lore.core.consistency.existence import (
     Requirement,
     Requirements,
     Span,
+    chunks,
     dimensions_of,
     live,
     overlapping,
@@ -43,9 +44,10 @@ def _links(ctx: RuleContext, link_type: str, column: Any, ids: list[str] | None)
         Link.id, Link.source_id, Link.target_id, Link.timeline_id, Link.valid_from_t,
         Link.valid_to_t,
     ).where(Link.link_type == link_type, unindexed(Link.deleted_at).is_(None))  # fmt: skip
-    if ids is not None:
-        statement = statement.where(column.in_(ids))
-    return list(ctx.session.execute(statement))
+    if ids is None:
+        return list(ctx.session.execute(statement))
+    return [row for batch in chunks(ids)
+            for row in ctx.session.execute(statement.where(column.in_(batch)))]  # fmt: skip
 
 
 def _leaders(ctx: RuleContext, subjects: frozenset[str] | None) -> Iterator[FindingDraft]:
