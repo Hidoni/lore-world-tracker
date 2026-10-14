@@ -1867,6 +1867,78 @@ export interface paths {
         patch: operations["correspondences_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/worldlines/entities/{entity_id}/segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Segments
+         * @description The entity's worldline (``time-model.md`` §11): its explicit segments in its own order,
+         *     or the implicit worldline computed from its existence (`implicit: true`), each with its
+         *     exact subjective start and end.
+         */
+        get: operations["worldlines_segments"];
+        /**
+         * Replace Segments
+         * @description Replace the entity's segments as a whole (an empty list: back to the implicit worldline).
+         *     Its kind must have worldlines; each segment's timeline is one of its dimension, its time
+         *     points resolve (they may be anchored to events of that dimension) with `start ≤ end`, and
+         *     rates are positive (``422 validation_error``, paths `segments.<i>.…`).
+         */
+        put: operations["worldlines_replace_segments"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/worldlines/entities/{entity_id}/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Presence
+         * @description Every segment of the entity's worldline covering `t` in the timeline (§11.4): none
+         *     (absent), one, or several (a time traveler present twice).
+         */
+        get: operations["worldlines_presence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/worldlines/entities/{entity_id}/personal-timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Personal Timeline
+         * @description The entity's experience in its own order (§11.5): participations, existence changes and
+         *     jumps by exact subjective time, with ages in its personal clock dimension's default
+         *     calendar.
+         */
+        get: operations["worldlines_personal_timeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1897,6 +1969,22 @@ export interface components {
             time_changed: boolean;
             /** Search Changed */
             search_changed: boolean;
+        };
+        /** Age */
+        Age: {
+            /**
+             * T
+             * Format: bigint
+             * @description Subjective time, floored to a base unit.
+             * @example 0
+             * @example 435000000000000000
+             */
+            t: MomentString;
+            /**
+             * Display
+             * @description In the personal clock dimension's default calendar ("34 years, 2 months"); null without one.
+             */
+            display: string | null;
         };
         /**
          * AliasIn
@@ -4757,6 +4845,98 @@ export interface components {
             timeline_id: string;
             affected: components["schemas"]["Affected"];
         };
+        /** PersonalItem */
+        PersonalItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "participation" | "existence_start" | "existence_end" | "jump";
+            /** @description Exact; null when no segment covers it (absent) or it is unresolved. */
+            subjective_t: components["schemas"]["Rational"] | null;
+            age: components["schemas"]["Age"] | null;
+            /**
+             * Segment Id
+             * @description The segment it happens in, when known.
+             */
+            segment_id: string | null;
+            /**
+             * Segment Ids
+             * @description Every segment covering it (several: ambiguous, the first is used).
+             */
+            segment_ids: string[];
+            /** Dimension Id */
+            dimension_id: string | null;
+            /** Timeline Id */
+            timeline_id: string | null;
+            /**
+             * T
+             * @description World time (for a jump: the departure).
+             */
+            t: MomentString | null;
+            /**
+             * Event Id
+             * @description The event (participations; a jump's departure event).
+             */
+            event_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Roles
+             * @default []
+             */
+            roles?: string[];
+            /**
+             * To Dimension Id
+             * @description Jumps: where to.
+             */
+            to_dimension_id?: string | null;
+            /** To Timeline Id */
+            to_timeline_id?: string | null;
+            /** To T */
+            to_t?: MomentString | null;
+            /** Arrival Event Id */
+            arrival_event_id?: string | null;
+        };
+        /** PersonalTimeline */
+        PersonalTimeline: {
+            /** Entity Id */
+            entity_id: string;
+            /** Implicit */
+            implicit: boolean;
+            /** Personal Dimension Id */
+            personal_dimension_id: string | null;
+            /**
+             * Items
+             * @description By subjective time (items without one last, by world time).
+             */
+            items: components["schemas"]["PersonalItem"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** Presence */
+        Presence: {
+            /** Entity Id */
+            entity_id: string;
+            /** Dimension Id */
+            dimension_id: string;
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * T
+             * Format: bigint
+             * @example 0
+             * @example 435000000000000000
+             */
+            t: MomentString;
+            /** Implicit */
+            implicit: boolean;
+            /**
+             * Segments
+             * @description Every segment covering `t` there: a time traveler can be present twice.
+             */
+            segments: components["schemas"]["SegmentOut"][];
+        };
         /**
          * PresetChoice
          * @description A preset instantiated for a dimension (``chronology-engine.md`` §13).
@@ -5291,6 +5471,81 @@ export interface components {
             items: components["schemas"]["SearchHit"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** SegmentIn */
+        SegmentIn: {
+            dimension_id: components["schemas"]["EntityId"];
+            /** @description A timeline of `dimension_id`. */
+            timeline_id: components["schemas"]["EntityId"];
+            /** @description May be anchored to events of that timeline. */
+            start: components["schemas"]["TimePoint"];
+            end: components["schemas"]["TimePoint"];
+            /** @description Subjective base units per base unit of the dimension (default 1; > 0). */
+            rate?: components["schemas"]["Rational"] | null;
+            /** @description The event of the jump into this segment's previous one. */
+            departure_event_id?: components["schemas"]["EntityId"] | null;
+            /** @description The event of the jump into this segment. */
+            arrival_event_id?: components["schemas"]["EntityId"] | null;
+            /** Note */
+            note?: string | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+        };
+        /** SegmentOut */
+        SegmentOut: {
+            /**
+             * Id
+             * @description Null for the implicit worldline's segments.
+             */
+            id: string | null;
+            /**
+             * Seq
+             * @description Its place in the entity's own order, from 1.
+             */
+            seq: number;
+            /** Dimension Id */
+            dimension_id: string;
+            /** Timeline Id */
+            timeline_id: string | null;
+            /** Start */
+            start: {
+                [key: string]: unknown;
+            } | null;
+            /** End */
+            end: {
+                [key: string]: unknown;
+            } | null;
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            rate: components["schemas"]["Rational"];
+            /** @description Subjective time at its start (exact, personal clock base units); null while a segment before it is unresolved. */
+            subjective_start: components["schemas"]["Rational"] | null;
+            subjective_end: components["schemas"]["Rational"] | null;
+            /** Departure Event Id */
+            departure_event_id: string | null;
+            /** Arrival Event Id */
+            arrival_event_id: string | null;
+            /** Note */
+            note: string | null;
+            visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * SegmentsPut
+         * @description The worldline's segments in the entity's own order (an empty list: back to the implicit
+         *     worldline).
+         */
+        SegmentsPut: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Segments */
+            segments: components["schemas"]["SegmentIn"][];
         };
         /** SeriesBandOut */
         SeriesBandOut: {
@@ -6021,6 +6276,28 @@ export interface components {
              */
             summary?: string;
             source: components["schemas"]["CalendarSource"];
+        };
+        /** Worldline */
+        Worldline: {
+            /** Entity Id */
+            entity_id: string;
+            /**
+             * Implicit
+             * @description No explicit segments: the existence periods (§11.2).
+             */
+            implicit: boolean;
+            /**
+             * Personal Dimension Id
+             * @description Whose base unit subjective time counts in: the home dimension, or segment 1's for a multiversal entity.
+             */
+            personal_dimension_id: string | null;
+            /** Segments */
+            segments: components["schemas"]["SegmentOut"][];
+        };
+        /** WorldlineWriteResult */
+        WorldlineWriteResult: {
+            worldline: components["schemas"]["Worldline"];
+            affected: components["schemas"]["Affected"];
         };
     };
     responses: never;
@@ -10085,6 +10362,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CorrespondenceWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    worldlines_segments: {
+        parameters: {
+            query?: {
+                /** @description The timeline of the home dimension an implicit worldline is read in (default: the prime). */
+                timeline?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Worldline"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    worldlines_replace_segments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentsPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldlineWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    worldlines_presence: {
+        parameters: {
+            query: {
+                dimension: string;
+                /** @description A moment of `dimension`. */
+                t: MomentString;
+                /** @description Default: the dimension's prime. */
+                timeline?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Presence"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    worldlines_personal_timeline: {
+        parameters: {
+            query?: {
+                /** @description Default: all three. */
+                include?: ("participations" | "existence" | "jumps")[] | null;
+                /** @description The timeline of the home dimension an implicit worldline is read in (default: the prime). */
+                timeline?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalTimeline"];
                 };
             };
             /** @description Problem */

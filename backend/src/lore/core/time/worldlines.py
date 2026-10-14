@@ -6,7 +6,10 @@
   segment adds ``(end - start) * rate``; a moment inside a segment is ``subj_start + (t -
   start) * rate``. All of it is exact (``Fraction``); displays floor.
 - A segment covers ``t`` when ``start ≤ t ≤ end`` (both ends: a jump's departure and arrival
-  moments belong to their segments).
+  moments belong to their segments). The implicit worldline's spans are existence periods, which
+  are half-open like the facts they come from: they don't cover their end.
+- Readers see the segments whose own visibility, entity, dimension and timeline they see
+  (``SEGMENT_VISIBILITY``); their subjective time counts only those.
 """
 
 from collections.abc import Sequence
@@ -16,8 +19,13 @@ from typing import Any
 
 from lore.core.time.models import WorldlineSegment
 from lore.core.time.timeline_view import TimeBound, register_time_bound
+from lore.core.visibility import VisibilityFilter
 
 register_time_bound(TimeBound(WorldlineSegment, start="start_t", end="end_t"))
+
+SEGMENT_VISIBILITY = VisibilityFilter(
+    WorldlineSegment, entity_columns=("entity_id", "dimension_id", "timeline_id")
+)
 
 ONE = {"num": "1", "den": "1"}
 
@@ -39,9 +47,10 @@ class Span:
     start: int
     end: int
     rate: Fraction
+    closed_end: bool = True
 
     def covers(self, t: int) -> bool:
-        return self.start <= t <= self.end
+        return self.start <= t <= self.end if self.closed_end else self.start <= t < self.end
 
 
 def subjective_starts(spans: Sequence[Span]) -> list[Fraction]:
@@ -60,4 +69,4 @@ def subjective_at(span: Span, start: Fraction, t: int) -> Fraction:
     return start + (t - span.start) * span.rate
 
 
-__all__ = ["ONE", "Span", "rate_of", "subjective_at", "subjective_starts"]
+__all__ = ["ONE", "SEGMENT_VISIBILITY", "Span", "rate_of", "subjective_at", "subjective_starts"]

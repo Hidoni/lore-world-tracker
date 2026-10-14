@@ -293,6 +293,7 @@ def _events(
     b.hidden("calendar", ext={"definition": YEARS}, dimension_id=realm["id"])
     b.hidden("event", dimension_id=realm["id"])
     _correspondences(b, home, realm)
+    _worldlines(b, home, realm)
 
 
 def _facts(b: _Builder, home: dict[str, Any]) -> None:
@@ -428,6 +429,48 @@ def _correspondences(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -
     b.canary.hidden_ids.add(secret["id"])
     realm_link = made(world, realm["id"], b.canary_string(), [(at(10), at(10))])
     b.canary.hidden_ids.add(realm_link["id"])
+
+
+def _worldlines(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -> None:
+    """A traveler with a public segment ending at (and departing with) a private event, a
+    private segment, a segment in the private dimension and a public one arrived at by a private
+    event; a public and a private participation. The world's default calendar is private, so
+    readers get no formatted ages."""
+    api = b.api
+
+    def at(t: int) -> dict[str, Any]:
+        return {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}
+
+    secret = b.hidden("event", visibility="private", ext={"start": at(500)}, **home)
+    ref = {"type": "event", "id": secret["id"], "slot": "start"}
+    anchored = {"anchor": {"kind": "relative", "ref": ref, "offset": {"kind": "base", "units": "0"}},
+                "precision": "base"}  # fmt: skip
+    traveler = b.public("character", "Wanderer", **home)
+    prime = b.canary.public["Prime"]
+
+    def segment(start: Any, end: Any, **body: Any) -> dict[str, Any]:
+        body.setdefault("dimension_id", home["dimension_id"])
+        body.setdefault("timeline_id", prime)
+        return {"start": start, "end": end, **body}
+
+    response = api.client.put(
+        f"{api.base}/m/worldlines/entities/{traveler['id']}/segments",
+        json={"segments": [
+            segment(at(100), anchored, departure_event_id=secret["id"], note="The road"),
+            segment(at(50), at(60), visibility="private", note=b.canary_string()),
+            segment(at(10), at(20), dimension_id=realm["id"],
+                    timeline_id=realm["ext"]["prime_timeline_id"], note=b.canary_string()),
+            segment(at(700), at(800), arrival_event_id=secret["id"]),
+        ]},
+    )  # fmt: skip
+    assert response.status_code == 200, response.json()
+    road, hidden, elsewhere, home_again = response.json()["worldline"]["segments"]
+    b.canary.records["Road"] = road["id"]
+    b.canary.records["Home again"] = home_again["id"]
+    b.canary.hidden_ids |= {hidden["id"], elsewhere["id"]}
+    ball = b.public("event", "Ball", ext={"start": at(750)}, **home)
+    api.made_link("core.participant", ball, traveler, role="guest")
+    api.made_link("core.participant", secret, traveler, role=b.canary_string())
 
 
 def _temporal_links(b: _Builder, home: dict[str, Any]) -> None:

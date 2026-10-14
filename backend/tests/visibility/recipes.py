@@ -613,3 +613,39 @@ def correspondence_map(c: Canary) -> Iterator[Call]:
     for hidden_id in c.hidden_ids:
         yield Call(path, {"from_dimension": world, "to_dimension": hidden_id, "t": "10"},
                    status=422)  # fmt: skip
+
+
+# --- worldlines ---------------------------------------------------------------------------------
+
+
+def _worldline_entities(c: Canary, suffix: str) -> Iterator[Call]:
+    for entity_id in c.public.values():
+        yield Call(f"{_v(c)}/m/worldlines/entities/{entity_id}/{suffix}")
+    for hidden_id in c.hidden_ids:
+        yield Call(f"{_v(c)}/m/worldlines/entities/{hidden_id}/{suffix}", status=404)
+
+
+@recipe(f"{V}/m/worldlines/entities/{{entity_id}}/segments")
+def worldline_segments(c: Canary) -> Iterator[Call]:
+    """Every visible entity's worldline (the Wanderer's explicit one, implicit ones of others;
+    readers see neither the private segment nor the one in the private dimension, nor the
+    private events that anchor and document the visible ones)."""
+    yield from _worldline_entities(c, "segments")
+
+
+@recipe(f"{V}/m/worldlines/entities/{{entity_id}}/presence")
+def worldline_presence(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/worldlines/entities/{c.public['Wanderer']}/presence"
+    world = c.public["Aetheria"]
+    for t in ("55", "150", "750", "0"):
+        yield Call(path, {"dimension": world, "t": t})
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {"dimension": hidden_id, "t": "15"}, status=404)
+        yield Call(f"{_v(c)}/m/worldlines/entities/{hidden_id}/presence",
+                   {"dimension": world, "t": "15"}, status=404)  # fmt: skip
+
+
+@recipe(f"{V}/m/worldlines/entities/{{entity_id}}/personal-timeline")
+def worldline_personal_timeline(c: Canary) -> Iterator[Call]:
+    """Ages count only the visible segments, and aren't formatted in the private calendar."""
+    yield from _worldline_entities(c, "personal-timeline")

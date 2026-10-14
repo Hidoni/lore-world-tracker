@@ -23,6 +23,7 @@ from lore.core.entities.models import Entity
 from lore.core.entities.service import EntityService
 from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
 from lore.core.modules.spec import VaultContext
+from lore.core.time.anchors import anchored_elsewhere
 from lore.core.time.changes import report as report_time
 from lore.core.time.correspondences import (
     CORRESPONDENCE_VISIBILITY,
@@ -30,19 +31,11 @@ from lore.core.time.correspondences import (
     compile_rows,
     points_of,
 )
-from lore.core.time.dependencies import (
-    CalendarNode,
-    DependencyIndex,
-    DimensionNode,
-    SlotNode,
-    Target,
-    time_point_targets,
-)
+from lore.core.time.dependencies import DependencyIndex
 from lore.core.time.kinds import SYNC_POINT
 from lore.core.time.models import Correspondence, CorrespondencePoint, Dimension
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
-from lore.core.time.slots import SlotError, SlotKey
 from lore.core.time.specs import dump_spec
 from lore.core.types import Affected
 from lore.core.visibility import AUTHOR, VisibilityPolicy
@@ -272,33 +265,12 @@ class Correspondences:
         would make the correspondence define itself)."""
         for position, point in enumerate(given):
             for side, dimension_id in (("a", row.dimension_a_id), ("b", row.dimension_b_id)):
-                for target in time_point_targets(getattr(point, side)):
-                    found = self._dimension_of(target)
-                    if found is not None and found != dimension_id:
-                        raise _invalid(
-                            f"points.{position}.{side}",
-                            "A sync point is anchored in its own dimension; this anchor is in "
-                            "another one.",
-                        )
-
-    def _dimension_of(self, target: Target) -> str | None:
-        match target:
-            case SlotNode():
-                key = SlotKey(target.id, target.slot)
-                try:
-                    found = self.context.registry.slot_registry().load(
-                        self.session, target.type, [key]
+                if anchored_elsewhere(self.context, getattr(point, side), dimension_id):
+                    raise _invalid(
+                        f"points.{position}.{side}",
+                        "A sync point is anchored in its own dimension; this anchor is in "
+                        "another one.",
                     )
-                except SlotError:
-                    return None
-                value = found.get(key)
-                return None if value is None else value.dimension_id
-            case CalendarNode():
-                calendar = self.session.get(Entity, target.calendar_id)
-                return None if calendar is None else calendar.dimension_id
-            case DimensionNode():
-                return target.dimension_id
-        return None
 
     def _validate(self, row: Correspondence, points: Sequence[CorrespondencePoint]) -> None:
         """The resolved sync points and rates must make a correspondence (§12.1)."""
