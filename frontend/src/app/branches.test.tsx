@@ -83,6 +83,7 @@ interface Requests {
  */
 function world(
   options: {
+    created?: unknown[]
     overridden?: unknown[]
     facts?: FactRow[]
     links?: LinkRow[]
@@ -133,7 +134,7 @@ function world(
         timeline_id: params.id,
         against_id: 'd1-prime',
         branch_t: '200',
-        created: [],
+        created: options.created ?? [],
         overridden: options.overridden ?? [],
         inherited_spanning: [],
         truncated: false,
@@ -441,5 +442,83 @@ describe('with the branches module off', () => {
     expect(await screen.findByRole('button', { name: /Edit time/ }, WAIT)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Timeline:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /What if…/ })).toBeNull()
+  })
+})
+
+describe('compare mode', () => {
+  const windowItem = (id: string, name: string, start: number, end: number) => ({
+    entity_id: id,
+    row_id: `row-${id}`,
+    name,
+    visibility: 'public',
+    parent_id: null,
+    has_children: false,
+    start_t: String(start),
+    end_t: String(end),
+    start_precision: 'base',
+    start_approximate: false,
+    end_kind: 'time_point',
+    end_precision: 'base',
+    end_approximate: false,
+    importance: 3,
+    category: null,
+    time_status: 'ok',
+    occurrence_key: null,
+    series_id: null,
+    occurrence_state: null,
+  })
+
+  it('shows another timeline’s lanes, where the branch diverges and what differs', async () => {
+    world({
+      created: [
+        { record_type: 'event', id: 'row-rescue', root_id: null, entity_id: 'ev-rescue',
+          name: 'Rescue', detail: null, start_t: '210', end_t: '220' },
+      ],
+      overridden: [
+        { record_type: 'event', id: 'ov-reign', root_id: 'row-reign', entity_id: 'ev-reign',
+          name: 'Reign', detail: null, start_t: '100', end_t: '250',
+          before: { end_t: '300' }, after: { end_t: '250' } },
+      ],
+    }) // prettier-ignore
+    server.use(
+      http.get('*/api/v1/vaults/v1/timelines/:id/window', ({ params }) =>
+        HttpResponse.json({
+          items:
+            params.id === 'b1'
+              ? [
+                  windowItem('ev-reign', 'Reign', 100, 250),
+                  windowItem('ev-rescue', 'Rescue', 210, 220),
+                ]
+              : [windowItem('ev-reign', 'Reign', 100, 300)],
+          buckets: [],
+          series_bands: [],
+          total: 0,
+          culled: 0,
+        }),
+      ),
+    )
+    await render('/v/v1/d/d1/timeline?tl=b1&from=0&to=1000')
+    const timeline = await screen.findByRole('application', { name: 'Timeline' }, WAIT)
+    expect(screen.queryByTestId('compare-group')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Compare timelines' }))
+    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Prime' }))
+    await userEvent.keyboard('{Escape}')
+    const prime = await within(timeline).findByRole('region', { name: 'Compared: Prime' }, WAIT)
+    // The prime's Reign is as it was; the branch's own and changed events are outlined.
+    expect(within(prime).getByRole('button', { name: 'Reign' })).not.toHaveAttribute('data-diff')
+    await waitFor(() => {
+      expect(
+        within(timeline)
+          .getAllByRole('button', { name: 'Rescue' })
+          .some((item) => item.hasAttribute('data-diff')),
+      ).toBe(true)
+    })
+    expect(screen.getByTestId('divergence-marker')).toHaveAttribute('data-timeline', 'b1')
+    expect(within(timeline).getByText('Survives (viewed)')).toBeInTheDocument()
+    // Stopping the comparison removes its lanes.
+    await userEvent.click(within(prime).getByRole('button', { name: 'Stop comparing Prime' }))
+    await waitFor(() => {
+      expect(screen.queryByTestId('compare-group')).toBeNull()
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
@@ -26,6 +26,25 @@ export function useBranchDiff(vault: string, timeline: string | null) {
     queryKey: keys.branchDiff(vault, timeline ?? ''),
     queryFn: () => source.branchDiff(vault, timeline ?? '', { limit: 2000 }),
     enabled: timeline !== null,
+  })
+}
+
+/** The diffs of several branches (compare mode), by timeline id, once loaded. */
+export function useBranchDiffs(vault: string, timelines: readonly string[]) {
+  const source = useDataSource()
+  return useQueries({
+    queries: timelines.map((timeline) => ({
+      queryKey: keys.branchDiff(vault, timeline),
+      queryFn: () => source.branchDiff(vault, timeline, { limit: 2000 }),
+    })),
+    combine: (results) => {
+      const found = new Map<string, BranchDiff>()
+      results.forEach((result, index) => {
+        const timeline = timelines[index]
+        if (result.data !== undefined && timeline !== undefined) found.set(timeline, result.data)
+      })
+      return found
+    },
   })
 }
 

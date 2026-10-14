@@ -175,6 +175,7 @@ export {
 export { useGraph, type GraphData, type GraphQuery } from './graph'
 export {
   useBranchDiff,
+  useBranchDiffs,
   useCreateBranch,
   useRevertOverride,
   useSaveOverride,
