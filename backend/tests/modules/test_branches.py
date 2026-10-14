@@ -188,3 +188,52 @@ def test_trashing_a_branch_takes_its_contents_along(api: LinkApi, empire: Empire
         assert api.get(entity_id).json()["deleted_at"] is None
     # The prime still can't be trashed on its own.
     problem(api.delete(empire.prime), 409, "conflict")
+
+
+def test_search_and_graph_show_branch_only_entities_in_their_branch(
+    api: LinkApi, empire: Empire
+) -> None:
+    survives = empire.survives["id"]
+    home = {"dimension_id": empire.dimension["id"]}
+    rebel = api.client.post(
+        f"{api.base}/entities",
+        params={"timeline": survives},
+        json={"kind": "character", "name": "Rebel Queen", **home},
+    ).json()
+    loyal = api.make("character", "Loyal Knight", **home)
+    # A link made in the branch between two shared entities is the branch's.
+    api.made_link("core.related", loyal, empire.reign, timeline_id=survives,
+                  valid_from=at(210))  # fmt: skip
+
+    def found(path: str, **params: Any) -> set[str]:
+        response = api.client.get(f"{api.base}/search{path}", params=params)
+        assert response.status_code == 200, response.json()
+        return {item["name"] for item in response.json()["items"]}
+
+    assert "Rebel Queen" not in found("", q="Rebel")
+    assert "Rebel Queen" in found("", q="Rebel", timeline=survives)
+    assert "Rebel Queen" not in found("/quick", q="Reb")
+    assert "Rebel Queen" in found("/quick", q="Reb", timeline=survives)
+    assert "Loyal Knight" in found("/quick", q="Loy")
+
+    def graph(**params: Any) -> dict[str, Any]:
+        response = api.client.get(
+            f"{api.base}/m/graph/graph", params={"dimension": empire.dimension["id"], **params}
+        )
+        assert response.status_code == 200, response.json()
+        body: dict[str, Any] = response.json()
+        return body
+
+    prime = graph()
+    assert rebel["entity"]["id"] not in {node["id"] for node in prime["nodes"]}
+    assert not [e for e in prime["edges"] if e["kind"] == "link"]
+    branch = graph(timeline=survives)
+    assert rebel["entity"]["id"] in {node["id"] for node in branch["nodes"]}
+    assert [e["link_type"] for e in branch["edges"] if e["kind"] == "link"] == ["core.related"]
+    # A timeline the request can't see reveals nothing.
+    hidden = empire.branch("Secret", at(20))
+    api.patch(api.get(hidden["id"]).json(), visibility="private")
+    response = api.client.get(
+        f"{api.base}/search", params={"q": "Rebel", "timeline": hidden["id"], "as_reader": True}
+    )
+    problem(response, 404, "not_found")

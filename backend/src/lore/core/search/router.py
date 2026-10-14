@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 from sqlalchemy.orm import Session
 
 from lore.core.api.deps import ModuleRegistryDep, PolicyDep, SessionDep, VaultDep
+from lore.core.api.time_cursor import TimelineQuery
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.search.queries import SearchQueries
@@ -21,8 +22,10 @@ KindsQuery = Annotated[
 DimensionQuery = Annotated[str | None, Query(pattern=ID_PATTERN)]
 
 
-def _queries(session: Session, registry: ModuleRegistry, policy: VisibilityPolicy) -> SearchQueries:
-    return SearchQueries(session, registry, policy)
+def _queries(
+    session: Session, registry: ModuleRegistry, policy: VisibilityPolicy, timeline: str | None
+) -> SearchQueries:
+    return SearchQueries(session, registry, policy, timeline)
 
 
 @router.get("", name="search")
@@ -46,10 +49,12 @@ def search(
     include_multiversal: bool = True,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    timeline: TimelineQuery = None,
 ) -> SearchPage:
     """Full-text search over names, aliases, summaries, bodies, fields and module documents,
-    best matches first, with highlighted snippets."""
-    return _queries(session, registry, policy).search(
+    best matches first, with highlighted snippets. Branch-only entities (and their documents) are
+    found only with a ``timeline`` of their branch's lineage."""
+    return _queries(session, registry, policy, timeline).search(
         q,
         kinds=kinds,
         dimension=dimension,
@@ -70,9 +75,10 @@ def quick(
     kinds: KindsQuery = None,
     dimension: DimensionQuery = None,
     include_multiversal: bool = True,
+    timeline: TimelineQuery = None,
 ) -> QuickResults:
     """The quick switcher: up to 20 names or aliases starting with the typed words, then names
-    or public aliases containing the typed text."""
-    return _queries(session, registry, policy).quick(
+    or public aliases containing the typed text (branch-only entities as in ``search``)."""
+    return _queries(session, registry, policy, timeline).quick(
         q, kinds=kinds, dimension=dimension, include_multiversal=include_multiversal
     )
