@@ -479,7 +479,17 @@ Implementation (`core/time/`, #72):
   `null` for all time. Setters write the URL (replacing the entry) and remember the value.
 - **Top bar:** the dimension switcher lists the dimensions (switching on a dimension route opens
   the new dimension's page; elsewhere it only changes the context) and the display-calendar
-  selector lists the dimension's calendars (default first, then by name) and Absolute.
+  selector lists the dimension's calendars (default first, then by name) and Absolute. The
+  timeline switcher (`TimelineSwitcher`, #116) lists the dimension's timelines as a tree, each
+  branch with its branch point; it is hidden while a dimension has only its prime timeline and
+  branches can't be created (a reader), and offers the prime only with the branches module off.
+- **Branches** (#116, `core/time/branching.ts`): `useBranching` gives the viewed timeline's
+  lineage (cut-offs as in time-model.md §4.2, computed from the timeline tree) and `recordPlace`
+  where an event, fact or link stands in it: the branch's own, its override, the shared past (over
+  by the cut-off: read-only, explained) or still going at the cut-off ("Edit in this timeline"
+  overrides it, Revert removes the override). Facts lists in a branch ask for that timeline (the
+  values it sees); link lists without a cursor drop the links the branch overrides. Inherited
+  events can't be edited from a branch (their time would change in every timeline sharing them).
 - **Calendars:** `useDimensionCalendars` loads the dimension's calendar entities (their `ext`:
   definition, `definition_revision`, `resolved_anchors`). `compiledCalendar` compiles one with
   `@lore/chronology` (`resolved_anchors` is `CompileContext.resolved`) and caches it by id,

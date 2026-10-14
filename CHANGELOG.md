@@ -21,6 +21,12 @@ All notable changes to this project are documented here. The format follows
   be compared with its parent (what it created, what it changed, what it carries over), and
   entities can have notes per branch. A new warning flags branch records that start in the shared
   past. New table `entity_timeline_notes` (migrated automatically).
+- **Working in branches** (#116): a timeline switcher in the top bar moves every view to another
+  timeline. Start a branch from the switcher, by right-clicking the timeline ("Branch here") or
+  from an event ("What if…", branching at its start or end). In a branch, inherited events,
+  values and links say where they come from; what ended before the branch point is the shared
+  past and stays read-only, and what was still going can be edited in this timeline (and
+  reverted).
 
 ## [0.7.0] - 2026-10-14
 

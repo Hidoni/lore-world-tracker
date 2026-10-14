@@ -21,6 +21,7 @@ import {
 import { FindingsBadge } from '@/core/consistency'
 import { togglePin, usePlaceList } from '@/core/navigation/places'
 import type { Kind } from '@/core/registry'
+import { useBranching } from '@/core/time'
 import { useDeleteEntity, useEntity, useMutations, type components, type Entity } from '@/data'
 
 import { Breadcrumbs } from './breadcrumbs'
@@ -161,6 +162,7 @@ export function EntityHeader({
   saver: { save: (change: EntityChange) => Promise<SaveResult>; saving: boolean }
 }) {
   const editable = useMutations() !== null && entity.deleted_at === null
+  const branchName = useBranching(vault).name(entity.origin_timeline_id)
   const trash = useDeleteEntity(vault)
   const navigate = useNavigate()
   const [trashing, setTrashing] = useState(false)
@@ -190,7 +192,11 @@ export function EntityHeader({
         )}
         <Badge>{kind?.label ?? entity.kind}</Badge>
         <DimensionBadge vault={vault} entity={entity} kind={kind} />
-        {entity.origin_timeline_id !== null && <Badge variant="outline">Branch-only</Badge>}
+        {entity.origin_timeline_id !== null && (
+          <Badge variant="outline">
+            {branchName === null ? 'Branch-only' : `Only in ${branchName}`}
+          </Badge>
+        )}
         {entity.deleted_at !== null && <Badge variant="destructive">In the trash</Badge>}
         <FindingsBadge vault={vault} entityId={entity.id} />
         <div className="flex-1" />

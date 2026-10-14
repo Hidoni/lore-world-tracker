@@ -23,14 +23,18 @@ import { useTimeContext } from './time-context'
  * The top bar's timeline switcher (docs/modules/branches.md, UI): the dimension's timelines as a
  * tree, each branch with its branch point in the display calendar. The choice goes to the URL
  * (`tl`) and every view follows it. Authors can start a new branch of the viewed timeline here.
- * Hidden while a dimension has only its prime timeline and branches can't be created.
+ * Hidden while a dimension has only its prime timeline and branches can't be created; with the
+ * branches module off it offers the prime timeline only.
  */
 export function TimelineSwitcher({ vault }: { vault: string }) {
   const time = useTimeContext(vault)
   const branching = useBranching(vault)
   const editable = useMutations() !== null && branching.enabled
   const [creating, setCreating] = useState(false)
-  const shown = branching.timelines.filter(({ node }) => !node.trashed)
+  // With the branches module off, only the prime timelines are offered (docs/modules/branches.md).
+  const shown = branching.timelines.filter(
+    ({ node }) => !node.trashed && (branching.enabled || node.is_prime),
+  )
   if (shown.length === 0 || (shown.length === 1 && !editable)) return null
   const current = branching.current ?? shown[0]?.node ?? null
   const branchPoint = (t: bigint | null) => {
