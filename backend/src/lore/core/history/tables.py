@@ -54,6 +54,8 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
     from lore.core.links.models import CustomLinkType, Link  # noqa: PLC0415
     from lore.core.time.models import (  # noqa: PLC0415
         Calendar,
+        Correspondence,
+        CorrespondencePoint,
         Dimension,
         EntityTimeField,
         EntityTimelineNote,
@@ -76,4 +78,6 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         HistoryTable.of(EntityFact, columns_owner("entity_id")),
         HistoryTable.of(EntityTimeField, columns_owner("entity_id")),
         HistoryTable.of(EntityTimelineNote, columns_owner("entity_id", "timeline_id")),
+        HistoryTable.of(Correspondence, columns_owner("dimension_a_id", "dimension_b_id")),
+        HistoryTable.of(CorrespondencePoint, columns_owner("a_dimension_id", "b_dimension_id")),
     )

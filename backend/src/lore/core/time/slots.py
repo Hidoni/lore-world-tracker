@@ -62,6 +62,10 @@ class SlotDef:
     """For end specs: the slot of the same record the end resolves from (and may not precede)."""
     custom: bool = False
     """Stored by the provider's own loader and writer (no columns)."""
+    dimension_column: str | None = None
+    """The column holding the dimension this slot resolves in, when the record's slots resolve in
+    different dimensions (a correspondence's sync points: ``a`` in one, ``b`` in the other).
+    Overrides the provider's dimension lookup for this slot."""
 
     @property
     def is_family(self) -> bool:
@@ -464,7 +468,7 @@ def _validate_slots(where: str, provider: SlotProvider) -> list[str]:
                 what = "slot family" if slot.is_family else "custom slot"
                 problems.append(f"{where}: {what} {name!r} needs a loader and a writer")
             continue
-        wanted = [*(slot.columns or ()), slot.status_column]
+        wanted = [*(slot.columns or ()), slot.status_column, slot.dimension_column]
         missing = [c for c in wanted if c is not None and c not in columns]
         if missing and not custom:
             problems += [f"{where}: slot {name!r} has no column {c!r}" for c in missing]
@@ -481,8 +485,11 @@ def _validate_lookup(where: str, provider: SlotProvider, columns: set[str]) -> l
     ):
         if column is not None and column not in columns:
             problems.append(f"{where}: no {label} column {column!r}")
+    per_slot = bool(provider.slots) and all(
+        slot.dimension_column is not None for slot in provider.slots
+    )
     if (provider.dimension_column is None) == (provider.timeline_column is None) and (
-        provider.beyond is None
+        provider.beyond is None and not per_slot
     ):
         problems.append(
             f"{where}: give one of dimension_column and timeline_column, or a beyond query"
@@ -528,6 +535,8 @@ def _load_statement(provider: SlotProvider, slots: frozenset[str]) -> Any:
         names.update(definition.columns or ())
         if definition.status_column is not None:
             names.add(definition.status_column)
+        if definition.dimension_column is not None:
+            names.add(definition.dimension_column)
     table = model.__table__
     source: Any = table
     if hasattr(model, "deleted_at"):
@@ -596,7 +605,11 @@ def _load_columns(
             t=getattr(row, resolved_column),
             status=None if status is None else _STATUSES[status],
             trashed=bool(row.slot_trashed),
-            dimension_id=row.slot_dimension,
+            dimension_id=(
+                row.slot_dimension
+                if definition.dimension_column is None
+                else getattr(row, definition.dimension_column)
+            ),
             timeline_id=row.slot_timeline_id,
         )
     return result
@@ -606,18 +619,18 @@ def _beyond_columns(
     provider: SlotProvider, session: Session, dimension_id: str, bound: int
 ) -> list[SlotMoment]:
     model: Any = provider.model
-    if not provider._column_slots() or (
-        provider.dimension_column is None and provider.timeline_column is None
-    ):
-        return []
-    if provider.dimension_column is not None:
-        in_dimension = getattr(model, provider.dimension_column) == dimension_id
-    else:
-        timeline_ids = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
-        in_dimension = getattr(model, str(provider.timeline_column)).in_(timeline_ids)
     found: list[SlotMoment] = []
     for slot in provider._column_slots():
         assert slot.columns is not None
+        if slot.dimension_column is not None:
+            in_dimension: Any = getattr(model, slot.dimension_column) == dimension_id
+        elif provider.dimension_column is not None:
+            in_dimension = getattr(model, provider.dimension_column) == dimension_id
+        elif provider.timeline_column is not None:
+            timeline_ids = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
+            in_dimension = getattr(model, provider.timeline_column).in_(timeline_ids)
+        else:
+            continue
         resolved = getattr(model, slot.columns[1])
         rows = session.execute(
             select(getattr(model, provider.id_column), resolved).where(

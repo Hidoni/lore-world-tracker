@@ -483,7 +483,7 @@ def test_unused_extension_points_are_stored() -> None:
     assert len(SAMPLE.publish_contributors) == 1
     assert REGISTRY.slot_registry().record_types() == [
         "dimension", "timeline", "event", "event_override", "calendar", "fact", "entity_field",
-        "link", "sample.note"
+        "link", "sync_point", "sample.note"
     ]  # fmt: skip
     assert SAMPLE.settings_model is not None
     assert SAMPLE.settings_model().greeting == "hello"  # type: ignore[attr-defined]

@@ -10,6 +10,9 @@ an entity's ``time_point`` fields (slot = field key) and the values of ``time_po
 the same transaction as them (not recorded in history). Dependents and targets are polymorphic
 (any registered record type), so it has no foreign keys.
 
+``correspondences`` and ``correspondence_points`` (§5.7, ``time-model.md`` §12) relate moments
+of two dimensions through sync points (record type ``sync_point``, slots ``a`` and ``b``).
+
 ``proposals`` (§5.9) holds short-lived impact previews of calendar and recurrence-rule edits
 (``time-model.md`` §7.4-§7.5). They aren't world data: not recorded in history, purged when they
 expire.
@@ -22,7 +25,15 @@ from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Index, Intege
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lore.chronology.schema import TimePoint
-from lore.core.db.base import Base, IdMixin, TimestampsMixin, keep_loaded
+from lore.core.db.base import (
+    Base,
+    IdMixin,
+    RevisionMixin,
+    SoftDeleteMixin,
+    TimestampsMixin,
+    VisibilityMixin,
+    keep_loaded,
+)
 from lore.core.db.types import SortableBigInt, UTCDateTime
 from lore.core.time.specs import EndSpecColumn, moment_column, spec_column, status_column
 
@@ -247,4 +258,59 @@ class EntityTimelineNote(IdMixin, TimestampsMixin, Base):
     __table_args__ = (
         Index("uq_entity_timeline_notes_entity_timeline", "entity_id", "timeline_id", unique=True),
         Index("ix_entity_timeline_notes_timeline_id", "timeline_id"),
+    )
+
+
+class Correspondence(
+    IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDeleteMixin, Base
+):
+    """How time in two dimensions corresponds (``time-model.md`` §12.1): sync points, and
+    beyond them no mapping (``extrapolation = 'none'``) or constant rates (B units per A unit,
+    ``{"num", "den"}`` rationals; ``null``: the adjacent segment's slope). Its dimensions never
+    change."""
+
+    __tablename__ = "correspondences"
+
+    dimension_a_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    dimension_b_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    name: Mapped[str] = mapped_column(String)
+    extrapolation: Mapped[str] = mapped_column(
+        String,
+        CheckConstraint("extrapolation IN ('none', 'rate')", name="extrapolation"),
+        default="none",
+        server_default=text("'none'"),
+    )
+    rate_before: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    rate_after: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    note: Mapped[str | None] = mapped_column(String)
+
+    __table_args__ = (
+        CheckConstraint("dimension_a_id <> dimension_b_id", name="distinct_dimensions"),
+        Index("ix_correspondences_dimension_a_id", "dimension_a_id"),
+        Index("ix_correspondences_dimension_b_id", "dimension_b_id"),
+    )
+
+
+class CorrespondencePoint(IdMixin, Base):
+    """A sync point: ``a`` (a time point of dimension A) happens at the same time as ``b`` (of
+    dimension B). Each side resolves in its own dimension (``a_dimension_id``/``b_dimension_id``,
+    the correspondence's, kept here for slot resolution). ``position`` keeps the order given."""
+
+    __tablename__ = "correspondence_points"
+
+    correspondence_id: Mapped[str] = mapped_column(
+        ForeignKey("correspondences.id", ondelete="CASCADE")
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    a_dimension_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    b_dimension_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    a_spec: Mapped[TimePoint | None] = spec_column()
+    a_t: Mapped[int | None] = moment_column()
+    b_spec: Mapped[TimePoint | None] = spec_column()
+    b_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
+    note: Mapped[str | None] = mapped_column(String)
+
+    __table_args__ = (
+        Index("ix_correspondence_points_correspondence_position", "correspondence_id", "position"),
     )
