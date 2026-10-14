@@ -40,6 +40,7 @@ from lore.core.time.dimensions import TIMELINE
 from lore.core.time.events import EVENT
 from lore.core.time.fields import ENTITY_FIELD, FACT_PREFIX, fact_slot, sync_rows
 from lore.core.time.models import EntityTimeField, Timeline
+from lore.core.time.overrides import overrides_of, sync_starts
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
 from lore.core.time.timeline_view import TimelineView
@@ -279,6 +280,7 @@ class Facts:
                 context={"current": self.out_many(entity, [fact])[0].model_dump(mode="json")},
             )
         sent = data.model_fields_set - {"revision", "suppress"}
+        self._check_override_edit(fact, sent)
         if "value" in sent:
             fact.value = self._value(entity, fact.field_key, data.value, "value")
         if "timeline_id" in sent:
@@ -306,8 +308,20 @@ class Facts:
         # A new timeline can mean a new dimension: every slot of the fact resolves again.
         moved = "timeline_id" in sent
         slots = {slot for slot in SLOTS if slot in sent or moved}
-        self._write_times(entity, fact, slots, value_changed="value" in sent or moved)
+        self._write_times(entity, fact, slots, value_changed="value" in sent or moved,
+                          sync="valid_from" in sent)  # fmt: skip
         return self._result(entity, fact)
+
+    def _check_override_edit(self, fact: EntityFact, sent: set[str]) -> None:
+        """Override rows change through the branches module; a root with overrides stays in its
+        timeline."""
+        if fact.overrides_id is not None:
+            message = ("The fact is a branch override: change it through the branches module (or "
+                       "delete it to revert).")  # fmt: skip
+            raise _invalid("overrides_id", message, "override_not_allowed")
+        if "timeline_id" in sent and overrides_of(self.session, EntityFact, fact.id):
+            message = "Branches override the fact: it can't move to another timeline."
+            raise _invalid("timeline_id", message, "override_not_allowed")
 
     def delete(self, fact_id: str) -> FactWriteResult:
         """Move the fact to the trash: what is anchored to it keeps its last moments
@@ -315,9 +329,13 @@ class Facts:
         fact = self._fact(fact_id)
         entity = self._writable_entity(fact.entity_id)
         fact.deleted_at = utc_now()
+        # Its branch overrides go with it (a branch can't keep a record the parent removed).
+        trashed = [fact, *overrides_of(self.session, EntityFact, fact.id)]
+        for row in trashed[1:]:
+            row.deleted_at = fact.deleted_at
         self.session.flush()
         writer = TimeWriter(self.context)
-        nodes = [SlotNode(FACT, fact.id, slot) for slot in SLOTS]
+        nodes = [SlotNode(FACT, row.id, slot) for row in trashed for slot in SLOTS]
         writer.touch(*(d for node in nodes for d in writer.index.dependents_of(node)))
         writer.propagate(path="")
         SearchIndexer(self.context).index_entities([entity.id])
@@ -406,14 +424,23 @@ class Facts:
     # --- time -----------------------------------------------------------------------------------
 
     def _write_times(
-        self, entity: Entity, fact: EntityFact, slots: set[str], *, value_changed: bool
+        self,
+        entity: Entity,
+        fact: EntityFact,
+        slots: set[str],
+        *,
+        value_changed: bool,
+        sync: bool = False,
     ) -> None:
         """Store the changed slots' specs and propagate: the bounds, and a ``time_point``
-        value (slot ``fact:<id>`` of the entity's ``entity_field`` record)."""
+        value (slot ``fact:<id>`` of the entity's ``entity_field`` record). ``sync``: the start
+        changed, which the fact's branch overrides copy."""
         writer = TimeWriter(self.context)
         for slot in sorted(slots):
             spec = fact.valid_from_spec if slot == "valid_from" else fact.valid_to_spec
             writer.set_spec(FACT, fact.id, slot, spec)
+        if sync:
+            sync_starts(self.context, writer, FACT, fact)
         if value_changed:
             field = self._field(entity, fact.field_key)
             wanted: dict[str, TimePoint] = {}

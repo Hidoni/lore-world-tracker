@@ -36,15 +36,40 @@ CORE_SLOT_PROVIDERS: tuple[SlotProvider, ...] = (
             SlotDef(series.UNTIL_SLOT, custom=True),
             SlotDef("exclusion:*"),  # exclusion:<i>.from, exclusion:<i>.to
         ),
-        # Refs name the event entity; only home rows exist until branches (#115).
+        # The home rows: refs name the event entity (seen from a branch, they mean its
+        # override there when it has one: ``Resolver.slot``, time-model.md §9.1).
         id_column="entity_id",
         entity_column="entity_id",
         timeline_column="timeline_id",
-        load=series.load_rule_slots,
-        write=series.write_rule_slots,
-        beyond=series.rule_moments_beyond,
-        write_spec=series.write_rule_specs,
-        keys=series.rule_slot_keys,
+        load=series.HOME_RULE_SLOTS.load,
+        write=series.HOME_RULE_SLOTS.write,
+        beyond=series.HOME_RULE_SLOTS.beyond,
+        write_spec=series.HOME_RULE_SLOTS.write_specs,
+        keys=series.HOME_RULE_SLOTS.keys,
+        row_condition="events.overrides_id IS NULL",
+        row_test=lambda row: row.get("overrides_id") is None,
+    ),
+    # Branch override rows of events (time-model.md §4.4): slot owners of their own, by row id.
+    # Their start copies their root's spec (an override starts where its root does).
+    SlotProvider(
+        series.EVENT_OVERRIDE,
+        Event,
+        (
+            SlotDef("start"),
+            SlotDef("end", spec="end"),
+            SlotDef(series.UNTIL_SLOT, custom=True),
+            SlotDef("exclusion:*"),
+        ),
+        id_column="id",
+        entity_column="entity_id",
+        timeline_column="timeline_id",
+        load=series.OVERRIDE_RULE_SLOTS.load,
+        write=series.OVERRIDE_RULE_SLOTS.write,
+        beyond=series.OVERRIDE_RULE_SLOTS.beyond,
+        write_spec=series.OVERRIDE_RULE_SLOTS.write_specs,
+        keys=series.OVERRIDE_RULE_SLOTS.keys,
+        row_condition="events.overrides_id IS NOT NULL",
+        row_test=lambda row: row.get("overrides_id") is not None,
     ),
     SlotProvider(
         calendars.CALENDAR,

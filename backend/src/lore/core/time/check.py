@@ -54,15 +54,22 @@ def expected_targets(registry: SlotRegistry, node: SlotNode, value: SlotValue) -
     return end_targets(value.spec, start=start, dimension_id=value.dimension_id or "")
 
 
+type _Resolvers = dict[tuple[str, str | None], Resolver]
+
+
 def _fresh(
-    resolvers: dict[str, Resolver], context: VaultContext, node: SlotNode, value: SlotValue
+    resolvers: _Resolvers,
+    context: VaultContext,
+    node: SlotNode,
+    value: SlotValue,
 ) -> Resolution | None:
     """A fresh resolution of a slot from its spec (``None`` without a dimension)."""
     if value.dimension_id is None:
         return None
-    resolver = resolvers.get(value.dimension_id)
+    key = (value.dimension_id, value.timeline_id)  # relative anchors see from the timeline
+    resolver = resolvers.get(key)
     if resolver is None:
-        resolver = resolvers[value.dimension_id] = Resolver(context, value.dimension_id)
+        resolver = resolvers[key] = Resolver(context, value.dimension_id, value.timeline_id)
     if isinstance(value.spec, TimePoint):
         point = resolvable(value.spec) if node.type == CALENDAR else value.spec
         return resolver.resolve(point, owner=node.id)
@@ -86,7 +93,7 @@ def verify_time(context: VaultContext) -> Iterator[Problem]:
     session = context.session
     registry: SlotRegistry = context.registry.slot_registry()
     writer = TimeWriter(context)
-    resolvers: dict[str, Resolver] = {}
+    resolvers: _Resolvers = {}
     seen: set[SlotNode] = set()
     for node, value in _slots(context):
         seen.add(node)
