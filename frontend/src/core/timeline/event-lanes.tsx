@@ -2,6 +2,7 @@ import { toPx, type Viewport } from '@lore/chronology/viewport'
 import { LockIcon } from 'lucide-react'
 import { memo, useMemo, useState } from 'react'
 
+import { carriesEntity } from '@/core/links'
 import type { Lens } from '@/core/time'
 import { cn } from '@/lib/utils'
 
@@ -98,6 +99,7 @@ interface ItemProps {
   onOpen: (item: WindowItem) => void
   onPress: PressHandler | undefined
   onMenu: ((key: string) => void) | undefined
+  onDropEntity: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
 }
 
 /** One item: a single element (spans: a bar with a gradient; instants: a diamond pseudo-element). */
@@ -112,6 +114,7 @@ const Item = memo(function Item({
   onOpen,
   onPress,
   onMenu,
+  onDropEntity,
 }: ItemProps) {
   const { key, item, geometry } = drawn
   const occurrence = item.occurrence_key !== null
@@ -158,6 +161,21 @@ const Item = memo(function Item({
     onContextMenu: () => {
       onMenu?.(key)
     },
+    // An entity dragged here (sidebar, search results): a participant, or a cause or effect.
+    ...(onDropEntity === undefined
+      ? {}
+      : {
+          onDragOver: (event: React.DragEvent) => {
+            if (!carriesEntity(event.dataTransfer)) return
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'link'
+          },
+          onDrop: (event: React.DragEvent) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onDropEntity(item, event.dataTransfer)
+          },
+        }),
   }
   const dx = drag?.dx ?? 0
   const lock = locked ? (
@@ -248,6 +266,7 @@ export function EventLanes({
   locked = null,
   onPress,
   onMenu,
+  onDropEntity,
 }: {
   /** The current view. */
   v: Viewport
@@ -264,6 +283,7 @@ export function EventLanes({
   locked?: string | null
   onPress?: PressHandler
   onMenu?: (key: string) => void
+  onDropEntity?: ((item: WindowItem, transfer: DataTransfer) => void) | undefined
 }) {
   const [anchors] = useState(() => new Anchor())
   const [lanes] = useState(() => new StickyLanes())
@@ -305,9 +325,22 @@ export function EventLanes({
           onOpen={onOpen}
           onPress={onPress}
           onMenu={onMenu}
+          onDropEntity={onDropEntity}
         />
       )),
-    [drawn, packing, selected, limit, drag, locked, onSelect, onOpen, onPress, onMenu],
+    [
+      drawn,
+      packing,
+      selected,
+      limit,
+      drag,
+      locked,
+      onSelect,
+      onOpen,
+      onPress,
+      onMenu,
+      onDropEntity,
+    ],
   )
   // The laid-out items moved (and, while a zoom's layout catches up, scaled) to the current view.
   const shift = toPx(v, anchor.start)

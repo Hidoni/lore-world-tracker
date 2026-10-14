@@ -4,7 +4,6 @@ import { lazy, Suspense, useId, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useActiveModules } from '@/core/modules'
 import { useKindRegistry } from '@/core/registry'
 import { useAsOf, useTimeContext } from '@/core/time'
 import { useGraph, useTags, type GraphData } from '@/data'
@@ -20,8 +19,9 @@ import {
   type GraphFilters,
   type SavedView,
 } from '../filters'
-import { CATEGORY_COLORS, edgeStyle, mergeStyles, nodeColor, nodeSize } from '../styles'
-import type { CanvasEdge, CanvasNode } from './graph-canvas'
+import { CATEGORY_COLORS } from '../styles'
+import { useCanvasData } from './canvas-data'
+import { useVisualLink } from './visual-link'
 
 const GraphCanvas = lazy(() => import('./graph-canvas'))
 
@@ -310,9 +310,12 @@ export default function GraphPage() {
   const context = useTimeContext(vault)
   const asOf = useAsOf(vault)
   const registry = useKindRegistry(vault)
-  const { modules } = useActiveModules(vault)
-  const styles = useMemo(() => mergeStyles(modules.map((m) => m.graphStyles)), [modules])
-  const [filters, setFilters] = useState<GraphFilters>(DEFAULT_FILTERS)
+  // `/m/graph/focus/<entity>` (from an entity's local graph): its neighborhood first.
+  const focus = useParams({ strict: false }).entity ?? null
+  const [filters, setFilters] = useState<GraphFilters>(() => ({
+    ...DEFAULT_FILTERS,
+    center: focus,
+  }))
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [asList, setAsList] = useState(false)
@@ -326,24 +329,7 @@ export default function GraphPage() {
     () => (data?.nodes ?? []).filter((node) => filters.orphans || node.degree > 0),
     [data, filters.orphans],
   )
-  const canvasNodes = useMemo<CanvasNode[]>(
-    () =>
-      nodes.map((node) => ({
-        id: node.id,
-        label: node.name,
-        color: nodeColor(node.kind, registry, styles),
-        size: nodeSize(node.degree, node.kind, styles),
-      })),
-    [nodes, registry, styles],
-  )
-  const canvasEdges = useMemo<CanvasEdge[]>(
-    () =>
-      (data?.edges ?? []).map((edge) => {
-        const style = edgeStyle(edge, registry, styles)
-        return { source: edge.source, target: edge.target, color: style.color, size: style.size }
-      }),
-    [data, registry, styles],
-  )
+  const { canvasNodes, canvasEdges } = useCanvasData(vault, nodes, data?.edges)
   const needle = search.trim().toLocaleLowerCase()
   const matches = useMemo(
     () =>
@@ -355,6 +341,7 @@ export default function GraphPage() {
     [nodes, needle],
   )
   const chosen = nodes.find((node) => node.id === selected) ?? null
+  const visual = useVisualLink(vault, nodes)
   const open = (id: string): void => {
     void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: id } })
   }
@@ -455,6 +442,7 @@ export default function GraphPage() {
                 selected={selected}
                 onSelect={setSelected}
                 onOpen={open}
+                onLink={visual.onLink}
                 onPositions={(found) => {
                   setPositions(found)
                   writePositions(vault, key, found)
@@ -474,6 +462,7 @@ export default function GraphPage() {
             ))}
           </ul>
         </main>
+        {visual.dialog}
         {chosen !== null && (
           <Preview
             vault={vault}

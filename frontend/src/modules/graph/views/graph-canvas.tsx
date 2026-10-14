@@ -8,6 +8,7 @@ import Sigma from 'sigma'
 import { Button } from '@/components/ui/button'
 
 import type { Positions } from '../filters'
+import { LinkDrag } from '../link-drag'
 
 export interface CanvasNode {
   id: string
@@ -64,6 +65,7 @@ export default function GraphCanvas({
   onSelect,
   onOpen,
   onPositions,
+  onLink,
 }: {
   nodes: readonly CanvasNode[]
   edges: readonly CanvasEdge[]
@@ -73,14 +75,21 @@ export default function GraphCanvas({
   onSelect: (id: string | null) => void
   onOpen: (id: string) => void
   onPositions: (positions: Positions) => void
+  /** `Alt`+drag from a node to another (visual linking); off without it. */
+  onLink?: (source: string, target: string) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const sigma = useRef<Sigma | null>(null)
   const layout = useRef<FA2Layout | null>(null)
-  const state = useRef({ hovered: null as string | null, highlighted, selected })
-  const callbacks = useRef({ onSelect, onOpen, onPositions })
+  const state = useRef({
+    hovered: null as string | null,
+    linking: null as string | null,
+    highlighted,
+    selected,
+  })
+  const callbacks = useRef({ onSelect, onOpen, onPositions, onLink })
   useEffect(() => {
-    callbacks.current = { onSelect, onOpen, onPositions }
+    callbacks.current = { onSelect, onOpen, onPositions, onLink }
   })
   const [running, setRunning] = useState(false)
   const [failed] = useState(webglMissing)
@@ -128,7 +137,9 @@ export default function GraphCanvas({
           const { hovered, highlighted, selected } = state.current
           const near = hovered === null || node === hovered || graph.areNeighbors(node, hovered)
           const found = highlighted === null || highlighted.has(node)
-          if (node === selected) return { ...data, highlighted: true, zIndex: 2 }
+          if (node === selected || node === state.current.linking) {
+            return { ...data, highlighted: true, zIndex: 2 }
+          }
           if (!near || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
           return { ...data, zIndex: 1, forceLabel: hovered !== null }
         },
@@ -158,6 +169,37 @@ export default function GraphCanvas({
     })
     renderer.on('clickStage', () => {
       callbacks.current.onSelect(null)
+    })
+    // Alt+drag from a node to another: the camera holds still, and the release asks for a link.
+    const drag = new LinkDrag()
+    const endDrag = (): void => {
+      state.current.linking = null
+      renderer.getCamera().enable()
+      if (container.current !== null) container.current.style.cursor = ''
+      renderer.refresh({ skipIndexation: true })
+    }
+    renderer.on('downNode', ({ node, event }) => {
+      if (callbacks.current.onLink !== undefined && drag.down(node, event.original.altKey)) {
+        state.current.linking = node
+        renderer.getCamera().disable()
+        if (container.current !== null) container.current.style.cursor = 'crosshair'
+        renderer.refresh({ skipIndexation: true })
+      }
+    })
+    renderer.on('upNode', ({ node }) => {
+      if (!drag.active) return
+      const ends = drag.up(node)
+      endDrag()
+      if (ends !== null) callbacks.current.onLink?.(...ends)
+    })
+    renderer.getMouseCaptor().on('mouseup', () => {
+      // Released off a node (upNode, when it fires, comes first).
+      setTimeout(() => {
+        if (drag.active) {
+          drag.up(null)
+          endDrag()
+        }
+      }, 0)
     })
     renderer.on('doubleClickNode', (event) => {
       event.preventSigmaDefault()

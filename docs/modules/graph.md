@@ -109,7 +109,30 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
   With the time cursor at a moment, the page says it shows what existed then.
 - **Fallbacks:** "As a list" lists the entities by connections (the first 1,000), for keyboard
   and screen-reader use. Without WebGL the drawing says so and points there.
-- The local graph panel on entity pages and visual linking (`Alt`+drag) are separate issues.
+
+Local graph and visual linking (#111):
+
+- **Local graph panel** (side panel "Local graph" on every entity page): the entity's
+  neighborhood, 1 or 2 steps (`center`, `depth`), at the time cursor, drawn by the same
+  renderer at 256 px.
+  - The entity is highlighted, and a double click opens a neighbor.
+  - "Open in the graph" goes to `/v/$vault/m/graph/focus/<entity>`, the graph page starting on
+    that neighborhood.
+  - It says when there are no connections yet.
+- **Visual linking:** `Alt`+drag from a node to another, in either view, opens the add-link
+  dialog from the first entity with the second as target (`LinkDialog` takes a preselected
+  `target`). The link types that fit both kinds are offered.
+  - While dragging, the camera holds still and the source is highlighted. Releasing elsewhere
+    cancels.
+  - `LinkDrag` is the gesture on its own, unit-tested without WebGL.
+  - Readers (no mutations) get no `Alt`+drag.
+- **Timeline drops** (`frontend.md` §9.4): an entity dropped on a timeline event opens a dialog.
+  - An event asks for the direction ("A causes B" or "B causes A") and creates `core.causes`.
+  - Anything else asks for an optional role and creates `core.participant`.
+  - A computed occurrence is materialized first.
+  - Sources: any link to an entity page in the vault, through the URL the browser drags (sidebar
+    rows, search results, Recent), or data set with `setEntityDrag` (`application/x-lore-entity`).
+  - Read-only timelines take no drops.
 
 ## Visibility
 

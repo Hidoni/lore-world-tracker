@@ -8,6 +8,7 @@ import {
   writePositions,
   writeViews,
 } from './filters'
+import { LinkDrag } from './link-drag'
 import { CATEGORY_COLORS, edgeCategory, edgeStyle, mergeStyles, nodeColor } from './styles'
 
 beforeEach(() => {
@@ -88,5 +89,21 @@ describe('graph styles', () => {
     const mention = edgeStyle({ kind: 'mention', link_type: null, weight: 4 }, undefined, styles)
     expect(mention.color).toBe(CATEGORY_COLORS.mention)
     expect(mention.size).toBe(3) // 1 + log2(4)
+  })
+})
+
+describe('Alt+drag', () => {
+  it('links two different nodes when started with Alt', () => {
+    const drag = new LinkDrag()
+    expect(drag.down('a', false)).toBe(false)
+    expect(drag.up('b')).toBeNull()
+    expect(drag.down('a', true)).toBe(true)
+    expect(drag.active).toBe(true)
+    expect(drag.up('a')).toBeNull() // released on itself
+    drag.down('a', true)
+    expect(drag.up(null)).toBeNull() // released off a node
+    drag.down('a', true)
+    expect(drag.up('b')).toEqual(['a', 'b'])
+    expect(drag.active).toBe(false)
   })
 })

@@ -328,3 +328,72 @@ describe('timeline hierarchy, filters and grouping', () => {
     )
   })
 })
+
+/** A drag carrying `data` by type, as jsdom has no DataTransfer. */
+function transfer(data: Record<string, string>) {
+  return {
+    types: Object.keys(data),
+    getData: (type: string) => data[type] ?? '',
+    dropEffect: 'none',
+    effectAllowed: 'all',
+  }
+}
+
+describe('dropping entities on timeline events', () => {
+  const feast = async () => {
+    await renderApp(VIEW)
+    await screen.findByText('Feast', {}, LOADED)
+    const element = document.querySelector<HTMLElement>('[data-item][aria-label="Feast"]')
+    if (element === null) throw new Error('no Feast item')
+    return element
+  }
+
+  it('adds a dropped entity as a participant, with a role', async () => {
+    const { writes } = world()
+    const item = await feast()
+    const dataTransfer = transfer({ 'text/uri-list': 'http://localhost/v/v1/e/a1' })
+    fireEvent.dragOver(item, { dataTransfer })
+    expect(dataTransfer.dropEffect).toBe('link')
+    fireEvent.drop(item, { dataTransfer })
+    const dialog = await screen.findByRole('dialog', { name: 'Add Crown to Feast' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Role' }), 'guest')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add participant' }))
+    await waitFor(() => {
+      expect(writes.at(-1)).toMatchObject({
+        method: 'POST',
+        path: '/links',
+        body: { link_type: 'core.participant', source_id: 'feast', target_id: 'a1', role: 'guest' },
+      })
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
+  it('links a dropped event as a cause or an effect', async () => {
+    const { writes } = world()
+    const item = await feast()
+    const war = JSON.stringify({ id: 'war', name: 'The Long War', kind: 'event' })
+    fireEvent.drop(item, { dataTransfer: transfer({ 'application/x-lore-entity': war }) })
+    const dialog = await screen.findByRole('dialog', { name: 'Link The Long War and Feast' })
+    expect(within(dialog).getByRole('radio', { name: 'The Long War causes Feast' })).toBeChecked()
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Feast causes The Long War' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Link' }))
+    await waitFor(() => {
+      expect(writes.at(-1)).toMatchObject({
+        method: 'POST',
+        path: '/links',
+        body: { link_type: 'core.causes', source_id: 'feast', target_id: 'war' },
+      })
+    })
+  })
+
+  it('ignores drops that carry no entity of the vault', async () => {
+    world()
+    const item = await feast()
+    fireEvent.drop(item, {
+      dataTransfer: transfer({ 'text/uri-list': 'https://example.com/v/other/e/a1' }),
+    })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
