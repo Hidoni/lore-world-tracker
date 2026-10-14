@@ -22,7 +22,9 @@ The world has two parts:
   children of several kinds. Locations (M6): a galaxy → room hierarchy with event sites.
   Characters (M6): three generations with spouses, siblings and a rival. Groups (M6): an empire
   with ministries, a secret society and a war. Languages (M6): a family with a dialect and two
-  scripts. Species (M6): descent, a subspecies and members.
+  scripts. Species (M6): descent, a subspecies and members. Facts (M7): lifespans (one anchored
+  to an event, one private), a name and field values over time, a population, and a marriage
+  valid from a coronation.
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
@@ -31,11 +33,11 @@ The world has two parts:
 **Extending it (every milestone).** When a milestone adds a feature that stores data, add it to
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
-written to ``expected.json`` for fixtures). Planned: branches and worldlines (M7, M9), facts and
-other module kinds (M6, M7; since #89: misc, locations, characters, groups, languages,
-species),
-correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures are never
-regenerated: the next milestone release commits a new one (``persistence-and-migrations.md`` §3.5).
+written to ``expected.json`` for fixtures). Done: module kinds (M6: misc, locations,
+characters, groups, languages, species), facts and temporal links (M7). Planned: branches and
+worldlines (M9), correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures
+are never regenerated: the next milestone release commits a new one
+(``persistence-and-migrations.md`` §3.5).
 """
 
 import argparse
@@ -60,6 +62,8 @@ from lore.config import detect_spec_dir
 from lore.core.entities.models import Entity
 from lore.core.entities.schemas import EntityCreate, EntityUpdate
 from lore.core.entities.service import EntityService
+from lore.core.facts.schemas import FactCreate
+from lore.core.facts.service import Facts
 from lore.core.history.recorder import context as history_context
 from lore.core.history.service import HistoryService
 from lore.core.links.schemas import GraphStyleIn, LinkCreate, LinkTypeCreate, LinkTypeUpdate
@@ -138,6 +142,13 @@ class SampleWorld:
     lexicon: dict[str, list[str]] = field(default_factory=dict)
     # Headwords readers must never see (private entries).
     lexicon_hidden: list[str] = field(default_factory=list)
+    # Entity name -> its facts on the prime timeline: [field key, valid_from_t, valid_to_t]
+    # (resolved moments or null), by field key and start (v0.6.0 on).
+    facts: dict[str, list[list[str | None]]] = field(default_factory=dict)
+    # Entity name -> {moment: existence then} on the prime timeline, for authors.
+    existence: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Entity names whose facts readers must never see (private facts).
+    facts_hidden: list[str] = field(default_factory=list)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -569,6 +580,11 @@ class Services:
     def link(self, link_type: str, source: str, target: str, **body: Any) -> str:
         data = {"link_type": link_type, "source_id": source, "target_id": target, **body}
         return self.links.create(LinkCreate.model_validate(data)).link.id
+
+    def fact(self, entity_id: str, field_key: str, **body: Any) -> str:
+        """A fact: a temporal field's value, existence (``core.exists``) or a name."""
+        data = FactCreate.model_validate({"field_key": field_key, **body})
+        return Facts(self.context).create(entity_id, data).fact.id
 
     def word(self, language: str, headword: str, **body: Any) -> str:
         """A lexicon entry (the languages module)."""
@@ -1229,7 +1245,9 @@ def _core_characters(writer: Writer, core: Core) -> None:
         aldric, maren, ilsa = core["King Aldric"], core["Queen Maren"], core["Ilsa the Tidebound"]
         corin, tavish, halvard = core["Prince Corin"], core["Lord Tavish"], core["Duke Halvard"]
         s.link("characters.spouse_of", aldric, maren, data={"kind": "marriage"})
-        s.link("characters.spouse_of", ilsa, tavish, data={"kind": "marriage"})
+        # Married at her coronation (a temporal link anchored to the event, M7).
+        s.link("characters.spouse_of", ilsa, tavish, data={"kind": "marriage"},
+               timeline_id=core["Prime"], valid_from=after(core["Coronation of Ilsa"]))  # fmt: skip
         for parent in (aldric, maren):
             for child in (ilsa, corin):
                 s.link("characters.parent_of", parent, child, data={"kind": "biological"})
@@ -1415,6 +1433,49 @@ def _core_species(writer: Writer, core: Core) -> None:
         s.link("species.native_to", core["Tideborn"], core["Thalassa"])
 
 
+def _core_facts(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Facts (M7): lifespans (one anchored to an event, one private), a name and temporal field
+    values over time, and a population; with what tests check afterwards."""
+    prime = {"timeline_id": core["Prime"]}
+    coronation = after(core["Coronation of Ilsa"])
+    with writer.transaction("Sample world: facts") as s:
+        aldric, ilsa = core["King Aldric"], core["Ilsa the Tidebound"]
+        # King Aldric dies when his daughter is crowned; Queen Maren lives on.
+        s.fact(aldric, "core.exists", valid_from=point(100_000), valid_to=coronation, **prime)
+        s.fact(core["Queen Maren"], "core.exists", valid_from=point(120_000), **prime)
+        s.fact(ilsa, "core.exists", valid_from=point(400_000), **prime)
+        s.fact(ilsa, "core.name", value="Princess Ilsa", valid_from=point(400_000),
+               valid_to=coronation, **prime)  # fmt: skip
+        s.fact(ilsa, "title", value=["Princess of Varn"], valid_to=coronation, **prime)
+        s.fact(ilsa, "title", value=["Queen of Varn"], valid_from=coronation, **prime)
+        s.fact(ilsa, "epithet", value="the Tidebound", valid_from=coronation,
+               source_event_id=core["Coronation of Ilsa"], **prime)  # fmt: skip
+        # Only the author knows when the Duke was born.
+        s.fact(core["Duke Halvard"], "core.exists", valid_from=point(350_000, approximate=True),
+               visibility="private", **prime)  # fmt: skip
+        s.fact(core["Varn"], "population", value=1200, valid_from=after(core["Founding of Varn"]),
+               **prime)  # fmt: skip
+    world.facts_hidden.append("Duke Halvard")
+    with writer.vault.sessions() as session:
+        facts = Facts(VaultContext(writer.vault, session, writer.registry))
+        for name in ("King Aldric", "Queen Maren", "Ilsa the Tidebound", "Duke Halvard", "Varn"):
+            found = facts.of_entity(core[name], timeline_id=core["Prime"]).items
+            world.facts[name] = [
+                [f.field_key, _moment(f.valid_from_t), _moment(f.valid_to_t)] for f in found
+            ]
+    died = world.facts["King Aldric"][0][2]
+    assert died is not None
+    world.existence = {
+        "King Aldric": {"50000": "not_exists", "150000": "exists", died: "not_exists"},
+        "Ilsa the Tidebound": {"150000": "not_exists", died: "exists"},
+        "Wren": {"150000": "unknown"},
+    }
+
+
+def _moment(t: int | None) -> str | None:
+    return None if t is None else str(t)
+
+
 def _core_links(writer: Writer, core: Core) -> None:
     with writer.transaction("Sample world: links") as s:
         s.link(
@@ -1491,6 +1552,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_groups(writer, core, world)
     _core_languages(writer, core, world)
     _core_species(writer, core)
+    _core_facts(writer, core, world)
     _core_links(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)

@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
+Temporal world state (M7): the wiki knows what was true when. Field values, names and
+lifespans hold for periods, relationships have start and end dates anchored to events, and a
+time cursor in the top bar shows any entity, list, tree or family as it was at a moment, with
+uncertain dates flagged. Ages and elapsed time are shown in the world's calendars, and
+consistency checks catch a story contradicting itself in time. The sample world gains
+lifespans, names and values over time and a marriage, and the v0.6.0 fixture vault keeps them
+under upgrade tests.
+
 ### Added
 
 - **Facts** (#100): field values that hold for a period of a timeline, existence periods and
@@ -437,7 +447,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.2.0...v0.3.0

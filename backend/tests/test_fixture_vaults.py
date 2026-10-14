@@ -31,12 +31,13 @@ FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:5] == [
+    assert [path.name for path in FIXTURE_DIRS][:6] == [
         "v0.1.0",
         "v0.2.0",
         "v0.3.0",
         "v0.4.0",
         "v0.5.0",
+        "v0.6.0",
     ]
 
 
@@ -165,6 +166,41 @@ def test_fixture_lexicons_survive_the_upgrade(upgraded: Any) -> None:
         hidden = set(expected.get("lexicon_hidden", []))
         readers = client.get(path, params={"limit": 500, "as_reader": True}).json()["items"]
         assert [i["headword"] for i in readers] == [h for h in headwords if h not in hidden]
+
+
+def test_fixture_facts_survive_the_upgrade(upgraded: Any) -> None:
+    """Facts (v0.6.0 on): validity moments, existence at moments, private facts for authors
+    only, and the marriage valid from the coronation."""
+    client, expected = upgraded
+    if not expected.get("facts"):
+        pytest.skip("this fixture predates facts")
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    ids = {entity["name"]: entity["id"] for entity in _all(client, f"{base}/entities")}
+    prime = next(
+        e for e in _all(client, f"{base}/entities", kind="timeline") if e["name"] == "Prime"
+    )
+    for name, facts in expected["facts"].items():
+        found = client.get(f"{base}/entities/{ids[name]}/facts", params={"timeline": prime["id"]})
+        assert found.status_code == 200, found.json()
+        items = found.json()["items"]
+        assert [[f["field_key"], f["valid_from_t"], f["valid_to_t"]] for f in items] == facts
+        assert all(f["time_status"] == "ok" for f in items), name
+        readers = client.get(f"{base}/entities/{ids[name]}/facts", params={"as_reader": True})
+        if name in expected["facts_hidden"]:
+            assert readers.json()["items"] == []
+        else:
+            assert len(readers.json()["items"]) == len(items)
+    for name, states in expected["existence"].items():
+        for at, existence in states.items():
+            state = client.get(f"{base}/entities/{ids[name]}/state",
+                               params={"timeline": prime["id"], "at": at})  # fmt: skip
+            assert state.json()["existence"] == existence, (name, at)
+    married = client.get(f"{base}/entities/{ids['Ilsa the Tidebound']}/links",
+                         params={"type": "characters.spouse_of"}).json()["items"]  # fmt: skip
+    died = expected["facts"]["King Aldric"][0][2]
+    assert [(i["other"]["name"], i["link"]["valid_from_t"]) for i in married] == [
+        ("Lord Tavish", died)
+    ]
 
 
 def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
