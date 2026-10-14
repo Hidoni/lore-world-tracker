@@ -24,7 +24,7 @@ def api(tmp_path: Path) -> Iterator[LinkApi]:
         yield LinkApi(client)
 
 
-def subjective(value: dict[str, str] | None) -> Fraction | None:
+def subjective(value: dict[str, str] | None) -> Fraction | int | None:
     return None if value is None else Fraction(int(value["num"]), int(value["den"]))
 
 
