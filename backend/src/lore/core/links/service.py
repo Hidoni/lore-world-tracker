@@ -114,6 +114,7 @@ def link_out(link: Link) -> LinkOut:
         data=link.data,
         visibility=link.visibility,
         timeline_id=link.timeline_id,
+        overrides_id=link.overrides_id,
         valid_from=link.valid_from_spec,
         valid_to=link.valid_to_spec,
         valid_from_t=link.valid_from_t,

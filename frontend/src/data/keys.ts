@@ -40,6 +40,7 @@ export const keys = {
   findings: (vault: string, params?: object) => [vault, 'findings', params ?? {}] as const,
   consistencyRules: (vault: string) => [vault, 'consistencyRules'] as const,
   timelines: (vault: string, dimension: string) => [vault, 'timelines', dimension] as const,
+  branchDiff: (vault: string, timeline: string) => [vault, 'branchDiff', timeline] as const,
   calendarPresets: (vault: string) => [vault, 'calendarPresets'] as const,
   eventTree: (vault: string, timeline: string, params?: object) =>
     [vault, 'eventTree', timeline, params ?? {}] as const,

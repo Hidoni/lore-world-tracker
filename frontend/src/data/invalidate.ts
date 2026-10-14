@@ -41,6 +41,9 @@ const VAULT_WIDE = [
   'speciesDescentTree',
   // An event's "changes caused" (keyed by the event, written through the entity).
   'causedFacts',
+  // Timeline trees (a new branch) and what branches changed (overrides, their records).
+  'timelines',
+  'branchDiff',
 ]
 /** Areas keyed by an entity id. */
 const PER_ENTITY = [

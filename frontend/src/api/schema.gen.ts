@@ -3167,6 +3167,11 @@ export interface components {
             value_t: MomentString | null;
             /** Timeline Id */
             timeline_id: string;
+            /**
+             * Overrides Id
+             * @description An override row (a branch's version, time-model.md §4.4): its root's id.
+             */
+            overrides_id?: string | null;
             valid_from: components["schemas"]["TimePoint"] | null;
             valid_to: components["schemas"]["TimePoint"] | null;
             /** Valid From T */
@@ -3928,6 +3933,11 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** Timeline Id */
             timeline_id: string | null;
+            /**
+             * Overrides Id
+             * @description An override row (a branch's version, time-model.md §4.4): its root's id.
+             */
+            overrides_id?: string | null;
             valid_from: components["schemas"]["TimePoint"] | null;
             valid_to: components["schemas"]["TimePoint"] | null;
             /**

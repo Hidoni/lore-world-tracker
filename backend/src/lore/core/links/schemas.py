@@ -164,6 +164,10 @@ class LinkOut(BaseModel):
     data: dict[str, Any]
     visibility: Visibility
     timeline_id: str | None
+    overrides_id: str | None = Field(
+        default=None,
+        description="An override row (a branch's version, time-model.md §4.4): its root's id.",
+    )
     valid_from: TimePoint | None
     valid_to: TimePoint | None
     valid_from_t: MomentStr | None = Field(description="The start's resolved moment.")

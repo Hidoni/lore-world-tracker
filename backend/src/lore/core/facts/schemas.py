@@ -72,6 +72,10 @@ class FactOut(BaseModel):
         description="A `time_point` value's resolved moment (other types: `null`)."
     )
     timeline_id: str
+    overrides_id: str | None = Field(
+        default=None,
+        description="An override row (a branch's version, time-model.md §4.4): its root's id.",
+    )
     valid_from: TimePoint | None
     valid_to: TimePoint | None
     valid_from_t: MomentStr | None
