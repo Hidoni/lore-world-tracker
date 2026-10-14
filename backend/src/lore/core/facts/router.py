@@ -43,7 +43,11 @@ def list_facts(
         Query(pattern=FACT_KEY_PATTERN, max_length=200, description="Only this field's facts."),
     ] = None,
     timeline: Annotated[
-        str | None, Query(pattern=ID_PATTERN, description="Only facts of this timeline.")
+        str | None,
+        Query(
+            pattern=ID_PATTERN,
+            description="Only facts visible in this timeline (its own and those it inherits).",
+        ),
     ] = None,
 ) -> FactList:
     """The entity's facts (field values over time, existence, names), by field and start.
