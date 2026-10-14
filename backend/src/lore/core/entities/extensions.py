@@ -11,7 +11,9 @@
   disabled ones: their data is kept while disabled and must stay consistent.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +22,24 @@ from lore.core.visibility.policy import VisibilityPolicy
 
 if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
+
+# Set while a trash or restore was confirmed to cascade (``DELETE …?cascade=true``): a trash hook
+# may then take other entities along instead of refusing with ``cascade_required``.
+_CASCADE: ContextVar[bool] = ContextVar("lore_trash_cascade", default=False)
+
+
+@contextmanager
+def cascading(confirmed: bool) -> Iterator[None]:
+    token = _CASCADE.set(confirmed)
+    try:
+        yield
+    finally:
+        _CASCADE.reset(token)
+
+
+def cascade_confirmed() -> bool:
+    """Whether the current trash was confirmed to cascade."""
+    return _CASCADE.get()
 
 
 @dataclass(frozen=True)

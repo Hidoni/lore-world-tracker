@@ -9,7 +9,8 @@ definite or possible). Trashed entities have no findings.
   ``core.time.cycle``, ``core.time.invalid_date`` (also a slot whose calendar doesn't compile),
   ``core.time.unresolved_anchor``; ``core.time.end_before_start`` from stored moments;
   ``core.calendar.invalid``; ``core.parent.cycle`` (one finding per cycle, every member a
-  subject) and ``core.parent.not_allowed`` (kind or dimension).
+  subject), ``core.parent.not_allowed`` (kind or dimension) and
+  ``core.timeline.branch_point_invalid`` (``lore.core.time.branches``).
 - ``core.recurrence.invalid_rule`` (error, configurable): a series' rule no longer evaluates.
 - ``core.time.anchor_to_trashed``, ``core.event.subevent_outside_parent`` (the child's span
   within its parent event's, series parents aside), ``core.event.effect_before_cause``
@@ -32,6 +33,7 @@ from lore.core.db import Unindexed, unindexed
 from lore.core.entities.models import Entity
 from lore.core.links.models import Link
 from lore.core.registry.types import RuleDef, Trigger
+from lore.core.time.branches import branch_point_problems
 from lore.core.time.models import Calendar, Event
 from lore.core.time.series import check_rule, row_context, series_using
 from lore.core.time.slots import SlotProvider
@@ -744,6 +746,34 @@ def _duplicate_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
     yield from _duplicate_drafts(rows)
 
 
+# --- branches ------------------------------------------------------------------------------------
+
+
+def _branch_point_findings(
+    ctx: RuleContext, subjects: Iterable[str] | None
+) -> Iterator[FindingDraft]:
+    """Branch points outside ``[0, D]`` or anchored to records the parent doesn't see
+    (``lore.core.time.branches``); trashed timelines aside."""
+    problems = branch_point_problems(ctx.context, None if subjects is None else list(subjects))
+    live = set(
+        ctx.session.scalars(
+            select(Entity.id).where(
+                Entity.id.in_([p.timeline_id for p in problems]), Entity.deleted_at.is_(None)
+            )
+        )
+    )
+    for problem in problems:
+        if problem.timeline_id in live:
+            yield FindingDraft(
+                "core.timeline.branch_point_invalid",
+                (problem.timeline_id,),
+                problem.message,
+                discriminator=problem.message,
+                timeline_id=problem.timeline_id,
+                data=problem.data,
+            )
+
+
 # --- the catalog ---------------------------------------------------------------------------------
 
 
@@ -847,6 +877,14 @@ CORE_RULES: tuple[RuleDef, ...] = (
         "record, or anchor the time point elsewhere before purging it.",
         (TimeStatus.TRASHED_REF,),
         hard=False,
+    ),
+    _rule(
+        "core.timeline.branch_point_invalid",
+        "Invalid branch point",
+        "A branch's branch point lies outside its dimension's time, or is anchored to records "
+        "its parent timeline doesn't have. Anchor it to a moment of the parent timeline.",
+        _branch_point_findings,
+        triggers=(Trigger("record", "timeline"),),
     ),
     _rule(
         "core.event.subevent_outside_parent",

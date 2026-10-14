@@ -41,6 +41,7 @@ from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
 from lore.core.links.models import Link
 from lore.core.time import series
 from lore.core.time.batch import Lens, display
+from lore.core.time.branches import origin_for
 from lore.core.time.calendars import AbsoluteLens, lens
 from lore.core.time.changes import note_entities
 from lore.core.time.dependencies import SlotNode
@@ -177,6 +178,12 @@ def _create(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
     session = context.session
     assert entity.dimension_id is not None
     _require_calendar(session, entity.dimension_id)
+    # Created with the generic ``timeline`` (a branch): the event lives there.
+    wanted = entity.origin_timeline_id
+    if wanted is not None and data.timeline_id not in (None, wanted):
+        raise _invalid("ext.timeline_id", "The event is created in another timeline.")
+    if data.timeline_id is None and wanted is not None:
+        data = data.model_copy(update={"timeline_id": wanted})
     if data.series_id is not None or data.occurrence_key is not None:
         row = _materialize(context, entity, data)
     else:
@@ -194,6 +201,8 @@ def _create(context: VaultContext, entity: Entity, data: EventExt) -> _Write:
             category=data.category,
         )
         session.add(row)
+    # An event of a branch is a branch-only entity (time-model.md §4.6).
+    entity.origin_timeline_id = origin_for(session, row.timeline_id)
     _check_parent(context, entity, row.timeline_id)
     rule = parse_rule_document(data.recurrence)
     return _Write(

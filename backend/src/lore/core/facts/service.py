@@ -42,6 +42,7 @@ from lore.core.time.fields import ENTITY_FIELD, FACT_PREFIX, fact_slot, sync_row
 from lore.core.time.models import EntityTimeField, Timeline
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
+from lore.core.time.timeline_view import TimelineView
 from lore.core.types import Affected
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
@@ -68,18 +69,25 @@ class Facts:
     def of_entity(
         self, entity_id: str, *, field_key: str | None = None, timeline_id: str | None = None
     ) -> FactList:
-        """The entity's live facts the policy shows (``404`` for an entity it hides)."""
+        """The entity's live facts the policy shows (``404`` for an entity it hides): of every
+        timeline, or those visible in ``timeline_id`` (its own and those its lineage inherits,
+        ``time-model.md`` §4.3)."""
         entity = self.entities.load_visible(entity_id)
-        statement = select(EntityFact).where(
-            EntityFact.entity_id == entity.id,
-            EntityFact.deleted_at.is_(None),
-            *self.policy.rows(EntityFact),
-            *self.policy.entity_ref(EntityFact.timeline_id),
+        if timeline_id is None:
+            statement = select(EntityFact).where(
+                EntityFact.entity_id == entity.id, EntityFact.deleted_at.is_(None)
+            )
+        else:
+            view = TimelineView.for_timeline(self.session, timeline_id)
+            statement = view.select(
+                EntityFact,
+                where=lambda row: [row.entity_id == entity.id, row.deleted_at.is_(None)],
+            )
+        statement = statement.where(
+            *self.policy.rows(EntityFact), *self.policy.entity_ref(EntityFact.timeline_id)
         )
         if field_key is not None:
             statement = statement.where(EntityFact.field_key == field_key)
-        if timeline_id is not None:
-            statement = statement.where(EntityFact.timeline_id == timeline_id)
         facts = [
             fact
             for fact in self.session.scalars(statement)

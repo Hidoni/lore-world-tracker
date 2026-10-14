@@ -29,6 +29,8 @@ from lore.core.links.service import timeless
 from lore.core.modules.service import enabled_modules
 from lore.core.modules.spec import VaultContext
 from lore.core.richtext.models import Mention
+from lore.core.time.branches import scope_for
+from lore.core.time.models import Timeline
 from lore.core.time.state import (
     FACT,
     AsOf,
@@ -141,6 +143,8 @@ class GraphReader:
             conditions.append(
                 exists().where(EntityTag.entity_id == Entity.id, EntityTag.tag_id.in_(query.tags))
             )
+        # Branch-only entities in their branch's lineage (time-model.md §4.6).
+        conditions += scope_for(self.session, self.policy, query.timeline)(Entity)
         return select(Entity.id, Entity.kind, Entity.name, Entity.dimension_id).where(*conditions)
 
     def _add_nodes(self, found: _Found, rows: Sequence[Any], as_of: AsOf | None) -> list[str]:
@@ -185,6 +189,12 @@ class GraphReader:
             edges += self._parents(sources, targets)
         return edges
 
+    def _link_timelines(self, timeline_id: str | None) -> Any:
+        if timeline_id is None:
+            return Link.timeline_id.in_(select(Timeline.entity_id).where(Timeline.is_prime))
+        view = TimelineView.for_timeline(self.session, timeline_id)
+        return Link.timeline_id.in_(view.timeline_ids)
+
     def _links(self, query: Query, as_of: AsOf | None, sources: Scope, targets: Scope
                ) -> list[_Edge]:  # fmt: skip
         conditions: list[Any] = [
@@ -199,6 +209,8 @@ class GraphReader:
         ]
         if query.link_types:
             conditions.append(Link.link_type.in_(query.link_types))
+        # Temporal links of the request's timeline (its lineage), or of prime timelines.
+        conditions.append(or_(timeless(Link), self._link_timelines(query.timeline)))
         if as_of is not None:
             view = TimelineView.for_timeline(self.session, as_of.timeline_id)
             shown = view.select(Link, where=lambda row: [row.deleted_at.is_(None)]).subquery()

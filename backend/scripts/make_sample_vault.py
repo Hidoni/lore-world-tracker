@@ -54,10 +54,12 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, Literal, get_args
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lore import __version__
 from lore.chronology.calendar import CompiledCalendar, to_fields
+from lore.chronology.schema import TimePoint
 from lore.config import detect_spec_dir
 from lore.core.entities.models import Entity
 from lore.core.entities.schemas import EntityCreate, EntityUpdate
@@ -72,6 +74,7 @@ from lore.core.links.types_service import LinkTypeService
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules.spec import VaultContext
+from lore.core.time.branches import create_branch
 from lore.core.time.calendars import (
     CalendarSource,
     PresetChoice,
@@ -79,10 +82,13 @@ from lore.core.time.calendars import (
     source_definition,
 )
 from lore.core.time.events import home_row
+from lore.core.time.models import Event, Timeline
 from lore.core.time.resolve import Resolver
 from lore.core.time.series import RuleProblem, compute_occurrence
+from lore.core.time.timeline_view import TimelineView
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import DATABASE_NAME, MANIFEST_NAME
+from lore.core.visibility import AUTHOR
 from lore.modules import ALL_MODULES
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
@@ -149,6 +155,9 @@ class SampleWorld:
     existence: dict[str, dict[str, str]] = field(default_factory=dict)
     # Entity names whose facts readers must never see (private facts).
     facts_hidden: list[str] = field(default_factory=list)
+    # Branch name -> {"parent": timeline name, "branch_t": resolved branch moment, "events":
+    # the events its window shows (by name), "own": its branch-only entities} (v0.8.0 on).
+    branches: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -555,10 +564,19 @@ class Services:
     link_types: LinkTypeService
     history: HistoryService
 
-    def entity(self, kind: str, name: str, **body: Any) -> str:
+    def entity(self, kind: str, name: str, *, timeline: str | None = None, **body: Any) -> str:
+        """An entity (branch-only when created in a branch ``timeline``)."""
         created = self.entities.create(
-            EntityCreate.model_validate({"kind": kind, "name": name, **body})
+            EntityCreate.model_validate({"kind": kind, "name": name, **body}), timeline_id=timeline
         )
+        return created.entity.id
+
+    def branch(self, parent: str, name: str, branch_point: Doc, summary: str = "") -> str:
+        """A branch of the ``parent`` timeline (the branches module, M9)."""
+        created = create_branch(
+            self.context, AUTHOR, parent_timeline_id=parent, name=name, summary=summary,
+            branch_point=TimePoint.model_validate(branch_point),
+        )  # fmt: skip
         return created.entity.id
 
     def prime_timeline(self, dimension_id: str, name: str) -> str:
@@ -1472,6 +1490,47 @@ def _core_facts(writer: Writer, core: Core, world: SampleWorld) -> None:
     }
 
 
+def _core_branches(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Branches (M9): "What if Aurel survived", anchored to the start of his assassination, with
+    a branch-only survivor's council, its own event and a fact; with what tests check."""
+    home = {"dimension_id": core[WORLD_NAME]}
+    killed = core["Assassination of Aurel"]
+    name = "What if Aurel survived"
+    with writer.transaction("Sample world: a branch") as s:
+        branch = s.branch(
+            core["Prime"], name, after(killed),
+            summary="The poison fails: Aurel lives, and there is no war of succession.",
+        )  # fmt: skip
+        core.ids[name] = branch
+        council = s.entity("group", "Council of the Survivor", timeline=branch,
+                           summary="Aurel's new council, sworn the night he lived.",
+                           **home)  # fmt: skip
+        core.ids["Council of the Survivor"] = council
+        recovery = s.entity(
+            "event", "Recovery of Aurel", summary="Aurel wakes, three days later.",
+            ext={"timeline_id": branch, "start": after(killed, base(3 * DAY))}, **home,
+        )  # fmt: skip
+        core.ids["Recovery of Aurel"] = recovery
+        s.fact(council, "core.exists", timeline_id=branch, valid_from=after(recovery))
+    with writer.vault.sessions() as session:
+        row = session.get(Timeline, branch)
+        assert row is not None
+        assert row.branch_t is not None
+        view = TimelineView.for_timeline(session, branch)
+        shown = session.scalars(
+            select(Entity.name)
+            .join(Event, Event.entity_id == Entity.id)
+            .where(Event.id.in_(select(view.select(Event).subquery().c.id)))
+            .order_by(Entity.name)
+        )
+        world.branches[name] = {
+            "parent": "Prime",
+            "branch_t": str(row.branch_t),
+            "events": list(shown),
+            "own": ["Council of the Survivor", "Recovery of Aurel"],
+        }
+
+
 def _moment(t: int | None) -> str | None:
     return None if t is None else str(t)
 
@@ -1524,15 +1583,19 @@ def _core_history(writer: Writer, core: Core) -> None:
 
 
 def _core_moments(writer: Writer, core: Core, world: SampleWorld) -> None:
-    """The resolved moments of the core's live events, for tests (and future migrations) to
-    check."""
+    """The resolved moments of the core's live events of the prime view (branch-only ones are in
+    ``branches``), for tests (and future migrations) to check."""
     with writer.vault.sessions() as session:
         entities = EntityService(VaultContext(writer.vault, session, writer.registry))
         for name, entity_id in sorted(core.ids.items()):
             if session.get(Entity, entity_id) is None:
                 continue  # a link
             entity = entities.get(entity_id)
-            if entity.kind == "event" and entity.deleted_at is None:
+            if (
+                entity.kind == "event"
+                and entity.deleted_at is None
+                and entity.origin_timeline_id is None
+            ):
                 ext = entity.ext or {}
                 world.moments[name] = [str(ext["start_t"]), str(ext["end_t"])]
 
@@ -1554,6 +1617,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_species(writer, core)
     _core_facts(writer, core, world)
     _core_links(writer, core)
+    _core_branches(writer, core, world)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {

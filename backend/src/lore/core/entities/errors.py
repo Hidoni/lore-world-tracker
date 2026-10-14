@@ -16,3 +16,11 @@ class ParentNotAllowedError(InvalidInputError):
 
     code = "parent_not_allowed"
     title = "Parent not allowed"
+
+
+class CascadeRequiredError(ConflictError):
+    """Trashing the entity takes others along (a branch's descendants and branch-only
+    entities): ``context`` lists them, and the request must confirm with ``cascade=true``."""
+
+    code = "cascade_required"
+    title = "Cascade required"

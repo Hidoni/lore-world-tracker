@@ -37,6 +37,7 @@ from lore.core.search.schemas import (
     SnippetPart,
     SnippetSource,
 )
+from lore.core.time.branches import scope_for
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 DIMENSION_KIND = "dimension"
@@ -102,12 +103,18 @@ def _columns_filter(columns: Sequence[str], expression: str) -> str:
 
 class SearchQueries:
     def __init__(
-        self, session: Session, registry: ModuleRegistry, policy: VisibilityPolicy = AUTHOR
+        self,
+        session: Session,
+        registry: ModuleRegistry,
+        policy: VisibilityPolicy = AUTHOR,
+        timeline_id: str | None = None,
     ) -> None:
         self.session = session
         self.registry = registry
         self.policy = policy
         self.reader = policy.reader
+        # Branch-only entities are found in their branch's lineage (time-model.md §4.6).
+        self.scope = scope_for(session, policy, timeline_id)
         enabled = enabled_modules(session, registry)
         self.kinds: dict[str, RegisteredKind] = {k.key: k for k in registry.kinds_for(enabled)}
         self.contributors: dict[str, SearchContributor] = {
@@ -135,6 +142,7 @@ class SearchQueries:
                           f"(SELECT 1 FROM entities e WHERE {owner}))")  # fmt: skip
         if self.reader:
             conditions += ["d.visibility != 'private'", self._visible_owner()]
+        conditions.append(self._in_timeline())
         if kinds:
             known = self.registry.all_kind_keys() | set(contributors(self.registry))
             unknown = [kind for kind in kinds if kind not in known]
@@ -158,6 +166,14 @@ class SearchQueries:
         condition = exists().where(
             owner.id == literal_column("d.entity_id"), *self.policy.entities(owner)
         )
+        dialect = self.session.get_bind().dialect
+        return str(condition.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
+
+    def _in_timeline(self) -> str:
+        """SQL: the document's entity is shown in the request's timeline (``scope_for``; its
+        values are timeline ids from the database)."""
+        owner = aliased(Entity, name="tl_owner")
+        condition = exists().where(owner.id == literal_column("d.entity_id"), *self.scope(owner))
         dialect = self.session.get_bind().dialect
         return str(condition.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
 

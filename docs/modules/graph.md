@@ -24,6 +24,7 @@
 | `include_mentions` (default true) | include rich-text mentions as edges |
 | `include_hierarchy` (default true) | include `parent_id` edges |
 | `timeline`, `at` | as-of filtering: only entities existing at `at` (or unknown existence) and links valid at `at` |
+| `timeline` (alone) | the branch-only entities of its lineage, and temporal links of its lineage only; without it, the prime view: no branch-only entities, temporal links of prime timelines (#114) |
 | `limit` (default 5,000 nodes) | when exceeded, keep the highest-degree nodes and report `truncated` |
 
 Response: `{nodes: [{id, kind, name, dimension_id, degree, existence: 'exists'|'unknown'|'possible'}],

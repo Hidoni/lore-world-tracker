@@ -151,7 +151,7 @@ extension row:
 | `is_prime` | Exactly one per dimension. |
 
 Timelines can't be created through the generic entity API: the prime comes with its dimension
-and branches with the branches module (M9). Until then a timeline's `ext` is read-only.
+and branches with the branches module (M9, `lore.core.time.branches`, `POST /m/branches/timelines`). A timeline's `ext` is read-only.
 
 Constraints: a branch point must resolve inside `[0, D]`, and its anchor may only reference
 records visible in the **parent** timeline (otherwise a branch could depend on itself).
@@ -269,6 +269,14 @@ Entity rows are not time-bound. An entity has `origin_timeline_id`:
 An entity visible in a timeline may still not *exist* there at a given moment (§10.4). For
 example, a character born after the branch point is never born in the branch unless the branch
 gives them an existence fact.
+
+Lists, the tree, search and the graph show an entity when its origin is in the lineage of the
+request's `timeline`, and without one (the prime view) only entities without an origin (#114,
+`entity_scope`). An entity's page stays reachable by id. Entities are created in a branch with
+`?timeline=` on create; an event created in a branch (`ext.timeline_id`) is branch-only, and so
+is a branch of a branch (in its parent's lineage). Trashing a branch takes its descendant
+branches and branch-only entities along once confirmed (`cascade=true`), and restoring it brings
+them back.
 
 **Per-timeline notes:** `entity_timeline_notes(entity_id, timeline_id, body)` lets a branch carry
 extra rich text for an entity ("In this timeline she became a pirate") without forking the shared

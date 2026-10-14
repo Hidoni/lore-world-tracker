@@ -70,6 +70,7 @@ from lore.core.entities.service import DIMENSION_KIND, EntityService
 from lore.core.errors import InvalidInputError
 from lore.core.modules.service import ModuleDisabledError
 from lore.core.registry import FieldDef
+from lore.core.time.branches import scope_for
 from lore.core.types import Existence
 
 type EntityTable = Any  # Entity or an aliased(Entity)
@@ -154,18 +155,25 @@ def _like_prefix(text: str) -> str:
 
 
 class EntityQueries:
-    def __init__(self, service: EntityService, existence_of: ExistenceOf | None = None) -> None:
+    def __init__(
+        self,
+        service: EntityService,
+        existence_of: ExistenceOf | None = None,
+        timeline_id: str | None = None,
+    ) -> None:
         self.service = service
         self.session = service.session
         self.policy = service.policy
         self.existence_of = existence_of
         self._existence: dict[str, Existence] = {}
+        # Branch-only entities show in their branch's lineage (time-model.md §4.6).
+        self._scope = scope_for(self.session, self.policy, timeline_id)
 
     # --- shared conditions ----------------------------------------------------------------------
 
     def _shown(self, e: EntityTable) -> list[ColumnElement[bool]]:
         """What every listed entity must meet (see the module docstring: the hook point)."""
-        return [e.kind.in_(self.service.kinds), *self.policy.entities(e)]
+        return [e.kind.in_(self.service.kinds), *self.policy.entities(e), *self._scope(e)]
 
     def _kinds(self, e: EntityTable, kinds: Sequence[str] | None) -> list[ColumnElement[bool]]:
         if not kinds:
@@ -299,7 +307,12 @@ class EntityQueries:
     def trash(self, *, cursor: str | None = None, limit: int = 50) -> TrashPage:
         """Trashed entities, most recently trashed first (author-only)."""
         self.policy.require_author("The trash isn't available to readers.")
-        statement = select(Entity).where(*self._shown(Entity), Entity.deleted_at.is_not(None))
+        # Every timeline's: a trashed branch takes its branch-only entities along.
+        statement = select(Entity).where(
+            Entity.kind.in_(self.service.kinds),
+            *self.policy.entities(Entity),
+            Entity.deleted_at.is_not(None),
+        )
         items, next_cursor = self._page(
             statement, e=Entity, sort="deleted", cursor=cursor, limit=limit, build=self._trash_items
         )

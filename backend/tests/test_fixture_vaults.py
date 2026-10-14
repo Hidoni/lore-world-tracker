@@ -277,13 +277,13 @@ def test_the_generator_is_deterministic_for_a_seed(
         "calendar": 11,
         "character": 8,
         "dimension": 4,
-        "event": 48 + 120,
-        "group": 6,
+        "event": 49 + 120,
+        "group": 7,
         "language": 5,
         "location": 9,
         "misc": 5,
         "species": 4,
-        "timeline": 4,
+        "timeline": 5,
         "writing_system": 2,
     }
     assert first.links == 62 + 150
@@ -325,6 +325,27 @@ def test_the_core_has_its_time_facts(tmp_path: Path) -> None:
         assert check_vault(_manager(client), world.vault_id).problems == ()
 
 
+def test_the_core_has_a_branch(tmp_path: Path) -> None:
+    """ "What if Aurel survived" (M9): it inherits what started before the assassination, not
+    the assassination or what follows it, and its branch-only entities show only in it."""
+    world = generate(tmp_path, "tiny")
+    branch = world.branches["What if Aurel survived"]
+    assert branch["parent"] == "Prime"
+    assert "Recovery of Aurel" in branch["events"]
+    assert "Founding of Varn" in branch["events"]
+    assert {"Assassination of Aurel", "War of the Succession"}.isdisjoint(branch["events"])
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{world.vault_id}"
+        names = {e["name"] for e in _all(client, f"{base}/entities", kind="group")}
+        assert "Council of the Survivor" not in names
+        timelines = _all(client, f"{base}/entities", kind="timeline")
+        survived = next(t for t in timelines if t["name"] == "What if Aurel survived")
+        in_branch = {e["name"] for e in _all(client, f"{base}/entities", kind="group",
+                                             timeline=survived["id"])}  # fmt: skip
+        assert "Council of the Survivor" in in_branch
+        assert check_vault(_manager(client), world.vault_id).problems == ()
+
+
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
     target = tmp_path / "v9.9.9"
     world = make_sample_vault.write_fixture(target)
@@ -338,7 +359,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "106 entities, 62 links" in capsys.readouterr().out
+    assert "109 entities, 62 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 

@@ -11,7 +11,8 @@ timeline** (named "Prime") in the same transaction. Rules (decided 2026-10-05 wh
 - ``present`` is resolved when written (``lore.core.time.resolve``), must lie in ``[0, D]`` and
   stays linked to its anchor (``lore.core.time.propagate``).
 - Timelines can't be created through the entity API: the prime comes with its dimension and
-  branches with the branches module (M9). Their ``ext`` is read-only for now.
+  branches with the branches module (``lore.core.time.branches``, M9). Their ``ext`` is
+  read-only.
 - The prime timeline follows its dimension (decided): trashing, restoring and purging the
   dimension does the same to its prime, which can't be trashed, restored or purged on its own.
   Purging a dimension is still refused while anything else lives in it. The prime also has its
@@ -30,6 +31,8 @@ from sqlalchemy.orm import Session
 
 from lore.chronology.schema import BaseUnit, MomentStr, TimePoint
 from lore.core.db.types import utc_now
+from lore.core.entities.errors import CascadeRequiredError
+from lore.core.entities.extensions import cascade_confirmed, cascading
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.time.calendars import check_default_calendar
@@ -67,6 +70,20 @@ def _cascade() -> Iterator[None]:
         yield
     finally:
         _CASCADE.reset(token)
+
+
+# Set while ``lore.core.time.branches`` creates a branch: its parent timeline and branch point.
+_BRANCH: ContextVar[tuple[str, TimePoint] | None] = ContextVar("lore_time_branch", default=None)
+
+
+@contextmanager
+def branching(parent_timeline_id: str, branch_point: TimePoint) -> Iterator[None]:
+    """Lets the timeline kind create a branch of ``parent_timeline_id`` at ``branch_point``."""
+    token = _BRANCH.set((parent_timeline_id, branch_point))
+    try:
+        yield
+    finally:
+        _BRANCH.reset(token)
 
 
 class DimensionExt(BaseModel):
@@ -364,6 +381,10 @@ def write_timeline(
     context: VaultContext, entity: Entity, ext: dict[str, Any] | None, creating: bool
 ) -> None:
     if creating:
+        branch = _BRANCH.get()
+        if branch is not None:
+            _create_branch_row(context, entity, *branch)
+            return
         if not _CASCADE.get():
             raise _invalid(
                 "kind",
@@ -377,6 +398,31 @@ def write_timeline(
         context.session.flush()
     elif ext:
         raise _invalid("ext", "A timeline's settings can't be edited yet.")
+
+
+def _create_branch_row(
+    context: VaultContext, entity: Entity, parent_timeline_id: str, point: TimePoint
+) -> None:
+    """A branch's row, with its branch point resolved (within ``[0, D]``) and linked to its
+    anchor, so the branch moves with what it is anchored to."""
+    assert entity.dimension_id is not None
+    row = Timeline(
+        entity_id=entity.id,
+        dimension_id=entity.dimension_id,
+        parent_timeline_id=parent_timeline_id,
+        is_prime=False,
+    )
+    context.session.add(row)
+    resolution = Resolver(context, entity.dimension_id).resolve(point)
+    if resolution.problem is not None and resolution.problem.code == "out_of_bounds":
+        raise _invalid("ext.branch_point", resolution.problem.message, code="out_of_bounds")
+    t = require(resolution, "ext.branch_point")
+    status = TimeStatus.OK if resolution.status is None else resolution.status
+    row.branch_point_spec, row.branch_t, row.time_status = point, t, status.value
+    context.session.flush()
+    writer = TimeWriter(context)
+    writer.set_spec(TIMELINE, entity.id, "branch_point", point)
+    writer.propagate(path="ext.branch_point")
 
 
 def read_timeline(
@@ -415,9 +461,54 @@ def update_timeline(context: VaultContext, entity: Entity, sent: frozenset[str])
 
 
 def trash_timeline(context: VaultContext, entity: Entity, trashing: bool) -> None:
-    if _is_prime(context.session, entity):
+    """A branch takes its descendant branches and branch-only entities along to the trash, once
+    the request confirms it (``cascade_required`` lists them, with the counts of its own records,
+    which stay with it); restoring it brings back those in the trash. A branch whose parent is in
+    the trash is restored with it, not on its own."""
+    session = context.session
+    if _is_prime(session, entity):
         action = "trashed" if trashing else "restored"
         raise ConflictError(f"The prime timeline is {action} with its dimension.")
+    # Branches build on this module (the timeline kind's ext).
+    from lore.core.entities.service import EntityService  # noqa: PLC0415
+    from lore.core.time.branches import branch_contents  # noqa: PLC0415
+
+    row = session.get(Timeline, entity.id)
+    parent = None if row is None or row.parent_timeline_id is None else row.parent_timeline_id
+    if not trashing and parent is not None and not cascade_confirmed():
+        parent_entity = session.get(Entity, parent)
+        if parent_entity is not None and parent_entity.deleted_at is not None:
+            raise ConflictError(
+                f"The branch's parent “{parent_entity.name}” is in the trash: restore it, and "
+                "its branches come back with it."
+            )
+    contents = branch_contents(session, entity.id, trashed=not trashing)
+    along = [*contents.descendants, *contents.entities]
+    if trashing and (along or contents.records) and not cascade_confirmed():
+        rows = session.execute(select(Entity.id, Entity.name).where(Entity.id.in_(along)))
+        names: dict[str, str] = {str(i): str(n) for i, n in rows.all()}
+        parts = []
+        if contents.descendants:
+            parts.append(f"{len(contents.descendants)} branches")
+        if contents.entities:
+            parts.append(f"{len(contents.entities)} entities created in it")
+        if contents.records:
+            parts.append(f"{sum(contents.records.values())} records of its own")
+        raise CascadeRequiredError(
+            f"Trashing “{entity.name}” takes along {', '.join(parts)}: confirm with cascade=true.",
+            context={
+                "descendants": [{"id": i, "name": names.get(i)} for i in contents.descendants],
+                "entities": [{"id": i, "name": names.get(i)} for i in contents.entities],
+                "records": contents.records,
+            },
+        )
+    service = EntityService(context)
+    with cascading(True):
+        for entity_id in along:
+            if trashing:
+                service.trash(entity_id, cascade=True)
+            else:
+                service.restore(entity_id)
 
 
 def purge_timeline(context: VaultContext, entity: Entity) -> None:
