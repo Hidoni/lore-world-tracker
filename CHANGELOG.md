@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Graph data** (#109): a new graph module serves the entities and how they connect (links,
+  mentions and the parent tree) for the whole vault, a dimension, or the neighborhood of an
+  entity. It can filter by kind, link type and tag, and show only what existed at a moment and
+  the links valid then. It keeps the best-connected entities when there are too many. Readers
+  see only what they may, and mentions in private passages don't connect anything for them.
+
 ## [0.6.0] - 2026-10-14
 
 Temporal world state (M7): the wiki knows what was true when. Field values, names and

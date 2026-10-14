@@ -1606,6 +1606,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/graph/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Graph
+         * @description The graph of the entities the request sees and the links, mentions and parent edges
+         *     between them: the whole vault (or a dimension), or the neighborhood of ``center``. With
+         *     ``at`` only entities existing then and links valid then. Over ``limit`` nodes, the
+         *     highest-degree ones (``truncated``). ``404`` for a center or timeline the request may not
+         *     see.
+         */
+        get: operations["graph_graph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3233,6 +3257,67 @@ export interface components {
             to_t: MomentString | null;
             /** @description Whether the person exists at the time cursor (`at`), as in entity states; `null` without `at`. */
             existence: components["schemas"]["Existence"] | null;
+        };
+        /** Graph */
+        Graph: {
+            /**
+             * Nodes
+             * @description By degree, then name.
+             */
+            nodes: components["schemas"]["GraphNode"][];
+            /** Edges */
+            edges: components["schemas"]["GraphEdge"][];
+            /**
+             * Truncated
+             * @description More nodes matched than `limit`: the highest-degree ones are kept.
+             */
+            truncated: boolean;
+        };
+        /** GraphEdge */
+        GraphEdge: {
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Kind
+             * @description `link`: a link (source → target as stored); `mention`: the source's text mentions the target; `parent`: the source is the target's parent.
+             * @enum {string}
+             */
+            kind: "link" | "mention" | "parent";
+            /** Link Type */
+            link_type: string | null;
+            /**
+             * Label
+             * @description The link's role, if any.
+             */
+            label: string | null;
+            /**
+             * Weight
+             * @description 1, or the number of mentions.
+             */
+            weight: number;
+        };
+        /** GraphNode */
+        GraphNode: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Dimension Id */
+            dimension_id: string | null;
+            /**
+             * Degree
+             * @description Edges of the node in the response's edge set.
+             */
+            degree: number;
+            /**
+             * Existence
+             * @description Existence at `at` (entities that don't exist then are left out); `null` without `at`.
+             */
+            existence: ("exists" | "unknown" | "possible") | null;
         };
         /** GraphStyleIn */
         GraphStyleIn: {
@@ -8732,6 +8817,61 @@ export interface operations {
                 };
                 content: {
                     "text/csv": string;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    graph_graph: {
+        parameters: {
+            query?: {
+                /** @description Entities of a dimension (and multiversal ones). */
+                dimension?: string | null;
+                /** @description The local graph around an entity. */
+                center?: string | null;
+                /** @description Steps from `center`. */
+                depth?: number;
+                /** @description Kinds of nodes. */
+                kind?: string[] | null;
+                /** @description Link types of `link` edges. */
+                link_type?: string[] | null;
+                /** @description Tag ids; nodes need any of them. */
+                tag?: string[] | null;
+                include_mentions?: boolean;
+                include_hierarchy?: boolean;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
+                /** @description Nodes at most. */
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Graph"];
                 };
             };
             /** @description Problem */

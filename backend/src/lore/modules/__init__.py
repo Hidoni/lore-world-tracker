@@ -5,6 +5,7 @@ from sqlalchemy import MetaData
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleSpec
 from lore.modules.characters import MODULE as CHARACTERS
+from lore.modules.graph import MODULE as GRAPH
 from lore.modules.groups import MODULE as GROUPS
 from lore.modules.languages import MODULE as LANGUAGES
 from lore.modules.locations import MODULE as LOCATIONS
@@ -12,7 +13,9 @@ from lore.modules.misc import MODULE as MISC
 from lore.modules.species import MODULE as SPECIES
 
 # Every module's spec, in dependency order. Explicit: no entry points, no discovery (§2.2).
-ALL_MODULES: list[ModuleSpec] = [MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES]
+ALL_MODULES: list[ModuleSpec] = [
+    MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES, GRAPH
+]  # fmt: skip
 
 
 def load_metadata() -> MetaData:

@@ -351,6 +351,21 @@ def language_family_tree(c: Canary) -> Iterator[Call]:
         yield Call(path, {"dimension": entity_id})
 
 
+@recipe(f"{V}/m/graph/graph")
+def graph(c: Canary) -> Iterator[Call]:
+    """The whole graph (with the time cursor too), every visible entity's neighborhood and
+    dimension; hidden centers and timelines are ``404``."""
+    path = f"{_v(c)}/m/graph/graph"
+    yield Call(path, {"limit": 20000})
+    yield Call(path, {"timeline": c.public["Prime"], "at": "7", "depth": 4})
+    for entity_id in c.public.values():
+        yield Call(path, {"center": entity_id, "depth": 2})
+        yield Call(path, {"dimension": entity_id})
+    for hidden_id in c.hidden_ids:
+        yield Call(path, {"center": hidden_id}, status=404)
+        yield Call(path, {"timeline": hidden_id, "at": "0"}, status=404)
+
+
 @recipe(f"{V}/m/species/descent-tree")
 def species_descent_tree(c: Canary) -> Iterator[Call]:
     path = f"{_v(c)}/m/species/descent-tree"
