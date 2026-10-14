@@ -9,6 +9,7 @@ from lore.core.history.service import REVERT_HOOKS
 from lore.core.history.tables import HistoryTable, columns_owner
 from lore.core.modules import ModuleSpec, VaultContext
 from lore.core.visibility import VisibilityPolicy
+from lore.modules.languages.consistency import CONSISTENCY_RULES
 from lore.modules.languages.kinds import LANGUAGE, LANGUAGE_KIND, WRITING_SYSTEM_KIND
 from lore.modules.languages.lexicon import (
     ALPHABET_FIELD,
@@ -56,6 +57,7 @@ MODULE = ModuleSpec(
     models=(LexiconEntry,),
     history_tables=(HistoryTable.of(LexiconEntry, columns_owner("language_id")),),
     routers=(router,),
+    consistency_rules=CONSISTENCY_RULES,
     slot_providers=(LEXICON_SLOTS,),
     search_contributors=(LEXICON_SEARCH,),
     visibility_filters=(LEXICON_VISIBILITY,),

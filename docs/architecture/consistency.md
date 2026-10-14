@@ -172,6 +172,38 @@ cycle), `core.recurrence.invalid_rule`, `core.time.anchor_to_trashed` (status `t
 (same dimension only) and `core.event.duplicate_name_same_time` (names compared ignoring case
 and accents; possible when a start is circa). The other core rules arrive with their features.
 
+The narrative rules about existence (#106: core's `participant_not_existing`, `fact.overlap`,
+`fact.outside_existence`, `link.outside_existence` and the characters, groups, locations, species
+and languages rules) share `lore.core.consistency.existence` and the finders of
+`lore.core.consistency.narrative`:
+
+- **Existence** is an entity's `core.exists` periods in a timeline (`time-model.md` §10.4),
+  overlapping or touching ones merged. An entity without existence periods in a timeline exists
+  at every time of it, so nothing lies outside its existence there. Records are compared within
+  one timeline: an event's, a fact's, or a temporal link's or lexicon entry's (timeless links and
+  entries aren't checked, except as overlapping everything in `concurrent_spouses` and
+  `leader_not_member`).
+- **Within** an existence means within one of its periods. An open bound of the checked span is
+  not checked ("valid until the battle" says nothing about its start); an open bound of a period
+  is the beginning or end of time. A bound that doesn't resolve counts as open.
+- **Requirements** are alternatives of orders `a ≤ b` between bounds (§4 for each order): the
+  certainty of a violation is the least certain alternative's, each its most certain order's.
+  Overlaps (`fact.overlap`, `concurrent_spouses`) and touching (`leader_not_member`) are such
+  requirements; spans that only touch don't overlap. Stored moments select the candidates, and
+  only their slots are loaded, in sets.
+- **Scans** start from the entities with existence periods (only their existence can leave
+  something outside); `fact.overlap`, `concurrent_spouses` and `leader_not_member` read every fact
+  or link of their kind. Checks start from the subjects through the link, fact, entity and
+  lexicon indexes.
+- Per rule: `participant_not_existing` checks `core.participant` links against the event's span
+  (recurring series aren't checked); `link.outside_existence` checks both ends of every temporal
+  link (module rules about one link type and end report it again, under their own id);
+  `fact.overlap` covers single-valued temporal fields and names, not multiple fields or
+  existence. `parent_born_after_child` compares the first starts of the two existences, and a
+  child existing since the beginning of time isn't checked. `child_outside_parent_existence` and
+  `member_before_emergence` check each of the entity's periods against the container's, one
+  finding per pair and timeline. `event_at_nonexistent_location` checks the event's start.
+
 Hard rules (core, `error`, not configurable):
 
 | Id | Check |

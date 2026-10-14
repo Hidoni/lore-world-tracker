@@ -118,6 +118,12 @@ for siblings without recorded ones, and spouses on opposite sides.
 | `characters.parent_born_after_child` | warning | parent's existence starts after the child's |
 | `characters.concurrent_spouses` | off | more than one spouse link valid at once |
 
+Implemented in `lore.modules.characters.consistency` (#106, `consistency.md` §6): parents and
+children compare the first starts of their existences in each timeline both have periods in.
+Spouses: two `spouse_of` links of a character to different people overlap (a timeless link
+overlaps every other; links of different timelines are never compared), one finding naming the
+character and both spouses.
+
 ## Disabling / removal notes
 
 Disabling hides characters and their link types. Removal would convert characters to `misc`

@@ -97,6 +97,11 @@ Org chart and membership Gantt (#95):
 | `groups.member_outside_group_existence` | warning | membership validity outside the group's existence |
 | `groups.leader_not_member` | off | leader without an overlapping membership |
 
+Implemented in `lore.modules.groups.consistency` (#106, `consistency.md` §6): a temporal
+`member_of` link's validity within the group's existence; a `led_by` link overlapping (or
+touching) one of the leader's `member_of` links to the group, a timeless one overlapping
+everything.
+
 ## Disabling / removal notes
 
 Disabling hides groups and their link types. Removal would convert groups to `misc` (category

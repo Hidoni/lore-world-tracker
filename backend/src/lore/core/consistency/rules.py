@@ -16,6 +16,7 @@ definite or possible). Trashed entities have no findings.
   (``core.causes`` in one dimension: the effect may not start before the cause): warnings.
 - ``core.event.duplicate_name_same_time`` (off): two events of a timeline with the same name
   (ignoring case and accents) overlapping in time; possible when one start is circa.
+- The narrative rules about existence and facts (``narrative.py``).
 """
 
 from collections.abc import Iterable, Iterator
@@ -26,6 +27,7 @@ from sqlalchemy.orm import aliased
 
 from lore.core.consistency.compare import DEFINITE, POSSIBLE, violates_order, worst
 from lore.core.consistency.engine import FindingDraft, RuleContext
+from lore.core.consistency.narrative import NARRATIVE_RULES
 from lore.core.db import Unindexed, unindexed
 from lore.core.entities.models import Entity
 from lore.core.links.models import Link
@@ -876,6 +878,7 @@ CORE_RULES: tuple[RuleDef, ...] = (
         configurable=True,
         category="narrative",
     ),
+    *NARRATIVE_RULES,
 )
 
 __all__ = ["CORE_RULES"]
