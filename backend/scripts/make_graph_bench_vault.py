@@ -34,9 +34,7 @@ DIMENSION_EXT = {
 def generate(data_dir: Path, nodes: int, edges: int, seed: int) -> str:
     rng = random.Random(seed)
     app = create_app(Settings(data_dir=data_dir))
-    with TestClient(
-        app, base_url="http://localhost", headers={"X-Lore-Client": "cli"}
-    ) as client:
+    with TestClient(app, base_url="http://localhost", headers={"X-Lore-Client": "cli"}) as client:
         response = client.post("/api/v1/vaults", json={"name": "Graph benchmark"})
         response.raise_for_status()
         vault_id: str = response.json()["id"]
