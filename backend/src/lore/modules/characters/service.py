@@ -2,7 +2,7 @@
 family tree. Every read goes through the request's ``VisibilityPolicy``; events through
 ``TimelineView``."""
 
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -12,15 +12,18 @@ from sqlalchemy.orm import aliased
 from lore.core.entities.models import Entity
 from lore.core.entities.service import EntityService
 from lore.core.errors import NotFoundError
+from lore.core.facts.models import EntityFact
+from lore.core.facts.schemas import EXISTS
 from lore.core.links.models import Link
 from lore.core.links.service import LinkService
 from lore.core.modules.spec import VaultContext
 from lore.core.time import TimelineView
-from lore.core.time.dimensions import TIMELINE
+from lore.core.time.dimensions import TIMELINE, prime_timeline
 from lore.core.time.events import EventTimes, shown_events
 from lore.core.time.models import Event
 from lore.core.time.schemas import EventDisplay
-from lore.core.time.state import AsOf
+from lore.core.time.state import AsOf, StateReader, as_of_for
+from lore.core.types import Existence
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.characters.kinds import CHARACTER
 from lore.modules.characters.links import (
@@ -233,17 +236,25 @@ class Characters:
         include_spouses: bool,
         include_siblings: bool,
         timeline_id: str | None,
+        at: str | None = None,
         limit: int,
     ) -> Genealogy:
         """The character's family: ``up`` generations of ancestors and ``down`` of descendants,
         with the siblings of the character and their ancestors, and everyone's spouses (and the
         other parents of their children), as people by generation and the family links between
-        them. Gathered generation by generation, a set of links at a time."""
+        them. Gathered generation by generation, a set of links at a time. Lifespans are read on
+        the timeline (default: the prime timeline of the character's dimension), and existence
+        at ``at`` (the time cursor)."""
         root = self.character(character_id)
         if timeline_id is not None:
             timeline = self.entities.load_visible(timeline_id)
             if timeline.kind != TIMELINE or timeline.deleted_at is not None:
                 raise NotFoundError(f"No timeline {timeline_id}.")
+        as_of = as_of_for(self.context, self.policy, timeline_id=timeline_id, at=at,
+                          dimension_id=root.dimension_id)  # fmt: skip
+        if timeline_id is None and root.dimension_id is not None:
+            prime = prime_timeline(self.session, root.dimension_id)
+            timeline_id = None if prime is None else prime.id
         tree = _Tree(limit)
         tree.add([root.id], 0)
         line = [root.id]
@@ -277,6 +288,17 @@ class Characters:
             if link.target_id in tree.generations
         ]
         order = sorted(ids, key=lambda person: (person != root.id, tree.generations[person]))
+        lifespans: dict[str, tuple[int | None, int | None]] = {}
+        existence: dict[str, Existence] = {}
+        if timeline_id is not None:
+            reader = StateReader(self.context, self.policy, timeline_id,
+                                 0 if as_of is None else as_of.t)  # fmt: skip
+            lifespans = {
+                person: _lifespan(facts)
+                for person, facts in reader.facts(ids, keys=[EXISTS]).items()
+            }
+            if as_of is not None:
+                existence = reader.existence([names[person] for person in order])
         return Genealogy(
             root_id=root.id,
             people=[
@@ -285,15 +307,25 @@ class Characters:
                     name=names[person].name,
                     visibility=names[person].visibility,
                     generation=tree.generations[person],
-                    # Existence (born, died) comes with temporal facts (M7).
-                    from_t=None,
-                    to_t=None,
+                    from_t=lifespans.get(person, (None, None))[0],
+                    to_t=lifespans.get(person, (None, None))[1],
+                    existence=existence.get(person),
                 )
                 for person in order
             ],
             edges=edges,
             truncated=tree.truncated,
         )
+
+
+def _lifespan(facts: Sequence[EntityFact]) -> tuple[int | None, int | None]:
+    """The earliest start and latest end of existence periods (``None`` when one is open)."""
+    starts = [fact.valid_from_t for fact in facts]
+    ends = [fact.valid_to_t for fact in facts]
+    return (
+        None if not starts or None in starts else min(t for t in starts if t is not None),
+        None if not ends or None in ends else max(t for t in ends if t is not None),
+    )
 
 
 def _relation(data: object) -> str | None:

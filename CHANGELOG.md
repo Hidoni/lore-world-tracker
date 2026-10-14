@@ -39,6 +39,8 @@ All notable changes to this project are documented here. The format follows
   with huge spans in scientific notation. A character's Life panel shows when they were born and
   died, their age at death and at each event they took part in, and their species' typical
   lifespan.
+- **Lifespans in the family tree** (#308): each person's birth and death, and at the time
+  cursor who wasn't born yet or had died (muted) and who only possibly lived then.
 - **Narrative consistency checks** (#106): warnings when the story contradicts itself in time.
   Someone takes part in an event while not alive, a value or a relationship holds while its
   entity doesn't exist, two values of a field overlap, a parent is born after their child,

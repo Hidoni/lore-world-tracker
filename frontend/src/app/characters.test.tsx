@@ -230,6 +230,59 @@ describe('family tree', () => {
     }, WAIT)
   }, 20_000)
 
+  it('shows lifespans and who is alive at the time cursor', async () => {
+    world({
+      links: FAMILY,
+      facts: [
+        {
+          id: 'f1',
+          entity_id: 'mara',
+          field_key: 'core.exists',
+          valid_from_t: '10',
+          valid_to_t: '50',
+        },
+        { id: 'f2', entity_id: 'oren', field_key: 'core.exists', valid_from_t: '100' },
+        {
+          id: 'f3',
+          entity_id: 'ilsa',
+          field_key: 'core.exists',
+          valid_from_t: '20',
+          possible: true,
+        },
+      ],
+    })
+    await renderApp('/v/v1/m/characters/ilsa/family-tree?at=60')
+    await screen.findByRole('figure', { name: 'Family tree' }, WAIT)
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    const person = async (name: string) => {
+      const items = await screen.findAllByTestId('family-list-person', {}, WAIT)
+      const item = items.find((li) => within(li).queryByRole('link', { name }) !== null)
+      if (item === undefined) throw new Error(`no ${name}`)
+      return item
+    }
+    await waitFor(async () => {
+      expect(await person('Mara')).toHaveAttribute('data-existence', 'deceased')
+    }, WAIT)
+    expect(await person('Mara')).toHaveTextContent(/\(.*10.* – .*50.*, Died\)/)
+    expect(await person('Oren')).toHaveAttribute('data-existence', 'unborn')
+    expect(await person('Oren')).toHaveTextContent('Not yet born')
+    expect(await person('Ilsa')).toHaveAttribute('data-existence', 'possible')
+    expect(await person('Tam')).toHaveAttribute('data-existence', 'unknown')
+
+    // In the drawing too: muted, with the lifespan.
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    const figure = await screen.findByRole('figure', { name: 'Family tree' }, WAIT)
+    const box = (name: string) =>
+      within(figure)
+        .getAllByTestId('family-person')
+        .find((node) => node.getAttribute('title') === name)
+    await waitFor(() => {
+      expect(box('Oren')).toHaveAttribute('data-existence', 'unborn')
+    }, WAIT)
+    expect(box('Oren')).toHaveTextContent('Not yet born')
+    expect(box('Tam')).toHaveTextContent('Lifespan unknown')
+  }, 20_000)
+
   it('shows the full view with depth controls and a list', async () => {
     world({ links: FAMILY })
     const { router } = await renderApp('/v/v1/m/characters/ilsa/family-tree')

@@ -16,12 +16,14 @@ import type { Genealogy } from '@/data'
 import { cn } from '@/lib/utils'
 
 import { layoutGenealogy, NODE_HEIGHT, NODE_WIDTH, type GenealogyLayout } from './genealogy'
+import type { PersonLife } from './lives'
 
 type Person = Genealogy['people'][number]
 // React Flow's node data is a record (an interface has no index signature).
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type PersonData = {
   person: Person | null
+  life: PersonLife | null
   root: boolean
   onOpen: (id: string) => void
 }
@@ -30,13 +32,8 @@ type LinesData = { layout: GenealogyLayout }
 type PersonNode = Node<PersonData, 'person'>
 type LinesNode = Node<LinesData, 'lines'>
 
-/** "Lifespan unknown" until existence comes with temporal facts (M7); then dates and muting. */
-function existence(person: Person): 'unknown' | 'alive' | 'deceased' {
-  return person.from_t === null && person.to_t === null ? 'unknown' : 'alive'
-}
-
 function PersonBox({ data }: NodeProps<PersonNode>) {
-  const { person, root } = data
+  const { person, life, root } = data
   if (person === null) {
     return (
       <div
@@ -49,7 +46,8 @@ function PersonBox({ data }: NodeProps<PersonNode>) {
       </div>
     )
   }
-  const state = existence(person)
+  const state = life?.state ?? 'unknown'
+  const muted = state === 'deceased' || state === 'unborn'
   return (
     <div
       data-testid="family-person"
@@ -58,7 +56,8 @@ function PersonBox({ data }: NodeProps<PersonNode>) {
       className={cn(
         'flex cursor-pointer flex-col justify-center gap-0.5 rounded-md border bg-card px-3 shadow-sm',
         root && 'border-primary ring-2 ring-primary/40',
-        state === 'deceased' && 'opacity-60',
+        muted && 'opacity-60',
+        state === 'possible' && 'italic',
       )}
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT }}
     >
@@ -76,8 +75,8 @@ function PersonBox({ data }: NodeProps<PersonNode>) {
           <ExternalLinkIcon className="size-3.5" />
         </button>
       </div>
-      <span className="text-xs text-muted-foreground">
-        {state === 'unknown' ? 'Lifespan unknown' : ''}
+      <span className="truncate text-xs text-muted-foreground" title={life?.note ?? undefined}>
+        {[life?.lifespan, life?.note].filter(Boolean).join(' · ')}
       </span>
     </div>
   )
@@ -113,14 +112,18 @@ function FitOnLayout({ layout }: { layout: unknown }) {
 /**
  * The family tree drawn with React Flow and laid out by relatives-tree (the #93 spike): the
  * generations top to bottom, spouses side by side (every marriage), the character highlighted.
- * Clicking a person re-centers on them; the icon opens their page. Loaded lazily.
+ * Clicking a person re-centers on them; the icon opens their page. Each box shows the person's
+ * lifespan, muted when they aren't alive at the time cursor. Loaded lazily.
  */
 export default function FamilyCanvas({
   family,
+  lives,
   onRecenter,
   onOpen,
 }: {
   family: Genealogy
+  /** Each person's lifespan and state at the time cursor (`lives.ts`). */
+  lives: ReadonlyMap<string, PersonLife>
   onRecenter: (id: string) => void
   onOpen: (id: string) => void
 }) {
@@ -147,6 +150,7 @@ export default function FamilyCanvas({
         position: { x: placed.x, y: placed.y },
         data: {
           person: people.get(placed.id) ?? null,
+          life: lives.get(placed.id) ?? null,
           root: placed.id === family.root_id,
           onOpen,
         },
@@ -155,7 +159,7 @@ export default function FamilyCanvas({
         ariaLabel: people.get(placed.id)?.name ?? 'Unknown parent',
       })),
     ],
-    [layout, people, family.root_id, onOpen],
+    [layout, people, lives, family.root_id, onOpen],
   )
   return (
     <ReactFlowProvider>

@@ -68,13 +68,18 @@ def get_family_tree(
     include_siblings: bool = True,
     timeline: Annotated[
         str | None,
-        Query(pattern=ID_PATTERN, description="The timeline existence is read on (M7)."),
+        Query(
+            pattern=ID_PATTERN,
+            description="The timeline lifespans (and `at`) are read on (default: the prime "
+            "timeline of the character's dimension).",
+        ),
     ] = None,
+    at: AtQuery = None,
     limit: Annotated[int, Query(ge=1, le=1000, description="People at most.")] = 500,
 ) -> Genealogy:
-    """The character's family for the genealogy layout: people (by generation, with existence)
-    and the parent, spouse and sibling links between them that the request sees. ``404`` for a
-    character or timeline the request may not see."""
+    """The character's family for the genealogy layout: people (by generation, with their
+    lifespans, and their existence at ``at``) and the parent, spouse and sibling links between
+    them that the request sees. ``404`` for a character or timeline the request may not see."""
     characters = Characters(VaultContext(vault, session, registry), policy)
     return characters.family_tree(
         character_id,
@@ -83,5 +88,6 @@ def get_family_tree(
         include_spouses=include_spouses,
         include_siblings=include_siblings,
         timeline_id=timeline,
+        at=at,
         limit=limit,
     )

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from lore.core.db.base import Visibility
 from lore.core.links.schemas import EntityLink
 from lore.core.time.schemas import EventDisplay
-from lore.core.types import MomentStr
+from lore.core.types import Existence, MomentStr
 from lore.modules.characters.links import Category
 
 
@@ -48,10 +48,17 @@ class GenealogyPerson(BaseModel):
         "(and siblings and spouses), positive for descendants."
     )
     from_t: MomentStr | None = Field(
-        description="Start of the existence on the timeline (`null`: unknown; existence comes "
-        "with temporal facts)."
+        description="The earliest start of the person's existence periods (`core.exists` facts) "
+        "on the timeline; `null` without existence periods there, or when one has an open start."
     )
-    to_t: MomentStr | None
+    to_t: MomentStr | None = Field(
+        description="The latest end of the existence periods; `null` without them, or when one "
+        "has an open end (still alive)."
+    )
+    existence: Existence | None = Field(
+        description="Whether the person exists at the time cursor (`at`), as in entity states; "
+        "`null` without `at`."
+    )
 
 
 class GenealogyEdge(BaseModel):

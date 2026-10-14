@@ -61,8 +61,9 @@ None.
 
 - `GET /m/characters/{id}/relationships?timeline=&at=`: all relationship links grouped by
   category (family, social, custom) with as-of filtering.
-- `GET /m/characters/{id}/family-tree?up=3&down=3&include_spouses=true&include_siblings=true&timeline=`:
-  nodes (with existence spans) and edges (parent/spouse/sibling) for the genealogy layout.
+- `GET /m/characters/{id}/family-tree?up=3&down=3&include_spouses=true&include_siblings=true&timeline=&at=`:
+  nodes (with lifespans, and existence at `at`) and edges (parent/spouse/sibling) for the
+  genealogy layout.
 
 - `GET /m/characters/{id}/life?timeline=`: the events the character takes part in
   (`core.participant`) on a timeline, by start, with their roles (the Life panel; #92).
@@ -96,12 +97,19 @@ generation, one set of links at a time:
 - with `include_spouses`, everyone's spouses, and the other parents of children in the tree
   within the generations asked for (the parents of a half-sibling or a grandchild).
 
-The response is `{root_id, people: [{id, name, visibility, generation, from_t, to_t}], edges:
-[{id, kind: parent|spouse|sibling, source_id, target_id, relation}], truncated}` (`limit`, default
-500 people). Only links the request sees, between characters outside the trash, count.
-`from_t`/`to_t` (existence) are `null` until temporal facts land (M7). The UI shows "Lifespan
-unknown" for now and will mute the deceased at the cursor. `timeline` is checked like other
-reads.
+The response is `{root_id, people: [{id, name, visibility, generation, from_t, to_t,
+existence}], edges: [{id, kind: parent|spouse|sibling, source_id, target_id, relation}],
+truncated}` (`limit`, default 500 people). Only links the request sees, between characters
+outside the trash, count. `timeline` is checked like other reads; without it, lifespans are read
+on the prime timeline of the character's dimension (none for a multiversal one).
+
+Lifespans (#308): `from_t`/`to_t` are the earliest start and the latest end of each person's
+`core.exists` facts on the timeline that the request sees (one query per tree), `null` without
+any, or when one period is open on that side. With `at` (the time cursor: a moment or
+`present`), `existence` is each person's existence then, as in entity states
+(`exists`, `not_exists`, `possible`, `unknown`); `null` without `at`. The drawing and the list
+show each lifespan in the time context's lens, mute those not alive at the cursor ("Not yet
+born", "Died"), italicize those only possibly alive, and say "Lifespan unknown" without one.
 
 The **Family tree** panel (character pages) shows two generations each way. Clicking a relative
 re-centers the panel on them, with "Back to this character". The panel links to the view, which

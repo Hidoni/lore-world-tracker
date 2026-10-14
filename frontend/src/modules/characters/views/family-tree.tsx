@@ -2,8 +2,12 @@ import { Link } from '@tanstack/react-router'
 import { lazy, Suspense, useState } from 'react'
 
 import { Label } from '@/components/ui/label'
-import { useTimeContext } from '@/core/time'
+import { useAsOf, useTimeContext } from '@/core/time'
 import { useCharacterFamilyTree, type FamilyTreeQuery, type Genealogy } from '@/data'
+import { cn } from '@/lib/utils'
+
+import type { PersonLife } from './lives'
+import { usePeopleLives } from './lives'
 
 const FamilyCanvas = lazy(() => import('./family-canvas'))
 
@@ -11,8 +15,16 @@ const SELECT_CLASS =
   'h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 const DEPTHS = [0, 1, 2, 3, 4, 5, 6]
 
-/** The family as text, by generation: each person with their parents and spouses. */
-export function FamilyList({ vault, family }: { vault: string; family: Genealogy }) {
+/** The family as text, by generation: each person with their lifespan, parents and spouses. */
+export function FamilyList({
+  vault,
+  family,
+  lives,
+}: {
+  vault: string
+  family: Genealogy
+  lives: ReadonlyMap<string, PersonLife>
+}) {
   const names = new Map(family.people.map((person) => [person.id, person.name]))
   const generations = [...new Set(family.people.map((person) => person.generation))].sort(
     (a, b) => a - b,
@@ -42,8 +54,22 @@ export function FamilyList({ vault, family }: { vault: string; family: Genealogy
                   .map((edge) =>
                     names.get(edge.source_id === person.id ? edge.target_id : edge.source_id),
                   )
+                const life = lives.get(person.id)
+                const details =
+                  life === undefined || life.state === 'unknown'
+                    ? ''
+                    : [life.lifespan, life.note].filter(Boolean).join(', ')
                 return (
-                  <li key={person.id} data-testid="family-list-person" className="text-sm">
+                  <li
+                    key={person.id}
+                    data-testid="family-list-person"
+                    data-existence={life?.state}
+                    className={cn(
+                      'text-sm',
+                      (life?.state === 'deceased' || life?.state === 'unborn') && 'opacity-60',
+                      life?.state === 'possible' && 'italic',
+                    )}
+                  >
                     <Link
                       to="/v/$vault/e/$entity"
                       params={{ vault, entity: person.id }}
@@ -51,6 +77,7 @@ export function FamilyList({ vault, family }: { vault: string; family: Genealogy
                     >
                       {person.name}
                     </Link>
+                    {details !== '' && <span className="text-muted-foreground"> ({details})</span>}
                     {parents.length > 0 && (
                       <span className="text-muted-foreground">
                         {' '}
@@ -75,7 +102,7 @@ export function FamilyList({ vault, family }: { vault: string; family: Genealogy
 
 /**
  * A character's family tree with its controls (generations up and down, spouses, siblings, "As
- * a list"): the drawing or the list. `onRecenter` follows a click on a relative; the controls
+ * a list"): the drawing or the list, with lifespans and who is alive at the time cursor. `onRecenter` follows a click on a relative; the controls
  * stay as they are when `character` changes.
  */
 export function FamilyTree({
@@ -94,6 +121,7 @@ export function FamilyTree({
   className?: string
 }) {
   const { timelineId } = useTimeContext(vault)
+  const asOf = useAsOf(vault)
   const [up, setUp] = useState(initialDepth)
   const [down, setDown] = useState(initialDepth)
   const [spouses, setSpouses] = useState(true)
@@ -105,9 +133,12 @@ export function FamilyTree({
     include_spouses: spouses,
     include_siblings: siblings,
     ...(timelineId === null ? {} : { timeline: timelineId }),
+    // At a moment of the cursor: who is alive then.
+    ...(asOf ?? {}),
   }
   const tree = useCharacterFamilyTree(vault, character, query)
   const family = tree.data?.root_id === character ? tree.data : undefined
+  const lives = usePeopleLives(vault, family)
   const only = (family?.people.length ?? 0) <= 1
   return (
     <div className="flex flex-col gap-3">
@@ -170,11 +201,11 @@ export function FamilyTree({
       ) : only ? (
         <p className="text-sm text-muted-foreground">No family recorded yet.</p>
       ) : asList ? (
-        <FamilyList vault={vault} family={family} />
+        <FamilyList vault={vault} family={family} lives={lives} />
       ) : (
         <figure aria-label="Family tree" className={className ?? 'h-[70vh] rounded-md border'}>
           <Suspense fallback={<p className="p-3 text-sm text-muted-foreground">Loading…</p>}>
-            <FamilyCanvas family={family} onRecenter={onRecenter} onOpen={onOpen} />
+            <FamilyCanvas family={family} lives={lives} onRecenter={onRecenter} onOpen={onOpen} />
           </Suspense>
         </figure>
       )}
