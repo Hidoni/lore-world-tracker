@@ -13,6 +13,9 @@ the same transaction as them (not recorded in history). Dependents and targets a
 ``correspondences`` and ``correspondence_points`` (§5.7, ``time-model.md`` §12) relate moments
 of two dimensions through sync points (record type ``sync_point``, slots ``a`` and ``b``).
 
+``worldline_segments`` (§5.7, ``time-model.md`` §11) hold an entity's personal timeline: the
+spans of world time it lives through, in its own order (record type ``segment``).
+
 ``proposals`` (§5.9) holds short-lived impact previews of calendar and recurrence-rule edits
 (``time-model.md`` §7.4-§7.5). They aren't world data: not recorded in history, purged when they
 expire.
@@ -313,4 +316,41 @@ class CorrespondencePoint(IdMixin, Base):
 
     __table_args__ = (
         Index("ix_correspondence_points_correspondence_position", "correspondence_id", "position"),
+    )
+
+
+class WorldlineSegment(IdMixin, VisibilityMixin, TimestampsMixin, Base):
+    """One span of an entity's worldline (``time-model.md`` §11.1): world time ``[start, end]``
+    of a dimension's timeline lived at ``rate`` (subjective base units per base unit of that
+    dimension, a ``{"num", "den"}`` rational), ``seq`` its place in the entity's own order.
+    Between consecutive segments the entity jumps (departure and arrival events document it).
+    Replaced as a whole by the worldlines module."""
+
+    __tablename__ = "worldline_segments"
+
+    entity_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete="CASCADE"))
+    seq: Mapped[int] = mapped_column(Integer)
+    dimension_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    timeline_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    start_spec: Mapped[TimePoint | None] = spec_column()
+    start_t: Mapped[int | None] = moment_column()
+    end_spec: Mapped[TimePoint | None] = spec_column()
+    end_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
+    rate: Mapped[dict[str, Any]] = mapped_column(JSON)
+    departure_event_id: Mapped[str | None] = mapped_column(
+        ForeignKey("entities.id", ondelete="SET NULL")
+    )
+    arrival_event_id: Mapped[str | None] = mapped_column(
+        ForeignKey("entities.id", ondelete="SET NULL")
+    )
+    overrides_id: Mapped[str | None] = mapped_column(
+        ForeignKey("worldline_segments.id", ondelete="CASCADE")
+    )
+    note: Mapped[str | None] = mapped_column(String)
+
+    __table_args__ = (
+        Index("ix_worldline_segments_entity_seq", "entity_id", "seq"),
+        Index("ix_worldline_segments_timeline_start", "timeline_id", "start_t"),
+        Index("ix_worldline_segments_overrides_id", "overrides_id"),
     )
