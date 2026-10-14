@@ -31,6 +31,35 @@ edges: [{source, target, kind: 'link'|'mention'|'parent', link_type?, label?, we
 truncated}`. The response is visibility-filtered and computed with set-based SQL (budget: < 1 s
 for 10k nodes).
 
+Implementation (#109, `backend/src/lore/modules/graph/`):
+
+- **Nodes:** live entities the request sees, of the enabled modules' kinds. `kind`, `tag` (tag
+  ids, any of them) and `dimension` (with multiversal entities) filter them. With `at` (the time
+  cursor; `timeline` defaults to the prime of `dimension`, or of the center's dimension),
+  entities whose existence doesn't cover the moment are left out, and `existence` is `exists`,
+  `possible` or `unknown`. It is `null` without `at`.
+- **Edges** join two nodes:
+  - `link`: links the request sees, of `link_type`. With `at`, only timeless links and those valid
+    then on the timeline (possibly valid counts). Source and target are as stored, so a symmetric
+    link's ends are in its canonical order. `label` is the link's role.
+  - `mention`: the source's text mentions the target. `weight` is the number of mentions. For
+    readers, only mentions outside private blocks count.
+  - `parent`: the source is the target's parent.
+  - An edge from a node to itself is dropped.
+- **Global:** the candidate nodes, then every edge between them in one statement per edge kind.
+  The edge tables are scanned and checked against the candidates rather than looked up per node.
+- **Local** (`center`, `depth` 1–4): breadth-first from the center, one set of edge queries per
+  level. A node that doesn't exist at `at` stops the search there. Then the edges among
+  everything reached are added. The center is always included; it is `404` when the request
+  doesn't see it.
+- **Truncation:** over `limit` nodes (default 5,000, at most 20,000), the highest-degree ones are
+  kept (ties by name) with the edges between them, and `truncated` is true. Nodes come by
+  degree.
+- The body is built as plain data and serialized directly. Validating tens of thousands of edges
+  against the model would use most of the budget. `Graph` stays the documented response model.
+- Budget test `tests/modules/test_graph_perf.py` (`perf`): 10k nodes and 50k links, the graph and
+  its JSON in under a second for the author and for readers.
+
 ## UI
 
 - **Global graph page** (`/m/graph`): sigma.js v3 (WebGL) + graphology. ForceAtlas2 runs in a web
