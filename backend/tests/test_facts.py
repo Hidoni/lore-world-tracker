@@ -90,7 +90,10 @@ def test_crud(world: World) -> None:
         ("core.exists", True), ("rank", "3"), ("rank", "7")
     ]  # fmt: skip
     assert [f["value"] for f in world.facts(field="rank")] == ["3", "7"]
-    assert world.facts(timeline=world.event["id"]) == []
+    # Not a timeline: 404, as everywhere a timeline is asked for.
+    response = world.api.client.get(f"{world.api.base}/entities/{world.gadget['id']}/facts",
+                              params={"timeline": world.event["id"]})  # fmt: skip
+    assert response.status_code == 404, response.json()
 
     updated = world.patch(second, value="8", note="knight")
     assert updated.status_code == 200, updated.json()

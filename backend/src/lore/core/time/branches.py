@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from lore.chronology.schema import TimePoint
 from lore.core.db import unindexed
+from lore.core.db.base import Base
 from lore.core.entities.models import Entity
 from lore.core.errors import ErrorItem, InvalidInputError, NotFoundError
 from lore.core.time.dependencies import DependencyIndex, SlotNode, Target, time_point_targets
@@ -257,7 +258,8 @@ def branch_contents(session: Session, timeline_id: str, *, trashed: bool = False
     for model in registered_time_bounds():
         table = getattr(model, "__table__", None)
         timeline = getattr(model, "timeline_id", None)
-        if table is None or timeline is None:
+        # The app's tables (core and modules) only, not tables registered elsewhere (tests).
+        if table is None or timeline is None or table.metadata is not Base.metadata:
             continue
         statement = select(func.count()).select_from(model).where(timeline.in_(tree))
         if hasattr(model, "deleted_at"):
