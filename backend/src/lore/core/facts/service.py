@@ -92,7 +92,7 @@ class Facts:
         facts = [
             fact
             for fact in self.session.scalars(statement)
-            if self._field_shown(entity, fact.field_key)
+            if self.field_shown(entity, fact.field_key)
         ]
         facts.sort(
             key=lambda f: (
@@ -132,7 +132,7 @@ class Facts:
             entity = self.session.get(Entity, entity_id)
             if entity is None or entity.kind not in self.entities.kinds:
                 continue
-            own = [f for f in by_entity[entity_id] if self._field_shown(entity, f.field_key)]
+            own = [f for f in by_entity[entity_id] if self.field_shown(entity, f.field_key)]
             own.sort(key=lambda f: (f.field_key, f.valid_from_t is not None, f.valid_from_t or 0,
                                     f.created_at, f.id))  # fmt: skip
             items += self.out_many(entity, own)
@@ -154,11 +154,11 @@ class Facts:
         if fact is None or fact.deleted_at is not None:
             raise NotFoundError(f"No fact {fact_id}.")
         entity = self.entities.load_visible(fact.entity_id)
-        if not self._field_shown(entity, fact.field_key):
+        if not self.field_shown(entity, fact.field_key):
             raise NotFoundError(f"No fact {fact_id}.")
         return fact, entity
 
-    def _field_shown(self, entity: Entity, key: str) -> bool:
+    def field_shown(self, entity: Entity, key: str) -> bool:
         """Facts of a field follow the field's visibility for this entity."""
         if key in (EXISTS, NAME):
             return True

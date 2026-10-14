@@ -14,8 +14,8 @@ module is the API (``/m/branches/notes``, ``/m/branches/timelines/{id}/diff``).
 """
 
 from collections.abc import Iterable, Iterator
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -233,8 +233,20 @@ class _Lists:
             target.append(record)
 
 
-def _shown_rows(session: Session, policy: VisibilityPolicy, table: _Table, statement: Any
-                ) -> Iterator[tuple[Any, Entity]]:  # fmt: skip
+def _compared(table: _Table, row: Any, entity: Entity, facts: Any) -> dict[str, Any]:
+    """The compared values of a row, as the request may see them (a fact's value as the facts
+    API shows it: rich text filtered, time points as moments for readers)."""
+    values = {k: _str(getattr(row, k)) for k in table.compared}
+    if table.record_type == "fact":
+        [out] = facts.out_many(entity, [row])
+        values["value"] = out.value
+    return values
+
+
+def _shown_rows(session: Session, policy: VisibilityPolicy, table: _Table, statement: Any,
+                facts: Any) -> Iterator[tuple[Any, Entity]]:  # fmt: skip
+    """Rows of ``statement`` the policy shows, with their owning entity (facts: of a field
+    the request sees)."""
     model = table.model
     owner = getattr(model, table.owner)
     statement = statement.join(Entity, Entity.id == owner).where(
@@ -242,12 +254,14 @@ def _shown_rows(session: Session, policy: VisibilityPolicy, table: _Table, state
     ).add_columns(Entity)  # fmt: skip
     if hasattr(model, "deleted_at"):
         statement = statement.where(model.deleted_at.is_(None))
+    statement = statement.where(*policy.entity_ref(model.timeline_id))
     if table.record_type == "fact":
-        statement = statement.where(*policy.rows(model), *policy.entity_ref(model.timeline_id))
+        statement = statement.where(*policy.rows(model))
     elif table.record_type == "link":
         statement = statement.where(*policy.links(model))
     for row, entity in session.execute(statement):
-        yield row, entity
+        if table.record_type != "fact" or facts.field_shown(entity, row.field_key):
+            yield row, entity
 
 
 def _record(table: _Table, row: Any, entity: Entity, **extra: Any) -> DiffRecord:
@@ -281,20 +295,23 @@ def branch_diff(
         raise _invalid("timeline_id", "A prime timeline has no parent to compare with.")
     view = TimelineView.for_timeline(session, timeline_id)
     lists = _Lists(limit)
+    from lore.core.facts.service import Facts  # noqa: PLC0415 (import cycle)
+
+    facts = Facts(context, policy)
     for table in _TABLES:
         model = table.model
         own = select(model).where(model.timeline_id == timeline_id)
         if table.record_type == "event":
             own = own.where(model.occurrence_key.is_(None))
-        for row, entity in _shown_rows(session, policy, table, own):
+        for row, entity in _shown_rows(session, policy, table, own, facts):
             if row.overrides_id is None:
                 lists.add(lists.created, _record(table, row, entity))
                 continue
             root = session.get(model, row.overrides_id)
             if root is None:
                 continue
-            before = {k: _str(getattr(root, k)) for k in table.compared}
-            after = {k: _str(getattr(row, k)) for k in table.compared}
+            before = _compared(table, root, entity, facts)
+            after = _compared(table, row, entity, facts)
             changed = [k for k in table.compared if before[k] != after[k]]
             lists.add(lists.overridden, _record(
                 table, row, entity, before={k: before[k] for k in changed},
@@ -305,7 +322,7 @@ def branch_diff(
         inherited = view.select(model).where(model.timeline_id.in_(list(cutoffs)))
         if table.record_type == "event":
             inherited = inherited.where(model.occurrence_key.is_(None))
-        for row, entity in _shown_rows(session, policy, table, inherited):
+        for row, entity in _shown_rows(session, policy, table, inherited, facts):
             cutoff = cutoffs.get(row.timeline_id)
             if cutoff is not None and _spans(table, row, cutoff):
                 lists.add(lists.spanning, _record(table, row, entity))

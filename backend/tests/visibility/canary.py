@@ -354,8 +354,9 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
 
 
 def _branches(b: _Builder, home: dict[str, Any]) -> None:
-    """A public branch with a private sub-branch, a private event of its own (the branch diff)
-    and a note on a public entity with a private block and a mention of a private entity."""
+    """A public branch with a private sub-branch, a private event and private facts of its own
+    (the branch diff) and a note on a public entity with a private block and a mention of a
+    private event."""
     api = b.api
 
     def branch(parent: str, name: str, **body: Any) -> dict[str, Any]:
@@ -372,6 +373,16 @@ def _branches(b: _Builder, home: dict[str, Any]) -> None:
     later = {"anchor": {"kind": "absolute", "t": "50"}, "precision": "base"}
     plot = b.hidden("event", visibility="private",
                     ext={"start": later, "timeline_id": divergence["id"]}, **home)  # fmt: skip
+    holder = b.canary.public["Fact Holder"]
+    for body in (
+        {"field_key": "hidden_rank", "value": "7"},
+        {"field_key": "core.name", "value": b.canary_string(), "visibility": "private"},
+    ):
+        response = api.client.post(f"{api.base}/entities/{holder}/facts",
+                                   json={"timeline_id": divergence["id"], "valid_from": later,
+                                         **body})  # fmt: skip
+        assert response.status_code == 201, response.json()
+        b.canary.hidden_ids.add(response.json()["fact"]["id"])
     wanderer = b.public("gadget", "Wanderer", **home)
     note = doc(
         p(text("public branch note, "), text("someone", mention(plot["id"]))),
