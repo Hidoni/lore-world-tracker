@@ -598,7 +598,7 @@ def correspondence_list(c: Canary) -> Iterator[Call]:
 
 @recipe(f"{V}/m/correspondences/{{correspondence_id}}")
 def correspondence(c: Canary) -> Iterator[Call]:
-    yield Call(f"{_v(c)}/m/correspondences/{c.public['Portal']}")
+    yield Call(f"{_v(c)}/m/correspondences/{c.records['Portal']}")
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/correspondences/{hidden_id}", status=404)
 

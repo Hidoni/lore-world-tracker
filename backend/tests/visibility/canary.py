@@ -66,6 +66,7 @@ class Canary:
     hidden_ids: set[str] = field(default_factory=set)  # never in a reader response
     public: dict[str, str] = field(default_factory=dict)  # name -> id of visible entities
     tags: dict[str, str] = field(default_factory=dict)  # name -> id
+    records: dict[str, str] = field(default_factory=dict)  # name -> id of visible non-entities
     changeset: str = ""
     backup: str = ""
 
@@ -419,7 +420,7 @@ def _correspondences(b: _Builder, home: dict[str, Any], realm: dict[str, Any]) -
     at = lambda t: {"anchor": {"kind": "absolute", "t": str(t)}, "precision": "base"}  # noqa: E731
     world = home["dimension_id"]
     portal = made(world, dream["id"], "Portal", [(anchored, at(1000)), (at(200), at(3000))])
-    b.canary.public["Portal"] = portal["id"]
+    b.canary.records["Portal"] = portal["id"]
     secret = made(world, dream["id"], b.canary_string(), [(at(300), at(5000))],
                   visibility="private", note=b.canary_string())  # fmt: skip
     b.canary.hidden_ids.add(secret["id"])
