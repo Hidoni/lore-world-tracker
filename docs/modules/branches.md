@@ -58,8 +58,17 @@ Core tables only (`timelines`, override rows in time-bound tables, `entity_timel
 - The sample world has "What if Aurel survived" (at the start of his assassination) with a
   branch-only group, an event and a fact.
 
-Overrides, the diff, per-timeline notes and `core.branch.shared_past_modified` come with #115;
-hiding branches when the module is disabled with the UI (#116).
+### Implemented (#115)
+
+- Overrides of events, facts and links (`time-model.md` §4.4), with the checks of
+  `recurrence.md` §6 for series (`lore.core.time.overrides`). The override's start always follows
+  its root's. Anchors in a branch see the branch's version of an event; the occurrences list takes
+  `timeline`.
+- The diff against the parent and per-timeline notes (`lore.core.time.branch_reads`).
+- Rules `core.branch.shared_past_modified` (warning: a branch's own event, fact or link starting
+  before the branch point) and `branches.override_start_changed` (hard).
+
+Hiding branches when the module is disabled comes with the UI (#116).
 
 ## UI
 

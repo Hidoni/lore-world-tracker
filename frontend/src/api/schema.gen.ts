@@ -1679,6 +1679,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/branches/overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Override Save
+         * @description Override (or override again) an inherited record spanning the branch point
+         *     (``time-model.md`` §4.4): only what lies after the branch point may change (``422
+         *     override_not_allowed`` otherwise; segments: ``not_supported`` until worldlines).
+         */
+        post: operations["branches_override_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/branches/overrides/{record_type}/{override_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Override Revert
+         * @description Revert an override: the branch sees the inherited record again.
+         */
+        delete: operations["branches_override_revert"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/branches/notes/{entity_id}/{timeline_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Note Get
+         * @description The branch's note on an entity (``time-model.md`` §4.6): revision 0 and a null body when
+         *     there is none. ``404`` for an entity or timeline the reader can't see, or an entity the
+         *     timeline doesn't show; ``422`` for a prime timeline.
+         */
+        get: operations["branches_note_get"];
+        /**
+         * Note Put
+         * @description Write the branch's note on an entity; an empty body deletes it. ``409
+         *     revision_conflict`` when ``revision`` isn't the current one (0 for a new note).
+         */
+        put: operations["branches_note_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/branches/timelines/{timeline_id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Timeline Diff
+         * @description What a branch changed against its parent (``time-model.md`` §4.4): the records it
+         *     created, those it overrode (before and after) and the inherited records spanning its branch
+         *     point it didn't override. Each list holds at most ``limit`` records (``truncated``).
+         */
+        get: operations["branches_timeline_diff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1869,6 +1960,29 @@ export interface components {
             summary?: string;
             /** @description Defaults to the parent timeline's. */
             visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** BranchDiff */
+        BranchDiff: {
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * Against Id
+             * @description The parent timeline.
+             */
+            against_id: string;
+            /** Branch T */
+            branch_t: MomentString | null;
+            /** Created */
+            created: components["schemas"]["DiffRecord"][];
+            /** Overridden */
+            overridden: components["schemas"]["DiffRecord"][];
+            /**
+             * Inherited Spanning
+             * @description Inherited records spanning the branch point that the branch didn't override.
+             */
+            inherited_spanning: components["schemas"]["DiffRecord"][];
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * CalendarAnchor
@@ -2407,6 +2521,57 @@ export interface components {
             edges: components["schemas"]["DescentEdge"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /** DiffRecord */
+        DiffRecord: {
+            /**
+             * Record Type
+             * @description `event`, `fact` or `link`.
+             */
+            record_type: string;
+            /**
+             * Id
+             * @description The row (for an override: the override row).
+             */
+            id: string;
+            /**
+             * Root Id
+             * @description An override's root row; null otherwise.
+             */
+            root_id: string | null;
+            /**
+             * Entity Id
+             * @description The event, the fact's entity, the link's source.
+             */
+            entity_id: string;
+            /**
+             * Name
+             * @description That entity's name.
+             */
+            name: string;
+            /**
+             * Detail
+             * @description A fact's field key, a link's type.
+             */
+            detail: string | null;
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /**
+             * Before
+             * @description Overrides: what the root has (only what differs).
+             */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * After
+             * @description Overrides: what the branch has instead.
+             */
+            after?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** DimensionCreated */
         DimensionCreated: {
@@ -4136,6 +4301,42 @@ export interface components {
             /** Modules */
             modules: components["schemas"]["ModuleState"][];
         };
+        /** NoteIn */
+        NoteIn: {
+            /**
+             * Body
+             * @description Rich text; null or empty deletes the note.
+             */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Revision
+             * @description The revision the edit is based on (0 for a new note).
+             */
+            revision: number;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /** Entity Id */
+            entity_id: string;
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * Body
+             * @description Rich text; null when there is no note.
+             */
+            body: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Revision
+             * @description 0 when there is no note yet.
+             */
+            revision: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /** OccurrenceOut */
         OccurrenceOut: {
             /**
@@ -4242,6 +4443,46 @@ export interface components {
              * @description Its own members (`member_of`), not its sub-groups'.
              */
             member_count: number;
+        };
+        /** OverrideCreate */
+        OverrideCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /**
+             * Record Type
+             * @description What is overridden (segments come with worldlines).
+             * @enum {string}
+             */
+            record_type: "event" | "fact" | "link" | "segment";
+            /** @description The inherited record: an event's entity id, or the fact's or link's id. */
+            root_id: components["schemas"]["EntityId"];
+            /** @description The branch overriding it. */
+            timeline_id: components["schemas"]["EntityId"];
+            /**
+             * Changes
+             * @description Events: `end` (an end spec), `recurrence` (the rule with a new `limit` or more `exclusions`); facts: `value`, `valid_to`; links: `role`, `data`, `valid_to`. Only what lies after the branch point may change.
+             */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** OverrideOut */
+        OverrideOut: {
+            /** Record Type */
+            record_type: string;
+            /**
+             * Id
+             * @description The override row (what reverting it takes).
+             */
+            id: string;
+            /** Root Id */
+            root_id: string;
+            /** Timeline Id */
+            timeline_id: string;
+            affected: components["schemas"]["Affected"];
         };
         /**
          * PresetChoice
@@ -7995,6 +8236,8 @@ export interface operations {
                 limit?: number;
                 /** @description List cancelled occurrences too (with their state). */
                 include_cancelled?: boolean;
+                /** @description As this timeline sees the series (its override there, if any). */
+                timeline?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -9086,6 +9329,195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_override_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OverrideCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverrideOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_override_revert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: "event" | "fact" | "link";
+                /** @description The override row. */
+                override_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SuppressIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverrideOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_note_get: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_note_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_timeline_diff: {
+        parameters: {
+            query?: {
+                /** @description Only `parent` for now. */
+                against?: "parent";
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchDiff"];
                 };
             };
             /** @description Problem */

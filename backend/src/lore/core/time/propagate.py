@@ -40,7 +40,7 @@ from lore.core.time.dependencies import (
     end_targets,
     time_point_targets,
 )
-from lore.core.time.models import Calendar
+from lore.core.time.models import Calendar, Event
 from lore.core.time.resolve import BASE, Resolution, Resolver
 from lore.core.time.slots import SlotKey, SlotRegistry, SlotUpdate, SlotValue, SpecUpdate
 from lore.core.time.specs import dump_spec
@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 CALENDAR = "calendar"
 EVENT = "event"
+EVENT_OVERRIDE = "event_override"
 BATCH = 5000  # keys per load (SQLite's variable limit)
 GOOD = frozenset({TimeStatus.OK, TimeStatus.TRASHED_REF})
 MAX_ROUNDS = 8  # follow-up runs for occurrence refs of refreshed series
@@ -347,10 +348,15 @@ class TimeWriter:
         depends_on: dict[Node, set[Node]] = {node: set() for node in changed}
         frontier = list(changed)
         while frontier:
-            found = self.index.dependents_of_many(frontier)
+            # An override row's slot is what a branch sees of the event's slot: the event's
+            # dependents follow it (those not seeing it resolve to what they had).
+            seen_as = self._overridden_slots(frontier)
+            found = self.index.dependents_of_many([*frontier, *seen_as.values()])
             following: list[Node] = []
             for target in frontier:
                 dependents: list[Node] = list(found.get(target, []))
+                if target in seen_as:
+                    dependents += found.get(seen_as[target], [])
                 if isinstance(target, SlotNode) and target.type == CALENDAR:
                     dependents.append(CalendarNode(target.id))
                 for dependent in dependents:
@@ -361,13 +367,41 @@ class TimeWriter:
             frontier = following
         return affected, depends_on
 
+    def _overridden_slots(self, nodes: Iterable[Node]) -> dict[Node, SlotNode]:
+        """Override rows' slots among ``nodes`` (but their start, their root's): the event slot
+        each of them is in its branch."""
+        overrides = {
+            node: node.id
+            for node in nodes
+            if isinstance(node, SlotNode) and node.type == EVENT_OVERRIDE and node.slot != "start"
+        }
+        if not overrides:
+            return {}
+        events = dict(
+            self.session.execute(
+                select(Event.id, Event.entity_id).where(
+                    Event.id.in_(sorted(set(overrides.values())))
+                )
+            ).all()
+        )
+        return {
+            node: SlotNode(EVENT, str(events[row]), node.slot)
+            for node, row in overrides.items()
+            if row in events
+        }
+
     def closure(self, nodes: Iterable[Node]) -> set[Node]:
         """The nodes and everything that transitively depends on them (no resolution)."""
         return self._closure(set(nodes))[0]
 
-    def _resolver(self, dimension_id: str, known: dict[SlotNode, Resolution]) -> Resolver | None:
+    def _resolver(
+        self,
+        dimension_id: str,
+        known: dict[SlotNode, Resolution],
+        timeline_id: str | None = None,
+    ) -> Resolver | None:
         try:
-            resolver = Resolver(self.context, dimension_id)
+            resolver = Resolver(self.context, dimension_id, timeline_id)
         except ConflictError:
             return None
         resolver.known = known
@@ -392,7 +426,7 @@ class _Run:
         self.affected = affected
         self.depends_on = depends_on
         self.known: dict[SlotNode, Resolution] = {}
-        self.resolvers: dict[str, Resolver | None] = {}
+        self.resolvers: dict[tuple[str, str | None], Resolver | None] = {}
         self.values = self._load([n for n in affected if isinstance(n, SlotNode)])
         self.pending: dict[str, list[SlotUpdate]] = {}
         self.result = Propagation(affected=len(affected), before=self.values)
@@ -438,18 +472,23 @@ class _Run:
                     ready.append(follower)
         return order, {node for node, count in waiting.items() if count > 0}
 
-    def _resolver(self, dimension_id: str | None) -> Resolver | None:
+    def _resolver(
+        self, dimension_id: str | None, timeline_id: str | None = None
+    ) -> Resolver | None:
+        """The resolver of a record's dimension, seeing from its timeline (relative anchors to
+        events mean their override there, ``Resolver.slot``)."""
         if dimension_id is None:
             return None
-        if dimension_id not in self.resolvers:
-            self.resolvers[dimension_id] = self.writer._resolver(dimension_id, self.known)
-        return self.resolvers[dimension_id]
+        key = (dimension_id, timeline_id)
+        if key not in self.resolvers:
+            self.resolvers[key] = self.writer._resolver(dimension_id, self.known, timeline_id)
+        return self.resolvers[key]
 
     def _slot(self, node: SlotNode) -> None:
         value = self.values.get(node)
         if value is None or value.spec is None:
             return  # purged meanwhile, or a slot without a spec (e.g. a local calendar anchor)
-        resolver = self._resolver(value.dimension_id)
+        resolver = self._resolver(value.dimension_id, value.timeline_id)
         if resolver is None:
             self._fail(node, TimeStatus.UNRESOLVED_REF, "unresolved_ref",
                        "The record has no dimension to resolve in.")  # fmt: skip
@@ -684,18 +723,22 @@ def after_revert(context: VaultContext, changes: Sequence[Any]) -> Propagation:
     reverted entities, and propagate (strict: the caller turns a violation into a revert
     conflict)."""
     writer = TimeWriter(context)
-    providers = {
-        getattr(provider.model, "__tablename__", None): provider
-        for provider in writer.slots.providers
-    }
+    providers: dict[str | None, list[Any]] = {}
+    for provider in writer.slots.providers:
+        providers.setdefault(getattr(provider.model, "__tablename__", None), []).append(provider)
     for change in changes:
         if change.table_name == "entities":
             writer.touch_entity(change.row_id)
             continue
-        provider = providers.get(change.table_name)
-        if provider is None:
+        row = change.after or change.before or {}
+        # Tables shared by providers (events: home rows and overrides) tell by their rows.
+        owners = [p for p in providers.get(change.table_name, ())
+                  if p.row_test is None or p.row_test(row)]  # fmt: skip
+        if not owners:
             continue
-        record_type, record_id = provider.record_type, str(change.row_id)
+        provider = owners[0]
+        record_id = str(row.get(provider.id_column, change.row_id))
+        record_type = provider.record_type
         writer.index.drop_record(record_type, record_id)
         keys = provider.record_keys(writer.session, record_id)
         values = writer.slots.load(writer.session, record_type, keys) if keys else {}

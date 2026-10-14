@@ -73,6 +73,9 @@ if TYPE_CHECKING:
 
 BASE = "base"
 EVENT = "event"
+# Slot record types of event rows: home rows (by entity id) and branch overrides (by row id).
+EVENT_SLOTS = EVENT
+EVENT_OVERRIDE_SLOTS = "event_override"
 MAX_DEPTH = 64
 """How deep relative anchors may chain while resolving a target's extent (deeper: ``cycle``)."""
 
@@ -232,8 +235,9 @@ class _Calendars:
 
 
 class Resolver:
-    """Resolves time points of one dimension (``timeline_id``: the timeline whose view relative
-    anchors see; only the prime exists until M9, so it doesn't change anything yet)."""
+    """Resolves time points of one dimension. ``timeline_id`` is the timeline whose view relative
+    anchors see: a ref to an event's end (or its rule's time points) means the event's override
+    row there when the timeline has one (``time-model.md`` §4.4, §9.1)."""
 
     def __init__(
         self,
@@ -259,6 +263,8 @@ class Resolver:
         self.stored: dict[SlotNode, SlotValue | None] = {}
         """Stored slots loaded in sets (``preload``), for readers that resolve many of them
         while nothing is written: used instead of loading each one."""
+        self._overrides: dict[str, str | None] = {}
+        self._view: Any = None
 
     # --- time points --------------------------------------------------------------------------
 
@@ -375,6 +381,35 @@ class Resolver:
             return replace(target, problem=_at(target.problem, "anchor.ref"))
         return self._offset(target, anchor.offset, precision, "anchor.offset")
 
+    def override_of(self, event_id: str) -> str | None:
+        """The id of the override row of the event that this resolver's timeline sees (its own
+        or an ancestor's, the closest winning), or ``None`` (the home row, or no timeline)."""
+        if self.timeline_id is None:
+            return None
+        if event_id not in self._overrides:
+            from lore.core.time.timeline_view import TimelineView  # noqa: PLC0415 (import cycle)
+
+            if self._view is None:
+                self._view = TimelineView.for_timeline(self.session, self.timeline_id)
+            found = None
+            if len(self._view.lineage) > 1:  # a prime timeline has no overrides
+                row = self.session.scalar(
+                    self._view.select(Event).where(Event.entity_id == event_id).limit(1)
+                )
+                if row is not None and row.overrides_id is not None:
+                    found = row.id
+            self._overrides[event_id] = found
+        return self._overrides[event_id]
+
+    def _seen_as(self, record_type: str, record_id: str, slot: str) -> tuple[str, str]:
+        """The record a slot ref means from this timeline: an event's override row for anything
+        but its start (an override starts where its root does)."""
+        if record_type == EVENT_SLOTS and slot != "start":
+            override = self.override_of(record_id)
+            if override is not None:
+                return EVENT_OVERRIDE_SLOTS, override
+        return record_type, record_id
+
     def slot(
         self,
         record_type: str,
@@ -385,6 +420,7 @@ class Resolver:
     ) -> Resolution:
         """A stored slot as a resolution: its last good moment (``t``), with the extent and
         precision of its spec. ``unresolved_ref`` for a missing (purged), unset or hidden slot."""
+        record_type, record_id = self._seen_as(record_type, record_id, slot)
         node = (record_type, record_id, slot)
         if node in seen or depth > MAX_DEPTH:
             return _failed(TimeStatus.CYCLE, "time_cycle", "The anchors form a cycle.")

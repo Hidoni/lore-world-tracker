@@ -34,7 +34,7 @@ from lore.core.entities.models import Entity
 from lore.core.links.models import Link
 from lore.core.registry.types import RuleDef, Trigger
 from lore.core.time.branches import branch_point_problems
-from lore.core.time.models import Calendar, Event
+from lore.core.time.models import Calendar, Event, Timeline
 from lore.core.time.series import check_rule, row_context, series_using
 from lore.core.time.slots import SlotProvider
 from lore.core.time.status import TimeStatus
@@ -101,7 +101,11 @@ def _status_findings(
         statement = (
             select(*columns)
             .join(Entity, Entity.id == entity_attr)
-            .where(status_attr.in_([s.value for s in statuses]), Entity.deleted_at.is_(None))
+            .where(
+                status_attr.in_([s.value for s in statuses]),
+                Entity.deleted_at.is_(None),
+                *provider.where(),
+            )
         )
         batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
         for batch in batches:
@@ -170,7 +174,7 @@ def _end_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[
             statement = (
                 select(getattr(model, provider.id_column), entity_attr, Entity.name)
                 .join(Entity, Entity.id == entity_attr)
-                .where(end_attr < start_attr, Entity.deleted_at.is_(None))
+                .where(end_attr < start_attr, Entity.deleted_at.is_(None), *provider.where())
             )
             batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
             for batch in batches:
@@ -774,6 +778,50 @@ def _branch_point_findings(
             )
 
 
+def _shared_past_findings(
+    ctx: RuleContext, subjects: Iterable[str] | None
+) -> Iterator[FindingDraft]:
+    """Records created in a branch (not overrides) that start before its branch point
+    (``time-model.md`` §4.4): they contradict the shared past. Open starts count as before."""
+    from lore.core.facts.models import EntityFact  # noqa: PLC0415
+
+    tables: list[tuple[str, Any, str, str]] = [
+        ("event", Event, "start_t", "entity_id"),
+        ("fact", EntityFact, "valid_from_t", "entity_id"),
+        ("link", Link, "valid_from_t", "source_id"),
+    ]
+    for record_type, model, start_name, owner in tables:
+        start = getattr(model, start_name)
+        row_owner = getattr(model, owner)
+        statement = (
+            select(model.id, row_owner, model.timeline_id, Entity.name)
+            .join(Timeline, Timeline.entity_id == model.timeline_id)
+            .join(Entity, Entity.id == row_owner)
+            .where(
+                model.overrides_id.is_(None),
+                Timeline.parent_timeline_id.is_not(None),
+                Timeline.branch_t.is_not(None),
+                or_(start.is_(None), start < Timeline.branch_t),
+                Entity.deleted_at.is_(None),
+            )
+        )
+        if record_type == "event":
+            statement = statement.where(model.occurrence_key.is_(None))
+        if hasattr(model, "deleted_at"):
+            statement = statement.where(model.deleted_at.is_(None))
+        batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
+        for batch in batches:
+            query = statement if batch is None else statement.where(row_owner.in_(batch))
+            for row_id, entity_id, timeline_id, name in ctx.session.execute(query):
+                yield FindingDraft(
+                    "core.branch.shared_past_modified",
+                    (str(entity_id),),
+                    f"“{name}” is changed in a branch before its branch point (the shared past).",
+                    discriminator=f"{record_type}/{row_id}",
+                    timeline_id=timeline_id,
+                )
+
+
 # --- the catalog ---------------------------------------------------------------------------------
 
 
@@ -885,6 +933,17 @@ CORE_RULES: tuple[RuleDef, ...] = (
         "its parent timeline doesn't have. Anchor it to a moment of the parent timeline.",
         _branch_point_findings,
         triggers=(Trigger("record", "timeline"),),
+    ),
+    _rule(
+        "core.branch.shared_past_modified",
+        "Branch changes the shared past",
+        "A record created in a branch starts before the branch point, where the branch shares "
+        "its parent's past.",
+        _shared_past_findings,
+        triggers=(Trigger("record", "*"),),
+        severity="warning",
+        configurable=True,
+        category="narrative",
     ),
     _rule(
         "core.event.subevent_outside_parent",

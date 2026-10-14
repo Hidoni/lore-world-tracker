@@ -81,6 +81,8 @@ from lore.core.time.series import (
     materialized_row,
     occurrences,
 )
+from lore.core.time.state import resolve_as_of
+from lore.core.time.timeline_view import TimelineView
 from lore.core.time.window import WindowQuery, timeline_window
 from lore.core.time.wizard import create_dimension, preview_calendar
 from lore.core.types import Affected
@@ -575,6 +577,13 @@ def get_occurrences(
     include_cancelled: Annotated[
         bool, Query(description="List cancelled occurrences too (with their state).")
     ] = False,
+    timeline: Annotated[
+        str | None,
+        Query(
+            pattern=ID_PATTERN,
+            description="As this timeline sees the series (its override there, if any).",
+        ),
+    ] = None,
 ) -> OccurrencePage:
     """The occurrences of a recurring event overlapping ``[from, to)``: computed from its rule
     (``recurrence.md`` §4 ``expand``) and replaced by their materialized occurrences (§7). More
@@ -585,6 +594,10 @@ def get_occurrences(
     context = VaultContext(vault, session, registry)
     entity = EntityService(context, policy).load_visible(event_id)
     row = home_row(session, entity.id) if entity.kind == EVENT else None
+    if row is not None and timeline is not None:
+        as_of = resolve_as_of(context, policy, timeline, "0")  # a timeline the request sees
+        view = TimelineView.for_timeline(session, as_of.timeline_id)
+        row = session.scalar(view.select(Event).where(Event.entity_id == entity.id).limit(1))
     if row is None:
         raise NotFoundError(f"No event {event_id}.")
     if int(start) >= int(end):

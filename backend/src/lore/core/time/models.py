@@ -229,3 +229,22 @@ class EntityTimeField(Base):
     spec: Mapped[TimePoint] = spec_column(nullable=False)
     t: Mapped[int | None] = moment_column()
     time_status: Mapped[str | None] = status_column()
+
+
+class EntityTimelineNote(IdMixin, TimestampsMixin, Base):
+    """A branch's own rich text about an entity (``time-model.md`` §4.6: "In this timeline she
+    became a pirate"), next to the shared page body. One per entity and timeline; it goes with
+    either."""
+
+    __tablename__ = "entity_timeline_notes"
+
+    entity_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete="CASCADE"))
+    timeline_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete="CASCADE"))
+    body: Mapped[dict[str, Any]] = mapped_column(JSON)
+    body_schema_version: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+
+    __table_args__ = (
+        Index("uq_entity_timeline_notes_entity_timeline", "entity_id", "timeline_id", unique=True),
+        Index("ix_entity_timeline_notes_timeline_id", "timeline_id"),
+    )

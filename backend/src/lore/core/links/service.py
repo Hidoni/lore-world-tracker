@@ -67,6 +67,7 @@ from lore.core.time.changes import report as report_time
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.dimensions import prime_timeline
 from lore.core.time.models import Timeline
+from lore.core.time.overrides import overrides_of, sync_starts
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
 from lore.core.time.state import AsOf, Coverage, as_of_for, maybe_covers, timeline_resolver
@@ -232,6 +233,16 @@ class LinkService:
                 context={"current": link_out(link).model_dump(mode="json")},
             )
         sent = data.model_fields_set - {"revision", "suppress"}
+        if link.overrides_id is not None:
+            raise _invalid("overrides_id", "The link is a branch override: change it through the "
+                           "branches module (or delete it to revert).")  # fmt: skip
+        if (
+            "timeline_id" in sent
+            and data.timeline_id != link.timeline_id
+            and overrides_of(self.session, Link, link.id)
+        ):
+            raise _invalid("timeline_id", "Branches override the link: it can't move to another "
+                           "timeline.")  # fmt: skip
         if sent:
             link.updated_at = utc_now()  # first: one UPDATE even if a query autoflushes
         if "visibility" in sent:
@@ -246,7 +257,7 @@ class LinkService:
         slots = {slot for slot in SLOTS if slot in sent}
         if link.timeline_id != timeline_before:  # another dimension: the bounds resolve again
             slots.update(s for s in SLOTS if getattr(link, f"{s}_spec") is not None)
-        self._write_times(link, slots)
+        self._write_times(link, slots, sync="valid_from" in sent)
         self._check_limits(info, link)
         return LinkWriteResult(link=link_out(link), affected=self.affected([link]))
 
@@ -255,8 +266,12 @@ class LinkService:
         link, _info = self._load(link_id)
         if link.deleted_at is None:
             link.deleted_at = utc_now()
+            # Its branch overrides go with it.
+            trashed = [link, *overrides_of(self.session, Link, link.id)]
+            for row in trashed[1:]:
+                row.deleted_at = link.deleted_at
             self.session.flush()
-            self._touch_dependents([link])
+            self._touch_dependents(trashed)
         return LinkDeleteResult(id=link.id, link=link_out(link), affected=self.affected([link]))
 
     def trash_for_entity(self, entity_id: str, link_ids: Sequence[str]) -> list[Link]:
@@ -270,6 +285,9 @@ class LinkService:
             elif link.deleted_at is None:
                 link.deleted_at = utc_now()
                 links.append(link)
+                for row in overrides_of(self.session, Link, link.id):
+                    row.deleted_at = link.deleted_at
+                    links.append(row)
         if errors:
             raise InvalidInputError("Some links can't be removed.", errors=errors)
         self.session.flush()
@@ -616,14 +634,17 @@ class LinkService:
             raise RuntimeError("link time writes need the vault")
         return TimeWriter(VaultContext(self.vault, self.session, self.registry))
 
-    def _write_times(self, link: Link, slots: set[str]) -> None:
+    def _write_times(self, link: Link, slots: set[str], *, sync: bool = False) -> None:
         """Store the changed bounds' specs and propagate (resolving them and what is anchored to
-        them); ``422 time_constraint`` when a bound can't resolve."""
+        them); ``422 time_constraint`` when a bound can't resolve. ``sync``: the start changed,
+        which the link's branch overrides copy."""
         if not slots:
             return
         writer = self._writer()
         for slot in sorted(slots):
             writer.set_spec(LINK, link.id, slot, getattr(link, f"{slot}_spec"))
+        if sync:
+            sync_starts(writer.context, writer, LINK, link)
         writer.propagate(path="")
 
     def _touch_dependents(self, links: Sequence[Link]) -> None:

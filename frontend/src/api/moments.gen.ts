@@ -23,6 +23,26 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "BranchDiff": {
+    "o": {
+      "branch_t": "m",
+      "created": {
+        "a": {
+          "r": "DiffRecord"
+        }
+      },
+      "overridden": {
+        "a": {
+          "r": "DiffRecord"
+        }
+      },
+      "inherited_spanning": {
+        "a": {
+          "r": "DiffRecord"
+        }
+      }
+    }
+  },
   "CalendarProposalItem": {
     "o": {
       "old_t": "m",
@@ -78,6 +98,12 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
           "r": "ConvertItem"
         }
       }
+    }
+  },
+  "DiffRecord": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
     }
   },
   "EntityLink": {

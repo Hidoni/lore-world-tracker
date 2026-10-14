@@ -478,6 +478,11 @@ def write_times(
     writer = writer or TimeWriter(context)
     if start is not None:
         writer.set_spec(EVENT, row.entity_id, "start", start)
+        if row.overrides_id is None:
+            # Branch overrides start where their root does (time-model.md §4.4).
+            from lore.core.time.overrides import sync_starts  # noqa: PLC0415 (import cycle)
+
+            sync_starts(context, writer, EVENT, row)
     if end is not None:
         writer.set_spec(EVENT, row.entity_id, "end", end, dimension_id=dimension_id)
     if rule_sent:

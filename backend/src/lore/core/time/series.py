@@ -65,6 +65,8 @@ if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
 
 EVENT = "event"
+# Branch override rows of events (time-model.md §4.4), slot owners keyed by row id.
+EVENT_OVERRIDE = "event_override"
 UNTIL_SLOT = "recurrence_until"
 UNTIL_POINTER = "/limit/until"
 RULE_SLOT = "recurrence"
@@ -109,119 +111,161 @@ def _points_of(row: Event) -> dict[str, tuple[str, TimePoint]]:
 
 
 def _series_rows(
-    session: Session, ids: Iterable[str], *, bounded: bool = False
+    session: Session, ids: Iterable[str], *, override: bool = False
 ) -> dict[str, Event]:
-    """Home rows of events; ``bounded``: only series and events that still have series bounds
-    (propagation passes every event it touched)."""
+    """Event rows by record id: home rows by entity id, or (``override``) branch override rows
+    by row id (``time-model.md`` §4.4: each is a slot owner of its own)."""
     wanted = sorted(set(ids))
     if not wanted:
         return {}
+    if override:
+        statement = select(Event).where(Event.id.in_(wanted), Event.overrides_id.is_not(None))
+        return {row.id: row for row in session.scalars(statement)}
     statement = select(Event).where(Event.entity_id.in_(wanted), Event.overrides_id.is_(None))
-    if bounded:
-        statement = statement.where(
-            or_(
-                Event.recurrence.is_not(None),
-                Event.series_start_t.is_not(None),
-                Event.series_end_t.is_not(None),
-            )
-        )
     return {row.entity_id: row for row in session.scalars(statement)}
 
 
-def load_rule_slots(session: Session, keys: Sequence[SlotKey]) -> dict[SlotKey, SlotValue]:
-    rows = _series_rows(session, (key.id for key in keys))
-    timelines = {row.timeline_id for row in rows.values()}
-    dimensions: dict[str, str] = dict(
-        session.execute(
-            select(Timeline.entity_id, Timeline.dimension_id).where(
-                Timeline.entity_id.in_(sorted(timelines))
-            )
-        ).all()
-    )
-    trashed = set(
+def _bounded_rows(session: Session, entity_ids: Iterable[str]) -> list[Event]:
+    """Every row (home and overrides) of these events that is a series or still has series
+    bounds (propagation passes every event it touched)."""
+    wanted = sorted(set(entity_ids))
+    if not wanted:
+        return []
+    return list(
         session.scalars(
-            select(Entity.id).where(Entity.id.in_(sorted(rows)), Entity.deleted_at.is_not(None))
+            select(Event).where(
+                Event.entity_id.in_(wanted),
+                or_(
+                    Event.recurrence.is_not(None),
+                    Event.series_start_t.is_not(None),
+                    Event.series_end_t.is_not(None),
+                ),
+            )
         )
     )
-    result: dict[SlotKey, SlotValue] = {}
-    for key in keys:
-        row = rows.get(key.id)
-        found = None if row is None else _points_of(row).get(key.slot)
-        if row is None or found is None:
-            continue
-        pointer, point = found
-        t = (row.recurrence_resolved or {}).get(pointer)
-        result[key] = SlotValue(
-            spec=point,
-            t=None if t is None else int(t),
-            status=None if row.time_status is None else TimeStatus(row.time_status),
-            trashed=key.id in trashed,
-            dimension_id=dimensions.get(row.timeline_id),
+
+
+def _record_id(row: Event, override: bool) -> str:
+    return row.id if override else row.entity_id
+
+
+class RuleSlots:
+    """The slot functions of series rules' time points (``SlotProvider.load`` …), for home rows
+    (keyed by event entity id) or for override rows (keyed by row id)."""
+
+    def __init__(self, override: bool) -> None:
+        self.override = override
+        self.record_type = EVENT_OVERRIDE if override else EVENT
+
+    def load(self, session: Session, keys: Sequence[SlotKey]) -> dict[SlotKey, SlotValue]:
+        rows = _series_rows(session, (key.id for key in keys), override=self.override)
+        timelines = {row.timeline_id for row in rows.values()}
+        dimensions: dict[str, str] = {
+            str(i): str(d)
+            for i, d in session.execute(
+                select(Timeline.entity_id, Timeline.dimension_id).where(
+                    Timeline.entity_id.in_(sorted(timelines))
+                )
+            ).all()
+        }
+        entities = sorted({row.entity_id for row in rows.values()})
+        trashed = set(
+            session.scalars(
+                select(Entity.id).where(Entity.id.in_(entities), Entity.deleted_at.is_not(None))
+            )
         )
-    return result
+        result: dict[SlotKey, SlotValue] = {}
+        for key in keys:
+            row = rows.get(key.id)
+            found = None if row is None else _points_of(row).get(key.slot)
+            if row is None or found is None:
+                continue
+            pointer, point = found
+            t = (row.recurrence_resolved or {}).get(pointer)
+            result[key] = SlotValue(
+                spec=point,
+                t=None if t is None else int(t),
+                status=None if row.time_status is None else TimeStatus(row.time_status),
+                trashed=row.entity_id in trashed,
+                dimension_id=dimensions.get(row.timeline_id),
+                timeline_id=row.timeline_id,
+            )
+        return result
 
-
-def write_rule_slots(session: Session, updates: Sequence[SlotUpdate]) -> None:
-    rows = _series_rows(session, (update.key.id for update in updates))
-    for update in updates:
-        row = rows.get(update.key.id)
-        found = None if row is None else _points_of(row).get(update.key.slot)
-        if row is None or found is None:
-            continue
-        resolved = dict(row.recurrence_resolved or {})
-        if update.t is None:
-            resolved.pop(found[0], None)
-        else:
-            resolved[found[0]] = str(update.t)
-        row.recurrence_resolved = resolved
-        row.time_status = update.status.value
-
-
-def write_rule_specs(session: Session, updates: Sequence[SpecUpdate]) -> None:
-    """New specs for the rule's time points (anchor freezing): the rule document changes."""
-    rows = _series_rows(session, (update.key.id for update in updates))
-    for update in updates:
-        row = rows.get(update.key.id)
-        found = None if row is None else _points_of(row).get(update.key.slot)
-        if row is None or row.recurrence is None or found is None:
-            continue
-        document = dict(row.recurrence)
-        parts = [p for p in found[0].split("/") if p]
-        node: Any = document
-        for part in parts[:-1]:
-            child = node[int(part)] if isinstance(node, list) else node[part]
-            child = list(child) if isinstance(child, list) else dict(child)
-            if isinstance(node, list):
-                node[int(part)] = child
+    def write(self, session: Session, updates: Sequence[SlotUpdate]) -> None:
+        rows = _series_rows(session, (u.key.id for u in updates), override=self.override)
+        for update in updates:
+            row = rows.get(update.key.id)
+            found = None if row is None else _points_of(row).get(update.key.slot)
+            if row is None or found is None:
+                continue
+            resolved = dict(row.recurrence_resolved or {})
+            if update.t is None:
+                resolved.pop(found[0], None)
             else:
-                node[part] = child
-            node = child
-        node[parts[-1]] = dump_spec(update.spec)
-        row.recurrence = document
-        row.revision += 1
+                resolved[found[0]] = str(update.t)
+            row.recurrence_resolved = resolved
+            row.time_status = update.status.value
+
+    def write_specs(self, session: Session, updates: Sequence[SpecUpdate]) -> None:
+        """New specs for the rule's time points (anchor freezing): the rule document changes."""
+        rows = _series_rows(session, (u.key.id for u in updates), override=self.override)
+        for update in updates:
+            row = rows.get(update.key.id)
+            found = None if row is None else _points_of(row).get(update.key.slot)
+            if row is None or row.recurrence is None or found is None:
+                continue
+            document = dict(row.recurrence)
+            parts = [p for p in found[0].split("/") if p]
+            node: Any = document
+            for part in parts[:-1]:
+                child = node[int(part)] if isinstance(node, list) else node[part]
+                child = list(child) if isinstance(child, list) else dict(child)
+                if isinstance(node, list):
+                    node[int(part)] = child
+                else:
+                    node[part] = child
+                node = child
+            node[parts[-1]] = dump_spec(update.spec)
+            row.recurrence = document
+            row.revision += 1
+
+    def _rows_where(self) -> Any:
+        own = Event.overrides_id.is_not(None) if self.override else Event.overrides_id.is_(None)
+        return (Event.recurrence.is_not(None), own)
+
+    def keys(self, session: Session) -> list[SlotKey]:
+        """Every rule time point of every series."""
+        rows = session.scalars(select(Event).where(*self._rows_where()).order_by(Event.id))
+        return [
+            SlotKey(_record_id(row, self.override), slot)
+            for row in rows
+            for slot in _points_of(row)
+        ]
+
+    def beyond(self, session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
+        timelines = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
+        rows = session.scalars(
+            select(Event).where(*self._rows_where(), Event.timeline_id.in_(timelines))
+        )
+        found: list[SlotMoment] = []
+        for row in rows:
+            resolved = row.recurrence_resolved or {}
+            for slot, (pointer, _point) in _points_of(row).items():
+                t = resolved.get(pointer)
+                if t is not None and int(t) > bound:
+                    record = _record_id(row, self.override)
+                    found.append(SlotMoment(self.record_type, record, slot, int(t)))
+        return found
 
 
-def rule_slot_keys(session: Session) -> list[SlotKey]:
-    """Every rule time point of every series."""
-    rows = session.scalars(
-        select(Event).where(Event.recurrence.is_not(None)).order_by(Event.entity_id)
-    )
-    return [SlotKey(row.entity_id, slot) for row in rows for slot in _points_of(row)]
-
-
-def rule_moments_beyond(session: Session, dimension_id: str, bound: int) -> list[SlotMoment]:
-    timelines = select(Timeline.entity_id).where(Timeline.dimension_id == dimension_id)
-    rows = session.scalars(
-        select(Event).where(Event.recurrence.is_not(None), Event.timeline_id.in_(timelines))
-    )
-    found: list[SlotMoment] = []
-    for row in rows:
-        resolved = row.recurrence_resolved or {}
-        for slot, (pointer, _point) in _points_of(row).items():
-            t = resolved.get(pointer)
-            if t is not None and int(t) > bound:
-                found.append(SlotMoment(EVENT, row.entity_id, slot, int(t)))
-    return found
+HOME_RULE_SLOTS = RuleSlots(override=False)
+OVERRIDE_RULE_SLOTS = RuleSlots(override=True)
+load_rule_slots = HOME_RULE_SLOTS.load
+write_rule_slots = HOME_RULE_SLOTS.write
+write_rule_specs = HOME_RULE_SLOTS.write_specs
+rule_slot_keys = HOME_RULE_SLOTS.keys
+rule_moments_beyond = HOME_RULE_SLOTS.beyond
 
 
 # --- evaluation context --------------------------------------------------------------------------
@@ -355,7 +399,7 @@ def refresh_series(
     the series looked at."""
     session = context.session
     session.flush()
-    rows = list(_series_rows(session, event_ids, bounded=True).values())
+    rows = _bounded_rows(session, event_ids)
     seen = {row.id for row in rows}
     for row in [*_using(session, set(calendar_ids)), *_in_dimensions(session, set(dimension_ids))]:
         if row.id not in seen:
@@ -363,7 +407,7 @@ def refresh_series(
             seen.add(row.id)
     problems: list[SeriesProblem] = []
     resolvers: dict[str, Resolver] = {}
-    for row in sorted(rows, key=lambda r: r.entity_id):
+    for row in sorted(rows, key=lambda r: (r.entity_id, r.overrides_id is not None, r.id)):
         if row.recurrence is None:
             _set_bounds(session, row, None, None)
             continue
@@ -723,10 +767,13 @@ def visible_materialized(
 
 __all__ = [
     "CANCELLED",
+    "EVENT_OVERRIDE",
+    "HOME_RULE_SLOTS",
     "MODIFIED",
     "MOVED",
     "OCCURRENCE_STATES",
     "ORPHANED",
+    "OVERRIDE_RULE_SLOTS",
     "REFERENCED",
     "RULE_SLOT",
     "UNCHANGED",
@@ -736,6 +783,7 @@ __all__ = [
     "OccurrenceList",
     "Reconciliation",
     "RuleProblem",
+    "RuleSlots",
     "SeriesProblem",
     "bounds_of",
     "check_rule",

@@ -235,7 +235,7 @@ Narrative, default `warning`:
 | `core.fact.outside_existence` | core | fact validity outside the entity's existence |
 | `core.link.outside_existence` | core | temporal link validity outside either endpoint's existence |
 | `core.time.anchor_to_trashed` | core | anchored to a trashed record |
-| `core.branch.shared_past_modified` | branches | branch-own record starting before the branch point |
+| `core.branch.shared_past_modified` | core (#115) | a branch's own event, fact or link starting before the branch point |
 | `characters.parent_born_after_child` | characters | parent's existence starts after the child's |
 | `groups.member_outside_group_existence` | groups | membership validity outside the group's existence |
 | `locations.event_at_nonexistent_location` | locations | event site does not exist at the event's time |

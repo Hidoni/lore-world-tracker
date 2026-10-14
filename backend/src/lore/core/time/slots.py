@@ -15,12 +15,12 @@ provider's own, which only ever see those slots. One record type may mix both (a
 """
 
 import re
-from collections.abc import Callable, Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, Literal, cast
 
-from sqlalchemy import bindparam, literal, null, select
+from sqlalchemy import bindparam, literal, null, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
@@ -106,6 +106,8 @@ class SlotValue:
     trashed: bool = False
     dimension_id: str | None = None
     """The record's dimension (what its time points resolve in)."""
+    timeline_id: str | None = None
+    """The record's timeline (whose view its relative anchors see), for time-bound records."""
 
 
 @dataclass(frozen=True)
@@ -181,6 +183,15 @@ class SlotProvider:
     beyond: BeyondQuery | None = None
     write_spec: SpecWriter | None = None
     keys: SlotLister | None = None
+    row_condition: str | None = None
+    """SQL on ``model``'s table telling which of its rows are this provider's records (e.g.
+    ``events.overrides_id IS NULL``: the home rows of events), when ``id_column`` isn't unique."""
+    row_test: Callable[[Mapping[str, Any]], bool] | None = None
+    """``row_condition`` on a row as a dict of column values (undo sees rows that way)."""
+
+    def where(self) -> list[Any]:
+        """``row_condition`` as SQLAlchemy conditions."""
+        return [] if self.row_condition is None else [text(self.row_condition)]
 
     def slot(self, name: str) -> SlotDef | None:
         """The definition covering a slot name: an exact name wins over families, ``*`` last."""
@@ -301,7 +312,7 @@ class SlotProvider:
         model: Any = self.model
         ids: Iterable[Any] = session.scalars(
             select(getattr(model, self.id_column)).where(
-                getattr(model, self.entity_column) == entity_id
+                getattr(model, self.entity_column) == entity_id, *self.where()
             )
         )
         return [str(record_id) for record_id in ids]
@@ -496,7 +507,9 @@ def _rows(provider: SlotProvider, session: Session, ids: Iterable[str]) -> dict[
     id_attr = getattr(model, provider.id_column)
     wanted = sorted(set(ids))
     rows: Sequence[Any] = (
-        session.scalars(select(model).where(id_attr.in_(wanted))).all() if wanted else []
+        session.scalars(select(model).where(id_attr.in_(wanted), *provider.where())).all()
+        if wanted
+        else []
     )
     return {str(getattr(row, provider.id_column)): row for row in rows}
 
@@ -535,14 +548,21 @@ def _load_statement(provider: SlotProvider, slots: frozenset[str]) -> Any:
         dimension = timeline.c.dimension_id
     else:
         dimension = null()
+    own_timeline: Any = (
+        null() if provider.timeline_column is None else table.c[provider.timeline_column]
+    )
     statement = (
         select(
             *(table.c[name] for name in sorted(names)),
             trashed.label("slot_trashed"),
             dimension.label("slot_dimension"),
+            own_timeline.label("slot_timeline_id"),
         )
         .select_from(source)
-        .where(table.c[provider.id_column].in_(bindparam("slot_ids", expanding=True)))
+        .where(
+            table.c[provider.id_column].in_(bindparam("slot_ids", expanding=True)),
+            *provider.where(),
+        )
     )
     provider._statements[slots] = statement
     return statement
@@ -577,6 +597,7 @@ def _load_columns(
             status=None if status is None else _STATUSES[status],
             trashed=bool(row.slot_trashed),
             dimension_id=row.slot_dimension,
+            timeline_id=row.slot_timeline_id,
         )
     return result
 
@@ -600,21 +621,25 @@ def _beyond_columns(
         resolved = getattr(model, slot.columns[1])
         rows = session.execute(
             select(getattr(model, provider.id_column), resolved).where(
-                in_dimension, resolved > bound
+                in_dimension, resolved > bound, *provider.where()
             )
         )
         found += [SlotMoment(provider.record_type, str(i), slot.name, t) for i, t in rows]
     return found
 
 
-def _raw_rows(session: Session, table: Any, id_column: str, ids: Sequence[str]) -> dict[str, Row]:
-    """Rows as SQLite stores them (raw values, what history records), by id."""
+def _raw_rows(
+    session: Session, table: Any, id_column: str, ids: Sequence[str], condition: str | None = None
+) -> dict[str, Row]:
+    """Rows as SQLite stores them (raw values, what history records), by id (of the rows meeting
+    ``condition``: a provider's ``row_condition``)."""
     found: dict[str, Row] = {}
+    extra = "" if condition is None else f" AND ({condition})"
     for start in range(0, len(ids), _BATCH):
         chunk = ids[start : start + _BATCH]
         marks = ", ".join("?" for _ in chunk)
         result = session.connection().exec_driver_sql(
-            f'SELECT * FROM "{table.name}" WHERE "{id_column}" IN ({marks})', tuple(chunk)
+            f'SELECT * FROM "{table.name}" WHERE "{id_column}" IN ({marks}){extra}', tuple(chunk)
         )
         found.update({str(row[id_column]): dict(row) for row in result.mappings()})
     return found
@@ -627,7 +652,7 @@ def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[S
     table = model.__table__
     session.flush()
     ids = sorted({update.key.id for update in updates})
-    before = _raw_rows(session, table, provider.id_column, ids)
+    before = _raw_rows(session, table, provider.id_column, ids, provider.row_condition)
     missing = [record_id for record_id in ids if record_id not in before]
     if missing:
         raise SlotError("unresolved_ref", f"{provider.record_type} {missing[0]} not found")
@@ -650,9 +675,13 @@ def _write_columns(provider: SlotProvider, session: Session, updates: Sequence[S
         assigned = {
             name: bindparam(f"_{i}", type_=table.c[name].type) for i, name in enumerate(names)
         }
-        statement = sa_update(table).where(id_column == bindparam("_id")).values(assigned)
+        statement = (
+            sa_update(table)
+            .where(id_column == bindparam("_id"), *provider.where())
+            .values(assigned)
+        )
         session.execute(statement, batch)
-    after = _raw_rows(session, table, provider.id_column, ids)
+    after = _raw_rows(session, table, provider.id_column, ids, provider.row_condition)
     if table.name in recorded_tables(session):
         record_bulk(session, table, list(before.values()), list(after.values()))
     wanted = set(ids)
@@ -680,7 +709,7 @@ def _keys_columns(provider: SlotProvider, session: Session) -> list[SlotKey]:
         assert slot.columns is not None
         spec = getattr(model, slot.columns[0])
         ids: Iterable[Any] = session.scalars(
-            select(getattr(model, provider.id_column)).where(spec.is_not(None))
+            select(getattr(model, provider.id_column)).where(spec.is_not(None), *provider.where())
         )
         found += [SlotKey(str(record_id), slot.name) for record_id in ids]
     return sorted(found, key=lambda key: (key.id, key.slot))

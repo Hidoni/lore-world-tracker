@@ -56,6 +56,7 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         Calendar,
         Dimension,
         EntityTimeField,
+        EntityTimelineNote,
         Event,
         Timeline,
     )
@@ -74,4 +75,5 @@ def core_history_tables() -> tuple[HistoryTable, ...]:
         HistoryTable.of(Suppression),
         HistoryTable.of(EntityFact, columns_owner("entity_id")),
         HistoryTable.of(EntityTimeField, columns_owner("entity_id")),
+        HistoryTable.of(EntityTimelineNote, columns_owner("entity_id", "timeline_id")),
     )
