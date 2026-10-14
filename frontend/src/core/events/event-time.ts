@@ -9,6 +9,8 @@ export interface EventTime {
   end: EndSpec | null
   startT: bigint | null
   endT: bigint | null
+  /** A series' last occurrence end (`null`: not a series, or an endless one). */
+  seriesEndT: bigint | null
   status: string | null
   importance: number
   category: string | null
@@ -25,7 +27,12 @@ export interface EventTime {
 const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 const text = (value: unknown): string | null => (typeof value === 'string' ? value : null)
-const moment = (value: unknown): bigint | null => (typeof value === 'bigint' ? value : null)
+const moment = (value: unknown): bigint | null =>
+  typeof value === 'bigint'
+    ? value
+    : typeof value === 'string' && /^-?\d+$/.test(value)
+      ? BigInt(value)
+      : null
 
 export function eventTime(entity: Pick<Entity, 'ext'>): EventTime {
   const ext = record(entity.ext)
@@ -37,6 +44,7 @@ export function eventTime(entity: Pick<Entity, 'ext'>): EventTime {
     end: typeof end.kind === 'string' ? (end as unknown as EndSpec) : null,
     startT: moment(ext.start_t),
     endT: moment(ext.end_t),
+    seriesEndT: moment(ext.series_end_t),
     status: text(ext.time_status),
     importance: typeof ext.importance === 'number' ? ext.importance : 3,
     category: text(ext.category),

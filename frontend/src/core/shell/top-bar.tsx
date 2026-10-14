@@ -13,7 +13,12 @@ import { ThemeMenu } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { isTyping, usePalette } from '@/core/palette'
 import { NewEntityMenu } from '@/core/entities'
-import { CalendarSelector, DimensionSwitcher, TimeCursorControl } from '@/core/time'
+import {
+  CalendarSelector,
+  DimensionSwitcher,
+  TimeCursorControl,
+  TimelineSwitcher,
+} from '@/core/time'
 import { useVault } from '@/data'
 
 import { useShell } from './shell-store'
@@ -95,6 +100,7 @@ export function TopBar() {
         <>
           <VaultSwitcher vault={vault} />
           <DimensionSwitcher vault={vault} />
+          <TimelineSwitcher vault={vault} />
           <CalendarSelector vault={vault} />
           <TimeCursorControl vault={vault} />
         </>

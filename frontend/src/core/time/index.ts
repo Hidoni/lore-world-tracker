@@ -62,3 +62,5 @@ export {
   type RecordPlace,
   type TimeBoundRecord,
 } from './branching'
+export { CreateBranchDialog, type CreateBranchOptions } from './create-branch-dialog'
+export { TimelineSwitcher } from './timeline-switcher'

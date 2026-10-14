@@ -31,8 +31,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  CreateBranchDialog,
   formatIn,
   TimePointPicker,
+  useBranching,
   useTimeContext,
   type Cursor,
   type DimensionTime,
@@ -398,6 +400,9 @@ function Timeline({
   const v = controls.viewport
   const search: { perf?: unknown; in?: string } = useSearch({ strict: false })
   const editable = useMutations() !== null
+  const branching = useBranching(vault)
+  /** "Branch here": the moment to branch the viewed timeline at. */
+  const [branchAt, setBranchAt] = useState<bigint | null>(null)
   const [filters, setFilters] = useState<TimelineFilters>(NO_FILTERS)
   const [grouping, setGrouping] = useState<GroupMode>('auto')
   const [expanded, setExpanded] = useState<Named[]>([])
@@ -1070,6 +1075,15 @@ function Timeline({
                         New event here…
                       </ContextMenuItem>
                     )}
+                    {editable && branching.enabled && timelineId !== null && (
+                      <ContextMenuItem
+                        onSelect={() => {
+                          setBranchAt(menu.t)
+                        }}
+                      >
+                        Branch here…
+                      </ContextMenuItem>
+                    )}
                     {drill.length > 0 && (
                       <ContextMenuItem
                         onSelect={() => {
@@ -1169,6 +1183,19 @@ function Timeline({
           onGo={controls.show}
           onClose={() => {
             setGoTo(false)
+          }}
+        />
+      )}
+      {branchAt !== null && (
+        <CreateBranchDialog
+          vault={vault}
+          parentTimelineId={timelineId}
+          initialPoint={{
+            anchor: { kind: 'absolute', t: branchAt.toString() },
+            precision: 'base',
+          }}
+          onClose={() => {
+            setBranchAt(null)
           }}
         />
       )}
