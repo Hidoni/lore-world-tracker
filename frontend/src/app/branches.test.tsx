@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import type { Editor } from '@tiptap/core'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -71,6 +72,7 @@ const timeline = (id: string, name: string, parent: string | null, branchT: stri
 })
 
 interface Requests {
+  notes: Record<string, unknown>[]
   branches: Record<string, unknown>[]
   overrides: Record<string, unknown>[]
   reverts: string[]
@@ -85,15 +87,17 @@ function world(
   options: {
     created?: unknown[]
     overridden?: unknown[]
+    note?: { body: unknown; revision: number }
     facts?: FactRow[]
     links?: LinkRow[]
     modules?: string[]
   } = {},
 ) {
-  const requests: Requests = { branches: [], overrides: [], reverts: [] }
+  const requests: Requests = { notes: [], branches: [], overrides: [], reverts: [] }
+  let note: { body: unknown; revision: number } = options.note ?? { body: null, revision: 0 }
   serveVault({
     modules: options.modules ?? ['branches'],
-    kinds: [...KINDS, EVENT_KIND, ARTIFACT],
+    kinds: [...KINDS, EVENT_KIND, ARTIFACT, kind('timeline', 'Timeline')],
     rows: [
       ...defaultRows().filter((entity) => entity.id !== 'd1'),
       row('d1', 'dimension', 'Empire', {
@@ -111,6 +115,8 @@ function world(
       eventRow('ev-reign', 'Reign', 100n, 300n),
       eventRow('ev-rescue', 'Rescue', 210n, 220n, 'b1'),
       row('crown', 'artifact', 'Crown'),
+      row('d1-prime', 'timeline', 'Prime'),
+      row('b1', 'timeline', 'Survives', { summary: 'The emperor survives.' }),
     ],
     facts: options.facts ?? [
       { id: 'f-life', entity_id: 'crown', field_key: 'core.exists', valid_from_t: '50', valid_to_t: '300' },
@@ -165,6 +171,28 @@ function world(
         { status: 201 },
       )
     }),
+    http.get('*/api/v1/vaults/v1/m/branches/notes/:entity/:timeline', ({ params }) =>
+      HttpResponse.json({
+        entity_id: params.entity,
+        timeline_id: params.timeline,
+        ...note,
+        updated_at: null,
+      }),
+    ),
+    http.put(
+      '*/api/v1/vaults/v1/m/branches/notes/:entity/:timeline',
+      async ({ request, params }) => {
+        const body = (await request.json()) as { body: unknown; revision: number }
+        requests.notes.push(body)
+        note = { body: body.body, revision: body.revision + 1 }
+        return HttpResponse.json({
+          entity_id: params.entity,
+          timeline_id: params.timeline,
+          ...note,
+          updated_at: '2026-10-14T10:00:00Z',
+        })
+      },
+    ),
     // Time points resolve to their absolute moment (relative ones to 0).
     http.post('*/api/v1/vaults/v1/time/resolve', async ({ request }) => {
       const body = (await request.json()) as {
@@ -520,5 +548,99 @@ describe('compare mode', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('compare-group')).toBeNull()
     })
+  })
+})
+
+describe('timeline pages and notes', () => {
+  it('shows a branch’s lineage, branch point, differences and children', async () => {
+    world({
+      created: [
+        { record_type: 'event', id: 'row-rescue', root_id: null, entity_id: 'ev-rescue',
+          name: 'Rescue', detail: null, start_t: '210', end_t: '220' },
+      ],
+      overridden: [
+        { record_type: 'fact', id: 'f-ov', root_id: 'f-life', entity_id: 'crown', name: 'Crown',
+          detail: 'core.exists', start_t: '50', end_t: '230',
+          before: { valid_to_t: '300' }, after: { valid_to_t: '230' } },
+      ],
+    }) // prettier-ignore
+    const { router } = await render('/v/v1/e/b1')
+    const panel = await screen.findByRole('region', { name: 'Timeline' }, WAIT)
+    const lineage = await within(panel).findByRole('navigation', { name: 'Lineage' }, WAIT)
+    expect(within(lineage).getByRole('link', { name: 'Prime' })).toBeInTheDocument()
+    expect(within(lineage).getByText('Survives')).toHaveAttribute('aria-current', 'page')
+    expect(await within(panel).findByText(/1 created · 1 changed · 0 carried over/)).toBeVisible()
+    const created = within(panel).getByRole('region', { name: 'Created in this branch' })
+    expect(within(created).getByRole('link', { name: 'Rescue' })).toBeInTheDocument()
+    const changed = within(panel).getByRole('region', { name: 'Changed in this branch' })
+    expect(within(changed).getByText('changed: valid_to_t')).toBeInTheDocument()
+    expect(within(panel).getByText('None')).toBeInTheDocument() // no child branches
+    await userEvent.click(within(panel).getByRole('button', { name: /View this timeline/ }))
+    await waitFor(() => {
+      expect(router.state.location.search).toMatchObject({ tl: 'b1' })
+    })
+  })
+
+  it('lists a prime timeline’s branches', async () => {
+    world()
+    await render('/v/v1/e/d1-prime')
+    const panel = await screen.findByRole('region', { name: 'Timeline' }, WAIT)
+    const children = await within(panel).findByRole('list', { name: 'Child branches' })
+    expect(within(children).getByRole('link', { name: 'Survives' })).toBeInTheDocument()
+    expect(within(panel).queryByText('Branch point')).toBeNull()
+  })
+
+  it('writes an entity’s notes in the viewed branch', async () => {
+    const requests = world()
+    await render('/v/v1/e/crown?tl=b1')
+    const notes = await screen.findByRole('region', { name: 'Notes in this timeline' }, WAIT)
+    const textbox = await within(notes).findByRole(
+      'textbox',
+      { name: 'Notes in Survives' },
+      { timeout: 4000 },
+    )
+    const editor = (textbox as HTMLElement & { editor: Editor }).editor
+    act(() => {
+      editor.chain().focus('end').insertContent('He became a pirate.').run()
+    })
+    await waitFor(
+      () => {
+        expect(requests.notes).toHaveLength(1)
+      },
+      { timeout: 4000 },
+    )
+    expect(requests.notes[0]).toMatchObject({ revision: 0, body: { type: 'doc' } })
+    act(() => {
+      editor.chain().focus('end').insertContent(' Then a king.').run()
+    })
+    await waitFor(
+      () => {
+        expect(requests.notes).toHaveLength(2)
+      },
+      { timeout: 4000 },
+    )
+    // Each save goes from the revision the last one returned.
+    expect(requests.notes[1]).toMatchObject({ revision: 1 })
+  })
+
+  it('shows readers the note, and no notes outside branches', async () => {
+    world({
+      note: {
+        body: { type: 'doc', content: [{ type: 'paragraph',
+          content: [{ type: 'text', text: 'He became a pirate.' }] }] },
+        revision: 1,
+      },
+    }) // prettier-ignore
+    await renderApp('/v/v1/e/crown?tl=b1', moduleDefinitions, { readOnly: true })
+    const notes = await screen.findByRole('region', { name: 'Notes in this timeline' }, WAIT)
+    expect(await within(notes).findByText('He became a pirate.')).toBeInTheDocument()
+    expect(within(notes).queryByRole('textbox')).toBeNull()
+  })
+
+  it('hides the notes in the prime timeline', async () => {
+    world()
+    await render('/v/v1/e/crown')
+    await screen.findByRole('region', { name: 'Lifespan' }, WAIT)
+    expect(screen.queryByRole('region', { name: 'Notes in this timeline' })).toBeNull()
   })
 })

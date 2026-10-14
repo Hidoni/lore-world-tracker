@@ -17,6 +17,7 @@ import {
 } from '@/core/events'
 import { EntityHistory } from '@/core/history'
 import { RelationsPanel } from '@/core/links'
+import type { EntityPanel, EntityViewProps } from '@/core/modules'
 import { forget, visit } from '@/core/navigation/places'
 import { useKind, type Kind } from '@/core/registry'
 import { isRevisionConflict } from '@/data'
@@ -39,6 +40,20 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="font-medium">{title}</h2>
       {children}
     </section>
+  )
+}
+
+const ALWAYS = () => true
+
+/** A module's entity panel in its section, unless its `useShown` hides it on this page. */
+function PanelSection({ panel, props }: { panel: EntityPanel; props: EntityViewProps }) {
+  const shown = (panel.useShown ?? ALWAYS)(props)
+  if (!shown) return null
+  const Panel = panel.component
+  return (
+    <Section title={panel.title}>
+      <Panel {...props} />
+    </Section>
   )
 }
 
@@ -232,18 +247,14 @@ function EntityView({
                   exclude={data.kind === EVENT ? EVENT_LINK_TYPES : []}
                 />
               </Section>
-              {main.map(({ id, title, component: Panel }) => (
-                <Section key={id} title={title}>
-                  <Panel {...props} />
-                </Section>
+              {main.map((panel) => (
+                <PanelSection key={panel.id} panel={panel} props={props} />
               ))}
             </div>
             {side.length > 0 && (
               <aside aria-label="Entity panels" className="flex flex-col gap-4">
-                {side.map(({ id, title, component: Panel }) => (
-                  <Section key={id} title={title}>
-                    <Panel {...props} />
-                  </Section>
+                {side.map((panel) => (
+                  <PanelSection key={panel.id} panel={panel} props={props} />
                 ))}
               </aside>
             )}

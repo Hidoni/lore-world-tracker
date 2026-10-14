@@ -156,6 +156,8 @@ export interface DataSource {
     timeline: string,
     query?: Query<'branches_timeline_diff'>,
   ): Promise<D<'BranchDiff'>>
+  /** A branch's note on an entity (body `null` and revision 0 when there is none). */
+  timelineNote(vault: string, entity: string, timeline: string): Promise<D<'NoteOut'>>
 }
 
 /**
@@ -286,4 +288,10 @@ export interface Mutations {
     recordType: 'event' | 'fact' | 'link',
     override: string,
   ): Promise<D<'OverrideOut'>>
+  putTimelineNote(
+    vault: string,
+    entity: string,
+    timeline: string,
+    body: Schemas['NoteIn'],
+  ): Promise<D<'NoteOut'>>
 }

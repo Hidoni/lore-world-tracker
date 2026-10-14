@@ -375,6 +375,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'BranchDiff',
       ),
+    timelineNote: async (vault, entity, timeline) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/branches/notes/{entity_id}/{timeline_id}`, {
+            params: { path: { vault_id: vault, entity_id: entity, timeline_id: timeline } },
+          }),
+        ),
+        'NoteOut',
+      ),
     graph: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/m/graph/graph`, { params: { ...path(vault), query } })),
@@ -706,6 +715,16 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           }),
         ),
         'OverrideOut',
+      ),
+    putTimelineNote: async (vault, entity, timeline, body) =>
+      toDomain(
+        await unwrap(
+          client.PUT(`${V}/m/branches/notes/{entity_id}/{timeline_id}`, {
+            params: { path: { vault_id: vault, entity_id: entity, timeline_id: timeline } },
+            body,
+          }),
+        ),
+        'NoteOut',
       ),
     deleteLexiconEntry: async (vault, entry) =>
       toDomain(

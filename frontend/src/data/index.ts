@@ -179,11 +179,14 @@ export {
   useCreateBranch,
   useRevertOverride,
   useSaveOverride,
+  useSaveTimelineNote,
+  useTimelineNote,
   type BranchCreate,
   type BranchDiff,
   type DiffRecord,
   type OverrideInput,
   type OverrideRecordType,
+  type TimelineNote,
   type TimelineNode,
 } from './branches'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'

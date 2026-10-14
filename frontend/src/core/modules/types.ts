@@ -40,6 +40,8 @@ export interface EntityPanel {
   component: ComponentType<EntityViewProps>
   placement: 'main' | 'side'
   order?: number
+  /** Whether it shows on this page (a hook; default: always), e.g. only while a branch is viewed. */
+  useShown?: (props: EntityViewProps) => boolean
 }
 
 /** A module's rendering of one link's details (role and `data`) in the relations panel. */

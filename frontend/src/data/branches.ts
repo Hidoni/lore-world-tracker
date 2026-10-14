@@ -15,6 +15,7 @@ export type BranchDiff = Domain<Schemas['BranchDiff']>
 export type DiffRecord = Domain<Schemas['DiffRecord']>
 export type OverrideRecordType = 'event' | 'fact' | 'link'
 export type BranchCreate = Schemas['BranchCreate']
+export type TimelineNote = Domain<Schemas['NoteOut']>
 
 /**
  * What a branch created, overrode (before/after) and inherits across its branch point (`null`:
@@ -90,5 +91,32 @@ export function useRevertOverride(vault: string) {
     mutationFn: ({ recordType, id }: { recordType: OverrideRecordType; id: string }) =>
       mutations.revertOverride(vault, recordType, id),
     onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/** A branch's note on an entity (time-model.md §4.6); `null` timeline: nothing to ask. */
+export function useTimelineNote(vault: string, entity: string, timeline: string | null) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: keys.timelineNote(vault, entity, timeline ?? ''),
+    queryFn: () => source.timelineNote(vault, entity, timeline ?? ''),
+    enabled: timeline !== null,
+    retry: false,
+  })
+}
+
+/**
+ * Saves a branch's note on an entity (an empty body deletes it); `409 revision_conflict` when the
+ * note changed meanwhile. The saved note becomes the cached one.
+ */
+export function useSaveTimelineNote(vault: string, entity: string, timeline: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['NoteIn']) =>
+      mutations.putTimelineNote(vault, entity, timeline, body),
+    onSuccess: (note) => {
+      client.setQueryData(keys.timelineNote(vault, entity, timeline), note)
+    },
   })
 }
