@@ -46,6 +46,8 @@ test('E6: relationships with validity → family tree → the time cursor change
   await page.goto(lore.url(aria.id))
   await expect(page.getByRole('heading', { name: 'Aria', level: 1 })).toBeVisible()
   await page.getByRole('link', { name: 'Open the family tree view' }).click()
+  // The entity page's own family tree has the same controls: wait for the view first.
+  await expect(page.getByRole('heading', { name: 'Family tree of Aria', level: 1 })).toBeVisible()
   await page.getByRole('checkbox', { name: 'As a list' }).check()
   const people = page.getByTestId('family-list-person')
   await expect(
