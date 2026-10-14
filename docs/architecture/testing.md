@@ -99,6 +99,7 @@ Measured on the `large` sample vault on a typical dev laptop:
 | Calendar proposal apply on a large vault (the `large` sample world: 23k dependents, 1.6 GB; it backs the whole vault up first. Decided 2026-10-10; the preview stays < 5 s) | < 30 s |
 | Full consistency scan (100k events; `tests/consistency/test_consistency_perf.py`) | < 10 s |
 | Graph endpoint, 10k nodes | < 1 s |
+| Graph page pan/zoom at 10k nodes and 50k edges, layout frozen or running (`make bench-graph`, on a GPU) | median frame ≤ 34 ms, p95 ≤ 100 ms; drawn < 8 s |
 | Timeline pan/zoom with 1,000 visible items | 60 fps (Playwright trace) |
 
 Perf tests are marked `perf`; `make perf` runs the backend ones (`make bench` the chronology
@@ -110,6 +111,14 @@ relative chains, series, private content). `tests/sample_world.py` builds that w
 caches it in `LORE_SAMPLE_CACHE` (default `backend/.pytest_cache/d/sample-worlds`), keyed by the
 generator, the app version and the migrations; the tests work on a copy.
 `LORE_PERF_SAMPLE_SIZE=small` runs them on a smaller world for a quick try.
+
+`make bench-graph` (`scripts/graph-bench.sh`) measures the graph page in a real browser. It
+seeds a throwaway vault with 10k entities and 50k links
+(`backend/scripts/make_graph_bench_vault.py`), serves it, and runs `frontend/e2e/graph.bench.ts`
+in a headed Chromium (`e2e/bench.config.ts`). For the default limit and for "Show up to 20,000",
+with the layout frozen and running, it pans and zooms for 4 s while timing animation frames, then
+prints one PASS/FAIL line per case with the WebGL renderer. It needs a GPU: headless or GPU-less
+browsers draw WebGL in software (SwiftShader, llvmpipe) and fail it, so it isn't part of CI.
 
 ### 4.0 Results
 

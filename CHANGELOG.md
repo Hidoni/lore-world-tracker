@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Bigger graphs** (#320): when there are too many entities to show, the graph offers to show
+  up to 20,000, and large graphs hide their edges while you pan or zoom so the view keeps up.
+  `make bench-graph` measures the graph page at 10k entities in a real browser.
 - **Unlinked mentions** (#112): the backlinks panel lists the places where other entities'
   text names this one, by its name or an alias, without linking to it (ignoring case and
   accents). Each one shows in context and can be linked in place with one click, or all of a

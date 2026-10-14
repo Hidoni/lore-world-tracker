@@ -11,6 +11,7 @@ import { useGraph, useTags, type GraphData } from '@/data'
 import {
   DEFAULT_FILTERS,
   graphQuery,
+  MAX_NODES,
   readPositions,
   readViews,
   viewKey,
@@ -319,7 +320,9 @@ export default function GraphPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [asList, setAsList] = useState(false)
-  const query = graphQuery(filters, context.dimensionId, asOf)
+  // Raised by the truncation notice, back to the server's default when the filters change.
+  const [limit, setLimit] = useState<number | undefined>(undefined)
+  const query = graphQuery(filters, context.dimensionId, asOf, limit)
   const graph = useGraph(vault, query)
   const key = viewKey(filters)
   const [positions, setPositions] = useState(() => readPositions(vault, key))
@@ -347,6 +350,7 @@ export default function GraphPage() {
   }
   const change = (next: GraphFilters): void => {
     setFilters(next)
+    setLimit(undefined)
     setPositions(readPositions(vault, viewKey(next)))
     setSelected(null)
   }
@@ -389,8 +393,20 @@ export default function GraphPage() {
         <div className="flex flex-wrap gap-4 border-b px-4 py-1 text-sm text-muted-foreground">
           {data?.truncated === true && (
             <p role="status">
-              Too many entities: the {data.nodes.length} best connected are shown. Filter, or show
-              one entity’s neighborhood, to see the rest.
+              Too many entities: the {data.nodes.length.toLocaleString()} best connected are shown.
+              Filter, or show one entity’s neighborhood, to see the rest.
+              {limit === undefined && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="ml-1 h-auto p-0"
+                  onClick={() => {
+                    setLimit(MAX_NODES)
+                  }}
+                >
+                  Show up to {MAX_NODES.toLocaleString()}
+                </Button>
+              )}
             </p>
           )}
           {asOf !== undefined && (

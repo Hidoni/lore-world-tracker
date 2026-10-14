@@ -25,6 +25,8 @@ export interface CanvasEdge {
 }
 
 const DIMMED = '#cbd5e1'
+/** Above this many edges, they're hidden while the camera moves (drawing them is the cost). */
+const HIDE_EDGES_ON_MOVE = 2000
 
 /** Where a node starts without a cached position: on a spiral, so the layout untangles fast. */
 function seed(index: number): [number, number] {
@@ -132,6 +134,7 @@ export default function GraphCanvas({
     try {
       renderer = new Sigma(graph, container.current, {
         labelRenderedSizeThreshold: 6,
+        hideEdgesOnMove: graph.size > HIDE_EDGES_ON_MOVE,
         zIndex: true,
         nodeReducer: (node, data) => {
           const { hovered, highlighted, selected } = state.current
