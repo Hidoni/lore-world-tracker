@@ -149,6 +149,13 @@ export interface DataSource {
     vault: string,
     query?: Query<'species_descent_tree'>,
   ): Promise<D<'DescentTree'>>
+  // The branches module (docs/modules/branches.md).
+  /** What a branch created, overrode and inherits across its branch point. */
+  branchDiff(
+    vault: string,
+    timeline: string,
+    query?: Query<'branches_timeline_diff'>,
+  ): Promise<D<'BranchDiff'>>
 }
 
 /**
@@ -271,4 +278,12 @@ export interface Mutations {
     body: Schemas['ImportIn'],
     dryRun: boolean,
   ): Promise<Schemas['ImportReport']>
+  // The branches module.
+  createBranch(vault: string, body: Schemas['BranchCreate']): Promise<EntityWriteResult>
+  saveOverride(vault: string, body: Schemas['OverrideCreate']): Promise<D<'OverrideOut'>>
+  revertOverride(
+    vault: string,
+    recordType: 'event' | 'fact' | 'link',
+    override: string,
+  ): Promise<D<'OverrideOut'>>
 }

@@ -68,7 +68,18 @@ Core tables only (`timelines`, override rows in time-bound tables, `entity_timel
 - Rules `core.branch.shared_past_modified` (warning: a branch's own event, fact or link starting
   before the branch point) and `branches.override_start_changed` (hard).
 
-Hiding branches when the module is disabled comes with the UI (#116).
+### Implemented (#116)
+
+- The timeline switcher in the top bar, the create-branch dialog (from the switcher, the
+  timeline's context menu "Branch here…" at the moment clicked, and an event's "What if…" menu:
+  branch at its start or end, anchored to it), badges and "Edit in this timeline" for events,
+  facts (lifespans and temporal fields) and links, and "Only in <branch>" on branch-only entities
+  (`frontend.md`, Branches).
+- With the module disabled the switcher offers the prime timeline only and the UI offers no
+  branch creation or editing. The API still answers for branches (a `tl` in a URL keeps
+  working); hiding their records server-side is not done.
+
+Compare mode, the timeline page and per-timeline notes come with #117.
 
 ## UI
 

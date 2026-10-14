@@ -4,12 +4,20 @@ import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { BoundsEditor, useDimensionLenses, useTimeContext, type Bounds } from '@/core/time'
 import {
+  BoundsEditor,
+  TimePointPicker,
+  useDimensionLenses,
+  useTimeContext,
+  type Bounds,
+} from '@/core/time'
+import {
+  ApiError,
   fieldErrors,
   useCreateFact,
   useEntity,
   useQuickSearch,
+  useSaveOverride,
   useUpdateFact,
   type components,
   type Fact,
@@ -279,6 +287,147 @@ export function FactForm({
           disabled={mutation.isPending || problem !== null || timeline === null}
         >
           {fact === undefined ? 'Add' : 'Save'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/**
+ * Edit a fact in a branch (time-model.md §4.4): an inherited value still valid at the branch point
+ * (or the branch's override of one) may change its value, when it stops being valid and its note.
+ * Its start is the shared past. Saving creates or updates the branch's override of `rootId`.
+ */
+export function OverrideFactForm({
+  vault,
+  entity,
+  fieldKey,
+  field,
+  fact,
+  rootId,
+  timelineId,
+  branchName,
+  labels,
+  onDone,
+  onCancel,
+}: {
+  vault: string
+  entity: { id: string; kind: string; dimension_id: string | null }
+  fieldKey: string
+  field?: FieldDef
+  /** The fact as the branch sees it (the inherited one, or the branch's override). */
+  fact: Fact
+  /** The inherited fact being overridden. */
+  rootId: string
+  timelineId: string
+  branchName: string | null
+  labels?: { from: string; to: string }
+  onDone: () => void
+  onCancel: () => void
+}) {
+  const id = useId()
+  const context = useTimeContext(vault)
+  const dimensionId = entity.dimension_id ?? context.dimensionId
+  const { dimension, lenses } = useDimensionLenses(vault, dimensionId)
+  const save = useSaveOverride(vault)
+  const [value, setValue] = useState<unknown>(fact.value)
+  const [until, setUntil] = useState<TimePoint | null>((fact.valid_to ?? null) as TimePoint | null)
+  const [note, setNote] = useState(fact.note ?? '')
+  const problem =
+    field === undefined ? null : value === null ? 'Enter a value.' : validateField(field, value)
+  const failure =
+    save.error === null
+      ? null
+      : save.error instanceof ApiError
+        ? (save.error.errors[0]?.message ?? save.error.detail)
+        : save.error.message
+
+  const submit = (): void => {
+    if (problem !== null) return
+    const changes: Record<string, unknown> = {
+      valid_to: until,
+      note: note.trim() === '' ? null : note.trim(),
+    }
+    if (fieldKey !== EXISTS) changes.value = field ? normalizeField(field, value) : value
+    save.mutate({ recordType: 'fact', rootId, timelineId, changes }, { onSuccess: onDone })
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-md border border-dashed p-3"
+      aria-label="Edit in this timeline"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+    >
+      <p className="text-sm text-muted-foreground">
+        Only {branchName ?? 'this branch'} changes. When this value starts is shared history, so
+        only {fieldKey === EXISTS ? 'when it ends' : 'the value and when it ends'} can differ.
+      </p>
+      {fieldKey === NAME && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-name`}>Name</Label>
+          <Input
+            id={`${id}-name`}
+            value={typeof value === 'string' ? value : ''}
+            maxLength={500}
+            onChange={(event) => {
+              setValue(event.target.value === '' ? null : event.target.value)
+            }}
+          />
+        </div>
+      )}
+      {field !== undefined && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-value`}>{field.label}</Label>
+          <FieldEditor
+            field={field}
+            id={`${id}-value`}
+            value={value}
+            invalid={problem !== null && value !== null}
+            onChange={setValue}
+            onCommit={() => undefined}
+            onCancel={onCancel}
+          />
+          {problem !== null && value !== null && (
+            <p className="text-sm text-destructive">{problem}</p>
+          )}
+        </div>
+      )}
+      {dimension !== null && (
+        <TimePointPicker
+          vault={vault}
+          dimension={dimension}
+          lenses={lenses}
+          value={until}
+          onChange={setUntil}
+          label={labels?.to ?? 'Until'}
+        />
+      )}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`${id}-note`}>Note</Label>
+        <Input
+          id={`${id}-note`}
+          value={note}
+          maxLength={5000}
+          onChange={(event) => {
+            setNote(event.target.value)
+          }}
+        />
+      </div>
+      {failure !== null && (
+        <p role="alert" className="text-sm text-destructive">
+          {failure}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={save.isPending || problem !== null}>
+          Save in this timeline
         </Button>
       </div>
     </form>

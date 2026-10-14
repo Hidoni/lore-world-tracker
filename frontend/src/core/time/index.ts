@@ -52,3 +52,16 @@ export {
   type Cursor,
   type TimeContext,
 } from './time-context'
+export {
+  flattenTimelines,
+  lineageOf,
+  recordPlace,
+  useBranching,
+  type Branching,
+  type LineageEntry,
+  type RecordPlace,
+  type TimeBoundRecord,
+} from './branching'
+export { CreateBranchDialog, type CreateBranchOptions } from './create-branch-dialog'
+export { TimelineSwitcher } from './timeline-switcher'
+export { RecordBranchBadge } from './branch-badge'

@@ -20,6 +20,7 @@ import {
 } from '@/core/time'
 import { useEntity, useTimelines, type Entity } from '@/data'
 
+import { EventBranchStatus, useEventPlace, WhatIfMenu } from './event-branch'
 import { EventDialog } from './event-dialog'
 import { eventTime, IMPORTANCE, type EventTime } from './event-time'
 import { OccurrenceRefLabel } from './recurrence/lazy'
@@ -218,6 +219,10 @@ export function EventTimeSection({
     {},
     { enabled: entity.parent_id !== null },
   )
+  const found = useEventPlace(vault, entity)
+  // In a branch, an inherited event changes only through an override (or not at all: the
+  // shared past); editing its time here would change every timeline that shares it.
+  const inherited = found.place !== null && found.place.kind !== 'own'
   if (dimension === null || lens === null) {
     return <p className="text-sm text-muted-foreground">Loading…</p>
   }
@@ -250,7 +255,8 @@ export function EventTimeSection({
         {time.category !== null && <Badge variant="outline">{time.category}</Badge>}
         {time.recurring && <Badge variant="outline">Recurring</Badge>}
         <div className="flex-1" />
-        {editable && (
+        {editable && <WhatIfMenu vault={vault} entity={entity} />}
+        {editable && !inherited && (
           <Button
             variant="outline"
             size="sm"
@@ -262,6 +268,7 @@ export function EventTimeSection({
           </Button>
         )}
       </div>
+      <EventBranchStatus vault={vault} entity={entity} editable={editable} found={found} />
       {time.status !== null && time.status !== 'ok' && (
         <p role="status" className="text-destructive">
           {timeProblemMessage(time.status, `This event’s time has a problem (${time.status}).`)}

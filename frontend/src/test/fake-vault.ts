@@ -69,6 +69,8 @@ export interface Row {
   body: unknown
   /** Kind-specific data (dimensions, calendars, …); wire format. */
   ext?: unknown
+  /** A branch-only entity's branch (time-model.md §4.6). */
+  origin_timeline_id?: string | null
 }
 
 /** A document's text (paragraphs joined by spaces). */
@@ -158,10 +160,11 @@ export function row(id: string, kindKey: string, name: string, extra: Partial<Ro
   }
 }
 
-function out(entity: Row) {
+/** An entity row as the API returns it (`EntityOut`). */
+export function entityOut(entity: Row) {
   return {
     ...entity,
-    origin_timeline_id: null,
+    origin_timeline_id: entity.origin_timeline_id ?? null,
     slug: entity.name.toLowerCase(),
     body_schema_version: entity.body === null ? null : 1,
     icon: null,
@@ -211,6 +214,9 @@ export interface LinkRow {
   valid_to_t?: string | null
   /** Valid only possibly where it is valid (an uncertain bound), for as-of reads. */
   possible?: boolean
+  /** Temporal links' timeline, and a branch's override of a link (branches). */
+  timeline_id?: string | null
+  overrides_id?: string | null
 }
 
 export interface FactRow {
@@ -221,6 +227,8 @@ export interface FactRow {
   valid_from_t?: string | null
   valid_to_t?: string | null
   timeline_id?: string
+  /** A branch's override of a fact: its root (branches). */
+  overrides_id?: string | null
   /** Covers its moments only possibly (an uncertain bound). */
   possible?: boolean
   source_event_id?: string | null
@@ -238,6 +246,7 @@ function factOut(fact: FactRow) {
     value: fact.field_key === 'core.exists' ? true : null,
     value_t: null,
     timeline_id: 'd1-prime',
+    overrides_id: null,
     valid_from: point(fact.valid_from_t),
     valid_to: point(fact.valid_to_t),
     valid_from_t: null,
@@ -272,6 +281,7 @@ function linkOut(link: LinkRow) {
     visibility: 'public',
     revision: 1,
     timeline_id: null,
+    overrides_id: null,
     valid_from: null,
     valid_to: null,
     time_status: null,
@@ -855,7 +865,7 @@ export function serveVault(
         )
       if (sort.endsWith('name')) items.sort((a, b) => a.name.localeCompare(b.name))
       if (sort.startsWith('-')) items.reverse()
-      return HttpResponse.json(paged(items.map(out), url))
+      return HttpResponse.json(paged(items.map(entityOut), url))
     }),
     http.get('*/api/v1/vaults/v1/tree', ({ request }) => {
       const url = new URL(request.url)
@@ -1458,7 +1468,7 @@ export function serveVault(
       const items = [...rows.values()]
         .filter((entity) => entity.deleted_at !== null)
         .map((entity) => ({
-          ...out(entity),
+          ...entityOut(entity),
           orphan_count: [...rows.values()].filter(
             (child) => child.parent_id === entity.id && child.deleted_at === null,
           ).length,
@@ -1467,7 +1477,7 @@ export function serveVault(
     }),
     http.get('*/api/v1/vaults/v1/entities/:id', ({ params }) => {
       const entity = found(params.id)
-      return entity ? HttpResponse.json(out(entity)) : new HttpResponse(null, { status: 404 })
+      return entity ? HttpResponse.json(entityOut(entity)) : new HttpResponse(null, { status: 404 })
     }),
     http.get('*/api/v1/vaults/v1/search', ({ request }) => {
       // Names and body text containing the query; a body match gets a snippet.
@@ -1801,7 +1811,7 @@ export function serveVault(
     }),
     http.get('*/api/v1/vaults/v1/entities/:id/children', ({ params }) =>
       HttpResponse.json({
-        items: [...rows.values()].filter((entity) => entity.parent_id === params.id).map(out),
+        items: [...rows.values()].filter((entity) => entity.parent_id === params.id).map(entityOut),
         next_cursor: null,
       }),
     ),
@@ -1857,7 +1867,7 @@ export function serveVault(
         revision: entity.revision + 1,
       })
       return HttpResponse.json({
-        entity: out(entity),
+        entity: entityOut(entity),
         affected: { entities: [entity.id, ...changed], ...NOTHING },
       })
     }),
@@ -1871,7 +1881,7 @@ export function serveVault(
       return HttpResponse.json({
         id: entity.id,
         purged: purge,
-        entity: purge ? null : out(entity),
+        entity: purge ? null : entityOut(entity),
         affected: { entities: [entity.id], ...NOTHING },
       })
     }),
@@ -1881,7 +1891,7 @@ export function serveVault(
       if (!entity) return new HttpResponse(null, { status: 404 })
       entity.deleted_at = null
       return HttpResponse.json({
-        entity: out(entity),
+        entity: entityOut(entity),
         affected: { entities: [entity.id], ...NOTHING },
       })
     }),
@@ -1895,7 +1905,7 @@ export function serveVault(
       })
       rows.set(created.id, created)
       return HttpResponse.json(
-        { entity: out(created), affected: { entities: [created.id], ...NOTHING } },
+        { entity: entityOut(created), affected: { entities: [created.id], ...NOTHING } },
         { status: 201 },
       )
     }),

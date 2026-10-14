@@ -228,6 +228,7 @@ class Facts:
             value=value,
             value_t=value_t,
             timeline_id=fact.timeline_id,
+            overrides_id=fact.overrides_id,
             valid_from=times.point(fact.valid_from_spec, dimension_id, owner=fact.id),
             valid_to=times.point(fact.valid_to_spec, dimension_id, owner=fact.id),
             valid_from_t=fact.valid_from_t,

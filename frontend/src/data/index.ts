@@ -173,6 +173,18 @@ export {
   type LexiconQuery,
 } from './languages'
 export { useGraph, type GraphData, type GraphQuery } from './graph'
+export {
+  useBranchDiff,
+  useCreateBranch,
+  useRevertOverride,
+  useSaveOverride,
+  type BranchCreate,
+  type BranchDiff,
+  type DiffRecord,
+  type OverrideInput,
+  type OverrideRecordType,
+  type TimelineNode,
+} from './branches'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,

@@ -366,6 +366,15 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'LexiconEntryOut',
       ),
+    branchDiff: async (vault, timeline, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/branches/timelines/{timeline_id}/diff`, {
+            params: { path: { vault_id: vault, timeline_id: timeline }, query },
+          }),
+        ),
+        'BranchDiff',
+      ),
     graph: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/m/graph/graph`, { params: { ...path(vault), query } })),
@@ -677,6 +686,26 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           }),
         ),
         'LexiconWriteResult',
+      ),
+    createBranch: async (vault, body) =>
+      withEntity(
+        await unwrap(client.POST(`${V}/m/branches/timelines`, { params: path(vault), body })),
+      ),
+    saveOverride: async (vault, body) =>
+      toDomain(
+        await unwrap(client.POST(`${V}/m/branches/overrides`, { params: path(vault), body })),
+        'OverrideOut',
+      ),
+    revertOverride: async (vault, recordType, override) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/branches/overrides/{record_type}/{override_id}`, {
+            params: {
+              path: { vault_id: vault, record_type: recordType, override_id: override },
+            },
+          }),
+        ),
+        'OverrideOut',
       ),
     deleteLexiconEntry: async (vault, entry) =>
       toDomain(
