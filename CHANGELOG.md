@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-14
+
+Exploration (M8): see the world as a web of connections. A graph view maps every entity and how
+they link, mention and contain each other: filtered, at the time cursor, saved as named views,
+smooth at 10,000 entities and 50,000 links. Every entity page shows its neighborhood, `Alt`+drag
+links two entities in either graph, and dropping entities on timeline events makes them
+participants or causes. The backlinks panel finds where an entity is named but not yet linked,
+and links it in place. No storage changes: v0.6.0 vaults open as they are.
+
 ### Added
 
 - **Bigger graphs** (#320): when there are too many entities to show, the graph offers to show
@@ -473,7 +482,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.3.0...v0.4.0
