@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Branches** (#114): alternate timelines. A new branches module creates a "what if" branch
+  of any timeline at a branch point, which may be anchored to an event and then moves with it.
+  Everything that started before the branch point is shared, everything after diverges.
+  Entities and events created in a branch exist only there (and in its own branches): lists, the
+  tree, search and the graph show them when you look at that branch. Trashing a branch asks
+  before taking its branches and contents along. The sample world asks "What if Aurel survived".
+
 ## [0.7.0] - 2026-10-14
 
 Exploration (M8): see the world as a web of connections. A graph view maps every entity and how

@@ -238,6 +238,7 @@ export interface paths {
          *     ``include_multiversal=false``. ``name`` sorts ignoring case and accents, numbers by value.
          *     With ``at`` (and ``timeline``, default: the prime timeline of ``dimension``), entities that
          *     don't exist then are left out; a page may then be short and still have a ``next_cursor``.
+         *     Branch-only entities are listed only with a ``timeline`` of their branch (or a descendant).
          */
         get: operations["entities_list"];
         put?: never;
@@ -290,7 +291,8 @@ export interface paths {
         /**
          * Delete
          * @description Move to the trash, or purge from it (``409 conflict`` while the entity isn't trashed, has
-         *     children or is still referenced).
+         *     children or is still referenced). Trashing a branch timeline with descendant branches,
+         *     branch-only entities or records of its own needs ``cascade=true``.
          */
         delete: operations["entities_delete"];
         options?: never;
@@ -335,7 +337,8 @@ export interface paths {
         /**
          * Children
          * @description Children of every kind and dimension (not in the trash), sorted like the tree. ``at``
-         *     (with ``timeline``) filters by existence as in entity lists.
+         *     (with ``timeline``) filters by existence as in entity lists; ``timeline`` shows the
+         *     branch-only entities of its lineage.
          */
         get: operations["entities_children"];
         put?: never;
@@ -377,7 +380,8 @@ export interface paths {
          * Get
          * @description One level of the navigation tree: the roots (entities without a shown parent), or the
          *     children of ``parent``. Manually ordered entities (``sort_key``) first, then by name. ``at``
-         *     filters by existence as in entity lists (child counts don't).
+         *     filters by existence as in entity lists (child counts don't). ``timeline`` shows the
+         *     branch-only entities of its lineage, as in entity lists.
          */
         get: operations["tree_get"];
         put?: never;
@@ -752,7 +756,8 @@ export interface paths {
         /**
          * Search
          * @description Full-text search over names, aliases, summaries, bodies, fields and module documents,
-         *     best matches first, with highlighted snippets.
+         *     best matches first, with highlighted snippets. Branch-only entities (and their documents) are
+         *     found only with a ``timeline`` of their branch's lineage.
          */
         get: operations["search_search"];
         put?: never;
@@ -773,7 +778,7 @@ export interface paths {
         /**
          * Quick
          * @description The quick switcher: up to 20 names or aliases starting with the typed words, then names
-         *     or public aliases containing the typed text.
+         *     or public aliases containing the typed text (branch-only entities as in ``search``).
          */
         get: operations["search_quick"];
         put?: never;
@@ -1652,6 +1657,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/branches/timelines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Timeline Create
+         * @description A branch of ``parent_timeline_id`` at ``branch_point``, in the parent's dimension
+         *     (``time-model.md`` §4.1). The branch point must resolve within the dimension's time and may
+         *     only be anchored to records of the parent timeline (``422 branch_point_invalid``).
+         */
+        post: operations["branches_timeline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1821,6 +1848,27 @@ export interface components {
         Body_backups_restore: {
             /** File */
             file: string;
+        };
+        /** BranchCreate */
+        BranchCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** @description The timeline to branch from. */
+            parent_timeline_id: components["schemas"]["EntityId"];
+            /** @description Where the branch diverges: records starting before it are inherited. It may be anchored, but only to records of the parent timeline. */
+            branch_point: components["schemas"]["TimePoint"];
+            name: components["schemas"]["EntityName"];
+            /**
+             * Summary
+             * @description The premise (“What if…”).
+             * @default
+             */
+            summary?: string;
+            /** @description Defaults to the parent timeline's. */
+            visibility?: components["schemas"]["Visibility"] | null;
         };
         /**
          * CalendarAnchor
@@ -6019,7 +6067,10 @@ export interface operations {
     };
     entities_create: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Create it in this timeline of its dimension: in a branch, the entity is branch-only (shown in that branch and its descendants). */
+                timeline?: string | null;
+            };
             header?: never;
             path: {
                 /** @description Vault id (UUID). */
@@ -6138,6 +6189,8 @@ export interface operations {
             query?: {
                 /** @description Delete permanently (only entities already in the trash). */
                 purge?: boolean;
+                /** @description Confirm trashing what goes along (a branch's descendant branches and branch-only entities; else `409 cascade_required` lists them). */
+                cascade?: boolean;
             };
             header?: never;
             path: {
@@ -6956,7 +7009,7 @@ export interface operations {
             query?: {
                 /** @description Only this field's facts. */
                 field?: string | null;
-                /** @description Only facts of this timeline. */
+                /** @description Only facts visible in this timeline (its own and those it inherits). */
                 timeline?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
@@ -7194,6 +7247,8 @@ export interface operations {
                 include_multiversal?: boolean;
                 cursor?: string | null;
                 limit?: number;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -7234,6 +7289,8 @@ export interface operations {
                 kind?: string[] | null;
                 dimension?: string | null;
                 include_multiversal?: boolean;
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -8993,6 +9050,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Graph"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_timeline_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityWriteResult"];
                 };
             };
             /** @description Problem */

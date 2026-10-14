@@ -39,6 +39,28 @@ Core tables only (`timelines`, override rows in time-bound tables, `entity_timel
 - Deleting a branch: the generic entity delete on the timeline entity (trash) with cascade
   confirmation listing branch-own records and descendant branches.
 
+### Implemented (#114)
+
+- `POST /m/branches/timelines` creates the branch through `lore.core.time.branches.create_branch`
+  (core: the timeline kind's `ext` writes the row only for it). The branch point is resolved,
+  stored and linked to its anchor like any time slot (`timeline.branch_point`, referenceable), so
+  an anchored branch point moves with its event. An anchor to a record the parent timeline doesn't
+  see (a sibling branch's event, fact or link; another lineage's branch point) is refused with
+  `branch_point_invalid`; dimensions and calendars are timeless.
+- `core.timeline.branch_point_invalid` (hard) reports stored branch points outside `[0, D]` or
+  anchored to records the parent doesn't see.
+- Branch-only entities and how lists, the tree, search and the graph show them:
+  `time-model.md` §4.6. The graph also shows temporal links of the request's lineage only (of
+  prime timelines without `timeline`); entity link lists without a time cursor list every
+  timeline's links ("at any time"; each link carries its timeline).
+- The facts list with `timeline` lists the facts visible in it (its own and those it inherits).
+- Deleting: the generic entity delete with `cascade=true` (see API above).
+- The sample world has "What if Aurel survived" (at the start of his assassination) with a
+  branch-only group, an event and a fact.
+
+Overrides, the diff, per-timeline notes and `core.branch.shared_past_modified` come with #115;
+hiding branches when the module is disabled with the UI (#116).
+
 ## UI
 
 - **Timeline switcher** in the top bar (tree of timelines per dimension, with the branch point

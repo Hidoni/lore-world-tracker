@@ -1,7 +1,7 @@
 """Every time-bound read honors a branch (``time-model.md`` §4.3, #114): windows, event trees,
 causality, facts, state, links and the module reads with a time cursor, and the graph.
 
-The Empire (prime): the Reign 100–300, the Coronation at 100, the Assassination at 200 and the
+The Empire (prime): the Reign 100 to 300, the Coronation at 100, the Assassination at 200 and the
 Succession at 250. "Survives" branches at the Assassination (200) and adds the Rescue at 210;
 "Exile" branches from it at 250 (after it), "Plot" at 150 (before it).
 """
