@@ -1253,6 +1253,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/media/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description The media library, newest first. Readers see only items a visible context uses.
+         */
+        get: operations["media_list"];
+        put?: never;
+        /**
+         * Upload
+         * @description Upload a file (``security.md`` §3): its type is read from its bytes and must be an image
+         *     (png, jpeg, webp, gif, avif), a document (pdf, plain text, Markdown) or an SVG (served as an
+         *     attachment); images are decoded, and refused above the pixel limit. Files larger than
+         *     ``LORE_MAX_UPLOAD_MB`` are refused. The same bytes are stored once: uploading them again
+         *     returns the existing item (``created: false``). Refusals are ``422``, path ``file``.
+         */
+        post: operations["media_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description One item and where it is used (``404`` for readers unless a visible context uses it).
+         */
+        get: operations["media_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Trash
+         * @description Move to the trash (pages that use it show it as missing); the file is kept until the
+         *     item is purged by the daily collection (``docs/modules/media.md``, GC).
+         */
+        delete: operations["media_trash"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change the alt text or caption (``409`` when ``revision`` is stale).
+         */
+        patch: operations["media_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Bring an item back from the trash.
+         */
+        post: operations["media_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File
+         * @description The file (``security.md`` §3): ``Content-Type`` from the stored item, ``nosniff``, a
+         *     restrictive CSP, ``ETag`` (the hash, plus the size) and immutable caching. SVG and non-image
+         *     files are sent as attachments. Thumbnails exist for raster images only.
+         */
+        get: operations["media_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/entities/{entity_id}/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gallery
+         * @description The entity's gallery, in order.
+         */
+        get: operations["media_gallery"];
+        put?: never;
+        /**
+         * Add To Gallery
+         * @description Add an item to the gallery (at the end unless ``sort_key`` says where).
+         */
+        post: operations["media_add_to_gallery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/gallery/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove From Gallery
+         * @description Take an item out of the gallery (the item itself stays in the library).
+         */
+        delete: operations["media_remove_from_gallery"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Gallery Item
+         * @description Change a gallery item's caption, place (``sort_key``) or visibility.
+         */
+        patch: operations["media_update_gallery_item"];
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/locations/tree": {
         parameters: {
             query?: never;
@@ -2150,6 +2297,24 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_media_upload */
+        Body_media_upload: {
+            /**
+             * File
+             * @description The file (an allowed type, within the limit).
+             */
+            file: string;
+            /**
+             * Alt
+             * @default
+             */
+            alt?: string;
+            /**
+             * Caption
+             * @default
+             */
+            caption?: string;
+        };
         /** BranchCreate */
         BranchCreate: {
             /**
@@ -2993,6 +3158,8 @@ export interface components {
             icon?: components["schemas"]["Icon"] | null;
             color?: components["schemas"]["Color"] | null;
             sort_key?: components["schemas"]["SortKey"] | null;
+            /** @description The cover image: a media item (the media module checks it; null removes it). */
+            cover_media_id?: components["schemas"]["EntityId"] | null;
             /** Aliases */
             aliases?: components["schemas"]["AliasIn"][];
             /** Tags */
@@ -3328,6 +3495,8 @@ export interface components {
             icon?: components["schemas"]["Icon"] | null;
             color?: components["schemas"]["Color"] | null;
             sort_key?: components["schemas"]["SortKey"] | null;
+            /** @description The cover image: a media item (the media module checks it; null removes it). */
+            cover_media_id?: components["schemas"]["EntityId"] | null;
             /** Aliases */
             aliases?: components["schemas"]["AliasIn"][];
             /** Tags */
@@ -3776,6 +3945,52 @@ export interface components {
             name: string | null;
             /** Kind */
             kind: string | null;
+        };
+        /** GalleryItemCreate */
+        GalleryItemCreate: {
+            media_id: components["schemas"]["EntityId"];
+            /**
+             * Caption
+             * @default
+             */
+            caption?: string;
+            /** @description Default: after the last item. */
+            sort_key?: components["schemas"]["SortKey"] | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+        };
+        /** GalleryItemOut */
+        GalleryItemOut: {
+            /** Id */
+            id: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Media Id */
+            media_id: string;
+            /** Caption */
+            caption: string;
+            /** Sort Key */
+            sort_key: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Revision */
+            revision: number;
+            media: components["schemas"]["MediaItemOut"];
+        };
+        /** GalleryItemUpdate */
+        GalleryItemUpdate: {
+            /** Revision */
+            revision: number;
+            /** Caption */
+            caption?: string | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** GalleryOut */
+        GalleryOut: {
+            /** Entity Id */
+            entity_id: string;
+            /** Items */
+            items: components["schemas"]["GalleryItemOut"][];
         };
         /** Genealogy */
         Genealogy: {
@@ -4627,6 +4842,79 @@ export interface components {
             result_t: MomentString | null;
             /** Defined */
             defined: boolean;
+        };
+        /** MediaItemList */
+        MediaItemList: {
+            /** Items */
+            items: components["schemas"]["MediaItemOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** MediaItemOut */
+        MediaItemOut: {
+            /** Id */
+            id: string;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Filename
+             * @description The uploaded name (display only).
+             */
+            filename: string;
+            /** Mime */
+            mime: string;
+            /** Size */
+            size: number;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Alt */
+            alt: string;
+            /** Caption */
+            caption: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /**
+             * Refs
+             * @description Where it is used (as the request sees it).
+             */
+            refs?: components["schemas"]["MediaRefOut"][];
+        };
+        /** MediaItemUpdate */
+        MediaItemUpdate: {
+            /** Revision */
+            revision: number;
+            /** Alt */
+            alt?: string | null;
+            /** Caption */
+            caption?: string | null;
+        };
+        /** MediaRefOut */
+        MediaRefOut: {
+            /** Entity Id */
+            entity_id: string;
+            /**
+             * Context
+             * @description `body`, `field:<key>`, `cover`, `gallery`, `map` or `note`.
+             */
+            context: string;
+        };
+        /** MediaUploadResult */
+        MediaUploadResult: {
+            item: components["schemas"]["MediaItemOut"];
+            /**
+             * Created
+             * @description False when the same bytes were already stored.
+             */
+            created: boolean;
         };
         /** Members */
         Members: {
@@ -9112,6 +9400,407 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurrenceApplyOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_list: {
+        parameters: {
+            query?: {
+                /** @description Only items nothing uses. */
+                unused?: boolean;
+                /** @description Only items this entity uses. */
+                entity?: string | null;
+                /** @description In names, alt and captions. */
+                q?: string | null;
+                /** @description A type, or a prefix ending in `/`. */
+                mime?: string | null;
+                /** @description The items in the trash instead. */
+                trashed?: boolean;
+                cursor?: string | null;
+                limit?: number;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_media_upload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUploadResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_get: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_file: {
+        parameters: {
+            query?: {
+                /** @description A WebP thumbnail width, or the original. */
+                size?: "160" | "480" | "1280" | "original";
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_gallery: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_add_to_gallery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GalleryItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_remove_from_gallery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_update_gallery_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GalleryItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryItemOut"];
                 };
             };
             /** @description Problem */

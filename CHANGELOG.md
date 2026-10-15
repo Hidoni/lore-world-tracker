@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Media** (#126): upload images and files into a vault: png, jpeg, webp, gif and avif images,
+  pdf, text and Markdown documents, and SVG (downloaded, never shown inline). Files are checked by
+  their content, stored once however often they are uploaded, and served with thumbnails and
+  safe headers. Entities get cover images and galleries, and pages can show images. Readers see an
+  image only where a page they may see uses it. Unused files go to the trash after 30 days and are
+  deleted 30 days later; `lore vault check` reports missing files. New tables `media_items`,
+  `media_refs` and `media_gallery` (migrated automatically).
+
 ## [0.8.0] - 2026-10-15
 
 Advanced time (M9): stories that branch, worlds whose time runs differently and characters who

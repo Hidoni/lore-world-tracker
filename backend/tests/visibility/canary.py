@@ -7,12 +7,14 @@ content, its canary string, and the ids that must stay hidden.
 """
 
 import copy
+import io
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from lore.app import create_app
 from lore.config import Settings
@@ -354,6 +356,50 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _languages(b, home)
     _species(b, home)
     _branches(b, home)
+    _media(b, home)
+
+
+def _png(color: str) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", (4, 3), color).save(out, "PNG")
+    return out.getvalue()
+
+
+def _media(b: _Builder, home: dict[str, Any]) -> None:
+    """One item a reader sees (an image in a public body) and four they don't: an image only in
+    a private block, the cover of a private entity, a private gallery item and an unused upload,
+    each with canary text in its name, alt or caption."""
+    api = b.api
+
+    def upload(color: str, filename: str, alt: str = "") -> str:
+        response = api.client.post(
+            f"{api.base}/m/media/items", files={"file": (filename, _png(color))},
+            data={"alt": alt}, headers=HEADERS,
+        )  # fmt: skip
+        assert response.status_code == 201, response.json()
+        media_id: str = response.json()["item"]["id"]
+        return media_id
+
+    shown = upload("red", "lamp.png", alt="the lantern at night")
+    b.canary.records["Shown media"] = shown
+    secret = upload("black", f"{b.canary_string()}.png", alt=b.canary_string())
+    cover = upload("blue", "cover.png", alt=b.canary_string())
+    in_gallery = upload("green", "plate.png", alt=b.canary_string())
+    unused = upload("white", f"{b.canary_string()}.png")
+    b.canary.hidden_ids |= {secret, cover, in_gallery, unused}
+
+    def image(media_id: str) -> dict[str, Any]:
+        return {"type": "image", "attrs": {"mediaId": media_id, "alt": "", "caption": ""}}
+
+    album = b.public("gadget", "Album", body=doc(image(shown), private(image(secret))), **home)
+    b.hidden("gadget", visibility="private", cover_media_id=cover, **home)
+    added = api.client.post(
+        f"{api.base}/m/media/entities/{album['id']}/gallery",
+        json={"media_id": in_gallery, "caption": b.canary_string(), "visibility": "private"},
+        headers=HEADERS,
+    )
+    assert added.status_code == 201, added.json()
+    b.canary.hidden_ids.add(added.json()["id"])
 
 
 def _branches(b: _Builder, home: dict[str, Any]) -> None:

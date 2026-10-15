@@ -248,6 +248,7 @@ class EntityService:
             icon=data.icon,
             color=data.color.lower() if data.color else None,
             sort_key=data.sort_key,
+            cover_media_id=data.cover_media_id,
         )
         if data.parent_id is not None:
             self._check_parent(None, kind, data.dimension_id, data.parent_id)
@@ -360,12 +361,12 @@ class EntityService:
             entity.field_visibility = kind_fields.merge_visibility(
                 entity.field_visibility, data.field_visibility
             )
-        if "icon" in sent:
-            entity.icon = data.icon
+        # cover_media_id: the media module checks it (a derived hook).
+        for member in ("icon", "sort_key", "cover_media_id"):
+            if member in sent:
+                setattr(entity, member, getattr(data, member))
         if "color" in sent:
             entity.color = data.color.lower() if data.color else None
-        if "sort_key" in sent:
-            entity.sort_key = data.sort_key
 
     def trash(self, entity_id: str, *, cascade: bool = False) -> EntityDeleteResult:
         """Move to the trash (idempotent). Children stay where they are: the trash view shows

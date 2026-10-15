@@ -94,6 +94,9 @@ class ModuleSpec:
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
     kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()                   # run before any entity is purged
+    derived_hooks: tuple[DerivedHook, ...] = ()               # rebuild derived rows on every changeset
+    maintenance_tasks: tuple[MaintenanceTask, ...] = ()       # daily, per open vault (author mode)
+    derived_checks: tuple[DerivedDataCheck, ...] = ()         # extra `lore vault check`/`reindex` checks
     settings_model: type[BaseModel] | None = None
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None
@@ -107,7 +110,14 @@ also holds core's own definitions (the field types of `data-model.md` §4.2, kin
 …)` (`time-model.md` §6; record types `<module id>.<type>`, models among the module's `models`).
 Extension points whose machinery comes later (timeline tables, graph,
 backup and publish contributors) are accepted and stored as opaque objects
-until their issue defines the protocol. `search_contributors` are
+until their issue defines the protocol. `derived_hooks` (#126) are
+`(VaultContext, Sequence[RecordedChange]) -> None`: the enabled modules' hooks run with the
+changes each changeset is about to record, before the consistency check, for every writer and
+undo, to rebuild derived rows (the media module's `media_refs`); raising a typed error refuses the
+write. `maintenance_tasks` are `(VaultContext, now) -> None`, run once a day per open vault in
+author mode by the scheduler, in one write transaction (media garbage collection).
+`derived_checks` are `lore.core.maintenance.DerivedDataCheck`s that `lore vault check` and
+`lore vault reindex` run after core's, for the enabled modules. `search_contributors` are
 `lore.core.search.SearchContributor(doc_type, documents, label, icon)`; `visibility_filters` are
 `lore.core.visibility.VisibilityFilter(model, visibility_column, entity_columns)`
 (`visibility-and-sharing.md` §3): `doc_type` is

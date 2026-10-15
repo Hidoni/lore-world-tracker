@@ -45,6 +45,7 @@ class MaintenanceScheduler:
             self.manager.run_scheduled_backups,
             self.manager.run_scheduled_optimize,
             self.manager.run_scheduled_cleanup,
+            self.manager.run_scheduled_module_tasks,
         ):
             try:
                 task()

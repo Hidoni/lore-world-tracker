@@ -120,6 +120,7 @@ def run_checks(
         try:
             problems = sqlite_problems(session)
             context = VaultContext(vault, session, registry)
+            checks = with_module_checks(context, checks)
             for check in checks:
                 problems += check.verify(context)
         finally:
@@ -127,6 +128,17 @@ def run_checks(
     return CheckReport(
         ("integrity", "foreign_keys", *(check.id for check in checks)), tuple(problems)
     )
+
+
+def with_module_checks(
+    context: VaultContext, checks: Sequence[DerivedDataCheck]
+) -> tuple[DerivedDataCheck, ...]:
+    """``checks`` and the enabled modules' (``ModuleSpec.derived_checks``)."""
+    from lore.core.modules.service import enabled_modules  # noqa: PLC0415 (import cycle)
+
+    enabled = enabled_modules(context.session, context.registry)
+    extra = [c for m in context.registry.modules if m.id in enabled for c in m.derived_checks]
+    return (*checks, *extra)
 
 
 def reindex_vault(
@@ -143,7 +155,7 @@ def reindex_vault(
     with vault.write_sessions.begin() as session:
         record_only(session)
         context = VaultContext(vault, session, registry)
-        for check in checks:
+        for check in with_module_checks(context, checks):
             counts[check.id] = check.rebuild(context)
         counts["consistency"] = sum(scan(context).values())
     return counts

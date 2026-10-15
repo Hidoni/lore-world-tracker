@@ -54,6 +54,10 @@ class _EntityWrite(_Input):
     icon: Icon | None = None
     color: Color | None = None
     sort_key: SortKey | None = None
+    cover_media_id: EntityId | None = Field(
+        default=None,
+        description="The cover image: a media item (the media module checks it; null removes it).",
+    )
     aliases: list[AliasIn] = Field(default_factory=list, max_length=500)
     tags: list[TagName] = Field(default_factory=list, max_length=500)
     ext: JsonObject | None = Field(

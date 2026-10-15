@@ -11,14 +11,15 @@ from lore.modules.graph import MODULE as GRAPH
 from lore.modules.groups import MODULE as GROUPS
 from lore.modules.languages import MODULE as LANGUAGES
 from lore.modules.locations import MODULE as LOCATIONS
+from lore.modules.media import MODULE as MEDIA
 from lore.modules.misc import MODULE as MISC
 from lore.modules.species import MODULE as SPECIES
 from lore.modules.worldlines import MODULE as WORLDLINES
 
 # Every module's spec, in dependency order. Explicit: no entry points, no discovery (§2.2).
 ALL_MODULES: list[ModuleSpec] = [
-    MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES, GRAPH, BRANCHES, CORRESPONDENCES,
-    WORLDLINES,
+    MEDIA, MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES, GRAPH, BRANCHES,
+    CORRESPONDENCES, WORLDLINES,
 ]  # fmt: skip
 
 

@@ -256,13 +256,13 @@ def test_cli_check(cli_vault: tuple[str, Path]) -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["vault", "check", vault])
     assert result.exit_code == 0, result.output
-    assert result.output == "ok (schema, integrity, foreign_keys, search, mentions, time)\n"
+    assert result.output == "ok (schema, integrity, foreign_keys, search, mentions, time, media)\n"
     report = runner.invoke(cli.app, ["vault", "check", vault, "--json"])
     assert report.exit_code == 0, report.output
     assert json.loads(report.output) == {
         "vault": vault,
         "ok": True,
-        "checks": ["schema", "integrity", "foreign_keys", "search", "mentions", "time"],
+        "checks": ["schema", "integrity", "foreign_keys", "search", "mentions", "time", "media"],
         "problems": [],
     }
 
@@ -285,6 +285,7 @@ def test_cli_check(cli_vault: tuple[str, Path]) -> None:
     # two dimensions and their prime timelines
     assert fixed.output == (
         "search: rebuilt 4 documents\nmentions: rebuilt 4 entities\ntime: rebuilt 0 time slots\n"
+        "media: rebuilt 4 entities\n"
     )
     assert runner.invoke(cli.app, ["vault", "check", vault]).exit_code == 0
     assert runner.invoke(cli.app, ["vault", "check", "nope"]).exit_code == 1

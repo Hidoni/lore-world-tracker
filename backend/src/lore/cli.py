@@ -233,6 +233,10 @@ def vault_reindex(vault: VaultArgument) -> None:
         manager.close()
     for check in DERIVED_DATA:
         typer.echo(f"{check.id}: rebuilt {counts[check.id]} {check.unit}")
+    modules = manager.module_registry.modules if manager.module_registry else []
+    for check in (c for module in modules for c in module.derived_checks):
+        if check.id in counts:  # the enabled modules' checks
+            typer.echo(f"{check.id}: rebuilt {counts[check.id]} {check.unit}")
 
 
 @vault_app.command("optimize")
