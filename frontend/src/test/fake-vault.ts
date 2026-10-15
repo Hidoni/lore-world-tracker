@@ -71,6 +71,8 @@ export interface Row {
   ext?: unknown
   /** A branch-only entity's branch (time-model.md §4.6). */
   origin_timeline_id?: string | null
+  /** The cover image (the media module). */
+  cover_media_id?: string | null
 }
 
 /** A document's text (paragraphs joined by spaces). */
@@ -169,7 +171,7 @@ export function entityOut(entity: Row) {
     body_schema_version: entity.body === null ? null : 1,
     icon: null,
     color: null,
-    cover_media_id: null,
+    cover_media_id: entity.cover_media_id ?? null,
     sort_key: null,
     ext: entity.ext ?? null,
     created_at: '2026-10-11T10:00:00.000000+00:00',
@@ -1853,6 +1855,9 @@ export function serveVault(
         ...(typeof body.name === 'string' ? { name: body.name } : {}),
         ...(typeof body.visibility === 'string' ? { visibility: body.visibility } : {}),
         ...('parent_id' in body ? { parent_id: body.parent_id as string | null } : {}),
+        ...('cover_media_id' in body
+          ? { cover_media_id: body.cover_media_id as string | null }
+          : {}),
         ...(aliases
           ? {
               aliases: aliases.map((alias, i) => ({

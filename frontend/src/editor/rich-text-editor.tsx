@@ -25,9 +25,10 @@ import { toast } from 'sonner'
 
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
 import { useExtensionList } from '@/core/modules'
-import { useDataSource } from '@/data'
+import { useDataSource, useMutations } from '@/data'
 import { cn } from '@/lib/utils'
 
+import { editorContextOf } from './context'
 import { insertEntityLink } from './entity-link'
 import { editorExtensions } from './extensions'
 import type { NameResolver } from './markdown-paste'
@@ -122,6 +123,12 @@ export default function RichTextEditor({
     [extensions],
   )
   const [creating, setCreating] = useState<{ name: string; state: SuggestionState } | null>(null)
+  const mutations = useMutations()
+  useEffect(() => {
+    const context = editorContextOf(editor)
+    context.vault = vault
+    context.mutations = mutations
+  }, [editor, vault, mutations])
 
   return (
     <div className="rounded-md border">

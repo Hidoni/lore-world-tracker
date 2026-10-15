@@ -45,7 +45,7 @@ describe('buildKindRegistry', () => {
       panels: [],
     })
     expect(registry.kind('odd')?.icon).toBe(CircleIcon) // unknown icon names fall back
-    expect(registry.kind('relic')?.headerMedia).toBeNull()
+    expect(registry.kind('relic')?.headerMedia).toEqual([])
   })
 
   it('merges active modules’ UI configs, panels and renderers', () => {
@@ -70,7 +70,7 @@ describe('buildKindRegistry', () => {
       createDefaults: { age: 1 },
     })
     expect(relic?.panels.map((panel) => panel.id)).toEqual(['fixture.first', 'fixture.later'])
-    expect(relic?.headerMedia).not.toBeNull()
+    expect(relic?.headerMedia).toHaveLength(1)
     expect(registry.kind('dimension')?.panels.map((panel) => panel.id)).toEqual(['fixture.first'])
     expect(registry.linkType('fixture.guards')?.renderer).not.toBeNull()
     expect(registry.kind('nope')).toBeUndefined()

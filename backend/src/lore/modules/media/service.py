@@ -202,6 +202,41 @@ class Media:
         self.session.flush()
         return self.out(row)
 
+    def replace(
+        self, media_id: str, data: bytes, filename: str | None, *, revision: int
+    ) -> MediaItemOut:
+        """Put other bytes under the item (the library's "replace file"): everything that uses
+        it shows the new file. An image stays an image; bytes another item already holds are
+        refused (``409``, that item in ``context``). The old file stays on disk, so undo works."""
+        row = self.item(media_id, trashed=False)
+        if revision != row.revision:
+            raise ConflictError(
+                f"The media item changed (revision {row.revision}, the edit is based on "
+                f"{revision}).",
+                context={"current_revision": row.revision},
+            )
+        try:
+            sniffed = storage.sniff(data, filename or "")
+        except storage.MediaRejectedError as error:
+            raise _invalid("file", str(error)) from error
+        if row.mime in storage.RASTER and sniffed.mime not in storage.RASTER:
+            raise _invalid("file", "An image can only be replaced by an image.")
+        sha256 = storage.digest(data)
+        if sha256 == row.sha256:
+            return self.out(row)
+        other = self.session.scalars(
+            select(MediaItem.id).where(MediaItem.sha256 == sha256)
+        ).one_or_none()
+        if other is not None:
+            raise ConflictError("The library already has this file.", context={"media_id": other})
+        storage.store(self.vault_path, sha256, data)
+        row.sha256, row.mime, row.size = sha256, sniffed.mime, len(data)
+        row.width, row.height = sniffed.width, sniffed.height
+        row.filename = _display_name(filename)
+        recorder.describe(self.session, f"Replaced the file of {row.filename}")
+        self.session.flush()
+        return self.out(row)
+
     def trash(self, media_id: str, now: datetime | None = None) -> MediaItemOut:
         """Move to the trash (idempotent); the file stays until the item is purged."""
         row = self.item(media_id)

@@ -26,10 +26,11 @@ function uploadWithProgress<T>(
   path: string,
   form: FormData,
   onProgress: (fraction: number) => void,
+  method: 'POST' | 'PUT' = 'POST',
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', path)
+    xhr.open(method, path)
     xhr.setRequestHeader(CLIENT_HEADER, 'web')
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total)
@@ -268,6 +269,29 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
           }),
         ),
         'EntityLinks',
+      ),
+    mediaItems: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/media/items`, { params: { ...path(vault), query } })),
+        'MediaItemList',
+      ),
+    mediaItem: async (vault, media) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/media/items/{media_id}`, {
+            params: { path: { vault_id: vault, media_id: media } },
+          }),
+        ),
+        'MediaItemOut',
+      ),
+    gallery: async (vault, entity) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/media/entities/{entity_id}/gallery`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+          }),
+        ),
+        'GalleryOut',
       ),
     maps: async (vault, query) =>
       toDomain(
@@ -747,6 +771,89 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
         ),
         'RecurrenceApplyOut',
       ),
+    uploadMedia: async (vault, file, form = {}, onProgress = () => undefined) => {
+      const body = new FormData()
+      if (form.filename !== undefined) body.append('file', file, form.filename)
+      else body.append('file', file)
+      if (form.alt) body.append('alt', form.alt)
+      if (form.caption) body.append('caption', form.caption)
+      return toDomain(
+        await uploadWithProgress<Schemas['MediaUploadResult']>(
+          `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items`,
+          body,
+          onProgress,
+        ),
+        'MediaUploadResult',
+      )
+    },
+    updateMedia: async (vault, media, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/media/items/{media_id}`, {
+            params: { path: { vault_id: vault, media_id: media } },
+            body,
+          }),
+        ),
+        'MediaItemOut',
+      ),
+    trashMedia: async (vault, media) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/media/items/{media_id}`, {
+            params: { path: { vault_id: vault, media_id: media } },
+          }),
+        ),
+        'MediaItemOut',
+      ),
+    restoreMedia: async (vault, media) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/media/items/{media_id}/restore`, {
+            params: { path: { vault_id: vault, media_id: media } },
+          }),
+        ),
+        'MediaItemOut',
+      ),
+    replaceMediaFile: async (vault, media, file, revision, onProgress = () => undefined) => {
+      const body = new FormData()
+      body.append('file', file)
+      body.append('revision', String(revision))
+      return toDomain(
+        await uploadWithProgress<Schemas['MediaItemOut']>(
+          `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/file`,
+          body,
+          onProgress,
+          'PUT',
+        ),
+        'MediaItemOut',
+      )
+    },
+    addToGallery: async (vault, entity, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/media/entities/{entity_id}/gallery`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+            body,
+          }),
+        ),
+        'GalleryItemOut',
+      ),
+    updateGalleryItem: async (vault, item, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/media/gallery/{item_id}`, {
+            params: { path: { vault_id: vault, item_id: item } },
+            body,
+          }),
+        ),
+        'GalleryItemOut',
+      ),
+    removeFromGallery: async (vault, item) => {
+      const { error, response } = await client.DELETE(`${V}/m/media/gallery/{item_id}`, {
+        params: { path: { vault_id: vault, item_id: item } },
+      })
+      if (error !== undefined || !response.ok) throw await toApiError(response)
+    },
     createLexiconEntry: async (vault, language, body) =>
       toDomain(
         await unwrap(

@@ -34,6 +34,8 @@ regenerable.
   and dedupes by hash (uploading the same bytes returns the existing item).
 - `GET /m/media/items?unused=&entity=&q=&cursor=`: library listing.
 - `GET /m/media/items/{id}`, `PATCH /m/media/items/{id}` (alt, caption), `DELETE` (trash).
+- `PUT /m/media/items/{id}/file` (multipart: file, revision): replaces the file, keeping the id
+  (the library's "replace file").
 - `GET /m/media/items/{id}/file?size=160|480|1280|original`: streams the file. `ETag` = sha256,
   `Cache-Control: private, max-age=31536000, immutable`, plus the safe headers from `security.md`.
 - Gallery: `GET|POST /m/media/entities/{id}/gallery`, `PATCH|DELETE /m/media/gallery/{item_id}`.
@@ -107,6 +109,32 @@ Removal requires an export of `media/`.
   calls it when snapshots arrive.
 - The `media` field type holds an item id (a list for `multiple` fields); custom fields (M11) can
   use it.
+
+## Implementation notes (#127, UI)
+
+- **Replace file** (`Media.replace`): new bytes under the same item id, so every page, gallery,
+  cover and map that uses it shows the new file. An image can only be replaced by an image; bytes
+  another item already holds are refused (`409`, that item in `context.media_id`). The old file
+  stays on disk (undo puts the old hash back). The SPA adds the item's hash to file URLs (`&v=`),
+  since files are cached as immutable.
+- **`image` node** (`modules/media/editor/image-node.tsx`): pasting or dropping image files
+  uploads them (XHR, with progress) behind a placeholder decoration, so the document only ever
+  holds stored images; the slash menu's "Image" opens the image picker. The node view edits the
+  caption, the alt text and the width (Small 240, Medium 480, Large 960 px, Full). Editor
+  extensions reach the vault and the writes through the core editor context
+  (`editorContextOf(editor)`). Readers get a `<figure>` with a lazily loaded, `srcset`-sized image;
+  with the module disabled the node shows its alt text.
+- **Cover image**: the module's `entityHeaderMedia` for every kind (`'*'`), next to other modules'
+  header media; authors add, change and remove it (`cover_media_id`).
+- **Gallery panel** on every kind (shown to readers only when it has images): drag, or the
+  arrow buttons, to reorder (a `sort_key` between the new neighbours), captions saved on blur,
+  visibility per item, remove.
+- **Media library** (`/m/media/library`, command "Open the media library"): grid, filters (text,
+  type, unused, used by an entity, trash), multi-file upload, bulk trash/restore, and a sheet per
+  file (alt text, caption, "Used by", download, replace, trash/restore).
+- **`media` fields**: thumbnails when read; edited with the image picker (`fieldTypeEditors`).
+- **Image picker** (`ImagePickerDialog`): the library's images with search, plus upload; shared by
+  the editor, covers, galleries and fields.
 
 ## Future ideas
 

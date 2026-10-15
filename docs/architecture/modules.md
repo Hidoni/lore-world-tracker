@@ -197,7 +197,8 @@ defineModule({
   entityPanels: [{ id, kinds, title, component, placement: 'main' | 'side', order, useShown }],
   dimensionSections: [{ id, title, component, order }], // sections of the dimension overview
   linkTypeRenderers: { 'groups.member_of': MembershipRow },
-  fieldTypeRenderers: { 'media': MediaFieldEditor },
+  fieldTypeRenderers: { 'media': MediaFieldValue },  // a module field type's display
+  fieldTypeEditors: { 'media': MediaFieldEditor },   // and its editor (the fields panel)
   timelineLayers: [{ id, title, component }],   // overlays on the timeline view; component gets
                                                  // { vault, timeline, dimensionId, v, height }
   graphStyles: { nodes: {...}, edges: {...} },
@@ -220,7 +221,8 @@ defineModule({
 Implementation (`core/modules/`, `core/registry/`, #60):
 
 - `defineModule` (`core/modules/types.ts`) types every extension point above plus
-  `entityHeaderMedia` (header media per kind) and `dependsOn` (the modules whose `public.ts` it
+  `entityHeaderMedia` (header media per kind, `'*'` for every kind; each module's entry shows,
+  in module order) and `dependsOn` (the modules whose `public.ts` it
   imports). The module `id` is the backend module's.
 - `app/` passes `@/modules` to `ModuleDefinitionsProvider` (core never imports modules). A module
   is **active** in a vault when it and all of its `dependsOn` are `enabled` in `GET /registry`

@@ -168,14 +168,16 @@ function EntityView({
   const editable = useMutations() !== null && data.deleted_at === null
   const main = kind?.panels.filter((panel) => panel.placement === 'main') ?? []
   const side = kind?.panels.filter((panel) => panel.placement === 'side') ?? []
-  const Media = kind?.headerMedia ?? null
+  const media = kind?.headerMedia ?? []
   const props = { vault, entityId: data.id, kind: data.kind }
 
   return (
     <article className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
       {data.deleted_at !== null && <TrashBanner vault={vault} id={data.id} name={data.name} />}
       <div className="flex gap-4">
-        {Media !== null && <Media {...props} />}
+        {media.map((Media, index) => (
+          <Media key={index} {...props} />
+        ))}
         <div className="flex-1">
           <EntityHeader vault={vault} entity={data} kind={kind} saver={saver} />
         </div>

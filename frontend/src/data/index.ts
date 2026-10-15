@@ -216,7 +216,6 @@ export {
 } from './worldlines'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
-  mediaFileUrl,
   useEntityPins,
   useMapDetail,
   useMaps,
@@ -226,6 +225,27 @@ export {
   type MapQuery,
   type MapRecord,
 } from './maps'
+export {
+  IMAGE_TYPES,
+  isImage,
+  mediaFileUrl,
+  useAddToGallery,
+  useGallery,
+  useMediaItem,
+  useMediaItems,
+  useRemoveFromGallery,
+  useReplaceMediaFile,
+  useRestoreMedia,
+  useTrashMedia,
+  useUpdateGalleryItem,
+  useUpdateMedia,
+  useUploadMedia,
+  type GalleryItem,
+  type MediaItem,
+  type MediaQuery,
+  type MediaSize,
+  type UploadInput,
+} from './media'
 export {
   useLocationEvents,
   useLocationResidents,

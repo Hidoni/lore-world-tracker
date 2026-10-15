@@ -29,7 +29,8 @@ export interface Kind {
   fields: readonly Schemas['FieldOut'][]
   /** Entity panels of active modules for this kind, ordered. */
   panels: readonly EntityPanel[]
-  headerMedia: ComponentType<EntityViewProps> | null
+  /** The modules' header media for this kind (`entityHeaderMedia`), in module order. */
+  headerMedia: readonly ComponentType<EntityViewProps>[]
   listColumns: readonly string[]
   createDefaults: Readonly<Record<string, unknown>>
   /** The text field the sidebar groups the kind's top level by, if any. */
@@ -63,7 +64,12 @@ export function buildKindRegistry(
   modules: readonly ModuleDefinition[],
 ): KindRegistry {
   const panels = collectList(modules, 'entityPanels')
-  const headerMedia = collectRecord(modules, 'entityHeaderMedia')
+  const headerMedia = (kind: string) =>
+    modules.flatMap((module) => {
+      const media = module.entityHeaderMedia
+      const shown = media?.[kind] ?? media?.['*']
+      return shown === undefined ? [] : [shown]
+    })
   const renderers = collectRecord(modules, 'linkTypeRenderers')
   const ui = Object.assign({}, ...modules.map((module) => module.kinds ?? {})) as NonNullable<
     ModuleDefinition['kinds']
@@ -84,7 +90,7 @@ export function buildKindRegistry(
       capabilities: kind.capabilities,
       fields: kind.fields,
       panels: panels.filter((panel) => panel.kinds === '*' || panel.kinds.includes(kind.key)),
-      headerMedia: headerMedia[kind.key] ?? null,
+      headerMedia: headerMedia(kind.key),
       listColumns: config.listColumns ?? [],
       createDefaults: config.createDefaults ?? {},
       groupBy: config.groupBy ?? null,

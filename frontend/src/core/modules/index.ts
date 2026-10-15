@@ -16,6 +16,7 @@ export {
   type EditorExtension,
   type EntityPanel,
   type EntityViewProps,
+  type FieldEditorExtensionProps,
   type FieldRendererProps,
   type GraphStyles,
   type KindUiConfig,

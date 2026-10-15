@@ -118,6 +118,36 @@ def test_uploads_are_stored_by_content_and_deduplicated(
     assert (again.json()["created"], again.json()["item"]["id"]) == (False, item["id"])
 
 
+def test_replacing_a_file_keeps_the_item(client: TestClient, library: Library) -> None:
+    item = library.uploaded(png(40, 30), "old.png")
+    url = f"{library.base}/items/{item['id']}/file"
+
+    def replace(data: bytes, filename: str, revision: int) -> Any:
+        return client.put(url, files={"file": (filename, data)},
+                          data={"revision": str(revision)}, headers=HEADERS)  # fmt: skip
+
+    new = png(80, 60, "blue")
+    response = replace(new, "new.png", item["revision"])
+    assert response.status_code == 200, response.json()
+    replaced = response.json()
+    assert replaced["id"] == item["id"]
+    assert (replaced["filename"], replaced["width"], replaced["sha256"]) == (
+        "new.png", 80, storage.digest(new)
+    )  # fmt: skip
+    assert library.file(item["id"]).content == new
+    assert replace(png(10, 10), "x.png", item["revision"]).status_code == 409  # stale
+    # An image stays an image; bytes another item holds name it.
+    pdf = replace(b"%PDF-1.4\n%%EOF\n", "x.pdf", replaced["revision"])
+    assert invalid(pdf) == ["file"]
+    # Undo brings the old file back.
+    library.undo_last()
+    assert library.file(item["id"]).content == png(40, 30)
+    other = library.uploaded(png(5, 5, "green"), "other.png")
+    taken = replace(png(5, 5, "green"), "again.png", library.get(item["id"]).json()["revision"])
+    assert taken.status_code == 409
+    assert taken.json()["context"]["media_id"] == other["id"]
+
+
 @pytest.mark.parametrize(
     ("data", "filename", "message"),
     [
