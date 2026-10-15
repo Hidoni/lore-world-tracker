@@ -8,6 +8,7 @@ import groups from './groups'
 import languages from './languages'
 import locations from './locations'
 import maps from './maps'
+import media from './media'
 import misc from './misc'
 import species from './species'
 import worldlines from './worldlines'
@@ -26,5 +27,6 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   branches,
   correspondences,
   worldlines,
+  media,
   maps,
 ]

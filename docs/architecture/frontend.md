@@ -445,7 +445,7 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
   links, autosave, "Done" closes it; the create dialog asks for a required one as plain
   paragraphs, and lists of rich text are shown but not edited yet), `duration` and
   `time_point` are shown but not editable until M5, and a module's `fieldTypeRenderers` replaces a
-  type's display. The fields panel groups by `section` (collapsed sections are remembered per
+  type's display (`fieldTypeEditors` brings an editor for its own types: the media picker). The fields panel groups by `section` (collapsed sections are remembered per
   kind in `localStorage`), saves text on Enter or blur (multi-line: Ctrl/Cmd+Enter), choices at
   once, clears with an empty value (`null`), shows server field errors under the field, and sets
   per-field visibility overrides. The create dialog (react-hook-form) also asks for the kind's

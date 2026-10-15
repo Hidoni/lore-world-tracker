@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Images in pages** (#127): paste or drop images into a page (they upload with progress) or
+  add one from the slash menu, with alt text, a caption and a width. Entities get a cover image in
+  their header and a gallery to reorder and caption. The new media library lists every file with
+  filters (unused, by entity, type, trash), uploads several at once, edits alt texts and captions,
+  shows where each file is used, replaces a file everywhere it is used, and trashes files in
+  bulk. Media fields get an image picker.
 - **Map views** (#129): location pages show their maps (with a switcher when there are several),
   and each map has a full-screen page. Pins show their kind's icon and color, cluster when
   crowded, name themselves on hover and open a card on click with the summary, dates, a link to
