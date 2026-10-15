@@ -26,6 +26,10 @@ const VAULT_WIDE = [
   'locationTree',
   'locationEvents',
   'locationResidents',
+  // Maps show entity names, existence and pins.
+  'maps',
+  'mapDetail',
+  'entityPins',
   'characterRelationships',
   'characterLife',
   'characterFamilyTree',

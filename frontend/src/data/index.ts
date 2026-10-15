@@ -216,6 +216,17 @@ export {
 } from './worldlines'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
+  mediaFileUrl,
+  useEntityPins,
+  useMapDetail,
+  useMaps,
+  type EntityPins,
+  type MapDetail,
+  type MapPin,
+  type MapQuery,
+  type MapRecord,
+} from './maps'
+export {
   useLocationEvents,
   useLocationResidents,
   useLocationTree,
