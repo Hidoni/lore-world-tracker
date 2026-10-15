@@ -20,7 +20,7 @@
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -75,7 +75,9 @@ PARTICIPANT = "core.participant"
 # A personal timeline lists at most this many items (participations above all).
 MAX_ITEMS = 5000
 # Items of the same subjective (and world) moment: existence starts first, ends last.
-_KIND_ORDER = {"existence_start": 0, "jump": 1, "participation": 2, "existence_end": 3}
+# Items of the same subjective moment and segment: existence starts first, then participations
+# (a departure event before its jump), ends last.
+_KIND_ORDER = {"existence_start": 0, "participation": 1, "jump": 2, "existence_end": 3}
 
 
 def _invalid(path: str, message: str, code: str = "invalid_value") -> InvalidInputError:
@@ -108,6 +110,22 @@ class Lived:
 
     def subjective(self, index: int, t: int) -> Fraction:
         return subjective_at(self.spans[index], self.starts[index], t)
+
+
+type Assignment = Literal["chosen", "implied", "ambiguous", "absent"]
+
+
+@dataclass
+class Participation:
+    """A participation placed in the worldline (``Worldlines.participations``)."""
+
+    link: Link
+    event: Entity
+    covering: list[int]
+    """The covering segments (indexes into the worldline), the one used first."""
+    assignment: Assignment
+    timeline_id: str | None
+    t: int | None
 
 
 @dataclass
@@ -380,7 +398,8 @@ class Worldlines:
             items.extend(self._existence(lived))
         if "jumps" in wanted:
             items.extend(self._jumps(lived))
-        items.sort(key=_order)
+        positions = {span.id: i for i, span in enumerate(lived.spans) if span.id is not None}
+        items.sort(key=lambda item: _order(item, positions))
         return PersonalTimeline(
             entity_id=entity.id,
             implicit=lived.implicit,
@@ -432,10 +451,12 @@ class Worldlines:
             and span.covers(t)
         ]
 
-    def _participations(self, lived: Lived) -> list[PersonalItem]:
-        """The events the entity takes part in, placed in the segments that cover their start in
-        a timeline that sees them. A link's ``data.segment_id`` picks the segment when several
-        cover it."""
+    def participations(self, lived: Lived) -> list[Participation]:
+        """The events the entity takes part in (live ``core.participant`` links the request
+        sees), each with the segments covering its start in a timeline of the worldline that sees
+        it (§11.4). A link's ``data.segment_id`` chooses the segment: one that doesn't cover the
+        event makes the entity absent from it. Without it, the one covering segment is implied,
+        and several are ambiguous (the first in worldline order is used)."""
         event_entity = Entity
         links = list(
             self.session.execute(
@@ -466,35 +487,58 @@ class Worldlines:
             )
             for row in rows:
                 starts[(timeline_id, row.entity_id)] = row.start_t
-        items: list[PersonalItem] = []
+        found: list[Participation] = []
         for link, event in links:
             # The timelines of the worldline that see the event, in worldline order.
             seen = [
-                (i, span, starts[(span.timeline_id, event.id)])
+                (i, span.timeline_id, starts[(span.timeline_id, event.id)])
                 for i, span in enumerate(lived.spans)
                 if span.timeline_id is not None
                 and span.dimension_id == event.dimension_id
                 and (span.timeline_id, event.id) in starts
             ]
-            covering = [i for i, span, start in seen if start is not None and span.covers(start)]
+            covering = [
+                i for i, _, start in seen if start is not None and lived.spans[i].covers(start)
+            ]
             picked = (link.data or {}).get("segment_id")
+            assignment: Assignment
             if isinstance(picked, str):
-                covering.sort(key=lambda i: lived.spans[i].id != picked)
-            place = next((x for x in seen if x[0] == covering[0]), None) if covering else None
+                covering = [i for i in covering if lived.spans[i].id == picked]
+                assignment = "chosen" if covering else "absent"
+            elif len(covering) == 1:
+                assignment = "implied"
+            else:
+                assignment = "ambiguous" if covering else "absent"
+            place = next((x for x in seen if covering and x[0] == covering[0]), None)
             place = place or (seen[0] if seen else None)
-            items.append(
-                self._item(
-                    lived,
-                    "participation",
-                    dimension_id=event.dimension_id,
-                    timeline_id=None if place is None else place[1].timeline_id,
-                    t=None if place is None else place[2],
+            found.append(
+                Participation(
+                    link=link,
+                    event=event,
                     covering=covering,
-                    event_id=event.id,
-                    name=event.name,
-                    roles=[link.role] if link.role else [],
+                    assignment=assignment,
+                    timeline_id=None if place is None else place[1],
+                    t=None if place is None else place[2],
                 )
             )
+        return found
+
+    def _participations(self, lived: Lived) -> list[PersonalItem]:
+        items = [
+            self._item(
+                lived,
+                "participation",
+                dimension_id=p.event.dimension_id,
+                timeline_id=p.timeline_id,
+                t=p.t,
+                covering=p.covering,
+                event_id=p.event.id,
+                name=p.event.name,
+                roles=[p.link.role] if p.link.role else [],
+                assignment=p.assignment,
+            )
+            for p in self.participations(lived)
+        ]
         return _merge_roles(items)
 
     def _existence(self, lived: Lived) -> list[PersonalItem]:
@@ -651,6 +695,11 @@ class Worldlines:
         for row in rows:
             self.session.refresh(row)
         self._validate(rows)
+        return self.written(entity)
+
+    def written(self, entity: Entity) -> WorldlineWriteResult:
+        """The worldline after a write, and what the write affected."""
+        rows = self.rows_of(entity.id)
         dimensions = sorted(
             {r.dimension_id for r in rows}
             | ({entity.dimension_id} if entity.dimension_id else set())
@@ -661,6 +710,19 @@ class Worldlines:
         return WorldlineWriteResult(
             worldline=self.worldline_out(self.lived(entity)),
             affected=report_time(self.session, self.context.registry, affected),
+        )
+
+    def rows_of(self, entity_id: str) -> list[WorldlineSegment]:
+        """The entity's explicit segments (every one: for writes), in worldline order."""
+        return list(
+            self.session.scalars(
+                select(WorldlineSegment)
+                .where(
+                    WorldlineSegment.entity_id == entity_id,
+                    WorldlineSegment.overrides_id.is_(None),
+                )
+                .order_by(WorldlineSegment.seq, WorldlineSegment.id)
+            )
         )
 
     def _check(self, position: int, segment: SegmentIn) -> None:
@@ -717,7 +779,9 @@ def _merge_roles(items: list[PersonalItem]) -> list[PersonalItem]:
     return list(merged.values())
 
 
-def _order(item: PersonalItem) -> tuple[Any, ...]:
+def _order(item: PersonalItem, positions: dict[str, int]) -> tuple[Any, ...]:
+    """By subjective time, then worldline order (a traveler's later visit can start at an
+    earlier world moment), then world time and kind."""
     subjective = (
         None
         if item.subjective_t is None
@@ -726,6 +790,7 @@ def _order(item: PersonalItem) -> tuple[Any, ...]:
     return (
         subjective is None,
         subjective or Fraction(0),
+        positions.get(item.segment_id or "", 0),
         item.t is None,
         0 if item.t is None else int(item.t),
         _KIND_ORDER[item.kind],

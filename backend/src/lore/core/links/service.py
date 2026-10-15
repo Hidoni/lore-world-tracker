@@ -66,7 +66,7 @@ from lore.core.richtext.models import Mention
 from lore.core.time.changes import report as report_time
 from lore.core.time.dependencies import SlotNode
 from lore.core.time.dimensions import prime_timeline
-from lore.core.time.models import Timeline
+from lore.core.time.models import Timeline, WorldlineSegment
 from lore.core.time.overrides import overrides_of, sync_starts
 from lore.core.time.propagate import TimeWriter
 from lore.core.time.redact import ReaderTimes
@@ -79,6 +79,7 @@ from lore.core.visibility import AUTHOR, VisibilityPolicy
 TIMELINE_KIND = "timeline"
 LINK = "link"
 SLOTS = ("valid_from", "valid_to")
+PARTICIPANT = "core.participant"
 
 
 class LinkTypeNotAllowedError(InvalidInputError):
@@ -584,9 +585,20 @@ class LinkService:
             errors = data_errors(info.definition.data_schema, data.data)
             if errors:
                 raise InvalidInputError("The link data doesn't match its type.", errors=errors)
+            self._check_segment(info, link, data.data)
             link.data = data.data
         self._apply_validity(link, data, sent, source, target)
         self._check_validity(info, link)
+
+    def _check_segment(self, info: LinkTypeInfo, link: Link, data: dict[str, Any]) -> None:
+        """A participation's ``segment_id`` is a worldline segment of the participant
+        (``time-model.md`` §11.4): which of its visits takes part."""
+        segment_id = data.get("segment_id")
+        if info.key != PARTICIPANT or segment_id is None:
+            return
+        segment = self.session.get(WorldlineSegment, segment_id)
+        if segment is None or segment.entity_id != link.target_id:
+            raise _invalid("data.segment_id", "Not a segment of the participant's worldline.")
 
     def _apply_validity(
         self,

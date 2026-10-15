@@ -111,6 +111,11 @@ class PersonalItem(BaseModel):
     )
     name: str | None = None
     roles: list[str] = []
+    assignment: Literal["chosen", "implied", "ambiguous", "absent"] | None = Field(
+        default=None,
+        description="Participations (§11.4): the segment the link chose, the one covering "
+        "segment (implied), several (ambiguous: the first is used) or none (absent).",
+    )
     to_dimension_id: str | None = Field(default=None, description="Jumps: where to.")
     to_timeline_id: str | None = None
     to_t: MomentStr | None = None
@@ -125,3 +130,67 @@ class PersonalTimeline(BaseModel):
         description="By subjective time (items without one last, by world time)."
     )
     truncated: bool
+
+
+# --- time travel (the wizard's helper) ---------------------------------------------------------
+
+
+class Departure(BaseModel):
+    """When the entity leaves: an event (it moves with it) or a time point, in one of the
+    worldline's timelines; the last segment that covers it is cut there."""
+
+    event_id: EntityId | None = Field(default=None, description="Leave when this event starts.")
+    at: TimePoint | None = Field(default=None, description="Leave at this moment.")
+    timeline_id: EntityId | None = Field(
+        default=None,
+        description="With `at`: the timeline it is in (default: the last segment covering it).",
+    )
+    event_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=300,
+        description="With `at`: create a departure event of this name there.",
+    )
+
+
+class NewBranch(BaseModel):
+    """A branch created for the arrival (the `branches` module must be on)."""
+
+    name: str = Field(min_length=1, max_length=300)
+    summary: str = Field(default="", max_length=5000)
+    parent_timeline_id: EntityId | None = Field(
+        default=None, description="Default: the destination dimension's prime timeline."
+    )
+    branch_point: TimePoint | None = Field(default=None, description="Default: the arrival moment.")
+
+
+class Destination(BaseModel):
+    dimension_id: EntityId
+    timeline_id: EntityId | None = Field(
+        default=None, description="Default: the dimension's prime (or `new_branch`)."
+    )
+    new_branch: NewBranch | None = None
+    arrival: TimePoint
+    until: TimePoint | None = Field(
+        default=None, description="Where the new segment ends (default: the end of time)."
+    )
+    rate: Rational | None = None
+    event_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=300,
+        description="Create an arrival event of this name at the arrival.",
+    )
+
+
+class TimeTravelIn(SuppressIn):
+    departure: Departure
+    destination: Destination
+    note: str | None = Field(default=None, max_length=5000)
+
+
+class TimeTravelResult(WorldlineWriteResult):
+    timeline_id: str = Field(description="Where the entity arrived (a new branch, if asked).")
+    branch_id: str | None = None
+    departure_event_id: str | None = None
+    arrival_event_id: str | None = None
