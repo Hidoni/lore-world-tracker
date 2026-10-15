@@ -27,7 +27,12 @@ from lore.core.time.branch_reads import (
 from lore.core.time.branches import create_branch
 from lore.core.time.overrides import OverrideIn, OverrideResult, revert_override, save_override
 from lore.core.visibility import AUTHOR
-from lore.modules.branches.schemas import BranchCreate, OverrideCreate, OverrideOut
+from lore.modules.branches.schemas import (
+    RECORD_TYPE_PATTERN,
+    BranchCreate,
+    OverrideCreate,
+    OverrideOut,
+)
 
 router = APIRouter(tags=["branches"])
 
@@ -77,7 +82,7 @@ def save(
 @router.delete("/overrides/{record_type}/{override_id}", name="override_revert")
 def revert(
     *,
-    record_type: Annotated[Literal["event", "fact", "link"], Path()],
+    record_type: Annotated[str, Path(pattern=RECORD_TYPE_PATTERN)],
     override_id: Annotated[str, Path(pattern=ID_PATTERN, description="The override row.")],
     vault: WritableVaultDep,
     session: SessionDep,

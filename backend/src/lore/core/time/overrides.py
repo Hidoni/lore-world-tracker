@@ -54,15 +54,49 @@ _OWN = frozenset({"id", "timeline_id", "overrides_id", "revision", "created_at",
                   "deleted_at"})  # fmt: skip
 
 
+@dataclass(frozen=True)
+class ValidityRecord:
+    """A module table of validity records a branch may override like facts and links
+    (``time-model.md`` §4.4: map pins). Its rows have ``timeline_id``, ``overrides_id`` and the
+    ``valid_from``/``valid_to`` slots of the slot provider of ``record_type``; ``entity_of`` names
+    the entity whose visibility a row follows. Only ``valid_to`` may change (ending a pin at the
+    branch point removes it there)."""
+
+    record_type: str
+    model: type
+    entity_of: Callable[[Session, Any], str]
+
+
+_VALIDITY: dict[str, ValidityRecord] = {}
+
+
+def register_validity_record(record: ValidityRecord) -> ValidityRecord:
+    """Make a module table overridable (idempotent for the same declaration)."""
+    known = _VALIDITY.get(record.record_type)
+    if known is not None and known != record:
+        raise ValueError(f"{record.record_type} is already registered differently")
+    _VALIDITY[record.record_type] = record
+    return record
+
+
+def _allowed(record_type: str) -> frozenset[str]:
+    if record_type in _VALIDITY:
+        return frozenset({"valid_to"})
+    return ALLOWED.get(record_type, frozenset())
+
+
 class OverrideIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    record_type: str = Field(description="`event` (by entity id), `fact` or `link` (by id).")
+    record_type: str = Field(
+        description="`event` (by entity id), `fact`, `link` or a module's validity record such as "
+        "`maps.pin` (by id)."
+    )
     root_id: str = Field(description="The inherited record: an event's entity id, or a row id.")
     timeline_id: str = Field(description="The branch overriding it.")
     changes: dict[str, Any] = Field(
         description="Events: `end`, `recurrence`; facts: `value`, `valid_to`; links: `role`, "
-        "`data`, `valid_to`."
+        "`data`, `valid_to`; module validity records (`maps.pin`): `valid_to`."
     )
 
 
@@ -102,12 +136,17 @@ def _root(session: Session, record_type: str, root_id: str) -> tuple[Any, Any, s
         if row is None or entity is None or entity.deleted_at is not None:
             raise NotFoundError(f"No event {root_id}.")
         return Event, row, root_id
-    model: Any = EntityFact if record_type == FACT else Link
+    validity = _VALIDITY.get(record_type)
+    model: Any = (
+        validity.model if validity is not None else EntityFact if record_type == FACT else Link
+    )
     row = session.get(model, root_id)
     if row is None or row.deleted_at is not None:
         raise NotFoundError(f"No {record_type} {root_id}.")
     if row.overrides_id is not None:
         raise _invalid("root_id", "Override the record it overrides (its root) instead.")
+    if validity is not None:
+        return model, row, validity.entity_of(session, row)
     entity_id = row.entity_id if record_type == FACT else row.source_id
     return model, row, entity_id
 
@@ -125,7 +164,7 @@ def _target(
     context: Any, policy: VisibilityPolicy, record_type: str, root_id: str, timeline_id: str
 ) -> _Target:
     session = context.session
-    if record_type not in RECORD_TYPES:
+    if record_type not in RECORD_TYPES and record_type not in _VALIDITY:
         if record_type == "segment":
             raise _invalid("record_type", "Worldline segments come with worldlines (M9).",
                            "not_supported")  # fmt: skip
@@ -308,6 +347,13 @@ def _check_link(context: Any, target: _Target, timeline_id: str, changes: dict[s
     return out
 
 
+def _check_validity_record(context: Any, target: _Target, timeline_id: str,
+                           changes: dict[str, Any]) -> dict[str, Any]:  # fmt: skip
+    out: dict[str, Any] = {}
+    _check_validity(context, timeline_id, changes, target.cutoff, out)
+    return out
+
+
 _CHECKS: dict[str, Callable[..., dict[str, Any]]] = {
     EVENT: _check_event,
     FACT: _check_fact,
@@ -359,13 +405,14 @@ def _record_id(record_type: str, row: Any) -> str:
 def save_override(context: Any, policy: VisibilityPolicy, data: OverrideIn) -> OverrideResult:
     """Create (or update) the branch's override of an inherited spanning record."""
     session = context.session
-    unknown = set(data.changes) - ALLOWED.get(data.record_type, frozenset())
+    unknown = set(data.changes) - _allowed(data.record_type)
     target = _target(context, policy, data.record_type, data.root_id, data.timeline_id)
     if unknown:
         name = sorted(unknown)[0]
         raise _invalid(f"changes.{name}", f"A branch can't change {name!r} of a {data.record_type}"
                        ": only what lies after the branch point.")  # fmt: skip
-    values = _CHECKS[data.record_type](context, target, data.timeline_id, data.changes)
+    check: Callable[..., dict[str, Any]] = _CHECKS.get(data.record_type, _check_validity_record)
+    values = check(context, target, data.timeline_id, data.changes)
     row = _existing(session, target.model, target.root, data.timeline_id)
     if row is None:
         row = _copy(target.model, target.root, data.timeline_id)
@@ -395,13 +442,21 @@ def revert_override(context: Any, policy: VisibilityPolicy, record_type: str, ov
                     ) -> OverrideResult:  # fmt: skip
     """Delete an override: the branch sees the inherited record again."""
     session = context.session
-    model: Any = {EVENT: Event, FACT: EntityFact, LINK: Link}.get(record_type)
+    validity = _VALIDITY.get(record_type)
+    model: Any = (
+        validity.model
+        if validity is not None
+        else {EVENT: Event, FACT: EntityFact, LINK: Link}.get(record_type)
+    )
     if model is None:
         raise _invalid("record_type", f"Unknown record type {record_type!r}.", "invalid_value")
     row = session.get(model, override_id)
     if row is None or row.overrides_id is None:
         raise NotFoundError(f"No override {override_id}.")
-    entity_id = row.entity_id if record_type in (EVENT, FACT) else row.source_id
+    if validity is not None:
+        entity_id = validity.entity_of(session, row)
+    else:
+        entity_id = row.entity_id if record_type in (EVENT, FACT) else row.source_id
     if not policy.visible_ids(session, [entity_id, row.timeline_id]) >= {
         entity_id,
         row.timeline_id,
@@ -457,7 +512,10 @@ def sync_starts(context: Any, writer: TimeWriter, record_type: str, root: Any) -
             row.start_spec = root.start_spec
             writer.set_spec(series.EVENT_OVERRIDE, row.id, "start", root.start_spec)
         return
-    model: Any = EntityFact if record_type == FACT else Link
+    validity = _VALIDITY.get(record_type)
+    model: Any = (
+        validity.model if validity is not None else EntityFact if record_type == FACT else Link
+    )
     for row in session.scalars(select(model).where(model.overrides_id == root.id)):
         row.valid_from_spec = root.valid_from_spec
         if root.valid_from_spec is None:
@@ -477,7 +535,9 @@ __all__ = [
     "ALLOWED",
     "OverrideIn",
     "OverrideResult",
+    "ValidityRecord",
     "overrides_of",
+    "register_validity_record",
     "revert_override",
     "save_override",
     "sync_starts",

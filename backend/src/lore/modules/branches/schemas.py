@@ -1,8 +1,8 @@
 """Request bodies of the branches module."""
 
-from typing import Any, Literal
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from lore.chronology.schema import TimePoint
 from lore.core.consistency.schemas import SuppressIn
@@ -24,9 +24,13 @@ class BranchCreate(SuppressIn):
     )
 
 
+RECORD_TYPE_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$"
+
+
 class OverrideCreate(SuppressIn):
-    record_type: Literal["event", "fact", "link", "segment"] = Field(
-        description="What is overridden (segments come with worldlines)."
+    record_type: Annotated[str, StringConstraints(pattern=RECORD_TYPE_PATTERN)] = Field(
+        description="What is overridden: `event`, `fact`, `link`, or a module's validity record "
+        "(`maps.pin`)."
     )
     root_id: EntityId = Field(description="The inherited record: an event's entity id, or the "
                               "fact's or link's id.")  # fmt: skip
