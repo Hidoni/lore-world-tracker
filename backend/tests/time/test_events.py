@@ -275,7 +275,9 @@ def test_participants(api: LinkApi, world: dict[str, Any]) -> None:
     first = api.made_link("core.participant", battle, gadget, role="attacker")
     assert first["role"] == "attacker"
     assert api.link("core.participant", battle, gadget, role="witness").status_code == 201
-    api.made_link("core.participant", battle, beast, data={"segment_id": "s1"})
+    # A segment id names one of the participant's worldline segments (time-model.md §11.4).
+    refused = api.link("core.participant", battle, beast, data={"segment_id": "s1"})
+    assert invalid(refused) == ["data.segment_id"]
     assert invalid(api.link("core.participant", battle, beast, data={"rank": 1}))[0].startswith(
         "data"
     )
