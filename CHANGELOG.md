@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Map views** (#129): location pages show their maps (with a switcher when there are several),
+  and each map has a full-screen page. Pins show their kind's icon and color, cluster when
+  crowded, name themselves on hover and open a card on click with the summary, dates, a link to
+  the page and a way into the pinned place's own map; breadcrumbs lead back out. Layers toggle by
+  kind, and with a time cursor pins that aren't there are hidden or shown faded. Pinned entities
+  get "Show on map".
 - **Maps** (#128): attach image maps to locations and pin locations, events, characters or plain
   labels on them. Pins follow the time cursor: a pin with its own period shows while it lasts, any
   other while its target exists (an event: while it happens), and a branch can end a pin early.

@@ -269,6 +269,29 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'EntityLinks',
       ),
+    maps: async (vault, query) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/maps/maps`, { params: { ...path(vault), query } })),
+        'MapList',
+      ),
+    mapDetail: async (vault, map, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/maps/maps/{map_id}`, {
+            params: { path: { vault_id: vault, map_id: map }, query },
+          }),
+        ),
+        'MapDetail',
+      ),
+    entityPins: async (vault, entity) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/maps/entities/{entity_id}/pins`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+          }),
+        ),
+        'EntityPins',
+      ),
     characterRelationships: async (vault, character, query) =>
       toDomain(
         await unwrap(

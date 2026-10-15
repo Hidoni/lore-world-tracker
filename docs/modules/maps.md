@@ -54,7 +54,8 @@ None. Maps belong to locations.
 ## UI
 
 - **Map panel** on location pages (map switcher if several), and a full-screen map page
-  `/m/maps/maps/{id}`.
+  `/m/maps/maps/{id}` (`/m/maps/maps/{id}/pins/{pin}` opens it with that pin selected and
+  centered). Drilling into a map of another location from the panel opens the page.
 - Leaflet with `CRS.Simple` and an image overlay (bounds = image size). Markers use kind icons
   and colors. Clustering kicks in when crowded.
 - View mode: hover shows a tooltip, click opens a popover (name, summary, dates, "open page",
@@ -62,9 +63,14 @@ None. Maps belong to locations.
 - Edit mode: click to add a pin (entity search with "create location here"), drag to move,
   per-pin validity/visibility, "pin all child locations" helper (places unplaced children in a
   tray to drag in).
-- Layers: toggle by kind. Time cursor integration: pins not existing at the cursor are hidden or
-  ghosted (toggle).
-- Entity pages of pinned entities get "Show on map".
+- Layers: toggle by kind (pins without a target form the "Labels" layer). Time cursor
+  integration: pins not existing at the cursor are hidden or ghosted (toggle, "Ghost what isn't
+  there"). Ghost mode also loads the pins of the cursor's timeline at any time; pins only
+  possibly there (`shown: possible`) are faded in both modes. Without a cursor every pin shows.
+- Entity pages of pinned entities get a "Show on map" side panel (one entry per pin) that opens
+  the map at the pin; it is left out on entities pinned nowhere.
+- Leaflet and its clustering plugin load with the first map shown (frontend.md §12); the canvas
+  is `modules/maps/views/map-canvas.tsx`, the pin filtering `modules/maps/pins.ts`.
 
 ## Consistency rules
 

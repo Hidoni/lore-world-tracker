@@ -97,6 +97,10 @@ export interface DataSource {
     location: string,
     query?: Query<'locations_residents'>,
   ): Promise<D<'EntityLinks'>>
+  // The maps module (docs/modules/maps.md).
+  maps(vault: string, query?: Query<'maps_list'>): Promise<D<'MapList'>>
+  mapDetail(vault: string, map: string, query?: Query<'maps_get'>): Promise<D<'MapDetail'>>
+  entityPins(vault: string, entity: string): Promise<D<'EntityPins'>>
   // The characters module (docs/modules/characters.md).
   characterRelationships(
     vault: string,

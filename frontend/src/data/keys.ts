@@ -64,6 +64,10 @@ export const keys = {
   locationTree: (vault: string, params: object) => [vault, 'locationTree', params] as const,
   locationEvents: (vault: string, location: string, params: object) =>
     [vault, 'locationEvents', location, params] as const,
+  maps: (vault: string, params?: object) => [vault, 'maps', params ?? {}] as const,
+  mapDetail: (vault: string, map: string, params?: object) =>
+    [vault, 'mapDetail', map, params ?? {}] as const,
+  entityPins: (vault: string, entity: string) => [vault, 'entityPins', entity] as const,
   locationResidents: (vault: string, location: string, params?: object) =>
     [vault, 'locationResidents', location, params ?? {}] as const,
   characterRelationships: (vault: string, character: string, params?: object) =>
