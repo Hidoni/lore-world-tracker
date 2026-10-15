@@ -43,6 +43,8 @@ export const keys = {
   branchDiff: (vault: string, timeline: string) => [vault, 'branchDiff', timeline] as const,
   worldline: (vault: string, entity: string, params?: object) =>
     [vault, 'worldline', entity, params ?? {}] as const,
+  presence: (vault: string, entity: string, params: object) =>
+    [vault, 'presence', entity, params] as const,
   personalTimeline: (vault: string, entity: string, params?: object) =>
     [vault, 'personalTimeline', entity, params ?? {}] as const,
   correspondences: (vault: string, dimension: string | null) =>

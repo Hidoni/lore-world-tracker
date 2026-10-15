@@ -58,6 +58,7 @@ const PER_ENTITY = [
   'occurrences',
   'worldline',
   'personalTimeline',
+  'presence',
 ]
 /** Areas that show resolved moments. */
 const TIME = [

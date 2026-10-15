@@ -203,6 +203,7 @@ export {
 } from './correspondences'
 export {
   usePersonalTimeline,
+  usePresence,
   useReplaceSegments,
   useTimeTravel,
   useWorldline,

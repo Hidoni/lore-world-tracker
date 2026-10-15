@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api'
 
 import { useDataSource, useRequiredMutations } from './context'
-import type { Domain } from './domain'
+import { momentString, type Domain } from './domain'
 import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
 
@@ -28,6 +28,28 @@ export function useWorldline(
     queryKey: keys.worldline(vault, entity, query),
     queryFn: () => source.worldline(vault, entity, query),
     enabled,
+  })
+}
+
+/** The segments covering a moment (several: a time traveler there more than once). */
+export function usePresence(
+  vault: string,
+  entity: string,
+  at: { dimension: string; timeline: string | null; t: bigint } | null,
+) {
+  const source = useDataSource()
+  const query =
+    at === null
+      ? null
+      : {
+          dimension: at.dimension,
+          t: momentString(at.t),
+          ...(at.timeline === null ? {} : { timeline: at.timeline }),
+        }
+  return useQuery({
+    queryKey: keys.presence(vault, entity, query ?? {}),
+    queryFn: () => source.presence(vault, entity, query ?? { dimension: '', t: momentString(0n) }),
+    enabled: query !== null,
   })
 }
 
