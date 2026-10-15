@@ -58,7 +58,7 @@ All notable changes to this project are documented here. The format follows
   (add, edit, split, reorder, remove) and has a Time travel… wizard. A personal timeline page shows
   what the character lived, in order of lived time, with jumps as breaks (and as a list). Events
   ask which visit of a time traveler takes part, the life panel shows lived ages, and the timeline
-  can draw the jumps of chosen characters.
+  can draw the jumps of chosen characters. An end-to-end journey (E8) covers it (#124).
 - **Paradox-aware checks** (#123): "effect before cause" now compares events in different
   dimensions through their correspondences, and stays quiet when a time traveler takes part in
   both and lived the cause first. New warning when a departure or arrival event doesn't match
