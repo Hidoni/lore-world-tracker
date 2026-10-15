@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Map editing** (#130): create a map for a location from an image, then pin places, characters,
+  events or labels by clicking the map (or create a new location right there), drag pins to move
+  them, and edit a pin's label, icon, color, the map it leads into, when it stands and who sees
+  it. A tray lists the location's child locations that aren't on the map yet, to drag onto it.
 - **Images in pages** (#127): paste or drop images into a page (they upload with progress) or
   add one from the slash menu, with alt text, a caption and a width. Entities get a cover image in
   their header and a gallery to reorder and caption. The new media library lists every file with

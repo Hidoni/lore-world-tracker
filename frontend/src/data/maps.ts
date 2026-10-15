@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
-import { useDataSource } from './context'
+import { useDataSource, useRequiredMutations } from './context'
 import type { Domain } from './domain'
+import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
 import type { Query } from './source'
 
@@ -52,5 +53,61 @@ export function useEntityPins(vault: string, entity: string, options: { enabled?
     queryKey: keys.entityPins(vault, entity),
     queryFn: () => source.entityPins(vault, entity),
     enabled: options.enabled ?? true,
+  })
+}
+
+export function useCreateMap(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['MapCreate']) => mutations.createMap(vault, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useUpdateMap(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ map, body }: { map: string; body: Schemas['MapUpdate'] }) =>
+      mutations.updateMap(vault, map, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useDeleteMap(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (map: string) => mutations.deleteMap(vault, map),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useCreatePin(vault: string, map: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['PinCreate']) => mutations.createPin(vault, map, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useUpdatePin(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ pin, body }: { pin: string; body: Schemas['PinUpdate'] }) =>
+      mutations.updatePin(vault, pin, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useDeletePin(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (pin: string) => mutations.deletePin(vault, pin),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
   })
 }
