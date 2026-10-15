@@ -60,7 +60,7 @@ def test_kind_and_link_types(api: LinkApi) -> None:
         "groups.controls",
     }
     # Without locations there is no territory.
-    api.modules("locations", enabled=False)
+    api.modules("locations", enabled=False, cascade=True)  # maps depends on it
     registry = api.client.get(f"{api.base}/registry").json()
     assert "groups.controls" not in {link["key"] for link in registry["link_types"]}
 

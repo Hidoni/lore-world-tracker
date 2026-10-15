@@ -150,7 +150,9 @@ def test_residents(api: LinkApi) -> None:
 
 def test_disabling_hides_everything_without_data_loss(api: LinkApi) -> None:
     world = World(api)
-    assert api.modules("locations", enabled=False).status_code == 200
+    # Maps depends on locations: it goes first (or with ``cascade``).
+    assert api.modules("locations", enabled=False).status_code == 409
+    assert api.modules("locations", enabled=False, cascade=True).status_code == 200
     problem(m(api, "/tree"), 404, "module_disabled")
     problem(api.get(world.varn["id"]), 404, "module_disabled")
     assert api.links_of(world.founding) == []

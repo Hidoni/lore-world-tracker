@@ -30,7 +30,7 @@ def test_kind_and_link_types(api: LinkApi) -> None:
     assert fields["population"]["temporal"] is True
     keys = {link["key"] for link in registry["link_types"] if link["module"] == "species"}
     assert keys == {"species.is_a", "species.descended_from", "species.native_to"}
-    api.modules("locations", enabled=False)
+    api.modules("locations", enabled=False, cascade=True)  # maps depends on it
     registry = api.client.get(f"{api.base}/registry").json()
     assert "species.native_to" not in {link["key"] for link in registry["link_types"]}
 
