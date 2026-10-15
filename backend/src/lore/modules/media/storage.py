@@ -109,7 +109,7 @@ def _decode(data: bytes) -> tuple[int, int]:
             if width * height > MAX_PIXELS:
                 raise MediaRejectedError("The image is too large (too many pixels).")
             image.load()
-    except Image.DecompressionBombError as error:
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
         raise MediaRejectedError("The image is too large (too many pixels).") from error
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as error:
         raise MediaRejectedError("The image can't be read.") from error

@@ -649,3 +649,48 @@ def worldline_presence(c: Canary) -> Iterator[Call]:
 def worldline_personal_timeline(c: Canary) -> Iterator[Call]:
     """Ages count only the visible segments, and aren't formatted in the private calendar."""
     yield from _worldline_entities(c, "personal-timeline")
+
+
+# --- media (#126) ---------------------------------------------------------------------------------
+
+
+def _media_ids(c: Canary) -> Iterator[tuple[str, int]]:
+    yield c.records["Shown media"], 200
+    for hidden_id in sorted(c.hidden_ids):
+        yield hidden_id, 404
+
+
+@recipe(f"{V}/m/media/items")
+def media_items(c: Canary) -> Iterator[Call]:
+    """Only the item a visible context uses; filters by hidden entities find nothing."""
+    path = f"{_v(c)}/m/media/items"
+    yield Call(path)
+    yield Call(path, {"unused": True})
+    yield Call(path, {"trashed": True})
+    yield Call(path, {"mime": "image/"})
+    for entity_id in [*c.public.values(), *sorted(c.hidden_ids)]:
+        yield Call(path, {"entity": entity_id})
+    for needle in c.strings:
+        yield Call(path, {"q": needle})
+
+
+@recipe(f"{V}/m/media/items/{{media_id}}")
+def media_item(c: Canary) -> Iterator[Call]:
+    for media_id, status in _media_ids(c):
+        yield Call(f"{_v(c)}/m/media/items/{media_id}", status=status)
+
+
+@recipe(f"{V}/m/media/items/{{media_id}}/file")
+def media_file(c: Canary) -> Iterator[Call]:
+    for media_id, status in _media_ids(c):
+        for size in ("original", "160"):
+            yield Call(f"{_v(c)}/m/media/items/{media_id}/file", {"size": size}, status=status)
+
+
+@recipe(f"{V}/m/media/entities/{{entity_id}}/gallery")
+def media_gallery(c: Canary) -> Iterator[Call]:
+    """Visible entities' galleries without their private items; hidden entities' are 404."""
+    for entity_id in c.public.values():
+        yield Call(f"{_v(c)}/m/media/entities/{entity_id}/gallery")
+    for hidden_id in sorted(c.hidden_ids):
+        yield Call(f"{_v(c)}/m/media/entities/{hidden_id}/gallery", status=404)

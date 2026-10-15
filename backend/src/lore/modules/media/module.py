@@ -38,6 +38,7 @@ MODULE = ModuleSpec(
     history_tables=(
         HistoryTable.of(MediaItem),
         HistoryTable.of(MediaGalleryItem, columns_owner("entity_id")),
+        HistoryTable.of(MediaRef, derived=True),
     ),
     routers=(router,),
     visibility_filters=(REF_VISIBILITY, GALLERY_VISIBILITY),
