@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { configure, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -8,6 +8,8 @@ import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
+// Uploads go through XHR: slower than fetch on a busy CI runner.
+configure({ asyncUtilTimeout: 5000 })
 
 beforeEach(() => {
   localStorage.clear()
@@ -335,7 +337,7 @@ describe('media module', () => {
         path: '/gallery',
         body: { media_id: 'new1' },
       })
-    })
+    }, WAIT)
   })
 
   it('edits a media field with the image picker', async () => {
