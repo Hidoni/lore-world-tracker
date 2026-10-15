@@ -949,8 +949,10 @@ axis, plus a secondary tick row in that dimension's calendar).
   partly defined mapping still shows), that dimension's prime timeline window is read for them,
   and each item's start and end are mapped back onto this axis (an item whose start has no
   corresponding moment is left out; an end without one makes it an instant). Above its lanes a
-  tick row shows that dimension's display calendar where its ticks correspond. The worldline layer draws arcs for
-jumps of selected entities.
+  tick row shows that dimension's display calendar where its ticks correspond. The worldline layer
+(a `timelineLayers` entry of `worldlines`, given `{vault, timeline, dimensionId, v, height}`)
+draws arcs for jumps of selected entities, and edge markers for jumps to or from another
+dimension.
 
 ### 9.6 Accessibility
 

@@ -1,9 +1,16 @@
 import type { Duration } from '@lore/chronology'
 import { Link } from '@tanstack/react-router'
 
-import type { EntityViewProps } from '@/core/modules'
+import { useActiveModules, type EntityViewProps } from '@/core/modules'
 import { elapsedIn, formatDuration, formatIn, useTimeContext, type TimeContext } from '@/core/time'
-import { useCharacterLife, useEntity, useFacts, useLinks, type Fact } from '@/data'
+import {
+  useCharacterLife,
+  useEntity,
+  useFacts,
+  useLinks,
+  usePersonalTimeline,
+  type Fact,
+} from '@/data'
 
 const EXISTS = 'core.exists'
 const IS_A = 'species.is_a'
@@ -37,6 +44,24 @@ function useMeasure(context: TimeContext) {
         ? t.toString()
         : (formatIn(lens, { t, precision: 'base' }, dimension, lenses) ?? t.toString()),
   }
+}
+
+/**
+ * Subjective ages by event (time-model.md §11.3): with the worldlines module on and an explicit
+ * worldline (a time traveler), the age at an event is the time the character has lived, from
+ * its personal timeline; `null` otherwise (ages are measured from birth).
+ */
+function useLivedAges(vault: string, entityId: string): ReadonlyMap<string, string> | null {
+  const on = useActiveModules(vault).modules.some((module) => module.id === 'worldlines')
+  const personal = usePersonalTimeline(vault, entityId, { enabled: on })
+  if (!on || personal.data === undefined || personal.data.implicit) return null
+  const ages = new Map<string, string>()
+  for (const item of personal.data.items) {
+    if (item.kind === 'participation' && item.event_id != null && item.age?.display != null) {
+      ages.set(item.event_id, item.age.display)
+    }
+  }
+  return ages
 }
 
 /** The species' typical lifespan, next to the character's. */
@@ -74,13 +99,14 @@ export function LifePanel({ vault, entityId }: EntityViewProps) {
     { enabled: timelineId !== null },
   )
   const { age, date } = useMeasure(context)
+  const lived = useLivedAges(vault, entityId)
   const items = life.data?.items ?? []
   const periods = (facts.data?.items ?? []).filter((fact) => fact.field_key === EXISTS)
   const { born, died } = lifeBounds(periods)
   if (timelineId === null) {
     return <p className="text-sm text-muted-foreground">Choose a dimension to see its events.</p>
   }
-  const lived = born !== null && died !== null ? age(born, died) : null
+  const lifespan = born !== null && died !== null ? age(born, died) : null
   return (
     <div className="flex flex-col gap-3">
       {(born !== null || died !== null) && (
@@ -88,7 +114,7 @@ export function LifePanel({ vault, entityId }: EntityViewProps) {
           {born !== null && <>Born {date(born)}</>}
           {born !== null && died !== null && ' · '}
           {died !== null && <>Died {date(died)}</>}
-          {lived !== null && <> (aged {lived})</>}
+          {lifespan !== null && <> (aged {lifespan})</>}
         </p>
       )}
       {periods.length > 1 && (
@@ -109,10 +135,13 @@ export function LifePanel({ vault, entityId }: EntityViewProps) {
       {items.length > 0 && (
         <ol aria-label="Life events" className="flex flex-col gap-1">
           {items.map((item) => {
+            // A time traveler's age is the time they have lived, not the time since birth.
             const at =
-              born !== null && item.start_t !== null && item.start_t >= born
-                ? age(born, item.start_t)
-                : null
+              lived !== null
+                ? (lived.get(item.id) ?? null)
+                : born !== null && item.start_t !== null && item.start_t >= born
+                  ? age(born, item.start_t)
+                  : null
             return (
               <li key={item.id} className="flex gap-3 text-sm">
                 <span className="w-40 shrink-0 truncate text-muted-foreground">
@@ -129,7 +158,9 @@ export function LifePanel({ vault, entityId }: EntityViewProps) {
                   <span className="text-xs text-muted-foreground">as {item.roles.join(', ')}</span>
                 )}
                 {at !== null && (
-                  <span className="ml-auto text-xs text-muted-foreground">age {at}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {lived !== null ? `lived ${at}` : `age ${at}`}
+                  </span>
                 )}
               </li>
             )

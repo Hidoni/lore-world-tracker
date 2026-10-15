@@ -188,7 +188,8 @@ defineModule({
   dimensionSections: [{ id, title, component, order }], // sections of the dimension overview
   linkTypeRenderers: { 'groups.member_of': MembershipRow },
   fieldTypeRenderers: { 'media': MediaFieldEditor },
-  timelineLayers: [...],                         // extra lanes/overlays on the timeline view
+  timelineLayers: [{ id, title, component }],   // overlays on the timeline view; component gets
+                                                 // { vault, timeline, dimensionId, v, height }
   graphStyles: { nodes: {...}, edges: {...} },
   editorExtensions: [...],                       // TipTap extensions (e.g. lexicon word reference)
   commands: [...],                               // command-palette actions

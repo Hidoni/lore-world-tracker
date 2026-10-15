@@ -56,6 +56,9 @@ const PER_ENTITY = [
   'backlinks',
   'history',
   'occurrences',
+  'worldline',
+  'personalTimeline',
+  'presence',
 ]
 /** Areas that show resolved moments. */
 const TIME = [
@@ -74,6 +77,9 @@ const TIME = [
   'backlinks',
   // Sync points anchored to events move with them.
   'correspondences',
+  // Segments anchored to events move with them; participations follow events.
+  'worldline',
+  'personalTimeline',
 ]
 // Unlinked mentions read every entity's text and the aliases.
 const SEARCH = ['search', 'quickSearch', 'unlinkedMentions']

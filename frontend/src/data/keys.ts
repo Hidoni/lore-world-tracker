@@ -41,6 +41,12 @@ export const keys = {
   consistencyRules: (vault: string) => [vault, 'consistencyRules'] as const,
   timelines: (vault: string, dimension: string) => [vault, 'timelines', dimension] as const,
   branchDiff: (vault: string, timeline: string) => [vault, 'branchDiff', timeline] as const,
+  worldline: (vault: string, entity: string, params?: object) =>
+    [vault, 'worldline', entity, params ?? {}] as const,
+  presence: (vault: string, entity: string, params: object) =>
+    [vault, 'presence', entity, params] as const,
+  personalTimeline: (vault: string, entity: string, params?: object) =>
+    [vault, 'personalTimeline', entity, params ?? {}] as const,
   correspondences: (vault: string, dimension: string | null) =>
     [vault, 'correspondences', dimension ?? ''] as const,
   correspondence: (vault: string, id: string) => [vault, 'correspondences', 'one', id] as const,

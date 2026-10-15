@@ -1,3 +1,4 @@
+import type { Viewport } from '@lore/chronology/viewport'
 import type { AnyRoute } from '@tanstack/react-router'
 import type { ComponentType } from 'react'
 
@@ -67,10 +68,23 @@ export interface DimensionSection {
   component: ComponentType<{ vault: string; dimensionId: string }>
 }
 
+/** What a timeline layer draws on: the viewed timeline and dimension, and the lanes' view. */
+export interface TimelineLayerProps {
+  vault: string
+  /** The viewed timeline (`null` while it loads). */
+  timeline: string | null
+  dimensionId: string
+  /** The lanes' viewport (moments to pixels). */
+  v: Viewport
+  /** The lanes' height in pixels. */
+  height: number
+}
+
+/** An overlay on the timeline's lanes (worldlines: jump arcs of chosen entities). */
 export interface TimelineLayer {
   id: string
   title: string
-  component: ComponentType<{ vault: string; timeline: string }>
+  component: ComponentType<TimelineLayerProps>
 }
 
 /** Sigma/graph styles by kind and link type (the graph module reads them, M8). */

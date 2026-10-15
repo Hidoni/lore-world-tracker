@@ -27,4 +27,5 @@ export {
   type SearchHitProps,
   type SettingsPage,
   type TimelineLayer,
+  type TimelineLayerProps,
 } from './types'

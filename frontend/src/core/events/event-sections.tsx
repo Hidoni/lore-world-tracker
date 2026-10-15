@@ -19,6 +19,7 @@ import {
 import { EventDialog } from './event-dialog'
 import { eventTime } from './event-time'
 import { LinkAdder } from './link-adder'
+import { VisitChoice } from './visit-choice'
 
 const CAUSES = 'core.causes'
 const PARTICIPANT = 'core.participant'
@@ -363,6 +364,7 @@ export function ParticipantsSection({
               {item.link.role !== null && item.link.role !== '' && (
                 <Badge variant="secondary">{item.link.role}</Badge>
               )}
+              <VisitChoice vault={vault} event={entity} item={item} editable={editable} />
               {editable && (
                 <RemoveLink
                   vault={vault}
