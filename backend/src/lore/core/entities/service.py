@@ -248,6 +248,7 @@ class EntityService:
             icon=data.icon,
             color=data.color.lower() if data.color else None,
             sort_key=data.sort_key,
+            cover_media_id=data.cover_media_id,
         )
         if data.parent_id is not None:
             self._check_parent(None, kind, data.dimension_id, data.parent_id)
@@ -366,6 +367,8 @@ class EntityService:
             entity.color = data.color.lower() if data.color else None
         if "sort_key" in sent:
             entity.sort_key = data.sort_key
+        if "cover_media_id" in sent:
+            entity.cover_media_id = data.cover_media_id
 
     def trash(self, entity_id: str, *, cascade: bool = False) -> EntityDeleteResult:
         """Move to the trash (idempotent). Children stay where they are: the trash view shows

@@ -8,12 +8,15 @@ Only read-only servers, which never write, fall back to ``default_enabled`` for 
 A module is only effectively enabled when its dependencies are.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from lore.core.errors import ConflictError, NotFoundError
+from lore.core.history.recorder import RecordedChange
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
 from lore.core.vaults.meta import get_meta, set_meta
@@ -60,6 +63,24 @@ def requested_states(session: Session) -> dict[str, bool]:
 
 def enabled_modules(session: Session, registry: ModuleRegistry) -> frozenset[str]:
     return registry.effective(requested_states(session))
+
+
+def run_derived_hooks(context: VaultContext, changes: Sequence[RecordedChange]) -> None:
+    """The derived hooks of the enabled modules, in registry order (``ModuleSpec.derived_hooks``)."""
+    enabled = enabled_modules(context.session, context.registry)
+    for module in context.registry.modules:
+        if module.id in enabled:
+            for hook in module.derived_hooks:
+                hook(context, changes)
+
+
+def run_maintenance_tasks(context: VaultContext, now: datetime) -> None:
+    """The daily tasks of the enabled modules (``ModuleSpec.maintenance_tasks``)."""
+    enabled = enabled_modules(context.session, context.registry)
+    for module in context.registry.modules:
+        if module.id in enabled:
+            for task in module.maintenance_tasks:
+                task(context, now)
 
 
 def record_module_states(session: Session, registry: ModuleRegistry) -> list[str]:

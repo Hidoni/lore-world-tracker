@@ -94,6 +94,8 @@ TIME_FIELDS_SYNCED = "time_fields_synced"
 LINK_TIMES_SYNCED = "link_times_synced"
 # How often the scheduler deletes expired proposals of an open vault (data-model.md §5.9).
 CLEANUP_EVERY = timedelta(hours=1)
+# How often the scheduler runs the modules' maintenance tasks on an open vault (media GC).
+MODULE_TASKS_EVERY = timedelta(days=1)
 
 _vault_name: TypeAdapter[str] = TypeAdapter(VaultName)
 
@@ -274,6 +276,8 @@ class VaultManager:
         self._optimized_at: dict[str, datetime] = {}
         # When each open vault's expired proposals were last deleted (or it was opened).
         self._cleaned_at: dict[str, datetime] = {}
+        # When each open vault's module maintenance tasks last ran (or it was opened).
+        self._tasks_at: dict[str, datetime] = {}
         # Vaults whose migration failed in this process: unusable until restart (§3.3).
         self._failed: dict[str, _Failure] = {}
 
@@ -642,6 +646,34 @@ class VaultManager:
                 logger.exception("deleting expired proposals of vault %s failed", vault.id)
                 continue
             self._cleaned_at[vault.id] = now
+            done.append(vault.id)
+        return done
+
+    def run_scheduled_module_tasks(self, now: datetime | None = None) -> list[str]:
+        """One scheduler pass: the enabled modules' maintenance tasks (``ModuleSpec``) on every
+        vault this process has open whose tasks didn't run (and that wasn't opened) in the last
+        ``MODULE_TASKS_EVERY``; returns their ids. Author mode only. Each vault's tasks run in one
+        write transaction; failures are logged, never raised."""
+        if self.read_only or self.module_registry is None:
+            return []
+        from lore.core.modules.service import run_maintenance_tasks  # noqa: PLC0415 (cycle)
+        from lore.core.modules.spec import VaultContext  # noqa: PLC0415 (import cycle)
+
+        now = now or datetime.now(UTC)
+        with self._guard:
+            opened = list(self._open.values())
+        done: list[str] = []
+        for vault in opened:
+            last = self._tasks_at.setdefault(vault.id, now)
+            if now - last < MODULE_TASKS_EVERY:
+                continue
+            try:
+                with vault.write_sessions.begin() as session:
+                    run_maintenance_tasks(VaultContext(vault, session, self.module_registry), now)
+            except Exception:
+                logger.exception("module maintenance tasks of vault %s failed", vault.id)
+                continue
+            self._tasks_at[vault.id] = now
             done.append(vault.id)
         return done
 

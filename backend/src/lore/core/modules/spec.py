@@ -9,8 +9,9 @@ the issue that builds each one replaces its alias with a real protocol:
 - ``PublishContributor``: published snapshots (M12)
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
@@ -30,6 +31,7 @@ from lore.core.richtext.handlers import RichTextNodeHandler
 from lore.core.visibility.filters import VisibilityFilter
 
 if TYPE_CHECKING:
+    from lore.core.history.recorder import RecordedChange
     from lore.core.modules.registry import ModuleRegistry
     from lore.core.search.documents import SearchContributor
     from lore.core.time.slots import SlotProvider
@@ -39,6 +41,13 @@ type TimelineTableSpec = object
 type GraphContributor = object
 type BackupContributor = object
 type PublishContributor = object
+# Rebuilds a module's derived rows from the changes a changeset is about to record (``media_refs``
+# from bodies, fields and covers); runs before the consistency check, undo included. Raising a
+# typed error refuses the write.
+type DerivedHook = Callable[["VaultContext", Sequence["RecordedChange"]], None]
+# A daily job per open vault in author mode (the media module's garbage collection); ``now`` is
+# the scheduler's clock.
+type MaintenanceTask = Callable[["VaultContext", datetime], None]
 
 
 @dataclass(frozen=True)
@@ -79,6 +88,8 @@ class ModuleSpec:
     publish_contributors: tuple[PublishContributor, ...] = ()
     kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
+    derived_hooks: tuple[DerivedHook, ...] = ()  # rebuild derived rows on every changeset
+    maintenance_tasks: tuple[MaintenanceTask, ...] = ()  # daily, per open vault (authors)
     settings_model: type[BaseModel] | None = None
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None

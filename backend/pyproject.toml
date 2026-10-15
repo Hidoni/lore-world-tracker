@@ -7,6 +7,7 @@ dependencies = [
     "alembic>=1.20.0",
     "fastapi>=0.142.2",
     "jsonschema>=4.25",
+    "pillow>=12",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "python-multipart>=0.0.32",
