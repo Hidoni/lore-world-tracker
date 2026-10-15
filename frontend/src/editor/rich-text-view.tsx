@@ -190,6 +190,9 @@ function renderNode(
       // Module nodes: the module's renderer, else (module disabled) their content, if any.
       const Renderer = node.type === undefined ? undefined : renderers[node.type]
       if (Renderer) return <Renderer key={key} vault={vault} attrs={node.attrs ?? {}} />
+      // An image of the disabled media module: its alt text.
+      const alt = attr(node, 'alt')
+      if (typeof alt === 'string' && alt !== '') return <span key={key}>{alt}</span>
       return <span key={key}>{inner()}</span>
     }
   }

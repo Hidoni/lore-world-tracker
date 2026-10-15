@@ -64,6 +64,11 @@ export const keys = {
   locationTree: (vault: string, params: object) => [vault, 'locationTree', params] as const,
   locationEvents: (vault: string, location: string, params: object) =>
     [vault, 'locationEvents', location, params] as const,
+  /** Everything of the media module (one prefix: its writes return no `affected`). */
+  media: (vault: string) => [vault, 'media'] as const,
+  mediaItems: (vault: string, params?: object) => [vault, 'media', 'items', params ?? {}] as const,
+  mediaItem: (vault: string, media: string) => [vault, 'media', 'item', media] as const,
+  gallery: (vault: string, entity: string) => [vault, 'media', 'gallery', entity] as const,
   maps: (vault: string, params?: object) => [vault, 'maps', params ?? {}] as const,
   mapDetail: (vault: string, map: string, params?: object) =>
     [vault, 'mapDetail', map, params ?? {}] as const,

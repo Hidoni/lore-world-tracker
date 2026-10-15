@@ -60,6 +60,20 @@ export interface FieldRendererProps {
   value: unknown
 }
 
+/** A module's editor of its field type's values (the fields panel's edit mode). */
+export interface FieldEditorExtensionProps {
+  vault: string
+  field: { key: string; label: string; multiple: boolean }
+  /** The input's id (the field's label points at it). */
+  id: string
+  value: unknown
+  onChange: (value: unknown) => void
+  /** Save now (with `value`, or the current draft). */
+  onCommit: (value?: unknown) => void
+  onCancel: () => void
+  invalid: boolean
+}
+
 /** A section of a dimension's overview page (`/v/$vault/d/$dimension`). */
 export interface DimensionSection {
   id: string
@@ -155,6 +169,8 @@ export interface ModuleDefinition {
   dimensionSections?: readonly DimensionSection[]
   linkTypeRenderers?: Readonly<Record<string, ComponentType<LinkRowProps>>>
   fieldTypeRenderers?: Readonly<Record<string, ComponentType<FieldRendererProps>>>
+  /** Editors of the module's field types (`media`); without one a type is shown, not edited. */
+  fieldTypeEditors?: Readonly<Record<string, ComponentType<FieldEditorExtensionProps>>>
   timelineLayers?: readonly TimelineLayer[]
   graphStyles?: GraphStyles
   editorExtensions?: readonly EditorExtension[]
@@ -163,7 +179,8 @@ export interface ModuleDefinition {
   searchResultRenderers?: Readonly<Record<string, ComponentType<SearchHitProps>>>
   /** Read-only renderers of the module's rich-text nodes, by node type (`lexiconRef`). */
   richTextNodeRenderers?: Readonly<Record<string, ComponentType<RichTextNodeProps>>>
-  /** Media shown in the entity header (e.g. a portrait), per kind. */
+  /** Media shown in the entity header (e.g. a portrait), per kind (`'*'`: every kind). Every
+   * module's entry shows, in module order. */
   entityHeaderMedia?: Readonly<Record<string, ComponentType<EntityViewProps>>>
 }
 

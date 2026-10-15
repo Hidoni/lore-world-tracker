@@ -26,6 +26,8 @@ const VAULT_WIDE = [
   'locationTree',
   'locationEvents',
   'locationResidents',
+  // Media references follow bodies, fields and covers (the library's "unused", "used by").
+  'media',
   // Maps show entity names, existence and pins.
   'maps',
   'mapDetail',

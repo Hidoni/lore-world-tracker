@@ -1310,26 +1310,6 @@ export interface paths {
         patch: operations["media_update"];
         trace?: never;
     };
-    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restore
-         * @description Bring an item back from the trash.
-         */
-        post: operations["media_restore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/file": {
         parameters: {
             query?: never;
@@ -1344,8 +1324,34 @@ export interface paths {
          *     files are sent as attachments. Thumbnails exist for raster images only.
          */
         get: operations["media_file"];
-        put?: never;
+        /**
+         * Replace File
+         * @description Replace the item's file, keeping its id (pages, galleries and maps that use it show the
+         *     new one). An image must stay an image (``422``, path ``file``); bytes another item holds are
+         *     a ``409`` naming it (``context.media_id``), as is a stale ``revision``.
+         */
+        put: operations["media_replace_file"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Bring an item back from the trash.
+         */
+        post: operations["media_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2407,6 +2413,16 @@ export interface components {
         Body_backups_restore: {
             /** File */
             file: string;
+        };
+        /** Body_media_replace_file */
+        Body_media_replace_file: {
+            /**
+             * File
+             * @description The new file (an allowed type).
+             */
+            file: string;
+            /** Revision */
+            revision: number;
         };
         /** Body_media_upload */
         Body_media_upload: {
@@ -9994,39 +10010,6 @@ export interface operations {
             };
         };
     };
-    media_restore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                media_id: string;
-                /** @description Vault id (UUID). */
-                vault_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MediaItemOut"];
-                };
-            };
-            /** @description Problem */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     media_file: {
         parameters: {
             query?: {
@@ -10052,6 +10035,76 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": unknown;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_replace_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_media_replace_file"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaItemOut"];
                 };
             };
             /** @description Problem */

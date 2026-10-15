@@ -123,6 +123,32 @@ def update_item(
     return _media(vault, session, registry).update(media_id, body)
 
 
+@router.put("/items/{media_id}/file", name="replace_file")
+def replace_file(
+    *,
+    media_id: IdPath,
+    file: Annotated[UploadFile, File(description="The new file (an allowed type).")],
+    revision: Annotated[int, Form()],
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    settings: SettingsDep,
+) -> MediaItemOut:
+    """Replace the item's file, keeping its id (pages, galleries and maps that use it show the
+    new one). An image must stay an image (``422``, path ``file``); bytes another item holds are
+    a ``409`` naming it (``context.media_id``), as is a stale ``revision``."""
+    try:
+        data = storage.read_limited(file.file, settings.max_upload_mb << 20)
+    except storage.MediaRejectedError as error:
+        message = str(error)
+        raise InvalidInputError(
+            message, errors=[{"path": "file", "code": "too_large", "message": message}]
+        ) from error
+    return _media(vault, session, registry).replace(
+        media_id, data, file.filename, revision=revision
+    )
+
+
 @router.delete("/items/{media_id}", name="trash")
 def trash_item(
     media_id: IdPath, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep

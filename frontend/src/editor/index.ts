@@ -1,6 +1,7 @@
 // TipTap editor setup, custom nodes/marks and renderers (frontend.md §6).
 import { lazy } from 'react'
 
+export { editorContextOf, type EditorContext } from './context'
 export { EntityLinkView } from './entity-link-view'
 export { RichTextView } from './rich-text-view'
 export {

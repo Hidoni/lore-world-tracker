@@ -186,9 +186,12 @@ function FieldRow({
   const inFlight = useRef(false)
   const renderers = useExtensionRecord('fieldTypeRenderers', vault)
   const Renderer = renderers[field.type]
-  // Core types have editors; time types arrive with M5 and module types bring their own (media).
+  const ModuleEditor = useExtensionRecord('fieldTypeEditors', vault)[field.type]
+  // Core types have editors; module types bring their own (media, `fieldTypeEditors`).
   const canEditType =
-    editable && Object.hasOwn(EDITABLE, field.type) && !PLACEHOLDER_TYPES.has(field.type)
+    editable &&
+    ((Object.hasOwn(EDITABLE, field.type) && !PLACEHOLDER_TYPES.has(field.type)) ||
+      ModuleEditor !== undefined)
   const immediate = IMMEDIATE.has(field.type)
   // Lists of rich text have no editor yet: shown, not edited.
   const rich = field.type === 'rich_text'
@@ -249,6 +252,22 @@ function FieldRow({
             onError={setError}
             onDone={() => {
               setEditing(false)
+            }}
+          />
+        ) : showEditor && ModuleEditor !== undefined ? (
+          <ModuleEditor
+            vault={vault}
+            field={field}
+            id={id}
+            value={draft}
+            invalid={error !== null}
+            onChange={setDraft}
+            onCommit={(next) => {
+              void commit(next === undefined ? draft : next)
+            }}
+            onCancel={() => {
+              setEditing(false)
+              setError(null)
             }}
           />
         ) : showEditor ? (

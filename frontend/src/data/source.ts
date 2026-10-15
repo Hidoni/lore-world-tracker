@@ -97,6 +97,11 @@ export interface DataSource {
     location: string,
     query?: Query<'locations_residents'>,
   ): Promise<D<'EntityLinks'>>
+  // The media module (docs/modules/media.md).
+  /** The media library, newest first. */
+  mediaItems(vault: string, query?: Query<'media_list'>): Promise<D<'MediaItemList'>>
+  mediaItem(vault: string, media: string): Promise<D<'MediaItemOut'>>
+  gallery(vault: string, entity: string): Promise<D<'GalleryOut'>>
   // The maps module (docs/modules/maps.md).
   maps(vault: string, query?: Query<'maps_list'>): Promise<D<'MapList'>>
   mapDetail(vault: string, map: string, query?: Query<'maps_get'>): Promise<D<'MapDetail'>>
@@ -294,6 +299,38 @@ export interface Mutations {
     proposal: string,
     body: Schemas['RecurrenceApplyIn'],
   ): Promise<D<'RecurrenceApplyOut'>>
+  // The media module: uploads take `onProgress` (the upload's fraction, 0..1).
+  uploadMedia(
+    vault: string,
+    file: Blob,
+    form?: { alt?: string; caption?: string; filename?: string },
+    onProgress?: (fraction: number) => void,
+  ): Promise<D<'MediaUploadResult'>>
+  updateMedia(
+    vault: string,
+    media: string,
+    body: Schemas['MediaItemUpdate'],
+  ): Promise<D<'MediaItemOut'>>
+  trashMedia(vault: string, media: string): Promise<D<'MediaItemOut'>>
+  restoreMedia(vault: string, media: string): Promise<D<'MediaItemOut'>>
+  replaceMediaFile(
+    vault: string,
+    media: string,
+    file: Blob,
+    revision: number,
+    onProgress?: (fraction: number) => void,
+  ): Promise<D<'MediaItemOut'>>
+  addToGallery(
+    vault: string,
+    entity: string,
+    body: Schemas['GalleryItemCreate'],
+  ): Promise<D<'GalleryItemOut'>>
+  updateGalleryItem(
+    vault: string,
+    item: string,
+    body: Schemas['GalleryItemUpdate'],
+  ): Promise<D<'GalleryItemOut'>>
+  removeFromGallery(vault: string, item: string): Promise<void>
   // The languages module's lexicon.
   createLexiconEntry(
     vault: string,

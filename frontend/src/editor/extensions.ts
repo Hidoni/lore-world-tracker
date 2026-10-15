@@ -11,6 +11,7 @@ import { MarkdownPaste, type NameResolver } from './markdown-paste'
 import { isSafeHref } from './schema'
 import type { SuggestionBridge } from './suggestion-state'
 import { dateSlashItem, TimeRef, type DateRequest } from './time-ref'
+import { EditorContextExtension } from './context'
 
 /** Drops an attribute the server schema doesn't store (an unknown attribute fails the save). */
 function without(attributes: Attributes | undefined, ...names: string[]): Attributes {
@@ -86,6 +87,7 @@ export function editorExtensions(
     }),
     Placeholder.configure({ placeholder: options.placeholder ?? 'Write…' }),
     CharacterCount,
+    EditorContextExtension,
     ...(options.extra ?? []),
   ]
 }

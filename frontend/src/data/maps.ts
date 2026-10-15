@@ -54,12 +54,3 @@ export function useEntityPins(vault: string, entity: string, options: { enabled?
     enabled: options.enabled ?? true,
   })
 }
-
-/** Where a media item's file downloads from (same origin; what the request may see). */
-export function mediaFileUrl(
-  vault: string,
-  media: string,
-  size: '160' | '480' | '1280' | 'original' = 'original',
-): string {
-  return `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/file?size=${size}`
-}
