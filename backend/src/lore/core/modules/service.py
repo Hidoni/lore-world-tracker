@@ -66,7 +66,7 @@ def enabled_modules(session: Session, registry: ModuleRegistry) -> frozenset[str
 
 
 def run_derived_hooks(context: VaultContext, changes: Sequence[RecordedChange]) -> None:
-    """The derived hooks of the enabled modules, in registry order (``ModuleSpec.derived_hooks``)."""
+    """The enabled modules' derived hooks, in registry order (``ModuleSpec.derived_hooks``)."""
     enabled = enabled_modules(context.session, context.registry)
     for module in context.registry.modules:
         if module.id in enabled:

@@ -5,9 +5,11 @@ from sqlalchemy import select
 from lore.core.entities.models import Entity
 from lore.core.history.tables import HistoryTable, columns_owner
 from lore.core.modules import ModuleSpec, VaultContext
+from lore.modules.media.checks import MEDIA_CHECK
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect_task
 from lore.modules.media.models import MediaGalleryItem, MediaItem, MediaRef
+from lore.modules.media.publish import publish_media
 from lore.modules.media.refs import Refs, rebuild_refs
 from lore.modules.media.richtext import IMAGE_NODE
 from lore.modules.media.router import router
@@ -46,5 +48,7 @@ MODULE = ModuleSpec(
     purge_hooks=(purge_gallery,),
     derived_hooks=(rebuild_refs,),
     maintenance_tasks=(collect_task,),
+    derived_checks=(MEDIA_CHECK,),
+    publish_contributors=(publish_media,),
     on_enable=rebuild_on_enable,
 )

@@ -64,7 +64,7 @@ class Media:
 
     # --- visibility ----------------------------------------------------------------------------
 
-    def _visible(self) -> list[Any]:
+    def visible_conditions(self) -> list[Any]:
         """Conditions on ``MediaItem`` rows this request may see."""
         if self.policy is AUTHOR:
             return []
@@ -75,7 +75,7 @@ class Media:
 
     def item(self, media_id: str, *, trashed: bool = True) -> MediaItem:
         row = self.session.scalars(
-            select(MediaItem).where(MediaItem.id == media_id, *self._visible())
+            select(MediaItem).where(MediaItem.id == media_id, *self.visible_conditions())
         ).one_or_none()
         if row is None or (not trashed and row.deleted_at is not None):
             raise NotFoundError(f"No media item {media_id}.")
@@ -147,7 +147,7 @@ class Media:
         limit: int = PAGE,
     ) -> MediaItemList:
         """The library, newest first."""
-        statement = select(MediaItem).where(*self._visible())
+        statement = select(MediaItem).where(*self.visible_conditions())
         statement = statement.where(
             MediaItem.deleted_at.is_not(None) if trashed else MediaItem.deleted_at.is_(None)
         )

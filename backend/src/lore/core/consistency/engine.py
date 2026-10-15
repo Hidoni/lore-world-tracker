@@ -414,9 +414,8 @@ def checker(vault: Any, registry: Any) -> recorder.BeforeWrite:
     """The vault sessions' consistency check (``OpenVault``): every changeset any session writes
     is checked (API requests, the CLI, scripts), before history records it. The modules' derived
     hooks run first (``ModuleSpec.derived_hooks``)."""
-    from lore.core.modules.spec import VaultContext  # noqa: PLC0415 (import cycle)
-
     from lore.core.modules.service import run_derived_hooks  # noqa: PLC0415 (import cycle)
+    from lore.core.modules.spec import VaultContext  # noqa: PLC0415 (import cycle)
 
     def check(session: Session, changes: list[recorder.RecordedChange]) -> None:
         if changes:

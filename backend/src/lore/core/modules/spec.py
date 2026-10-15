@@ -32,6 +32,7 @@ from lore.core.visibility.filters import VisibilityFilter
 
 if TYPE_CHECKING:
     from lore.core.history.recorder import RecordedChange
+    from lore.core.maintenance.checks import DerivedDataCheck
     from lore.core.modules.registry import ModuleRegistry
     from lore.core.search.documents import SearchContributor
     from lore.core.time.slots import SlotProvider
@@ -90,6 +91,8 @@ class ModuleSpec:
     purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()  # rebuild derived rows on every changeset
     maintenance_tasks: tuple[MaintenanceTask, ...] = ()  # daily, per open vault (authors)
+    # Run by ``lore vault check`` / ``reindex`` after core's (``lore.core.maintenance``).
+    derived_checks: tuple[DerivedDataCheck, ...] = ()
     settings_model: type[BaseModel] | None = None
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None

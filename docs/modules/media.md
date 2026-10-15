@@ -74,6 +74,40 @@ None (missing files are reported by `lore vault check`).
 Disabling hides uploads, galleries and covers, and image nodes render as alt text. Files are kept.
 Removal requires an export of `media/`.
 
+## Implementation notes (#126)
+
+- **Storage** (`lore.modules.media.storage`): files are written to a temporary file and renamed
+  into place. The type comes from the bytes; the uploaded name only decides between plain text and
+  Markdown. Thumbnails are made on first request (the first frame of an animation); a vault folder
+  that can't be written (read-only server) gets them made in memory each time.
+- **Items** carry `revision` (PATCH) and `unused_since` (the collection's mark) besides the
+  columns above, and are recorded in history (trash and edits can be undone). `POST
+  /m/media/items/{id}/restore` takes one out of the trash; uploading the same bytes does too.
+- **References** (`lore.modules.media.refs`): a derived hook (`ModuleSpec.derived_hooks`)
+  rebuilds `body`, `field:<key>`, `cover` and `gallery` for every entity a changeset touches
+  (writes and undo alike), from the stored body, `rich_text` and `media` field values (and their
+  facts), `cover_media_id` and live gallery items. `media_refs.visibility` is the least
+  restrictive level the item has in that context: an image in a private `visibilityBlock` of a
+  public body is private there; a field's level is its default or the entity's override (a fact's,
+  the stricter of the two). Other modules write their own contexts (`map`, `note`) with
+  `lore.modules.media.api.reference` / `unreference`. Ids of items that don't exist make no
+  reference; an unknown cover is refused (`422`, path `cover_media_id`).
+- **Readers** see an item iff a ref that isn't private belongs to an entity they see
+  (`REF_VISIBILITY`), and the item isn't in the trash; gallery items follow their own
+  visibility and their entity's. The `image` node is kept for readers (it is what makes its item
+  visible to them).
+- **GC** (`lore.modules.media.gc`, a daily `maintenance_tasks` entry): marks unused items
+  (`unused_since`, not history), trashes those unused for `trash_after_days` (one changeset that
+  can be undone) and purges trashed, still unused items after `purge_after_days` (rows and files;
+  not undoable). Both default to 30 and come from the module's stored settings.
+- **`lore vault check`** (`derived_checks`): stale references (`media`, `stale_refs`) and items
+  whose file is missing (`missing_file`); `lore vault reindex` rebuilds the references.
+- **Backups** include the `media/` folder (core, `include_media`). **Publish**: `publish_media`
+  copies the reader-visible items and their thumbnails into the published vault folder; #140
+  calls it when snapshots arrive.
+- The `media` field type holds an item id (a list for `multiple` fields); custom fields (M11) can
+  use it.
+
 ## Future ideas
 
 Audio (pronunciations for lexicon entries), PDF previews, image annotations, SVG sanitization for

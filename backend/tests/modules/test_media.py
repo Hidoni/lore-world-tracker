@@ -12,12 +12,14 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from lore.core.maintenance import check_vault
 from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import FieldDef
 from lore.modules.media import api as media_api
 from lore.modules.media import storage
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect
+from lore.modules.media.publish import publish_media
 from tests.entity_api import HEADERS, LinkApi, invalid, make_client
 from tests.entity_modules import with_real_modules
 
@@ -295,3 +297,31 @@ def test_unused_items_are_trashed_then_purged(client: TestClient, library: Libra
     assert library.get(unused["id"]).status_code == 404
     assert not path.exists()
     assert storage.file_path(vault.info.path, used["sha256"]).is_file()
+
+
+def test_vault_check_reports_missing_files(client: TestClient, library: Library) -> None:
+    item = library.uploaded(png(color="teal"))
+    library.api.make("misc", "Page", body=doc(image(item["id"])))
+    manager = client.app.state.vaults  # type: ignore[attr-defined]
+    assert check_vault(manager, library.api.vault).problems == ()
+    storage.file_path(manager.open(library.api.vault).info.path, item["sha256"]).unlink()
+    problems = check_vault(manager, library.api.vault).problems
+    assert [(p.check, p.code) for p in problems] == [("media", "missing_file")]
+
+
+def test_publishing_copies_only_what_readers_see(
+    client: TestClient, library: Library, tmp_path: Path
+) -> None:
+    secret = library.uploaded(png(color="black"))
+    shown = library.uploaded(png(500, 300, color="yellow"))
+    library.api.make("misc", "Diary", body=doc(block("private", image(secret["id"])),
+                                               image(shown["id"])))  # fmt: skip
+    vault = client.app.state.vaults.open(library.api.vault)  # type: ignore[attr-defined]
+    registry = client.app.state.registry  # type: ignore[attr-defined]
+    target = tmp_path / "published"
+    with vault.sessions() as session:
+        copied = publish_media(VaultContext(vault, session, registry), target)
+    assert copied == [shown["id"]]
+    assert storage.file_path(target, shown["sha256"]).is_file()
+    assert storage.thumb_path(target, shown["sha256"], 160).is_file()
+    assert not storage.file_path(target, secret["sha256"]).exists()
