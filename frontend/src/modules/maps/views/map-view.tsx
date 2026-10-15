@@ -1,11 +1,28 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronRightIcon, ExternalLinkIcon, MapIcon, TagIcon, XIcon } from 'lucide-react'
+import {
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  MapIcon,
+  PencilIcon,
+  TagIcon,
+  XIcon,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { createElement, lazy, Suspense, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { iconFor, useKindRegistry, type KindRegistry } from '@/core/registry'
 import { SpanDisplay, useEntityAsOf } from '@/core/time'
-import { mediaFileUrl, useEntity, useMapDetail, type MapDetail, type MapPin } from '@/data'
+import {
+  mediaFileUrl,
+  useCreatePin,
+  useEntity,
+  useMapDetail,
+  useMutations,
+  useUpdatePin,
+  type MapDetail,
+  type MapPin,
+} from '@/data'
 import { cn } from '@/lib/utils'
 
 import {
@@ -17,7 +34,10 @@ import {
   type CursorMode,
   type ShownPin,
 } from '../pins'
-import type { CanvasMarker } from './map-canvas'
+import { AddPinDialog, type PinChoice } from '../edit/add-pin-dialog'
+import { ChildTray } from '../edit/child-tray'
+import { PinEditor } from '../edit/pin-editor'
+import type { CanvasMarker, Point } from './map-canvas'
 
 const MapCanvas = lazy(() => import('./map-canvas'))
 
@@ -86,6 +106,15 @@ function LoadedMap({
   const [mode, setMode] = useState<CursorMode>('hide')
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
   const [selected, setSelected] = useState<string | null>(focusPin)
+  const editable = useMutations() !== null
+  const [editing, setEditing] = useState(false)
+  const [placing, setPlacing] = useState<Point | null>(null)
+  const place = useEntity(vault, detail.location_id)
+  const dimensionId = place.data?.dimension_id ?? null
+  const dimension = useEntity(vault, dimensionId ?? '', {}, { enabled: dimensionId !== null })
+  const prime = (dimension.data?.ext as { prime_timeline_id?: string } | null | undefined)
+    ?.prime_timeline_id
+  const editTimeline = asOf?.timeline ?? prime ?? null
   const current = useMapDetail(vault, detail.id, asOf ?? {}, { enabled: asOf !== undefined })
   const timeline = useMapDetail(
     vault,
@@ -94,11 +123,37 @@ function LoadedMap({
     { enabled: asOf !== undefined && mode === 'ghost' },
   )
   const shown: ShownPin[] | null = useMemo(() => {
-    if (asOf === undefined) return pinsToShow(detail.pins, null, mode, hidden)
+    // Editing: every pin of the map, whenever it stands.
+    if (asOf === undefined || editing) return pinsToShow(detail.pins, null, mode, hidden)
     const now = current.data?.pins
     if (now === undefined) return null
     return pinsToShow(mode === 'ghost' ? (timeline.data?.pins ?? now) : now, now, mode, hidden)
-  }, [asOf, detail.pins, current.data, timeline.data, mode, hidden])
+  }, [asOf, editing, detail.pins, current.data, timeline.data, mode, hidden])
+  const createPin = useCreatePin(vault, detail.id)
+  const updatePin = useUpdatePin(vault)
+  const failed = (error: Error) => {
+    toast.error(`The pin wasn't saved: ${error.message}`)
+  }
+  const addPin = (choice: PinChoice, at: Point) => {
+    const body = 'target' in choice ? { target_entity_id: choice.target } : { label: choice.label }
+    createPin.mutate(
+      { ...body, x: at.x, y: at.y },
+      {
+        onSuccess: (result) => {
+          setSelected(result.pin.id)
+        },
+        onError: failed,
+      },
+    )
+  }
+  const movePin = (id: string, at: Point) => {
+    const pin = detail.pins.find((candidate) => candidate.id === id)
+    if (pin === undefined) return
+    updatePin.mutate(
+      { pin: id, body: { revision: pin.revision, x: at.x, y: at.y } },
+      { onError: failed },
+    )
+  }
   const layers = layersOf([...detail.pins, ...(current.data?.pins ?? [])])
   const markers: CanvasMarker[] = useMemo(
     () =>
@@ -162,7 +217,22 @@ function LoadedMap({
             ))}
           </fieldset>
         )}
-        {asOf !== undefined && (
+        {editable && (
+          <Button
+            size="sm"
+            variant={editing ? 'default' : 'outline'}
+            aria-pressed={editing}
+            className="ml-auto"
+            onClick={() => {
+              setEditing(!editing)
+              setSelected(null)
+            }}
+          >
+            <PencilIcon aria-hidden />
+            {editing ? 'Done editing' : 'Edit pins'}
+          </Button>
+        )}
+        {asOf !== undefined && !editing && (
           <label className="flex items-center gap-1">
             <input
               type="checkbox"
@@ -175,32 +245,82 @@ function LoadedMap({
           </label>
         )}
       </div>
-      <div className="relative min-h-64 flex-1 overflow-hidden rounded-md border">
-        <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading map…</p>}>
-          <MapCanvas
-            image={mediaFileUrl(vault, detail.media_id)}
-            width={detail.width}
-            height={detail.height}
-            markers={markers}
-            selected={selected}
-            focus={focusPin}
-            onSelect={setSelected}
-          />
-        </Suspense>
-        {chosen !== null && (
-          <PinPopover
-            vault={vault}
-            location={detail.location_id}
-            shown={chosen}
-            layer={layerOf(chosen.pin)}
-            registry={registry}
-            onOpenMap={onOpenMap}
-            onClose={() => {
-              setSelected(null)
-            }}
-          />
+      {editing && (
+        <p className="text-xs text-muted-foreground">
+          Click the map to add a pin, drag pins to move them, click one to edit it.
+        </p>
+      )}
+      <div className="flex min-h-64 flex-1 gap-3">
+        <div className="relative flex-1 overflow-hidden rounded-md border">
+          <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading map…</p>}>
+            <MapCanvas
+              image={mediaFileUrl(vault, detail.media_id)}
+              width={detail.width}
+              height={detail.height}
+              markers={markers}
+              selected={selected}
+              focus={focusPin}
+              onSelect={setSelected}
+              editing={editing}
+              onPlace={setPlacing}
+              onMove={movePin}
+              onDropEntity={(entity, at) => {
+                addPin({ target: entity }, at)
+              }}
+            />
+          </Suspense>
+          {editing && chosen !== null && (
+            <PinEditor
+              key={`${chosen.pin.id}:${String(chosen.pin.revision)}`}
+              vault={vault}
+              pin={chosen.pin}
+              dimension={dimensionId}
+              timeline={editTimeline}
+              onClose={() => {
+                setSelected(null)
+              }}
+            />
+          )}
+          {!editing && chosen !== null && (
+            <PinPopover
+              vault={vault}
+              location={detail.location_id}
+              shown={chosen}
+              layer={layerOf(chosen.pin)}
+              registry={registry}
+              onOpenMap={onOpenMap}
+              onClose={() => {
+                setSelected(null)
+              }}
+            />
+          )}
+        </div>
+        {editing && (
+          <aside className="w-56 shrink-0">
+            <ChildTray
+              vault={vault}
+              location={detail.location_id}
+              pins={detail.pins}
+              onPlace={(entity) => {
+                addPin({ target: entity }, { x: detail.width / 2, y: detail.height / 2 })
+              }}
+            />
+          </aside>
         )}
       </div>
+      {placing !== null && (
+        <AddPinDialog
+          vault={vault}
+          location={detail.location_id}
+          onAdd={(choice) => {
+            addPin(choice, placing)
+            setPlacing(null)
+          }}
+          onClose={() => {
+            setPlacing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

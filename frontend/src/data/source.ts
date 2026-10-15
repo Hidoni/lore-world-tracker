@@ -331,6 +331,13 @@ export interface Mutations {
     body: Schemas['GalleryItemUpdate'],
   ): Promise<D<'GalleryItemOut'>>
   removeFromGallery(vault: string, item: string): Promise<void>
+  // The maps module.
+  createMap(vault: string, body: Schemas['MapCreate']): Promise<D<'MapWriteResult'>>
+  updateMap(vault: string, map: string, body: Schemas['MapUpdate']): Promise<D<'MapWriteResult'>>
+  deleteMap(vault: string, map: string): Promise<D<'MapWriteResult'>>
+  createPin(vault: string, map: string, body: Schemas['PinCreate']): Promise<D<'PinWriteResult'>>
+  updatePin(vault: string, pin: string, body: Schemas['PinUpdate']): Promise<D<'PinWriteResult'>>
+  deletePin(vault: string, pin: string): Promise<D<'PinWriteResult'>>
   // The languages module's lexicon.
   createLexiconEntry(
     vault: string,

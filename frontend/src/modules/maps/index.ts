@@ -24,6 +24,7 @@ const PinnedPanel = lazyPanel(async () => (await import('./panels/pinned-panel')
  */
 export default defineModule({
   id: 'maps',
+  dependsOn: ['media'],
   routes: (parent) =>
     ['maps/$map', 'maps/$map/pins/$pin'].map((path) =>
       createRoute({

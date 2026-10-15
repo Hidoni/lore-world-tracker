@@ -3,35 +3,66 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CanvasMarker } from '@/modules/maps/views/map-canvas'
+import type { CanvasMarker, Point } from '@/modules/maps/views/map-canvas'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
 
-// jsdom draws no Leaflet maps: the canvas is replaced by a button per marker drawn.
+// jsdom draws no Leaflet maps: the canvas is replaced by a button per marker drawn, and (editing)
+// buttons that click the map at (100, 200), drag a marker to (5, 6), drop Fort at (300, 400).
 vi.mock('@/modules/maps/views/map-canvas', () => ({
+  ENTITY_DRAG_TYPE: 'application/x-lore-entity',
   default: ({
     markers,
     onSelect,
+    editing = false,
+    onPlace,
+    onMove,
+    onDropEntity,
   }: {
     markers: CanvasMarker[]
     onSelect: (id: string | null) => void
+    editing?: boolean
+    onPlace?: (point: Point) => void
+    onMove?: (id: string, point: Point) => void
+    onDropEntity?: (entity: string, point: Point) => void
   }) => (
-    <ul aria-label="Drawn">
-      {markers.map((marker) => (
-        <li key={marker.id}>
-          <button
-            type="button"
-            onClick={() => {
-              onSelect(marker.id)
-            }}
-          >
-            {marker.label}
-            {marker.ghost ? ' (ghost)' : ''}
+    <>
+      {editing && (
+        <div>
+          <button type="button" onClick={() => onPlace?.({ x: 100, y: 200 })}>
+            Click the map
           </button>
-        </li>
-      ))}
-    </ul>
+          <button type="button" onClick={() => onDropEntity?.('fort', { x: 300, y: 400 })}>
+            Drop Fort
+          </button>
+          {markers.map((marker) => (
+            <button
+              key={marker.id}
+              type="button"
+              onClick={() => onMove?.(marker.id, { x: 5, y: 6 })}
+            >
+              Drag {marker.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <ul aria-label="Drawn">
+        {markers.map((marker) => (
+          <li key={marker.id}>
+            <button
+              type="button"
+              onClick={() => {
+                onSelect(marker.id)
+              }}
+            >
+              {marker.label}
+              {marker.ghost ? ' (ghost)' : ''}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   ),
 }))
 
@@ -61,8 +92,18 @@ interface FakePin {
 
 /** Varn (a map) with Port inside (its own map); a camp from 100 until 200, a label. */
 function world() {
-  const names: Record<string, string> = { varn: 'Varn', port: 'Port', hero: 'Hero Sword' }
-  const kinds: Record<string, string> = { varn: 'location', port: 'location', hero: 'artifact' }
+  const names: Record<string, string> = {
+    varn: 'Varn',
+    port: 'Port',
+    hero: 'Hero Sword',
+    fort: 'Fort',
+  }
+  const kinds: Record<string, string> = {
+    varn: 'location',
+    port: 'location',
+    hero: 'artifact',
+    fort: 'location',
+  }
   const maps = [
     { id: 'm-varn', location_id: 'varn', name: 'Varn', media_id: 'img1' },
     { id: 'm-port', location_id: 'port', name: 'Port', media_id: 'img2' },
@@ -79,7 +120,7 @@ function world() {
     updated_at: '2026-01-01T00:00:00Z',
     deleted_at: null,
   }))
-  const pins: FakePin[] = [
+  let pins: FakePin[] = [
     { id: 'p-port', map_id: 'm-varn', target: 'port' },
     { id: 'p-hero', map_id: 'm-varn', target: 'hero' },
     { id: 'p-camp', map_id: 'm-varn', target: null, label: 'Camp', from: '100', to: '200' },
@@ -131,8 +172,12 @@ function world() {
       row('varn', 'location', 'Varn'),
       row('port', 'location', 'Port', { parent_id: 'varn', summary: 'A busy harbor.' }),
       row('hero', 'artifact', 'Hero Sword'),
+      row('fort', 'location', 'Fort', { parent_id: 'varn' }),
     ],
   })
+  const writes: { method: string; path: string; body: unknown }[] = []
+  const affected = { entities: [], dimensions: [], time_changed: false, search_changed: false }
+  let seq = 0
   server.use(
     http.get('*/api/v1/vaults/v1/m/maps/maps', ({ request }) => {
       const location = new URL(request.url).searchParams.get('location')
@@ -157,6 +202,66 @@ function world() {
           map.id === 'm-port' ? [{ map_id: 'm-varn', name: 'Varn', location_id: 'varn' }] : [],
       })
     }),
+    http.post('*/api/v1/vaults/v1/m/maps/maps/:id/pins', async ({ request, params }) => {
+      const body = (await request.json()) as {
+        target_entity_id?: string
+        label?: string
+      }
+      writes.push({ method: 'POST', path: `/maps/${String(params.id)}/pins`, body })
+      seq += 1
+      const pin: FakePin = {
+        id: `new${String(seq)}`,
+        map_id: String(params.id),
+        target: body.target_entity_id ?? null,
+        ...(body.label === undefined ? {} : { label: body.label }),
+      }
+      pins = [...pins, pin]
+      return HttpResponse.json({ pin: pinOut(pin), affected }, { status: 201 })
+    }),
+    http.patch('*/api/v1/vaults/v1/m/maps/pins/:id', async ({ request, params }) => {
+      const body = (await request.json()) as { label?: string | null }
+      writes.push({ method: 'PATCH', path: `/pins/${String(params.id)}`, body })
+      pins = pins.map((pin) =>
+        pin.id === params.id && typeof body.label === 'string'
+          ? { ...pin, label: body.label }
+          : pin,
+      )
+      const pin = pins.find((other) => other.id === params.id)
+      return pin
+        ? HttpResponse.json({ pin: pinOut(pin), affected })
+        : new HttpResponse(null, { status: 404 })
+    }),
+    http.delete('*/api/v1/vaults/v1/m/maps/pins/:id', ({ params }) => {
+      writes.push({ method: 'DELETE', path: `/pins/${String(params.id)}`, body: null })
+      const pin = pins.find((other) => other.id === params.id)
+      pins = pins.filter((other) => other.id !== params.id)
+      return pin
+        ? HttpResponse.json({ pin: pinOut(pin), affected })
+        : new HttpResponse(null, { status: 404 })
+    }),
+    http.post('*/api/v1/vaults/v1/m/maps/maps', async ({ request }) => {
+      const body = (await request.json()) as { location_id: string; media_id: string; name: string }
+      writes.push({ method: 'POST', path: '/maps', body })
+      const [template] = maps
+      if (template === undefined) return new HttpResponse(null, { status: 500 })
+      const map = { ...template, ...body, id: 'm-new' }
+      maps.push(map)
+      return HttpResponse.json({ map, affected }, { status: 201 })
+    }),
+    http.get(
+      '*/api/v1/vaults/v1/m/media/items',
+      () =>
+      HttpResponse.json({
+        items: [
+          {
+            id: 'img9', sha256: 'abcdef', filename: 'fort.png', mime: 'image/png', size: 10,
+            width: 640, height: 480, alt: '', caption: '', revision: 1,
+            created_at: '2026-01-01T00:00:00Z', deleted_at: null, refs: [],
+          },
+        ],
+        next_cursor: null,
+      }), // prettier-ignore
+    ),
     http.get('*/api/v1/vaults/v1/m/maps/entities/:id/pins', ({ params }) =>
       HttpResponse.json({
         entity_id: params.id,
@@ -166,7 +271,7 @@ function world() {
       }),
     ),
   )
-  return { queries }
+  return { queries, writes }
 }
 
 const drawn = async () => {
@@ -247,6 +352,126 @@ describe('maps module', () => {
     await screen.findByRole('heading', { name: 'Crown', level: 1 }, WAIT)
     await waitFor(() => {
       expect(screen.queryByRole('region', { name: 'Show on map' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('adds pins by clicking (an entity or a label), moves them by dragging', async () => {
+    const { writes } = world()
+    await renderApp('/v/v1/m/maps/maps/m-varn')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit pins' }, WAIT))
+    await userEvent.click(await screen.findByRole('button', { name: 'Click the map' }, WAIT))
+    let dialog = await screen.findByRole('dialog', { name: 'Add a pin' })
+    await userEvent.type(within(dialog).getByRole('searchbox', { name: 'Find an entity' }), 'Hero')
+    await userEvent.click(await within(dialog).findByRole('button', { name: /Hero Sword/ }, WAIT))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'POST',
+        path: '/maps/m-varn/pins',
+        body: { target_entity_id: 'hero', x: 100, y: 200 },
+      })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Click the map' }))
+    dialog = await screen.findByRole('dialog', { name: 'Add a pin' })
+    await userEvent.type(within(dialog).getByRole('searchbox', { name: 'Find an entity' }), 'Ruins')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add the label “Ruins”' }))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'POST',
+        path: '/maps/m-varn/pins',
+        body: { label: 'Ruins', x: 100, y: 200 },
+      })
+    })
+    expect(await screen.findByRole('button', { name: 'Ruins' }, WAIT)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Drag Port' }))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'PATCH',
+        path: '/pins/p-port',
+        body: { revision: 1, x: 5, y: 6 },
+      })
+    })
+  })
+
+  it('pins unplaced child locations from the tray, by button or by dropping', async () => {
+    const { writes } = world()
+    await renderApp('/v/v1/m/maps/maps/m-varn')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit pins' }, WAIT))
+    const tray = await screen.findByRole('region', { name: 'Unplaced child locations' })
+    // Port is pinned already.
+    expect(await within(tray).findByText('Fort', {}, WAIT)).toBeInTheDocument()
+    expect(within(tray).queryByText('Port')).toBeNull()
+    await userEvent.click(within(tray).getByRole('button', { name: 'Place Fort on the map' }))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'POST',
+        path: '/maps/m-varn/pins',
+        body: { target_entity_id: 'fort', x: 500, y: 400 },
+      })
+    })
+    await waitFor(() => {
+      expect(within(tray).getByText('Every child location is on this map.')).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Drop Fort' }))
+    await waitFor(() => {
+      expect(writes.filter((write) => write.method === 'POST')).toHaveLength(2)
+    })
+  })
+
+  it('edits and removes a pin', async () => {
+    const { writes } = world()
+    await renderApp('/v/v1/m/maps/maps/m-varn')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit pins' }, WAIT))
+    // Editing shows every pin, the camp too.
+    await userEvent.click(await screen.findByRole('button', { name: 'Camp' }, WAIT))
+    const editor = screen.getByRole('dialog', { name: 'Edit Camp' })
+    const label = within(editor).getByLabelText('Label')
+    await userEvent.clear(label)
+    await userEvent.type(label, 'Old camp')
+    await userEvent.selectOptions(within(editor).getByLabelText('Visibility'), 'private')
+    await userEvent.selectOptions(within(editor).getByLabelText('Drills into'), 'm-port')
+    await userEvent.click(within(editor).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'PATCH',
+        path: '/pins/p-camp',
+        body: { revision: 1, label: 'Old camp', child_map_id: 'm-port', visibility: 'private' },
+      })
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Old camp' }, WAIT))
+    await userEvent.click(
+      within(screen.getByRole('dialog', { name: 'Edit Old camp' })).getByRole('button', {
+        name: 'Remove pin',
+      }),
+    )
+    await waitFor(() => {
+      expect(writes).toContainEqual({ method: 'DELETE', path: '/pins/p-camp', body: null })
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Old camp' })).toBeNull()
+    })
+  })
+
+  it('creates a map for a location with an image from the library', async () => {
+    const { writes } = world()
+    await renderApp('/v/v1/e/fort')
+    const panel = await screen.findByRole('region', { name: 'Map' }, WAIT)
+    expect(await within(panel).findByText('No maps of this place.', {}, WAIT)).toBeInTheDocument()
+    await userEvent.click(within(panel).getByRole('button', { name: 'New map' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New map' })
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Fort')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Choose the image' }))
+    const picker = await screen.findByRole('dialog', { name: "The map's image" })
+    await userEvent.click(
+      await within(picker).findByRole('button', { name: 'Pick fort.png' }, WAIT),
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Create the map' }, WAIT))
+    await waitFor(() => {
+      expect(writes).toContainEqual({
+        method: 'POST',
+        path: '/maps',
+        body: { location_id: 'fort', media_id: 'img9', name: 'Fort' },
+      })
     })
   })
 })

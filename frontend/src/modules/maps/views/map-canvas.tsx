@@ -19,6 +19,15 @@ export interface CanvasMarker {
   ghost: boolean
 }
 
+/** What a dragged entity carries (the child-location tray): its id. */
+export const ENTITY_DRAG_TYPE = 'application/x-lore-entity'
+
+/** An image pixel, from the top left. */
+export interface Point {
+  x: number
+  y: number
+}
+
 /** Pins this close together (screen pixels) cluster. */
 const CLUSTER_RADIUS = 40
 
@@ -38,8 +47,10 @@ function markerIcon(marker: CanvasMarker, glyph: string, selected: boolean): L.D
 /**
  * A map image drawn with Leaflet (docs/modules/maps.md, UI): `CRS.Simple` with the image as an
  * overlay over its own pixel bounds, pins as kind-icon markers (faded when ghosts) that cluster
- * when crowded, a tooltip on hover, `onSelect` on click (a click on the map clears it). Loaded
- * lazily with the map views (frontend.md §12).
+ * when crowded, a tooltip on hover, `onSelect` on click (a click on the map clears it). Editing
+ * (no clustering then): a click on the map places (`onPlace`), pins drag (`onMove`), and entities
+ * dragged in (`ENTITY_DRAG_TYPE`) drop (`onDropEntity`). Loaded lazily with the map views
+ * (frontend.md §12).
  */
 export default function MapCanvas({
   image,
@@ -49,6 +60,10 @@ export default function MapCanvas({
   selected,
   focus = null,
   onSelect,
+  editing = false,
+  onPlace,
+  onMove,
+  onDropEntity,
 }: {
   image: string
   width: number
@@ -58,18 +73,27 @@ export default function MapCanvas({
   /** A pin to center on once it is drawn. */
   focus?: string | null
   onSelect: (id: string | null) => void
+  editing?: boolean
+  onPlace?: (point: Point) => void
+  onMove?: (id: string, point: Point) => void
+  onDropEntity?: (entity: string, point: Point) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
-  const layer = useRef<L.MarkerClusterGroup | null>(null)
+  const layer = useRef<L.LayerGroup | null>(null)
   const focused = useRef<string | null>(null)
   // Leaflet markers take HTML: the icons render here, hidden, and markers copy their markup.
   const icons = useMemo(() => [...new Set(markers.map((marker) => marker.icon))], [markers])
   const glyphs = useRef<HTMLDivElement>(null)
-  const select = useRef(onSelect)
+  const handlers = useRef({ onSelect, onPlace, onMove, onDropEntity, editing })
   useEffect(() => {
-    select.current = onSelect
-  }, [onSelect])
+    handlers.current = { onSelect, onPlace, onMove, onDropEntity, editing }
+  }, [onSelect, onPlace, onMove, onDropEntity, editing])
+  /** An image pixel of a map position, kept on the image. */
+  const pointOf = (latlng: L.LatLng): Point => ({
+    x: Math.round(Math.min(Math.max(latlng.lng, 0), width) * 10) / 10,
+    y: Math.round(Math.min(Math.max(height - latlng.lat, 0), height) * 10) / 10,
+  })
 
   useEffect(() => {
     const element = container.current
@@ -88,56 +112,93 @@ export default function MapCanvas({
     })
     L.imageOverlay(image, bounds).addTo(created)
     created.fitBounds(bounds)
-    created.on('click', () => {
-      select.current(null)
+    created.on('click', (event: L.LeafletMouseEvent) => {
+      const { editing: placing, onPlace: place, onSelect: select } = handlers.current
+      if (placing && place) place(pointOf(event.latlng))
+      else select(null)
     })
-    const clusters = L.markerClusterGroup({
-      maxClusterRadius: CLUSTER_RADIUS,
-      showCoverageOnHover: false,
-    })
-    clusters.addTo(created)
     map.current = created
-    layer.current = clusters
     focused.current = null
     return () => {
       created.remove()
       map.current = null
       layer.current = null
     }
+    // pointOf reads width and height, which are deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [image, width, height])
 
+  // Clusters when viewing; single markers when editing (so that each one drags).
   useEffect(() => {
-    const clusters = layer.current
-    if (clusters === null) return
+    const created = map.current
+    if (created === null) return
+    const group = editing
+      ? L.layerGroup()
+      : L.markerClusterGroup({ maxClusterRadius: CLUSTER_RADIUS, showCoverageOnHover: false })
+    group.addTo(created)
+    layer.current = group
+    return () => {
+      group.remove()
+      if (layer.current === group) layer.current = null
+    }
+  }, [editing, image, width, height])
+
+  useEffect(() => {
+    const group = layer.current
+    if (group === null) return
     const rendered = glyphs.current?.children
     const glyphOf = (icon: CanvasMarker['icon']) => rendered?.[icons.indexOf(icon)]?.innerHTML ?? ''
-    clusters.clearLayers()
-    clusters.addLayers(
-      markers.map((marker) =>
-        L.marker(toLatLng(marker, height), {
-          icon: markerIcon(marker, glyphOf(marker.icon), marker.id === selected),
-          keyboard: true,
-          title: marker.label,
-          alt: marker.label,
-          zIndexOffset: marker.ghost ? -1000 : 0,
+    group.clearLayers()
+    const drawn = markers.map((marker) =>
+      L.marker(toLatLng(marker, height), {
+        icon: markerIcon(marker, glyphOf(marker.icon), marker.id === selected),
+        keyboard: true,
+        title: marker.label,
+        alt: marker.label,
+        draggable: editing,
+        zIndexOffset: marker.ghost ? -1000 : 0,
+      })
+        .bindTooltip(marker.label, { direction: 'right' })
+        .on('click', (event) => {
+          L.DomEvent.stopPropagation(event)
+          handlers.current.onSelect(marker.id)
         })
-          .bindTooltip(marker.label, { direction: 'right' })
-          .on('click', (event) => {
-            L.DomEvent.stopPropagation(event)
-            select.current(marker.id)
-          }),
-      ),
+        .on('dragend', (event) => {
+          const moved = event.target as L.Marker
+          handlers.current.onMove?.(marker.id, pointOf(moved.getLatLng()))
+        }),
     )
+    if (group instanceof L.MarkerClusterGroup) group.addLayers(drawn)
+    else for (const marker of drawn) group.addLayer(marker)
     const target = markers.find((marker) => marker.id === focus)
     if (target !== undefined && focused.current !== target.id) {
       focused.current = target.id
       map.current?.setView(toLatLng(target, height), Math.max(map.current.getZoom(), 0))
     }
-  }, [markers, icons, selected, focus, height, image, width])
+    // pointOf reads width and height, which are deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, icons, selected, focus, height, image, width, editing])
 
   return (
     <>
-      <div ref={container} className="size-full bg-muted" />
+      <div
+        ref={container}
+        className="size-full bg-muted"
+        onDragOver={(event) => {
+          if (editing && event.dataTransfer.types.includes(ENTITY_DRAG_TYPE)) event.preventDefault()
+        }}
+        onDrop={(event) => {
+          const entity = event.dataTransfer.getData(ENTITY_DRAG_TYPE)
+          const created = map.current
+          if (!editing || entity === '' || created === null || container.current === null) return
+          event.preventDefault()
+          const rect = container.current.getBoundingClientRect()
+          const at = created.containerPointToLatLng(
+            L.point(event.clientX - rect.left, event.clientY - rect.top),
+          )
+          handlers.current.onDropEntity?.(entity, pointOf(at))
+        }}
+      />
       <div ref={glyphs} hidden>
         {icons.map((Icon, index) => (
           <span key={index}>

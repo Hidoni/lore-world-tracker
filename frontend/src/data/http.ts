@@ -854,6 +854,59 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
       })
       if (error !== undefined || !response.ok) throw await toApiError(response)
     },
+    createMap: async (vault, body) =>
+      toDomain(
+        await unwrap(client.POST(`${V}/m/maps/maps`, { params: path(vault), body })),
+        'MapWriteResult',
+      ),
+    updateMap: async (vault, map, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/maps/maps/{map_id}`, {
+            params: { path: { vault_id: vault, map_id: map } },
+            body,
+          }),
+        ),
+        'MapWriteResult',
+      ),
+    deleteMap: async (vault, map) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/maps/maps/{map_id}`, {
+            params: { path: { vault_id: vault, map_id: map } },
+          }),
+        ),
+        'MapWriteResult',
+      ),
+    createPin: async (vault, map, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/maps/maps/{map_id}/pins`, {
+            params: { path: { vault_id: vault, map_id: map } },
+            body,
+          }),
+        ),
+        'PinWriteResult',
+      ),
+    updatePin: async (vault, pin, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/maps/pins/{pin_id}`, {
+            params: { path: { vault_id: vault, pin_id: pin } },
+            body,
+          }),
+        ),
+        'PinWriteResult',
+      ),
+    deletePin: async (vault, pin) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/maps/pins/{pin_id}`, {
+            params: { path: { vault_id: vault, pin_id: pin } },
+          }),
+        ),
+        'PinWriteResult',
+      ),
     createLexiconEntry: async (vault, language, body) =>
       toDomain(
         await unwrap(

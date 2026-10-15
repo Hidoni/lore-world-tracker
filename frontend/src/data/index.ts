@@ -216,9 +216,15 @@ export {
 } from './worldlines'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
+  useCreateMap,
+  useCreatePin,
+  useDeleteMap,
+  useDeletePin,
   useEntityPins,
   useMapDetail,
   useMaps,
+  useUpdateMap,
+  useUpdatePin,
   type EntityPins,
   type MapDetail,
   type MapPin,

@@ -69,6 +69,14 @@ None. Maps belong to locations.
   possibly there (`shown: possible`) are faded in both modes. Without a cursor every pin shows.
 - Entity pages of pinned entities get a "Show on map" side panel (one entry per pin) that opens
   the map at the pin; it is left out on entities pinned nowhere.
+- Edit mode (#130; authors, "Edit pins"): every pin of the map shows, whenever it stands, and
+  markers don't cluster. A click on the map opens "Add a pin" (an entity found by name, a new
+  location created there as a child of the map's location, or a label); pins drag to move; a click
+  on a pin opens its editor (label, icon, color, the map it drills into, validity with time point
+  pickers in the cursor's timeline or the dimension's prime one, visibility, remove). The tray
+  beside the map lists the location's child locations not pinned on it yet: drag one onto the map,
+  or place it in the middle. The location panel's "New map" names the map and picks or uploads its
+  image (the media module's image picker).
 - Leaflet and its clustering plugin load with the first map shown (frontend.md §12); the canvas
   is `modules/maps/views/map-canvas.tsx`, the pin filtering `modules/maps/pins.ts`.
 
