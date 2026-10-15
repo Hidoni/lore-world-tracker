@@ -854,8 +854,12 @@ subjective time when a worldline exists, else `diff(birth, t)`.
   can be present twice.
 - A participation link may carry `segment_id`. If omitted and exactly one segment covers the
   event's start, that segment is implied. If several cover it, the participation is
-  ambiguous (warning `core.worldline.ambiguous_participation`). If none does, the entity is absent
-  (warning `core.worldline.absent_participant`).
+  ambiguous (warning `worldlines.ambiguous_participation`; the first in worldline order is
+  used). If none does, the entity is absent (warning `worldlines.absent_participant`); a chosen
+  segment that doesn't cover the event makes it absent too. `segment_id` must name a segment of
+  the participant (`422`, path `data.segment_id`). While the worldlines module is on, entities
+  with explicit segments are checked by these rules instead of
+  `core.event.participant_not_existing`.
 
 ### 11.5 Personal timeline view
 

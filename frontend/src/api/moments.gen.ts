@@ -530,6 +530,13 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "TimeTravelResult": {
+    "o": {
+      "worldline": {
+        "r": "Worldline"
+      }
+    }
+  },
   "WindowBucket": {
     "o": {
       "from": "m",

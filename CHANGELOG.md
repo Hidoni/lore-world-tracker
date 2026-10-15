@@ -50,6 +50,10 @@ All notable changes to this project are documented here. The format follows
   where an entity is at a moment (a traveler can be there twice), and a personal timeline of
   what it experienced in its own order with its age at each moment. Entities without segments
   live their lifespan. New table `worldline_segments` (migrated automatically).
+- **Time travel** (#121): send a character back in time, into a new branch or to another
+  dimension in one step, with departure and arrival events created along the way. When a time
+  traveler is present more than once at an event, a warning asks which visit takes part (a
+  participation can name it), and another warns when a participant isn't there at all.
 
 ## [0.7.0] - 2026-10-14
 

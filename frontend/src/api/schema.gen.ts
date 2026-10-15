@@ -1939,6 +1939,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/worldlines/entities/{entity_id}/time-travel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Time Travel
+         * @description The time-travel wizard in one transaction: the entity leaves at the departure (an event,
+         *     or a moment, optionally creating a departure event) from the last segment covering it, and
+         *     arrives in the destination (a timeline, the dimension's prime, or a new branch with the
+         *     `branches` module on), optionally creating an arrival event; the entity takes part in the
+         *     events it gets. An implicit worldline becomes explicit. Errors name the wizard's fields
+         *     (`departure`, `destination.arrival`, `destination.until`, …).
+         */
+        post: operations["worldlines_time_travel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2765,6 +2790,24 @@ export interface components {
             /** Examples */
             examples?: components["schemas"]["Example"][];
         };
+        /**
+         * Departure
+         * @description When the entity leaves: an event (it moves with it) or a time point, in one of the
+         *     worldline's timelines; the last segment that covers it is cut there.
+         */
+        Departure: {
+            /** @description Leave when this event starts. */
+            event_id?: components["schemas"]["EntityId"] | null;
+            /** @description Leave at this moment. */
+            at?: components["schemas"]["TimePoint"] | null;
+            /** @description With `at`: the timeline it is in (default: the last segment covering it). */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            /**
+             * Event Name
+             * @description With `at`: create a departure event of this name there.
+             */
+            event_name?: string | null;
+        };
         /** DescentEdge */
         DescentEdge: {
             /**
@@ -2811,6 +2854,22 @@ export interface components {
             edges: components["schemas"]["DescentEdge"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /** Destination */
+        Destination: {
+            dimension_id: components["schemas"]["EntityId"];
+            /** @description Default: the dimension's prime (or `new_branch`). */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            new_branch?: components["schemas"]["NewBranch"] | null;
+            arrival: components["schemas"]["TimePoint"];
+            /** @description Where the new segment ends (default: the end of time). */
+            until?: components["schemas"]["TimePoint"] | null;
+            rate?: components["schemas"]["Rational"] | null;
+            /**
+             * Event Name
+             * @description Create an arrival event of this name at the arrival.
+             */
+            event_name?: string | null;
         };
         /** DiffRecord */
         DiffRecord: {
@@ -4662,6 +4721,23 @@ export interface components {
             /** Modules */
             modules: components["schemas"]["ModuleState"][];
         };
+        /**
+         * NewBranch
+         * @description A branch created for the arrival (the `branches` module must be on).
+         */
+        NewBranch: {
+            /** Name */
+            name: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary?: string;
+            /** @description Default: the destination dimension's prime timeline. */
+            parent_timeline_id?: components["schemas"]["EntityId"] | null;
+            /** @description Default: the arrival moment. */
+            branch_point?: components["schemas"]["TimePoint"] | null;
+        };
         /** NoteIn */
         NoteIn: {
             /**
@@ -4886,6 +4962,11 @@ export interface components {
              * @default []
              */
             roles?: string[];
+            /**
+             * Assignment
+             * @description Participations (§11.4): the segment the link chose, the one covering segment (implied), several (ambiguous: the first is used) or none (absent).
+             */
+            assignment?: ("chosen" | "implied" | "ambiguous" | "absent") | null;
             /**
              * To Dimension Id
              * @description Jumps: where to.
@@ -5820,6 +5901,34 @@ export interface components {
          * @enum {string}
          */
         TimeStatus: "ok" | "trashed_ref" | "unresolved_ref" | "cycle" | "invalid_date" | "out_of_bounds" | "calendar_error";
+        /** TimeTravelIn */
+        TimeTravelIn: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            departure: components["schemas"]["Departure"];
+            destination: components["schemas"]["Destination"];
+            /** Note */
+            note?: string | null;
+        };
+        /** TimeTravelResult */
+        TimeTravelResult: {
+            worldline: components["schemas"]["Worldline"];
+            affected: components["schemas"]["Affected"];
+            /**
+             * Timeline Id
+             * @description Where the entity arrived (a new branch, if asked).
+             */
+            timeline_id: string;
+            /** Branch Id */
+            branch_id?: string | null;
+            /** Departure Event Id */
+            departure_event_id?: string | null;
+            /** Arrival Event Id */
+            arrival_event_id?: string | null;
+        };
         /** TimelineNode */
         TimelineNode: {
             /** Id */
@@ -10518,6 +10627,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonalTimeline"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    worldlines_time_travel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeTravelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeTravelResult"];
                 };
             };
             /** @description Problem */

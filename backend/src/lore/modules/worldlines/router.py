@@ -15,10 +15,13 @@ from lore.modules.worldlines.schemas import (
     PersonalTimeline,
     Presence,
     SegmentsPut,
+    TimeTravelIn,
+    TimeTravelResult,
     Worldline,
     WorldlineWriteResult,
 )
 from lore.modules.worldlines.service import Worldlines
+from lore.modules.worldlines.travel import TimeTravel
 
 router = APIRouter(tags=["worldlines"])
 
@@ -104,3 +107,22 @@ def personal_timeline(
     service = Worldlines(VaultContext(vault, session, registry), policy)
     wanted = include or ["participations", "existence", "jumps"]
     return service.personal_timeline(entity_id, wanted, timeline)
+
+
+@router.post("/entities/{entity_id}/time-travel", name="time_travel")
+def time_travel(
+    *,
+    entity_id: IdPath,
+    body: TimeTravelIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> TimeTravelResult:
+    """The time-travel wizard in one transaction: the entity leaves at the departure (an event,
+    or a moment, optionally creating a departure event) from the last segment covering it, and
+    arrives in the destination (a timeline, the dimension's prime, or a new branch with the
+    `branches` module on), optionally creating an arrival event; the entity takes part in the
+    events it gets. An implicit worldline becomes explicit. Errors name the wizard's fields
+    (`departure`, `destination.arrival`, `destination.until`, …)."""
+    request_suppress(session, body.suppress)
+    return TimeTravel(VaultContext(vault, session, registry)).run(entity_id, body)

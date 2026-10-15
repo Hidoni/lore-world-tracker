@@ -255,3 +255,146 @@ def test_undo_and_purge(world: World) -> None:
     assert world.get(world.vey)["segments"][0]["end_t"] == "2"
     assert world.api.delete(world.vey["id"]).status_code == 200
     assert world.api.delete(world.vey["id"], purge=True).status_code == 200
+
+
+# --- time travel and participations (#121) -------------------------------------------------------
+
+
+def findings(world: World, rule: str) -> list[dict[str, Any]]:
+    response = world.api.client.get(f"{world.api.base}/consistency/findings", params={"rule": rule})
+    items: list[dict[str, Any]] = response.json()["items"]
+    return items
+
+
+def travel(world: World, entity: dict[str, Any], **body: Any) -> Any:
+    return world.api.client.post(world.url(entity, "time-travel"), json=body)
+
+
+def test_time_travel_within_the_timeline(world: World) -> None:
+    """Vey (no existence facts: all of time) vanishes in year 30 and turns up in year 5."""
+    response = travel(world, world.vey,
+                      departure={"at": at(30 * YEAR), "event_name": "The Vanishing"},
+                      destination={"dimension_id": world.aetheria["id"], "arrival": at(5 * YEAR),
+                                   "until": at(40 * YEAR), "event_name": "A stranger arrives"})  # fmt: skip
+    assert response.status_code == 200, response.json()
+    result = response.json()
+    first, second = result["worldline"]["segments"]
+    assert (first["start_t"], first["end_t"]) == ("0", str(30 * YEAR))
+    assert (second["start_t"], second["end_t"]) == (str(5 * YEAR), str(40 * YEAR))
+    assert result["timeline_id"] == world.prime and result["branch_id"] is None
+    assert first["departure_event_id"] == result["departure_event_id"]
+    assert second["arrival_event_id"] == result["arrival_event_id"]
+    # Vey takes part in both events, each with its visit.
+    items = world.get(world.vey, "personal-timeline")["items"]
+    kinds = [(i["kind"], i["name"], i["assignment"]) for i in items]
+    assert kinds == [
+        ("participation", "The Vanishing", "chosen"),
+        ("jump", None, None),
+        ("participation", "A stranger arrives", "chosen"),
+    ]
+    assert items[2]["segment_id"] == second["id"]
+    # The cut follows the departure event.
+    vanishing = world.api.get(result["departure_event_id"]).json()
+    moved = world.api.patch(vanishing, ext={"start": at(31 * YEAR)})
+    assert moved.status_code == 200, moved.json()
+    assert world.get(world.vey)["segments"][0]["end_t"] == str(31 * YEAR)
+    # A departure outside the worldline is refused (Vey is gone after year 40).
+    refused = travel(world, world.vey, departure={"at": at(50 * YEAR)},
+                     destination={"dimension_id": world.aetheria["id"], "arrival": at(1)})  # fmt: skip
+    assert invalid(refused) == ["departure"]
+
+
+def test_time_travel_into_a_new_branch(world: World) -> None:
+    experiment = world.event("The Experiment", 20 * YEAR)
+    world.replaced(world.vey, [world.segment(10 * YEAR, 60 * YEAR),
+                               world.segment(70 * YEAR, 80 * YEAR)])  # fmt: skip
+    response = travel(world, world.vey, departure={"event_id": experiment["id"]},
+                      destination={"dimension_id": world.aetheria["id"], "arrival": at(15 * YEAR),
+                                   "new_branch": {"name": "Vey's Return"},
+                                   "event_name": "Return"})  # fmt: skip
+    assert response.status_code == 200, response.json()
+    result = response.json()
+    branch = result["branch_id"]
+    assert branch is not None and result["timeline_id"] == branch
+    segments = result["worldline"]["segments"]
+    # Cut at the experiment, the branch visit, then the later segment as before.
+    assert [(s["timeline_id"], s["start_t"], s["end_t"]) for s in segments] == [
+        (world.prime, str(10 * YEAR), str(20 * YEAR)),
+        (branch, str(15 * YEAR), "1000000000000"),
+        (world.prime, str(70 * YEAR), str(80 * YEAR)),
+    ]
+    assert segments[0]["departure_event_id"] == experiment["id"]
+    timeline = world.api.get(branch).json()
+    assert (timeline["name"], timeline["ext"]["branch_t"]) == ("Vey's Return", str(15 * YEAR))
+    # The arrival event exists only in the branch.
+    arrival = world.api.get(result["arrival_event_id"]).json()
+    assert arrival["origin_timeline_id"] == branch
+    # A new branch and a timeline at once are refused; nothing is written.
+    refused = travel(world, world.vey, departure={"at": at(75 * YEAR)},
+                     destination={"dimension_id": world.aetheria["id"], "arrival": at(1),
+                                  "timeline_id": world.prime, "new_branch": {"name": "X"}})  # fmt: skip
+    assert invalid(refused) == ["destination.new_branch"]
+    assert len(world.get(world.vey)["segments"]) == 3
+
+
+def test_time_travel_to_another_dimension(world: World) -> None:
+    dream = world.api.make("dimension", "Dreamrealm")
+    world.api.calendar(dream["id"])
+    response = travel(world, world.vey, departure={"at": at(30 * YEAR)},
+                      destination={"dimension_id": dream["id"], "arrival": at(100),
+                                   "rate": {"num": "2", "den": "1"}})  # fmt: skip
+    assert response.status_code == 200, response.json()
+    _first, second = response.json()["worldline"]["segments"]
+    assert (second["dimension_id"], second["timeline_id"]) == (
+        dream["id"], dream["ext"]["prime_timeline_id"])  # fmt: skip
+    assert second["rate"] == {"num": "2", "den": "1"}
+    assert world.present(world.vey, 100, dimension=dream["id"]) == [second["id"]]
+    # An arrival outside the destination's time names the wizard's field.
+    refused = travel(world, world.vey, departure={"at": at(10 * YEAR)},
+                     destination={"dimension_id": dream["id"], "arrival": at(-5)})  # fmt: skip
+    assert refused.status_code == 422
+
+
+def test_participations_are_assigned_to_visits(world: World) -> None:
+    """Vey lives years 10-30 and comes back for 20-25; existence 10-30 (so the core rule would
+    see the year-50 flood as outside it)."""
+    world.exists(world.vey, valid_from=at(10 * YEAR), valid_to=at(30 * YEAR))
+    first, second = world.replaced(world.vey, [
+        world.segment(10 * YEAR, 30 * YEAR), world.segment(20 * YEAR, 25 * YEAR),
+    ])["segments"]  # fmt: skip
+    world.api.made_link("core.participant", world.event("Founding", 12 * YEAR), world.vey)
+    meeting = world.event("Meeting", 22 * YEAR)
+    link = world.api.made_link("core.participant", meeting, world.vey)
+    flood = world.event("Flood", 50 * YEAR)
+    world.api.made_link("core.participant", flood, world.vey)
+    items = {i["name"]: i for i in world.get(world.vey, "personal-timeline")["items"]}
+    assert items["Founding"]["assignment"] == "implied"
+    assert items["Meeting"]["assignment"] == "ambiguous"
+    assert items["Flood"]["assignment"] == "absent"
+    [ambiguous] = findings(world, "worldlines.ambiguous_participation")
+    assert {s["id"] for s in ambiguous["subjects"]} == {world.vey["id"], meeting["id"]}
+    [absent] = findings(world, "worldlines.absent_participant")
+    assert {s["id"] for s in absent["subjects"]} == {world.vey["id"], flood["id"]}
+    # The core rule leaves entities with a worldline to these rules.
+    assert findings(world, "core.event.participant_not_existing") == []
+    # Choosing the second visit settles it; a visit of someone else is refused.
+    chosen = world.api.patch_link(link, data={"segment_id": second["id"]})
+    assert chosen.status_code == 200, chosen.json()
+    assert findings(world, "worldlines.ambiguous_participation") == []
+    items = {i["name"]: i for i in world.get(world.vey, "personal-timeline")["items"]}
+    assert (items["Meeting"]["assignment"], items["Meeting"]["segment_id"]) == (
+        "chosen", second["id"])  # fmt: skip
+    other = world.character("Ilsa")
+    refused = world.api.link("core.participant", meeting, other,
+                             data={"segment_id": first["id"]})  # fmt: skip
+    assert invalid(refused) == ["data.segment_id"]
+    # A chosen visit that doesn't cover the event makes it absent.
+    again = world.api.patch_link(chosen.json()["link"], data={"segment_id": first["id"]})
+    assert again.status_code == 200, again.json()
+    assert findings(world, "worldlines.ambiguous_participation") == []
+    assert len(findings(world, "worldlines.absent_participant")) == 1
+    # Back to the implicit worldline: the core rule checks the existence again.
+    world.replaced(world.vey, [])
+    assert [f["rule_id"] for f in findings(world, "core.event.participant_not_existing")] == [
+        "core.event.participant_not_existing"
+    ]

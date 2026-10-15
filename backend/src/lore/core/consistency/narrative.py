@@ -3,7 +3,8 @@ finders modules build theirs with. Every one is precision-aware (``existence.py`
 ``compare.py``) and compares records of one timeline.
 
 - ``core.event.participant_not_existing``: a participant's existence doesn't cover the event's
-  span (recurring series aside).
+  span (recurring series aside). Entities with explicit worldline segments are left to
+  ``worldlines.absent_participant`` while that module is on (time-model.md §11.4).
 - ``core.fact.outside_existence``: a fact's validity (a temporal field's value, a name) lies
   outside its entity's existence.
 - ``core.fact.overlap``: two facts of a single-valued field (or two names) overlap.
@@ -39,7 +40,7 @@ from lore.core.entities.models import Entity
 from lore.core.facts.models import EntityFact
 from lore.core.links.models import Link
 from lore.core.registry.types import RuleDef, Trigger
-from lore.core.time.models import Event
+from lore.core.time.models import Event, WorldlineSegment
 
 NAME = "core.name"
 LINK = "link"
@@ -200,10 +201,12 @@ def events_within(
     message: Callable[[str, str], str],
     *,
     instant: bool = False,
+    skip: Callable[[RuleContext], frozenset[str]] | None = None,
 ) -> Finder:
     """Links of the type from an event to an entity whose existence doesn't cover the event's
     span (its start with ``instant``). Recurring series aren't checked. ``message(event name,
-    entity name)``; subjects: the entity, then the event."""
+    entity name)``; subjects: the entity, then the event. ``skip`` names entities left to other
+    rules."""
 
     def finder(ctx: RuleContext, subjects: frozenset[str] | None) -> Iterator[FindingDraft]:
         event_entity, other = aliased(Entity), aliased(Entity)
@@ -233,6 +236,7 @@ def events_within(
             )
         )
         checker = Within(ctx)
+        skipped = frozenset() if skip is None else skip(ctx)
         sides_of = (
             _sides(statement, subjects, Link.source_id, Link.target_id)
             if subjects is not None
@@ -240,6 +244,8 @@ def events_within(
         )
         for row in _rows(ctx, sides_of):
             _link_id, event_id, entity_id, timeline_id, start_t, end_t, *_names = row
+            if entity_id in skipped:
+                continue
             inner = span(EVENT, event_id, start_t, start_t if instant else end_t,
                          ("start", "start" if instant else "end"))  # fmt: skip
             checker.add(entity_id, timeline_id, inner, row)
@@ -416,6 +422,16 @@ def _overlaps(ctx: RuleContext, subjects: frozenset[str] | None) -> Iterator[Fin
 
 ANY_RECORD = Trigger("record", "*")
 
+
+def _travelers(ctx: RuleContext) -> frozenset[str]:
+    """Entities with explicit worldline segments while the worldlines module is on: their
+    participations are checked against their segments (``worldlines.absent_participant``)."""
+    from lore.core.modules.service import enabled_modules  # noqa: PLC0415 (import cycle)
+
+    if "worldlines" not in enabled_modules(ctx.session, ctx.registry):
+        return frozenset()
+    return frozenset(ctx.session.scalars(select(WorldlineSegment.entity_id).distinct()))
+
 NARRATIVE_RULES: tuple[RuleDef, ...] = (
     narrative_rule(
         "core.event.participant_not_existing",
@@ -427,6 +443,7 @@ NARRATIVE_RULES: tuple[RuleDef, ...] = (
             "core.event.participant_not_existing",
             "core.participant",
             lambda event, name: f"“{name}” takes part in “{event}” while not existing.",
+            skip=_travelers,
         ),
         triggers=(ANY_RECORD, Trigger("link_type", "core.participant")),
     ),

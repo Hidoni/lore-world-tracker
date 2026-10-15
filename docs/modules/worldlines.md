@@ -40,6 +40,16 @@ segments are timeline-bound (branch inheritance and overrides apply).
   destination: {dimension, timeline | new_branch: {name, branch_point}, arrival: TimePoint}}`
   splits/creates segments, optionally creates a branch (`branches` module required for
   `new_branch`) and departure/arrival events, all in one transaction.
+  - Implementation (#121, `travel.py`): the last segment (in worldline order) covering the
+    departure is cut there (its end anchored to the departure event, so it moves with it), the
+    rest of it is no longer lived, and the new segment (arrival to `until`, default the end of
+    time, at `rate`) comes right after it; later segments stay. An implicit worldline becomes
+    explicit first. The new branch's parent defaults to the destination's prime, its branch
+    point to the arrival. Created events are instants (branch-only in a branch); the entity
+    takes part in its departure and arrival events with roles `departs`/`arrives` and the
+    segment in `data.segment_id`. Errors of the rewritten segments name the wizard's fields.
+- Personal timeline items carry `assignment` (`chosen`, `implied`, `ambiguous`, `absent`, §11.4);
+  items at the same subjective moment keep worldline order.
 
 ## UI
 
