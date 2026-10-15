@@ -432,6 +432,7 @@ def _travelers(ctx: RuleContext) -> frozenset[str]:
         return frozenset()
     return frozenset(ctx.session.scalars(select(WorldlineSegment.entity_id).distinct()))
 
+
 NARRATIVE_RULES: tuple[RuleDef, ...] = (
     narrative_rule(
         "core.event.participant_not_existing",
