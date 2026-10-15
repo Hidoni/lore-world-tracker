@@ -2111,6 +2111,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/maps/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description The live maps (of a location), by location then ``sort_key``.
+         */
+        get: operations["maps_list"];
+        put?: never;
+        /**
+         * Create
+         * @description A map of a location: a raster image of the media library (its size is copied).
+         */
+        post: operations["maps_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/maps/maps/{map_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get
+         * @description The map with its pins (time-bound ones of `timeline`, default the prime timeline of the
+         *     location's dimension): as of `at`, pins with a validity show while it covers the moment
+         *     and the others while their target exists (an event: while it happens); `shown: possible`
+         *     when an uncertain bound leaves it open. `breadcrumbs` lead out through the ancestors' maps.
+         */
+        get: operations["maps_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Trash
+         * @description The map and its pins to the trash.
+         */
+        delete: operations["maps_trash"];
+        options?: never;
+        head?: never;
+        /** Update */
+        patch: operations["maps_update"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/maps/maps/{map_id}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Pin
+         * @description A pin at image pixel coordinates, for an entity or a label; a validity needs a timeline
+         *     of the location's dimension.
+         */
+        post: operations["maps_add_pin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/maps/pins/{pin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Trash Pin */
+        delete: operations["maps_trash_pin"];
+        options?: never;
+        head?: never;
+        /** Update Pin */
+        patch: operations["maps_update_pin"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/maps/entities/{entity_id}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entity Pins
+         * @description Where the entity is pinned ("show on map").
+         */
+        get: operations["maps_entity_pins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3316,6 +3427,18 @@ export interface components {
              * @description Pass as `cursor` for the next page; null at the end.
              */
             next_cursor: string | null;
+        };
+        /** EntityPin */
+        EntityPin: {
+            pin: components["schemas"]["PinOut"];
+            map: components["schemas"]["MapRecord"];
+        };
+        /** EntityPins */
+        EntityPins: {
+            /** Entity Id */
+            entity_id: string;
+            /** Items */
+            items: components["schemas"]["EntityPin"][];
         };
         /**
          * EntityRead
@@ -4803,6 +4926,85 @@ export interface components {
             /** Path */
             path: string[];
         };
+        /** MapCreate */
+        MapCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** @description The location the map depicts. */
+            location_id: components["schemas"]["EntityId"];
+            /** @description Its image: a raster image of the media library. */
+            media_id: components["schemas"]["EntityId"];
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            scale?: components["schemas"]["Scale"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+        };
+        /** MapCrumb */
+        MapCrumb: {
+            /** Map Id */
+            map_id: string;
+            /** Name */
+            name: string;
+            /** Location Id */
+            location_id: string;
+        };
+        /** MapDetail */
+        MapDetail: {
+            /** Id */
+            id: string;
+            /** Location Id */
+            location_id: string;
+            /** Media Id */
+            media_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            scale: components["schemas"]["Scale"] | null;
+            /** Sort Key */
+            sort_key: string | null;
+            visibility: components["schemas"]["Visibility"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Pins */
+            pins: components["schemas"]["PinOut"][];
+            /**
+             * Breadcrumbs
+             * @description The maps of the location's ancestors, outermost first (each one's first map the request sees).
+             */
+            breadcrumbs: components["schemas"]["MapCrumb"][];
+        };
+        /** MapList */
+        MapList: {
+            /** Items */
+            items: components["schemas"]["MapRecord"][];
+        };
         /** MapOut */
         MapOut: {
             /** From Dimension */
@@ -4828,6 +5030,65 @@ export interface components {
              * @description The correspondences mapped through, in order (empty when unconnected).
              */
             path: string[];
+        };
+        /** MapRecord */
+        MapRecord: {
+            /** Id */
+            id: string;
+            /** Location Id */
+            location_id: string;
+            /** Media Id */
+            media_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            scale: components["schemas"]["Scale"] | null;
+            /** Sort Key */
+            sort_key: string | null;
+            visibility: components["schemas"]["Visibility"];
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+        };
+        /** MapUpdate */
+        MapUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            /** @description Another image for the map. */
+            media_id?: components["schemas"]["EntityId"] | null;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            scale?: components["schemas"]["Scale"] | null;
+            sort_key?: components["schemas"]["SortKey"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** MapWriteResult */
+        MapWriteResult: {
+            map: components["schemas"]["MapRecord"];
+            affected: components["schemas"]["Affected"];
         };
         /** MappedMoment */
         MappedMoment: {
@@ -5178,10 +5439,9 @@ export interface components {
             suppress?: components["schemas"]["SuppressItem"][];
             /**
              * Record Type
-             * @description What is overridden (segments come with worldlines).
-             * @enum {string}
+             * @description What is overridden: `event`, `fact`, `link`, or a module's validity record (`maps.pin`).
              */
-            record_type: "event" | "fact" | "link" | "segment";
+            record_type: string;
             /** @description The inherited record: an event's entity id, or the fact's or link's id. */
             root_id: components["schemas"]["EntityId"];
             /** @description The branch overriding it. */
@@ -5282,6 +5542,126 @@ export interface components {
             items: components["schemas"]["PersonalItem"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /** PinCreate */
+        PinCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** @description null: a label pin. */
+            target_entity_id?: components["schemas"]["EntityId"] | null;
+            /** Label */
+            label?: string | null;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            icon?: components["schemas"]["Icon"] | null;
+            color?: components["schemas"]["Color"] | null;
+            child_map_id?: components["schemas"]["EntityId"] | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+            /** @description With a validity: the timeline it is in. */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+        };
+        /** PinOut */
+        PinOut: {
+            /** Id */
+            id: string;
+            /** Map Id */
+            map_id: string;
+            target: components["schemas"]["PinTarget"] | null;
+            /**
+             * Label
+             * @description As stored (`display_label` falls back to the target).
+             */
+            label: string | null;
+            /** Display Label */
+            display_label: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+            /**
+             * Child Map Id
+             * @description As stored.
+             */
+            child_map_id: string | null;
+            /**
+             * Drill Map Id
+             * @description Where clicking drills in: `child_map_id`, else the target location's first map (the request sees).
+             */
+            drill_map_id: string | null;
+            visibility: components["schemas"]["Visibility"];
+            /** Timeline Id */
+            timeline_id: string | null;
+            /** Overrides Id */
+            overrides_id: string | null;
+            valid_from: components["schemas"]["TimePoint"] | null;
+            valid_to: components["schemas"]["TimePoint"] | null;
+            /** Valid From T */
+            valid_from_t: MomentString | null;
+            /** Valid To T */
+            valid_to_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * @description At the cursor: `possible` when a bound's uncertainty (or the target's existence) leaves it open.
+             * @default certain
+             */
+            shown?: components["schemas"]["Shown"];
+        };
+        /** PinTarget */
+        PinTarget: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Icon */
+            icon: string | null;
+            /** Color */
+            color: string | null;
+        };
+        /** PinUpdate */
+        PinUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            target_entity_id?: components["schemas"]["EntityId"] | null;
+            /** Label */
+            label?: string | null;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+            icon?: components["schemas"]["Icon"] | null;
+            color?: components["schemas"]["Color"] | null;
+            child_map_id?: components["schemas"]["EntityId"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint"] | null;
+        };
+        /** PinWriteResult */
+        PinWriteResult: {
+            pin: components["schemas"]["PinOut"];
+            affected: components["schemas"]["Affected"];
         };
         /** Presence */
         Presence: {
@@ -5796,6 +6176,16 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** Scale */
+        Scale: {
+            /**
+             * Units Per Pixel
+             * @description A decimal string.
+             */
+            units_per_pixel: string;
+            /** Unit */
+            unit: string;
+        };
         /** ScanResult */
         ScanResult: {
             /**
@@ -5967,6 +6357,8 @@ export interface components {
             /** New End T */
             new_end_t: MomentString | null;
         };
+        /** @enum {string} */
+        Shown: "certain" | "possible";
         /** @enum {string} */
         ShownSeverity: "error" | "warning" | "info";
         /**
@@ -10764,7 +11156,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                record_type: "event" | "fact" | "link";
+                record_type: string;
                 /** @description The override row. */
                 override_id: string;
                 /** @description Vault id (UUID). */
@@ -11353,6 +11745,332 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimeTravelResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_list: {
+        parameters: {
+            query?: {
+                /** @description The maps of this location. */
+                location?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_get: {
+        parameters: {
+            query?: {
+                /** @description The time cursor's timeline (with `at`). */
+                timeline?: string | null;
+                /** @description The time cursor: a moment, or `present` (the timeline's dimension's). */
+                at?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                map_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapDetail"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_add_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_trash_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pin_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_update_pin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pin_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_entity_pins: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityPins"];
                 };
             };
             /** @description Problem */

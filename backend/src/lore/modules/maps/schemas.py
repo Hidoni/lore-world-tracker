@@ -24,7 +24,7 @@ class Scale(BaseModel):
     unit: Annotated[str, StringConstraints(min_length=1, max_length=20)]
 
 
-class MapOut(BaseModel):
+class MapRecord(BaseModel):
     id: str
     location_id: str
     media_id: str
@@ -42,7 +42,7 @@ class MapOut(BaseModel):
 
 
 class MapList(BaseModel):
-    items: list[MapOut]
+    items: list[MapRecord]
 
 
 class MapCreate(SuppressIn):
@@ -113,7 +113,7 @@ class MapCrumb(BaseModel):
     location_id: str
 
 
-class MapDetail(MapOut):
+class MapDetail(MapRecord):
     pins: list[PinOut]
     breadcrumbs: list[MapCrumb] = Field(
         description="The maps of the location's ancestors, outermost first (each one's first "
@@ -153,7 +153,7 @@ class PinUpdate(SuppressIn):
 
 
 class MapWriteResult(BaseModel):
-    map: MapOut
+    map: MapRecord
     affected: Affected
 
 
@@ -164,7 +164,7 @@ class PinWriteResult(BaseModel):
 
 class EntityPin(BaseModel):
     pin: PinOut
-    map: MapOut
+    map: MapRecord
 
 
 class EntityPins(BaseModel):

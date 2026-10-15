@@ -35,12 +35,14 @@ the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Done: module kinds (M6: misc, locations,
 characters, groups, languages, species), facts and temporal links (M7), branches,
-correspondences and a time traveler (M9). Planned: media (M10), custom fields and kinds (M11).
+correspondences and a time traveler (M9), media and maps (M10). Planned: custom fields and
+kinds (M11).
 Old fixtures are never regenerated: the next milestone release commits a new one
 (``persistence-and-migrations.md`` §3.5).
 """
 
 import argparse
+import io
 import json
 import random
 import shutil
@@ -54,6 +56,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, Literal, get_args
 
+from PIL import Image, ImageDraw
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -94,6 +97,9 @@ from lore.modules.correspondences.schemas import CorrespondenceCreate
 from lore.modules.correspondences.service import Correspondences
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
+from lore.modules.maps.schemas import MapCreate, PinCreate
+from lore.modules.maps.service import Maps
+from lore.modules.media.service import Media
 from lore.modules.worldlines.schemas import TimeTravelIn
 from lore.modules.worldlines.travel import TimeTravel
 
@@ -167,6 +173,9 @@ class SampleWorld:
     correspondences: dict[str, dict[str, str]] = field(default_factory=dict)
     # Entity name -> its worldline segments, [start_t, end_t] in worldline order (v0.8.0 on).
     worldlines: dict[str, list[list[str]]] = field(default_factory=dict)
+    # Map name -> {"location": its location's name, "pins": pin labels (all time), "drill":
+    # {pin label: the map it drills into}} (v0.9.0 on).
+    maps: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -1594,6 +1603,47 @@ def _core_worldlines(writer: Writer, core: Core, world: SampleWorld) -> None:
         ]
 
 
+def _map_image(width: int, height: int, sea: str, land: str) -> bytes:
+    """A simple generated map: land on a sea (the sample world ships no image files)."""
+    image = Image.new("RGB", (width, height), sea)
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((width // 8, height // 6, width * 7 // 8, height * 5 // 6), fill=land)
+    out = io.BytesIO()
+    image.save(out, "PNG")
+    return out.getvalue()
+
+
+def _core_maps(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Maps (M10): Thalassa's map with a pin for the city of Varn (drilling into Varn's map),
+    one for the Sundering (shown while it happens) and a label; Varn's map with the Spire and a
+    harbor pin that is there until the Sundering."""
+    with writer.transaction("Sample world: maps") as s:
+        media = Media(s.context)
+        maps = Maps(s.context)
+        continent = media.upload(_map_image(800, 600, "#2b5d7a", "#9bb36b"), "thalassa.png")
+        city = media.upload(_map_image(400, 300, "#2b5d7a", "#c9b38a"), "varn.png")
+        thalassa = maps.create(MapCreate(location_id=core["Thalassa"], media_id=continent.item.id,
+                                         name="Thalassa")).map  # fmt: skip
+        varn = maps.create(MapCreate(location_id=core["Varn"], media_id=city.item.id,
+                                     name="City of Varn")).map  # fmt: skip
+        maps.add_pin(thalassa.id, PinCreate(target_entity_id=core["Varn"], x=520, y=310))
+        maps.add_pin(thalassa.id, PinCreate(target_entity_id=core["The Sundering"], x=300, y=200))
+        maps.add_pin(thalassa.id, PinCreate(label="Here be dragons", x=700, y=80))
+        maps.add_pin(varn.id, PinCreate(target_entity_id=core["The Spire"], x=200, y=150))
+        maps.add_pin(varn.id, PinCreate.model_validate({
+            "label": "Old Harbor", "x": 80, "y": 220, "timeline_id": core["Prime"],
+            "valid_to": after(core["The Sundering"]),
+        }))  # fmt: skip
+    world.maps["Thalassa"] = {
+        "location": "Thalassa",
+        "pins": ["Here be dragons", "The Sundering", "Varn"],
+        "drill": {"Varn": "City of Varn"},
+    }
+    world.maps["City of Varn"] = {
+        "location": "Varn", "pins": ["Old Harbor", "The Spire"], "drill": {},
+    }  # fmt: skip
+
+
 def _moment(t: int | None) -> str | None:
     return None if t is None else str(t)
 
@@ -1683,6 +1733,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_branches(writer, core, world)
     _core_correspondences(writer, core, world)
     _core_worldlines(writer, core, world)
+    _core_maps(writer, core, world)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {

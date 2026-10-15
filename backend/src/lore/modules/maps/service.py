@@ -42,7 +42,7 @@ from lore.modules.maps.schemas import (
     MapCrumb,
     MapDetail,
     MapList,
-    MapOut,
+    MapRecord,
     MapUpdate,
     MapWriteResult,
     PinCreate,
@@ -81,8 +81,8 @@ def _invalid(path: str, message: str, code: str = "invalid_value") -> InvalidInp
     return InvalidInputError(message, errors=[ErrorItem(path=path, code=code, message=message)])
 
 
-def map_out(row: Map) -> MapOut:
-    return MapOut(
+def map_out(row: Map) -> MapRecord:
+    return MapRecord(
         id=row.id, location_id=row.location_id, media_id=row.media_id, name=row.name,
         description=row.description, width=row.width, height=row.height,
         scale=None if row.scale is None else Scale.model_validate(row.scale),
