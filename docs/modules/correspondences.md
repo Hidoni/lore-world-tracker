@@ -44,8 +44,10 @@ Core: `correspondences`, `correspondence_points`. Sync points are time slots (`s
   `correspondences.inconsistent_paths`: a correspondence and the shortest other path between its
   dimensions disagree at one of its sync points by a whole base unit or more (compared exactly,
   without the flooring of each step).
-- A sync point may only be anchored to its own side's dimension (`422`); cross-dimension anchors
-  in general (`time-model.md` §5.2) are not resolved through correspondences yet.
+- A sync point may only be anchored to its own side's dimension (`422`). Other records' anchors to
+  another dimension's records resolve through the correspondences (#327, `time-model.md` §5.2):
+  writes of correspondences (points, rates, the trash) re-resolve them, and one that would leave
+  such an anchor unmapped is refused.
 - The sample world's "The Drowned Gate": Aetheria ↔ The Dreaming, from the Sundering, a day here
   a year there.
 

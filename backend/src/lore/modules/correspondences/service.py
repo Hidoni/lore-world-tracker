@@ -31,7 +31,7 @@ from lore.core.time.correspondences import (
     compile_rows,
     points_of,
 )
-from lore.core.time.dependencies import DependencyIndex
+from lore.core.time.dependencies import CORRESPONDENCES, DependencyIndex
 from lore.core.time.kinds import SYNC_POINT
 from lore.core.time.models import Correspondence, CorrespondencePoint, Dimension
 from lore.core.time.propagate import TimeWriter
@@ -216,6 +216,7 @@ class Correspondences:
         else:
             points = points_of(self.session, [row.id])[row.id]
             self._validate(row, points)
+            self._remap()
         return self._result(row, points)
 
     def delete(self, correspondence_id: str) -> CorrespondenceWriteResult:
@@ -223,7 +224,15 @@ class Correspondences:
         row = self.row(correspondence_id)
         row.deleted_at = utc_now()
         self.session.flush()
+        self._remap()
         return self._result(row, points_of(self.session, [row.id])[row.id])
+
+    def _remap(self) -> None:
+        """Anchors to other dimensions' records resolve again through the correspondences
+        (``time-model.md`` §5.2): a rate or a deleted correspondence changes their mapping."""
+        writer = TimeWriter(self.context)
+        writer.touch(CORRESPONDENCES)
+        writer.propagate()
 
     def _replace_points(
         self, row: Correspondence, given: Sequence[SyncPointIn]

@@ -12,6 +12,8 @@ const MESSAGES: Record<string, string> = {
   reform_gap: 'This date was skipped by a calendar reform.',
   reform_ambiguous: 'This date exists twice across a calendar reform.',
   calendar_error: 'The calendar doesn’t compile.',
+  unmapped:
+    'The target is in another dimension, and no correspondence says what happens here then.',
 }
 
 export function timeProblemMessage(code: string, fallback: string): string {

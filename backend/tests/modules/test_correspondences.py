@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import delete
 
+from lore.core.modules.spec import VaultContext
+from lore.core.time.check import verify_time
+from lore.core.time.models import Correspondence, CorrespondencePoint
+from lore.core.vaults.manager import VaultManager
 from tests.entity_api import LinkApi, invalid, make_client, problem
 from tests.entity_modules import with_real_modules
 from tests.modules.test_branches import at, start_of
@@ -187,3 +192,76 @@ def test_undo_and_redo(api: LinkApi, worlds: Worlds) -> None:
     redone = api.client.post(f"{api.base}/changes/{redo}/revert", json={})
     assert redone.status_code == 200, redone.json()
     assert worlds.map(worlds.aetheria, worlds.dream, 150)["result_t"] == "2000"
+
+
+# --- anchors across dimensions (#327, time-model.md §5.2) ----------------------------------------
+
+
+def test_anchors_to_another_dimension_map_through_correspondences(
+    api: LinkApi, worlds: Worlds
+) -> None:
+    portal_opens = api.make("event", "Portal opens", dimension_id=worlds.aetheria,
+                            ext={"start": at(150)})  # fmt: skip
+    # Without a correspondence the anchor is refused (no raw moment across dimensions).
+    refused = api.create("event", "Arrival", dimension_id=worlds.dream,
+                         ext={"start": start_of(portal_opens)})  # fmt: skip
+    errors = problem(refused, 422, "invalid_date")["errors"]
+    assert [(e["path"], e["code"]) for e in errors] == [("ext.start.anchor.ref", "unmapped")]
+    portal = worlds.made(worlds.aetheria, worlds.dream, [(100, 1000), (200, 3000)])
+    arrival = api.make("event", "Arrival", dimension_id=worlds.dream,
+                       ext={"start": start_of(portal_opens, 5)})  # fmt: skip
+    assert arrival["ext"]["start_t"] == str(2000 + 5)
+    # It moves with the event it is anchored to…
+    moved = api.patch(api.get(portal_opens["id"]).json(), ext={"start": at(160)})
+    assert moved.status_code == 200, moved.json()
+    assert api.get(arrival["id"]).json()["ext"]["start_t"] == str(2200 + 5)
+    # …and with the correspondence.
+    changed = api.client.patch(f"{worlds.base}/{portal['id']}", json={
+        "revision": portal["revision"],
+        "points": [{"a": at(100), "b": at(1000)}, {"a": at(200), "b": at(2000)}]})  # fmt: skip
+    assert changed.status_code == 200, changed.json()
+    assert api.get(arrival["id"]).json()["ext"]["start_t"] == str(1600 + 5)
+    # Deleting the only correspondence would leave it unmapped: refused.
+    current = changed.json()["correspondence"]
+    gone = api.client.delete(f"{worlds.base}/{current['id']}")
+    assert gone.status_code == 422, gone.json()
+    assert "unmapped" in str(gone.json())
+    # Through other dimensions too (the shortest path).
+    under_feast = api.make("event", "Feast", dimension_id=worlds.under,
+                           ext={"start": at(15)})  # fmt: skip
+    worlds.made(worlds.under, worlds.aetheria, [(10, 100), (20, 200)])
+    echo = api.make("event", "Echo", dimension_id=worlds.dream,
+                    ext={"start": start_of(under_feast)})  # fmt: skip
+    assert echo["ext"]["start_t"] == "1500"
+
+
+def test_a_cycle_through_sync_points_is_refused(api: LinkApi, worlds: Worlds) -> None:
+    opening = api.make("event", "Opening", dimension_id=worlds.aetheria, ext={"start": at(150)})
+    worlds.made(worlds.aetheria, worlds.dream, [(100, 1000), (200, 3000)])
+    echo = api.make("event", "Echo", dimension_id=worlds.dream,
+                    ext={"start": start_of(opening)})  # fmt: skip
+    # A sync point anchored to the echo, which is mapped through the correspondences.
+    cycle = worlds.create(worlds.aetheria, worlds.dream, [(50, start_of(echo))], name="Loop")
+    problem(cycle, 409, "time_cycle")
+
+
+def test_vault_check_reports_unmapped_anchors(api: LinkApi, worlds: Worlds) -> None:
+    """A vault from before correspondences mapped anchors: an anchor across dimensions whose
+    correspondence is gone (simulated by removing it under the services) is reported."""
+    opening = api.make("event", "Opening", dimension_id=worlds.aetheria, ext={"start": at(150)})
+    portal = worlds.made(worlds.aetheria, worlds.dream, [(100, 1000), (200, 3000)])
+    api.make("event", "Echo", dimension_id=worlds.dream, ext={"start": start_of(opening)})
+    manager: VaultManager = api.client.app.state.vaults  # type: ignore[attr-defined]
+    opened = manager.open(api.vault)
+    registry = api.client.app.state.registry  # type: ignore[attr-defined]
+
+    def problems() -> list[str]:
+        with opened.sessions() as session:
+            return [p.message for p in verify_time(VaultContext(opened, session, registry))]
+
+    assert problems() == []
+    with opened.write_sessions.begin() as session:
+        session.execute(delete(CorrespondencePoint))
+        session.execute(delete(Correspondence).where(Correspondence.id == portal["id"]))
+    [found] = problems()
+    assert "doesn't resolve (unmapped)" in found

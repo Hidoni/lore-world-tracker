@@ -13,7 +13,7 @@ and the hard rule ``core.correspondence.non_monotonic`` are core.
 """
 
 from collections import deque
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any
@@ -63,10 +63,18 @@ def points_of(session: Session, ids: Iterable[str]) -> dict[str, list[Correspond
     return found
 
 
-def compile_rows(row: Correspondence, points: Sequence[CorrespondencePoint]) -> Compiled | None:
+type Moments = Mapping[tuple[str, str], int]
+"""Sync point moments resolved but not stored yet (``(point id, "a" | "b")``): propagation
+resolves anchors mapped through a correspondence after its sync points, in one run."""
+
+
+def compile_rows(
+    row: Correspondence, points: Sequence[CorrespondencePoint], moments: Moments | None = None
+) -> Compiled | None:
     """The engine's correspondence for stored rows (``None`` while a sync point is unresolved);
     raises ``CorrespondenceError`` (paths ``/points/<i>`` in the order given)."""
-    resolved = [(p.a_t, p.b_t) for p in points]
+    moments = moments or {}
+    resolved = [(moments.get((p.id, "a"), p.a_t), moments.get((p.id, "b"), p.b_t)) for p in points]
     if not resolved or any(a is None or b is None for a, b in resolved):
         return None
     return correspondence(
@@ -116,6 +124,7 @@ class CorrespondenceGraph:
         policy: VisibilityPolicy = AUTHOR,
         *,
         dimension_ids: Iterable[str] | None = None,
+        moments: Moments | None = None,
     ) -> CorrespondenceGraph:
         """Every live correspondence (of ``dimension_ids`` when given) that compiles."""
         statement = select(Correspondence).where(
@@ -142,7 +151,7 @@ class CorrespondenceGraph:
             if not set(_ends(row)) <= live_dimensions:
                 continue
             try:
-                found = compile_rows(row, points[row_id])
+                found = compile_rows(row, points[row_id], moments)
             except CorrespondenceError:
                 continue
             if found is not None:

@@ -17,7 +17,9 @@ re-resolved anchors. Then the hard structural checks run on every affected slot 
 proposals). A slot that doesn't resolve keeps its last good moment.
 
 Nodes are slots (``SlotNode``), calendars (``CalendarNode``: a calendar depends on its own anchor
-slots, record type ``calendar``) and dimension durations (``DimensionNode``).
+slots, record type ``calendar``), dimension durations (``DimensionNode``) and the
+correspondences (``CorrespondencesNode``: anchors to another dimension's records are mapped
+through them; it follows every sync point, ``time-model.md`` §5.2).
 """
 
 from collections import deque
@@ -32,7 +34,9 @@ from lore.chronology.schema import AbsoluteAnchor, EndSpec, TimePoint, TimePoint
 from lore.core.errors import ConflictError, ErrorItem, InvalidInputError
 from lore.core.time.changes import note_slots
 from lore.core.time.dependencies import (
+    CORRESPONDENCES,
     CalendarNode,
+    CorrespondencesNode,
     DependencyIndex,
     DimensionNode,
     SlotNode,
@@ -40,9 +44,16 @@ from lore.core.time.dependencies import (
     end_targets,
     time_point_targets,
 )
-from lore.core.time.models import Calendar, Event
+from lore.core.time.models import Calendar, CorrespondencePoint, Event
 from lore.core.time.resolve import BASE, Resolution, Resolver
-from lore.core.time.slots import SlotKey, SlotRegistry, SlotUpdate, SlotValue, SpecUpdate
+from lore.core.time.slots import (
+    SlotError,
+    SlotKey,
+    SlotRegistry,
+    SlotUpdate,
+    SlotValue,
+    SpecUpdate,
+)
 from lore.core.time.specs import dump_spec
 from lore.core.time.status import TimeStatus
 
@@ -52,6 +63,7 @@ if TYPE_CHECKING:
 CALENDAR = "calendar"
 EVENT = "event"
 EVENT_OVERRIDE = "event_override"
+SYNC_POINT = "sync_point"
 BATCH = 5000  # keys per load (SQLite's variable limit)
 GOOD = frozenset({TimeStatus.OK, TimeStatus.TRASHED_REF})
 MAX_ROUNDS = 8  # follow-up runs for occurrence refs of refreshed series
@@ -118,6 +130,8 @@ def describe(node: Node) -> str:
             return f"calendar {node.calendar_id}"
         case DimensionNode():
             return f"dimension {node.dimension_id} duration"
+        case CorrespondencesNode():
+            return "the correspondences between dimensions"
 
 
 def constraint_error(violations: Sequence[Violation], path: str = "") -> TimeConstraintError:
@@ -178,8 +192,34 @@ class TimeWriter:
                 dimension_id = None if value is None else value.dimension_id
             start = SlotNode(record_type, record_id, definition.start)
             targets = end_targets(spec, start=start, dimension_id=dimension_id)
+        if self.crosses(key, record_type, targets, dimension_id):
+            targets.add(CORRESPONDENCES)
         self.index.replace_edges(node, targets)
         self.changed.add(node)
+
+    def crosses(
+        self, key: SlotKey, record_type: str, targets: set[Target], dimension_id: str | None
+    ) -> bool:
+        """Whether an anchor targets a slot of another dimension than the slot's own."""
+        slots = [t for t in targets if isinstance(t, SlotNode)]
+        if not slots:
+            return False
+        if dimension_id is None:
+            own = self.slots.load(self.session, record_type, [key]).get(key)
+            dimension_id = None if own is None else own.dimension_id
+        if dimension_id is None:
+            return False
+        for target in slots:
+            try:
+                found = self.slots.load(
+                    self.session, target.type, [SlotKey(target.id, target.slot)]
+                )
+            except SlotError:
+                continue
+            value = found.get(SlotKey(target.id, target.slot))
+            if value is not None and value.dimension_id not in (None, dimension_id):
+                return True
+        return False
 
     def touch(self, *nodes: Node) -> None:
         """Nodes whose resolved value may have changed without a spec change (a calendar
@@ -330,6 +370,11 @@ class TimeWriter:
                 return list(self.index.slots_with_edges(CALENDAR, node.calendar_id))
             case DimensionNode():
                 return []
+            case CorrespondencesNode():
+                ids = self.session.scalars(
+                    select(CorrespondencePoint.id).order_by(CorrespondencePoint.id)
+                )
+                return [SlotNode(SYNC_POINT, i, side) for i in ids for side in ("a", "b")]
 
     def _cycle(self, start: Node, last: Node, parents: dict[Node, Node | None]) -> TimeCycleError:
         path: list[Node] = [last]
@@ -359,6 +404,8 @@ class TimeWriter:
                     dependents += found.get(seen_as[target], [])
                 if isinstance(target, SlotNode) and target.type == CALENDAR:
                     dependents.append(CalendarNode(target.id))
+                if isinstance(target, SlotNode) and target.type == SYNC_POINT:
+                    dependents.append(CORRESPONDENCES)
                 for dependent in dependents:
                     depends_on.setdefault(dependent, set()).add(target)
                     if dependent not in affected:
@@ -444,8 +491,8 @@ class _Run:
                     self._slot(node)
                 case CalendarNode():
                     self._calendar(node)
-                case DimensionNode():
-                    pass  # its value (D) was written by the service
+                case DimensionNode() | CorrespondencesNode():
+                    pass  # its value (D, the correspondences) was written by the service
         for node in sorted(stuck, key=_order_key):
             if isinstance(node, SlotNode) and node in self.values:
                 self._fail(node, TimeStatus.CYCLE, "time_cycle", "The anchors form a cycle.")
@@ -547,7 +594,7 @@ class _Run:
         """How dependents see a slot after this run: its stored moment, with the extent and
         precision of its new resolution (exact without one)."""
         if t is None:
-            return Resolution(None, TimeStatus.UNRESOLVED_REF)
+            return Resolution(None, TimeStatus.UNRESOLVED_REF, dimension_id=value.dimension_id)
         extent, precision, calendar_id = (t, t + 1), BASE, None
         if resolution is not None and resolution.extent is not None and resolution.t is not None:
             lo, hi = resolution.extent
@@ -555,7 +602,9 @@ class _Run:
             precision, calendar_id = resolution.precision, resolution.calendar_id
         trashed = value.trashed or status == TimeStatus.TRASHED_REF
         good = TimeStatus.TRASHED_REF if trashed else TimeStatus.OK
-        return Resolution(t, good, extent, precision, calendar_id=calendar_id)
+        return Resolution(
+            t, good, extent, precision, calendar_id=calendar_id, dimension_id=value.dimension_id
+        )
 
     def _calendar(self, node: CalendarNode) -> None:
         from lore.core.time.calendars import compiled_calendar  # noqa: PLC0415 (import cycle)
@@ -769,6 +818,8 @@ def _order_key(node: Node) -> tuple[int, tuple[str, ...]]:
             return (1, (node.calendar_id,))
         case DimensionNode():
             return (2, (node.dimension_id,))
+        case CorrespondencesNode():
+            return (3, ())
 
 
 __all__ = [
