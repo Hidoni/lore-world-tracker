@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Maps** (#128): attach image maps to locations and pin locations, events, characters or plain
+  labels on them. Pins follow the time cursor: a pin with its own period shows while it lasts, any
+  other while its target exists (an event: while it happens), and a branch can end a pin early.
+  Clicking a location's pin leads into that location's map, and nested maps know their way back
+  out. The sample world has a continent map and a city map. New tables `maps_maps` and `maps_pins`
+  (migrated automatically).
 - **Media** (#126): upload images and files into a vault: png, jpeg, webp, gif and avif images,
   pdf, text and Markdown documents, and SVG (downloaded, never shown inline). Files are checked by
   their content, stored once however often they are uploaded, and served with thumbnails and

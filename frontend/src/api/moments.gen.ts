@@ -152,6 +152,22 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "EntityPin": {
+    "o": {
+      "pin": {
+        "r": "PinOut"
+      }
+    }
+  },
+  "EntityPins": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityPin"
+        }
+      }
+    }
+  },
   "EntityRead": {
     "o": {
       "state": {
@@ -329,6 +345,15 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "MapDetail": {
+    "o": {
+      "pins": {
+        "a": {
+          "r": "PinOut"
+        }
+      }
+    }
+  },
   "MapOut": {
     "o": {
       "t": "m",
@@ -390,6 +415,19 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
         "a": {
           "r": "PersonalItem"
         }
+      }
+    }
+  },
+  "PinOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "PinWriteResult": {
+    "o": {
+      "pin": {
+        "r": "PinOut"
       }
     }
   },

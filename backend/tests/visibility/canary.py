@@ -357,6 +357,7 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _species(b, home)
     _branches(b, home)
     _media(b, home)
+    _maps(b, home)
 
 
 def _png(color: str) -> bytes:
@@ -400,6 +401,48 @@ def _media(b: _Builder, home: dict[str, Any]) -> None:
     )
     assert added.status_code == 201, added.json()
     b.canary.hidden_ids.add(added.json()["id"])
+
+
+def _maps(b: _Builder, home: dict[str, Any]) -> None:
+    """A public map of a public location with a public pin, and what readers must not see: a
+    private map, a private label pin, a pin of a private location and a pin in a private branch
+    of the prime timeline."""
+    api = b.api
+    image = api.client.post(
+        f"{api.base}/m/media/items", files={"file": ("chart.png", _png("gray"))}, headers=HEADERS
+    ).json()["item"]["id"]
+    harbor = b.public("location", "Harbor", **home)
+    pier = b.public("location", "Pier", parent_id=harbor["id"], **home)
+    base = f"{api.base}/m/maps"
+
+    def made(path: str, body: dict[str, Any]) -> dict[str, Any]:
+        response = api.client.post(f"{base}/{path}", json=body, headers=HEADERS)
+        assert response.status_code == 201, response.json()
+        found: dict[str, Any] = response.json()
+        return found
+
+    chart = made("maps", {"location_id": harbor["id"], "media_id": image, "name": "Harbor"})["map"]
+    b.canary.records["Harbor map"] = chart["id"]
+    secret = {"location_id": harbor["id"], "media_id": image, "name": b.canary_string(),
+              "visibility": "private"}  # fmt: skip
+    secret_map = made("maps", secret)["map"]
+    b.canary.hidden_ids.add(secret_map["id"])
+    pins = f"maps/{chart['id']}/pins"
+    made(pins, {"target_entity_id": pier["id"], "x": 1, "y": 1})
+    hidden = [
+        made(pins, {"label": b.canary_string(), "x": 2, "y": 1, "visibility": "private"}),
+        made(pins, {"target_entity_id": b.hidden("location", visibility="private", **home)["id"],
+                    "label": b.canary_string(), "x": 3, "y": 1}),
+    ]  # fmt: skip
+    branch = api.client.post(f"{api.base}/m/branches/timelines", json={
+        "parent_timeline_id": b.canary.public["Prime"], "name": b.canary_string(),
+        "branch_point": POINT, "visibility": "private"}, headers=HEADERS)  # fmt: skip
+    assert branch.status_code == 201, branch.json()
+    b.canary.hidden_ids.add(branch.json()["entity"]["id"])
+    hidden.append(made(pins, {"label": b.canary_string(), "x": 4, "y": 1,
+                              "timeline_id": branch.json()["entity"]["id"],
+                              "valid_from": POINT}))  # fmt: skip
+    b.canary.hidden_ids |= {pin["pin"]["id"] for pin in hidden}
 
 
 def _branches(b: _Builder, home: dict[str, Any]) -> None:

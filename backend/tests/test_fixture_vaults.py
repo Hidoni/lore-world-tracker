@@ -408,6 +408,24 @@ def test_the_core_has_a_time_traveler(tmp_path: Path) -> None:
         assert "Wren's Warning" not in str(found)
 
 
+def test_the_core_has_maps(tmp_path: Path) -> None:
+    """Thalassa's map drills into the city of Varn's (M10); the Sundering's pin shows while it
+    happens and the Old Harbor's until then."""
+    world = generate(tmp_path, "tiny")
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{world.vault_id}"
+        maps = {m["name"]: m for m in client.get(f"{base}/m/maps/maps").json()["items"]}
+        for name, expected in world.maps.items():
+            detail = client.get(f"{base}/m/maps/maps/{maps[name]['id']}").json()
+            assert sorted(p["display_label"] for p in detail["pins"]) == expected["pins"]
+            drills = {p["display_label"]: p["drill_map_id"] for p in detail["pins"]}
+            for label, child in expected["drill"].items():
+                assert drills[label] == maps[child]["id"]
+        city = client.get(f"{base}/m/maps/maps/{maps['City of Varn']['id']}").json()
+        assert [c["name"] for c in city["breadcrumbs"]] == ["Thalassa"]
+        assert check_vault(_manager(client), world.vault_id).problems == ()
+
+
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
     target = tmp_path / "v9.9.9"
     world = make_sample_vault.write_fixture(target)

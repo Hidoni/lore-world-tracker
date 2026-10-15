@@ -6,6 +6,8 @@ contexts aren't touched when the entity's body, fields, cover or gallery change.
 visible to readers who see the entity, unless ``visibility`` says otherwise, and it isn't
 collected as unused."""
 
+from dataclasses import dataclass
+
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -60,6 +62,23 @@ def unreference(
     session.execute(statement)
 
 
+@dataclass(frozen=True)
+class MediaInfo:
+    id: str
+    mime: str
+    width: int | None
+    height: int | None
+    trashed: bool
+
+
+def info(session: Session, media_id: str) -> MediaInfo | None:
+    """What another module needs to know of an item (``None``: no such item)."""
+    row = session.get(MediaItem, media_id)
+    if row is None:
+        return None
+    return MediaInfo(row.id, row.mime, row.width, row.height, row.deleted_at is not None)
+
+
 def exists(session: Session, media_id: str) -> bool:
     """Whether the item exists and isn't in the trash."""
     return (
@@ -70,4 +89,4 @@ def exists(session: Session, media_id: str) -> bool:
     )
 
 
-__all__ = ["exists", "reference", "unreference"]
+__all__ = ["MediaInfo", "exists", "info", "reference", "unreference"]

@@ -82,6 +82,33 @@ visible. Publish copies only maps with visible media.
 
 Disabling hides maps and pins. Data and media are kept.
 
+## Implementation notes (#128)
+
+- **Maps** copy their image's size at creation (and when the image changes) and record the use
+  with `media.api.reference(media_id, location_id, "map", visibility)`: the location's live maps'
+  images, each at its most visible map's level. Readers then see the image exactly when they see a
+  map using it, and the media collection never takes it. Only raster images are accepted.
+- **Pins** are within the image (`0 ≤ x ≤ width`, `0 ≤ y ≤ height`); one without a target needs a
+  label. A validity needs a timeline of the map location's dimension; such a pin is a time-bound
+  record (`TimelineView`, slots `maps.pin`: `valid_from`, `valid_to`) and branches override its
+  `valid_to` through `POST /m/branches/overrides` (`record_type: maps.pin`). Without a validity a
+  pin is timeless and follows its target at the cursor: existence facts (`possible` shows it as
+  possible, `unknown` shows it), an event while it happens (start to end, inclusive), a label
+  always.
+- `GET /m/maps/maps/{id}` returns the pins of `timeline` (default: the prime timeline of the
+  location's dimension) and, with `at`, only those there then. `drill_map_id` is `child_map_id` or
+  the target location's first map (by `sort_key`, then creation); `breadcrumbs` list the first map
+  of each ancestor location, outermost first.
+- **Rules:** `maps.pin_target_missing` also reports a private target on a pin and map that
+  aren't private (readers lose the pin).
+- **Purge:** purging an entity removes the pins pointing at it or living in it (a timeline) and
+  the maps of it (a location). Trashing a map trashes its pins; trashing a pin trashes its
+  overrides.
+- **Publish:** `published_maps` lists the maps readers see; their images are copied by the media
+  module's contributor (#140 wires both).
+- The sample world has a map of Thalassa (pins: the city of Varn drilling into its map, the
+  Sundering, a label) and one of Varn (the Spire, the Old Harbor until the Sundering).
+
 ## Future ideas
 
 Deep-zoom tiling for very large images; polygons/regions for territories over time (linked to

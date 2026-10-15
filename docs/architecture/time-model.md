@@ -210,7 +210,9 @@ null = +∞). It does this by creating an **override row** in the same table:
   row per root is returned.
 - A branch "removing" an inherited spanning record means overriding it so it ends at the branch
   moment.
-- **Implemented (#115):** events, facts and links (`POST /m/branches/overrides`; segments with
+- **Implemented (#115, #128):** module validity tables register with
+  `lore.core.time.overrides.register_validity_record` (map pins: `maps.pin`, only `valid_to` may
+  change). Events, facts and links (`POST /m/branches/overrides`; segments with
   worldlines). An event override is a second `events` row of the same entity (`overrides_id` set,
   `occurrence_key` null): its slots are the `event_override` slot provider's (keyed by the
   event), the `event` provider covers home rows only. Anchors of a timeline referencing an event's
