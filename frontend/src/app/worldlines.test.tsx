@@ -24,6 +24,8 @@ const CHARACTER = kind('character', 'Character', {
   capabilities: { ...CAPS, can_have_worldline: true },
 })
 const point = (t: number) => ({ anchor: { kind: 'absolute', t: String(t) }, precision: 'base' })
+/** A time point as the picker types it. */
+const typed = (t: number) => ({ ...point(t), approximate: false })
 
 function eventRow(id: string, name: string, start: number) {
   return row(id, 'event', name, {
@@ -110,7 +112,12 @@ function world(options: { modules?: string[]; implicit?: boolean } = {}) {
     personal_dimension_id: 'd1',
     segments: implicit || entity !== 'vey' ? [segment(null, 1, 0, 1000000)] : VEY_SEGMENTS,
   })
-  const affected = { entities: ['vey'], dimensions: ['d1'], time_changed: true, search_changed: false }
+  const affected = {
+    entities: ['vey'],
+    dimensions: ['d1'],
+    time_changed: true,
+    search_changed: false,
+  }
   server.use(
     http.get('*/api/v1/vaults/v1/timelines/:id/window', () =>
       HttpResponse.json({ items: [], buckets: [], series_bands: [], total: 0, culled: 0 }),
@@ -231,8 +238,8 @@ describe('the worldline panel', () => {
       expect(requests.puts).toHaveLength(2)
     })
     expect(requests.puts[1]?.segments.map((s) => [s.start, s.end])).toEqual([
-      [point(100), point(200)],
-      [point(200), point(300)],
+      [point(100), typed(200)],
+      [typed(200), point(300)],
       [point(150), point(200)],
     ])
     await userEvent.click(within(list).getByRole('button', { name: 'Remove segment 2' }))
@@ -258,8 +265,8 @@ describe('the worldline panel', () => {
       expect.objectContaining({
         dimension_id: 'd1',
         timeline_id: 'd1-prime',
-        start: point(10),
-        end: point(20),
+        start: typed(10),
+        end: typed(20),
         rate: { num: '1', den: '1' },
       }),
     ])

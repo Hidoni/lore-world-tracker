@@ -53,18 +53,29 @@ segments are timeline-bound (branch inheritance and overrides apply).
 
 ## UI
 
+Implemented in `frontend/src/modules/worldlines/` (#122).
+
 - **Worldline panel** on pages of kinds with `can_have_worldline`: an ordered segment list
-  (dimension, timeline, start, end, rate, jump events) with add, split and reorder actions, plus a
-  **Time travel…** wizard.
+  (dimension, span, rate, note) with add, edit, split, reorder (move up/down) and remove actions,
+  plus a **Time travel…** wizard and **Clear worldline** (back to the implicit worldline). The list
+  is saved as a whole (`PUT …/segments`); errors of one segment show in its dialog. An implicit
+  worldline is shown as a note ("lives its lifespan in order"); adding a segment replaces it.
+- **Time travel… wizard:** the departure (a moment, optionally recording a departure event, or an
+  existing event), the destination (dimension and timeline, or a new branch when `branches` is
+  active), arrival, optional "stays until", rate and an optional arrival event; one
+  `POST …/time-travel`.
 - **Personal timeline view** (`/m/worldlines/entities/{id}`): a horizontal axis of subjective time
-  (age) with experienced events in order, jumps drawn as discontinuities annotated with "to 1950,
-  Branch 'Vey's Return'", and existence changes. A list mode is available for accessibility.
-- **Participant dialog:** when an entity with explicit segments is added to an event that several
-  segments cover, the dialog asks which visit (segment) it is.
-- **Timeline layer:** for selected entities, jump arcs from departure to arrival moments
-  (within the same dimension; cross-dimension jumps show edge markers).
-- **Age displays:** wherever "age at event" is shown, subjective age is used if a worldline
-  exists.
+  (age) with experienced events in order, jumps drawn as breaks in the axis annotated with where
+  they lead (a moment, a dimension and timeline), and a **List view** (a table) for accessibility. Ambiguous
+  participations are marked "which visit?".
+- **Participants:** on an event's participants section, a time traveler that several segments
+  cover gets a "Which visit" select; choosing one sets the participation's `data.segment_id`
+  (`core/events/visit-choice.tsx`, shown only when `worldlines` is active).
+- **Timeline layer** (`timelineLayers`, `worldlines.jumps`): a **Jumps** popover chooses entities;
+  for each, an arc from departure to arrival when both are in the viewed dimension, and an edge
+  marker at the end that is here when the jump leads to or comes from another dimension.
+- **Age displays:** the character life panel shows the lived age ("lived 150 seconds") from the
+  personal timeline when the character has an explicit worldline.
 
 ## Consistency rules
 
