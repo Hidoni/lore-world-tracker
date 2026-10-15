@@ -16,6 +16,10 @@ dimension's duration:
 | end ``duration`` | the record's own start slot, plus the duration's calendar |
 | end ``instant`` / ``unknown`` | the record's own start slot (both resolve to the start) |
 | end ``end_of_time`` | the dimension (its duration ``D``) |
+
+A relative anchor to a slot of **another dimension** also depends on the correspondences
+(``CorrespondencesNode``): its moment is mapped through them. The writer adds that edge, since
+only the stored records tell the dimensions apart.
 """
 
 from collections.abc import Iterable
@@ -40,6 +44,7 @@ from lore.core.time.models import TimeDependency
 from lore.core.time.specs import ABSOLUTE_CALENDAR_ID
 
 DIMENSION = "dimension"
+CORRESPONDENCES_KIND = "correspondences"
 _BATCH = 5000  # ids per IN (...)
 
 
@@ -66,7 +71,16 @@ class DimensionNode:
     dimension_id: str
 
 
-type Target = SlotNode | CalendarNode | DimensionNode
+@dataclass(frozen=True, order=True)
+class CorrespondencesNode:
+    """The correspondences between dimensions (``time-model.md`` §5.2, §12): what an anchor to
+    another dimension's record is mapped through. Every correspondence write and every sync
+    point that resolves again changes it."""
+
+
+CORRESPONDENCES = CorrespondencesNode()
+
+type Target = SlotNode | CalendarNode | DimensionNode | CorrespondencesNode
 
 
 class MissingContextError(ValueError):
@@ -150,6 +164,14 @@ def _target_columns(target: Target) -> dict[str, str | None]:
                 "target_slot": None,
                 "target_calendar_id": None,
             }
+        case CorrespondencesNode():
+            return {
+                "target_kind": CORRESPONDENCES_KIND,
+                "target_type": CORRESPONDENCES_KIND,
+                "target_id": "*",
+                "target_slot": None,
+                "target_calendar_id": None,
+            }
 
 
 def _target_of(row: TimeDependency) -> Target:
@@ -158,6 +180,8 @@ def _target_of(row: TimeDependency) -> Target:
             return SlotNode(str(row.target_type), str(row.target_id), str(row.target_slot))
         case "calendar":
             return CalendarNode(str(row.target_calendar_id))
+        case "correspondences":
+            return CORRESPONDENCES
         case _:
             return DimensionNode(str(row.target_id))
 
@@ -258,6 +282,8 @@ class DependencyIndex:
         for start in range(0, len(dimension_ids), _BATCH):
             chunk = dimension_ids[start : start + _BATCH]
             conditions.append(and_(T.target_kind == DIMENSION, T.target_id.in_(chunk)))
+        if CORRESPONDENCES in wanted:
+            conditions.append(T.target_kind == CORRESPONDENCES_KIND)
         found: dict[Target, set[SlotNode]] = {}
         for condition in conditions:
             for row in self.session.scalars(select(T).where(condition)):
@@ -294,3 +320,5 @@ def _sort_key(target: Target) -> tuple[int, tuple[str, ...]]:
             return (1, (target.calendar_id,))
         case DimensionNode():
             return (2, (target.dimension_id,))
+        case CorrespondencesNode():
+            return (3, ())

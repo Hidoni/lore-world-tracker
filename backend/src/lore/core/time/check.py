@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from lore.chronology.schema import TimePoint
 from lore.core.time.calendars import resolvable
 from lore.core.time.dependencies import (
+    CORRESPONDENCES,
     CalendarNode,
     SlotNode,
     Target,
@@ -19,7 +20,7 @@ from lore.core.time.dependencies import (
 from lore.core.time.models import Calendar, TimeDependency
 from lore.core.time.propagate import CALENDAR, TimeWriter
 from lore.core.time.resolve import Resolution, Resolver
-from lore.core.time.slots import SlotRegistry, SlotValue
+from lore.core.time.slots import SlotKey, SlotRegistry, SlotValue
 from lore.core.time.status import TimeStatus
 
 if TYPE_CHECKING:
@@ -44,14 +45,22 @@ def _slots(context: VaultContext) -> Iterator[tuple[SlotNode, SlotValue]]:
                     yield SlotNode(provider.record_type, key.id, key.slot), value
 
 
-def expected_targets(registry: SlotRegistry, node: SlotNode, value: SlotValue) -> set[Target]:
-    """The edges a slot's spec calls for (``time-model.md`` §7.1)."""
+def expected_targets(
+    registry: SlotRegistry, node: SlotNode, value: SlotValue, writer: TimeWriter | None = None
+) -> set[Target]:
+    """The edges a slot's spec calls for (``time-model.md`` §7.1); with a writer, also the
+    correspondences for an anchor to another dimension's slot."""
     if isinstance(value.spec, TimePoint):
-        return time_point_targets(value.spec)
-    assert value.spec is not None
-    _provider, definition = registry.slot(node.type, node.slot)
-    start = SlotNode(node.type, node.id, definition.start)
-    return end_targets(value.spec, start=start, dimension_id=value.dimension_id or "")
+        targets = time_point_targets(value.spec)
+    else:
+        assert value.spec is not None
+        _provider, definition = registry.slot(node.type, node.slot)
+        start = SlotNode(node.type, node.id, definition.start)
+        targets = end_targets(value.spec, start=start, dimension_id=value.dimension_id or "")
+    key = SlotKey(node.id, node.slot)
+    if writer is not None and writer.crosses(key, node.type, targets, value.dimension_id):
+        targets.add(CORRESPONDENCES)
+    return targets
 
 
 type _Resolvers = dict[tuple[str, str | None], Resolver]
@@ -98,7 +107,7 @@ def verify_time(context: VaultContext) -> Iterator[Problem]:
     for node, value in _slots(context):
         seen.add(node)
         where = f"{node.type} {node.id} slot {node.slot!r}"
-        if set(writer.index.edges_of(node)) != expected_targets(registry, node, value):
+        if set(writer.index.edges_of(node)) != expected_targets(registry, node, value, writer):
             message = f"the dependencies of {where} don't match its spec"
             yield Problem(CHECK, "time_edges_stale", message)
         fresh = _fresh(resolvers, context, node, value)

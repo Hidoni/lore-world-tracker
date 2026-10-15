@@ -352,6 +352,15 @@ defines what is valid (`chronology-engine.md` §6).
 - Relative anchors may point at any **referenceable slot** (§6), in the same dimension or, with
   care, another dimension. Cross-dimension refs are allowed only through a correspondence (M9)
   and are resolved by mapping the moment. They are rarely needed.
+  - Implementation (#327): the target's moment (and its extent's ends) is mapped along the
+    shortest path of correspondences (§12.3, the reader's policy) before the offset applies in
+    this dimension. No path, or a moment the mapping leaves undefined, is the problem
+    `unmapped` (status `unresolved_ref`; a write is refused, a later change that breaks it is
+    refused by propagation). Such a slot also depends on the correspondences
+    (`CorrespondencesNode`, §7.1): every correspondence write and every sync point that
+    resolves again re-resolves it (within one run, sync points first). A sync point anchored
+    through such a slot is a cycle (`409 time_cycle`); sync points still refuse anchors to
+    their other side's dimension.
 
 ### 5.3 Precision (D2)
 
@@ -477,13 +486,15 @@ finding.
 
 ### 7.1 Dependency graph
 
-Nodes are **time slots**, **calendars** and **dimension durations**. Edges are stored in
+Nodes are **time slots**, **calendars**, **dimension durations** and **the correspondences**
+(one node: anchors to another dimension's records are mapped through them, §5.2). Edges are
+stored in
 `time_dependencies`:
 
 | Column | Meaning |
 |--------|---------|
 | `dependent_type`, `dependent_id`, `dependent_slot` | the slot that depends (a calendar's own anchors are slots of record type `calendar`) |
-| `target_kind` | `slot`, `calendar` or `dimension` |
+| `target_kind` | `slot`, `calendar`, `dimension` or `correspondences` (`target_type` `correspondences`, `target_id` `*`) |
 | `target_type`, `target_id`, `target_slot` | the referenced slot (when `target_kind = slot`); `dimension`, the dimension id and NULL when `target_kind = dimension` |
 | `target_calendar_id` | the referenced calendar (when `target_kind = calendar`) |
 

@@ -70,9 +70,11 @@ from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 if TYPE_CHECKING:
     from lore.core.modules.spec import VaultContext
+    from lore.core.time.correspondences import CorrespondenceGraph
 
 BASE = "base"
 EVENT = "event"
+SYNC_POINT = "sync_point"
 # Slot record types of event rows: home rows (by entity id) and branch overrides (by row id).
 EVENT_SLOTS = EVENT
 EVENT_OVERRIDE_SLOTS = "event_override"
@@ -92,6 +94,7 @@ type ProblemCode = Literal[
     "unknown_slot",
     "slot_not_referenceable",
     "not_supported",
+    "unmapped",
 ]
 
 
@@ -123,6 +126,9 @@ class Resolution:
     default_precision: str | None = None
     """Relative anchors: the precision they take by default (the coarser of the target's and
     the offset's finest unit); an anchor whose precision equals it keeps the target's extent."""
+    dimension_id: str | None = None
+    """The dimension the moment belongs to (relative anchors to another dimension's records are
+    mapped through the correspondences, §5.2)."""
 
     @property
     def ok(self) -> bool:
@@ -264,6 +270,9 @@ class Resolver:
         """Stored slots loaded in sets (``preload``), for readers that resolve many of them
         while nothing is written: used instead of loading each one."""
         self._overrides: dict[str, str | None] = {}
+        self._graph_cache: (
+            tuple[frozenset[tuple[tuple[str, str], int]], CorrespondenceGraph] | None
+        ) = None
         self._view: Any = None
 
     # --- time points --------------------------------------------------------------------------
@@ -271,7 +280,10 @@ class Resolver:
     def resolve(self, point: TimePoint, *, owner: str | None = None) -> Resolution:
         """Resolve a time point (§5.2-§5.4). ``owner`` is the id of the record the point
         belongs to, when it is a stored slot's spec (see ``_occurrence``)."""
-        return self._resolve(point, _owned(owner), 0)
+        return self._here(self._resolve(point, _owned(owner), 0))
+
+    def _here(self, result: Resolution) -> Resolution:
+        return replace(result, dimension_id=self.dimension_id)
 
     def _resolve(
         self, point: TimePoint, seen: frozenset[tuple[str, str, str]], depth: int
@@ -379,7 +391,53 @@ class Resolver:
             )
         if not target.ok or target.t is None:
             return replace(target, problem=_at(target.problem, "anchor.ref"))
+        if target.dimension_id not in (None, self.dimension_id):
+            target = self._mapped(target)
+            if not target.ok:
+                return target
         return self._offset(target, anchor.offset, precision, "anchor.offset")
+
+    def _mapped(self, target: Resolution) -> Resolution:
+        """A moment of another dimension mapped into this one through the correspondences
+        (§5.2, §12.3; its extent's ends too). ``unmapped`` without a path or where the mapping
+        is undefined."""
+        assert target.t is not None
+        assert target.dimension_id is not None
+        graph = self._graph()
+        source = target.dimension_id
+        t = graph.map(source, self.dimension_id, target.t).t
+        if t is None:
+            connected = graph.path(source, self.dimension_id) is not None
+            message = (
+                "Nothing happens in this dimension at the anchor's moment (outside the "
+                "correspondences)."
+                if connected
+                else "The anchor is in another dimension, and no correspondence relates the two."
+            )
+            return _failed(TimeStatus.UNRESOLVED_REF, "unmapped", message, "anchor.ref")
+        extent = (t, t + 1)
+        if target.extent is not None:
+            lo = graph.map(source, self.dimension_id, target.extent[0]).t
+            hi = graph.map(source, self.dimension_id, target.extent[1] - 1).t
+            if lo is not None and hi is not None and lo <= t <= hi:
+                extent = (lo, hi + 1)
+        return replace(target, t=t, extent=extent, dimension_id=self.dimension_id)
+
+    def _graph(self) -> CorrespondenceGraph:
+        """The correspondences the policy sees, with sync points resolved in the current run
+        (``known``) taken over the stored ones."""
+        from lore.core.time.correspondences import CorrespondenceGraph  # noqa: PLC0415
+
+        moments = {
+            (node.id, node.slot): resolution.t
+            for node, resolution in self.known.items()
+            if node.type == SYNC_POINT and resolution.t is not None
+        }
+        key = frozenset(moments.items())
+        if self._graph_cache is None or self._graph_cache[0] != key:
+            graph = CorrespondenceGraph.load(self.session, self.policy, moments=moments)
+            self._graph_cache = (key, graph)
+        return self._graph_cache[1]
 
     def override_of(self, event_id: str) -> str | None:
         """The id of the override row of the event that this resolver's timeline sees (its own
@@ -461,7 +519,7 @@ class Resolver:
                 problem=None,
             )
         trashed = value.trashed or (fresh is not None and fresh.status == TimeStatus.TRASHED_REF)
-        return self._trash(result, trashed)
+        return replace(self._trash(result, trashed), dimension_id=value.dimension_id)
 
     def preload(self, nodes: Iterable[SlotNode]) -> None:
         """Load stored slots in sets, with the slots their specs resolve through (the targets
@@ -655,7 +713,7 @@ class Resolver:
     ) -> Resolution:
         """Resolve an end spec (§5.5) given its record's resolved start (``owner``: as for
         ``resolve``)."""
-        return self._end(end, start, _owned(owner), 0)
+        return self._here(self._end(end, start, _owned(owner), 0))
 
     def _end(
         self,

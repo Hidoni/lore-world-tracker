@@ -54,6 +54,11 @@ All notable changes to this project are documented here. The format follows
   dimension in one step, with departure and arrival events created along the way. When a time
   traveler is present more than once at an event, a warning asks which visit takes part (a
   participation can name it), and another warns when a participant isn't there at all.
+- **Anchors across dimensions** (#327): an event in one dimension can be anchored to an event in
+  another, through their correspondence: it happens at the corresponding moment, and moves when
+  either the other event or the correspondence changes. Without a correspondence relating the two
+  dimensions, the anchor is refused, and `lore vault check` reports old ones that no longer
+  resolve.
 
 ## [0.7.0] - 2026-10-14
 
