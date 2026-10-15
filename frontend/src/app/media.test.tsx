@@ -48,6 +48,23 @@ interface GalleryEntry {
   revision: number
 }
 
+/**
+ * A multipart body's file name and text fields, read from its text (Node 26's `formData()`
+ * rejects the files jsdom's XHR sends).
+ */
+async function multipart(
+  request: Request,
+): Promise<{ filename: string; fields: Record<string, string> }> {
+  const text = await request.text()
+  const filename = /filename="([^"]*)"/.exec(text)?.[1] ?? ''
+  const fields: Record<string, string> = {}
+  for (const match of text.matchAll(/name="([^"]+)"\r\n\r\n([^\r]*)\r\n/g)) {
+    const [, name = '', value = ''] = match
+    fields[name] = value
+  }
+  return { filename, fields }
+}
+
 const ARTIFACT = kind('artifact', 'Artifact', {
   allowed_parents: ['artifact'],
   capabilities: { ...CAPS, can_be_multiversal: true },
@@ -123,11 +140,10 @@ function world(options: { body?: unknown; gallery?: boolean } = {}) {
       return item ? HttpResponse.json(item) : new HttpResponse(null, { status: 404 })
     }),
     http.post(`${base}/items`, async ({ request }) => {
-      const form = await request.formData()
-      const file = form.get('file') as File
-      requests.push({ method: 'POST', path: '/items', body: file.name })
+      const { filename } = await multipart(request)
+      requests.push({ method: 'POST', path: '/items', body: filename })
       seq += 1
-      const item = itemOut({ id: `new${String(seq)}`, filename: file.name })
+      const item = itemOut({ id: `new${String(seq)}`, filename })
       items.set(item.id, item)
       return HttpResponse.json({ item, created: true }, { status: 201 })
     }),
@@ -141,16 +157,15 @@ function world(options: { body?: unknown; gallery?: boolean } = {}) {
       return HttpResponse.json(next)
     }),
     http.put(`${base}/items/:id/file`, async ({ request, params }) => {
-      const form = await request.formData()
-      const file = form.get('file') as File
+      const { filename, fields } = await multipart(request)
       requests.push({
         method: 'PUT',
         path: `/items/${String(params.id)}/file`,
-        body: { file: file.name, revision: form.get('revision') },
+        body: { file: filename, revision: fields.revision },
       })
       const item = items.get(String(params.id))
       if (!item) return new HttpResponse(null, { status: 404 })
-      const next = { ...item, filename: file.name, revision: item.revision + 1 }
+      const next = { ...item, filename, revision: item.revision + 1 }
       items.set(item.id, next)
       return HttpResponse.json(next)
     }),
