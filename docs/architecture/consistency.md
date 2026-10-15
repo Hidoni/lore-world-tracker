@@ -169,7 +169,7 @@ from the stored `time_status`: `out_of_bounds`, `cycle`, `invalid_date` (also `c
 and `unresolved_ref`; `end_before_start` from stored moments; one `core.parent.cycle` finding per
 cycle), `core.recurrence.invalid_rule`, `core.time.anchor_to_trashed` (status `trashed_ref`),
 `core.event.subevent_outside_parent` (series parents aside), `core.event.effect_before_cause`
-(same dimension only) and `core.event.duplicate_name_same_time` (names compared ignoring case
+(see below) and `core.event.duplicate_name_same_time` (names compared ignoring case
 and accents; possible when a start is circa). The other core rules arrive with their features.
 
 The narrative rules about existence (#106: core's `participant_not_existing`, `fact.overlap`,
@@ -203,6 +203,26 @@ and languages rules) share `lore.core.consistency.existence` and the finders of
   child existing since the beginning of time isn't checked. `child_outside_parent_existence` and
   `member_before_emergence` check each of the entity's periods against the container's, one
   finding per pair and timeline. `event_at_nonexistent_location` checks the event's start.
+
+The advanced-time rules (#123):
+
+- `core.event.effect_before_cause` compares starts of the `core.causes` ends (home rows). In one
+  dimension, their slots decide (§4). Across dimensions, the cause's start is mapped into the
+  effect's dimension along the shortest correspondence path (`time-model.md` §12.3; a vague start
+  makes the finding possible); without a path, or where the mapping is undefined, the pair isn't
+  checked. While `worldlines` is on, a pair isn't reported when an entity with explicit segments
+  takes part in both and lives the cause first (subjective time, each participation placed as in
+  `time-model.md` §11.4): it learnt of the cause and went back. The rule is rechecked when either
+  event, the link or a participation changes; a correspondence or worldline edit is picked up by
+  the next scan.
+- `worldlines.jump_event_mismatch`: a segment's departure event must span its end, its arrival
+  event its start, in the segment's dimension. `worldlines.self_encounter`: two segments of one
+  entity in the same timeline overlap (sharing only an end, as a split does, doesn't count); the
+  finding carries that timeline, so it is a branch's when they are in a branch.
+  `worldlines.causal_loop`: one finding per cycle of `core.causes` links (the bootstrap paradox).
+  These read home rows of segments and events.
+- `participant_not_existing` leaves entities with explicit segments to
+  `worldlines.absent_participant` while `worldlines` is on.
 
 Hard rules (core, `error`, not configurable):
 

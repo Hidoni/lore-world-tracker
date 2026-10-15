@@ -14,7 +14,9 @@ definite or possible). Trashed entities have no findings.
 - ``core.recurrence.invalid_rule`` (error, configurable): a series' rule no longer evaluates.
 - ``core.time.anchor_to_trashed``, ``core.event.subevent_outside_parent`` (the child's span
   within its parent event's, series parents aside), ``core.event.effect_before_cause``
-  (``core.causes`` in one dimension: the effect may not start before the cause): warnings.
+  (``core.causes``: the effect may not start before the cause; across dimensions through the
+  correspondences, and not when a time traveler lives them in causal order, ``causality.py``):
+  warnings.
 - ``core.event.duplicate_name_same_time`` (off): two events of a timeline with the same name
   (ignoring case and accents) overlapping in time; possible when one start is circa.
 - The narrative rules about existence and facts (``narrative.py``).
@@ -26,6 +28,7 @@ from typing import Any
 from sqlalchemy import String, and_, func, or_, select, type_coerce
 from sqlalchemy.orm import aliased
 
+from lore.core.consistency.causality import Mapper, experienced_in_order
 from lore.core.consistency.compare import DEFINITE, POSSIBLE, violates_order, worst
 from lore.core.consistency.engine import FindingDraft, RuleContext
 from lore.core.consistency.narrative import NARRATIVE_RULES
@@ -530,15 +533,17 @@ def _subevent_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iter
                 )
 
 
-def _causality_scan() -> Any:
+def _causality_scan(*, across: bool = False) -> Any:
     """Every candidate, from one pass over the events: the live home rows are set aside
     (materialized) with their starts and each ``core.causes`` link looks its two ends up there,
-    instead of in two tables each (a large world has 100k such links, #235)."""
+    instead of in two tables each (a large world has 100k such links, #235). ``across``: the
+    links between dimensions (their starts compare only once mapped)."""
     started = (
         select(
             Event.entity_id.label("id"),
             Event.timeline_id.label("timeline_id"),
             Event.start_t.label("start_t"),
+            Event.start_spec.label("start_spec"),
             Entity.name.label("name"),
             Entity.dimension_id.label("dimension_id"),
         )
@@ -548,30 +553,34 @@ def _causality_scan() -> Any:
         .prefix_with("MATERIALIZED")
     )
     cause, effect = started.alias("cause"), started.alias("effect")
-    return (
+    statement = (
         select(
             Link.source_id,
             Link.target_id,
             cause.c.name,
             effect.c.name,
             cause.c.dimension_id,
+            effect.c.dimension_id,
             effect.c.timeline_id,
             cause.c.start_t,
             effect.c.start_t,
+            cause.c.start_spec,
+            effect.c.start_spec,
         )
         .join(cause, cause.c.id == Link.source_id)
         .join(effect, effect.c.id == Link.target_id)
-        .where(
-            Link.link_type == "core.causes",
-            Link.deleted_at.is_(None),
-            # Only the links join the two ends (never one end to every other of its dimension).
-            unindexed(cause.c.dimension_id) == unindexed(effect.c.dimension_id),
-            unindexed(effect.c.start_t) < unindexed(cause.c.start_t),
-        )
+        .where(Link.link_type == "core.causes", Link.deleted_at.is_(None))
+    )
+    # Only the links join the two ends (never one end to every other of its dimension).
+    if across:
+        return statement.where(unindexed(cause.c.dimension_id) != unindexed(effect.c.dimension_id))
+    return statement.where(
+        unindexed(cause.c.dimension_id) == unindexed(effect.c.dimension_id),
+        unindexed(effect.c.start_t) < unindexed(cause.c.start_t),
     )
 
 
-def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:
+def _causality_statement(*, across: bool) -> Any:
     cause, effect, cause_entity, effect_entity = _event_columns()
     statement = (
         select(
@@ -580,9 +589,12 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
             cause_entity.name,
             effect_entity.name,
             cause_entity.dimension_id,
+            effect_entity.dimension_id,
             effect.timeline_id,
             cause.start_t,
             effect.start_t,
+            cause.start_spec,
+            effect.start_spec,
         )
         .join(cause_entity, cause_entity.id == Link.source_id)
         .join(effect_entity, effect_entity.id == Link.target_id)
@@ -593,44 +605,81 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
             _plain(Link, "deleted_at"),
             _plain(cause_entity, "deleted_at"),
             _plain(effect_entity, "deleted_at"),
-            unindexed(cause_entity.dimension_id) == unindexed(effect_entity.dimension_id),
-            effect.start_t < cause.start_t,
         )
     )
-    batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
-    for batch in batches:
-        sides = (
-            [_causality_scan()]
-            if batch is None
-            else [
-                statement.where(Link.source_id.in_(batch)),
-                statement.where(Link.target_id.in_(batch)),
-            ]
+    if across:
+        return statement.where(
+            unindexed(cause_entity.dimension_id) != unindexed(effect_entity.dimension_id)
         )
-        orders = _Orders(ctx)
-        candidates = _once(ctx, sides)
-        for cause_id, effect_id, *_names, dimension_id, _timeline, cause_t, effect_t in candidates:
-            orders.want(dimension_id, (cause_id, "start"), cause_t, (effect_id, "start"), effect_t)
-        orders.load()
-        for (
-            cause_id,
-            effect_id,
-            cause_name,
-            effect_name,
-            dimension_id,
-            timeline_id,
-            _cause_t,
-            _effect_t,
-        ) in candidates:
-            certainty = orders.violated(dimension_id, (cause_id, "start"), (effect_id, "start"))
-            if certainty is not None:
-                yield FindingDraft(
-                    "core.event.effect_before_cause",
-                    (effect_id, cause_id),
-                    f"“{effect_name}” starts before its cause “{cause_name}”.",
-                    certainty=certainty,
-                    timeline_id=timeline_id,
+    return statement.where(
+        unindexed(cause_entity.dimension_id) == unindexed(effect_entity.dimension_id),
+        effect.start_t < cause.start_t,
+    )
+
+
+def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:
+    """Same dimension: the stored starts select the candidates and their slots decide (§4).
+    Across dimensions: the cause's start mapped into the effect's (``causality.Mapper``). Either
+    way, a pair a time traveler lives in causal order isn't reported (``experienced_in_order``)."""
+    batches: Iterable[list[str] | None] = [None] if subjects is None else _chunks(subjects)
+    mapper = Mapper(ctx)
+    for batch in batches:
+        found: dict[tuple[str, str], tuple[Any, Any]] = {}
+        for across in (False, True):
+            sides = (
+                [_causality_scan(across=across)]
+                if batch is None
+                else [
+                    _causality_statement(across=across).where(Link.source_id.in_(batch)),
+                    _causality_statement(across=across).where(Link.target_id.in_(batch)),
+                ]
+            )
+            candidates = _once(ctx, sides)
+            if across:
+                for row in candidates:
+                    cause_id, effect_id, _c, _e, cause_dim, effect_dim, _tl, *starts = row
+                    cause_t, effect_t, cause_spec, effect_spec = starts
+                    certainty = mapper.violated(
+                        (cause_dim, cause_t, cause_spec), (effect_dim, effect_t, effect_spec)
+                    )
+                    if certainty is not None:
+                        found[(cause_id, effect_id)] = (row, certainty)
+                continue
+            orders = _Orders(ctx)
+            for (
+                cause_id,
+                effect_id,
+                _c,
+                _e,
+                dimension_id,
+                _d,
+                _tl,
+                cause_t,
+                effect_t,
+                *_,
+            ) in candidates:
+                orders.want(
+                    dimension_id, (cause_id, "start"), cause_t, (effect_id, "start"), effect_t
                 )
+            orders.load()
+            for row in candidates:
+                cause_id, effect_id, dimension_id = row[0], row[1], row[4]
+                certainty = orders.violated(dimension_id, (cause_id, "start"), (effect_id, "start"))
+                if certainty is not None:
+                    found[(cause_id, effect_id)] = (row, certainty)
+        lived = experienced_in_order(ctx, found)
+        for pair in sorted(found):
+            if pair in lived:
+                continue
+            row, certainty = found[pair]
+            cause_id, effect_id, cause_name, effect_name = row[:4]
+            yield FindingDraft(
+                "core.event.effect_before_cause",
+                (effect_id, cause_id),
+                f"“{effect_name}” starts before its cause “{cause_name}”.",
+                certainty=certainty,
+                timeline_id=row[6],
+            )
 
 
 def _overlap(a: Any, b: Any) -> Any:
@@ -985,9 +1034,14 @@ CORE_RULES: tuple[RuleDef, ...] = (
     _rule(
         "core.event.effect_before_cause",
         "Effect before cause",
-        "An event starts before the event that causes it (same dimension).",
+        "An event starts before the event that causes it (across dimensions through their "
+        "correspondences; a time traveler who lives the cause first explains it).",
         _causality_findings,
-        triggers=(Trigger("record", EVENT), Trigger("link_type", "core.causes")),
+        triggers=(
+            Trigger("record", EVENT),
+            Trigger("link_type", "core.causes"),
+            Trigger("link_type", "core.participant"),
+        ),
         severity="warning",
         configurable=True,
         category="narrative",
