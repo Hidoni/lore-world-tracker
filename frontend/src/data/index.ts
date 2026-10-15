@@ -201,6 +201,18 @@ export {
   type MapOut,
   type SyncPointOut,
 } from './correspondences'
+export {
+  usePersonalTimeline,
+  useReplaceSegments,
+  useTimeTravel,
+  useWorldline,
+  type PersonalItem,
+  type PersonalTimeline,
+  type SegmentIn,
+  type TimeTravelIn,
+  type Worldline,
+  type WorldlineSegment,
+} from './worldlines'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useLocationEvents,

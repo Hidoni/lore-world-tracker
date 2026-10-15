@@ -167,6 +167,25 @@ export interface DataSource {
   correspondence(vault: string, id: string): Promise<D<'CorrespondenceOut'>>
   /** A moment mapped to another dimension along the shortest path of correspondences. */
   mapMoment(vault: string, query: Query<'correspondences_map'>): Promise<D<'MapOut'>>
+  // The worldlines module (docs/modules/worldlines.md).
+  /** An entity's worldline: explicit segments, or the implicit one (its existence). */
+  worldline(
+    vault: string,
+    entity: string,
+    query?: Query<'worldlines_segments'>,
+  ): Promise<D<'Worldline'>>
+  /** The segments covering a moment (a traveler can be present twice). */
+  presence(
+    vault: string,
+    entity: string,
+    query: Query<'worldlines_presence'>,
+  ): Promise<D<'Presence'>>
+  /** What the entity lives through, in its own order, with subjective time and ages. */
+  personalTimeline(
+    vault: string,
+    entity: string,
+    query?: Query<'worldlines_personal_timeline'>,
+  ): Promise<D<'PersonalTimeline'>>
 }
 
 /**
@@ -314,4 +333,15 @@ export interface Mutations {
     body: Schemas['CorrespondenceUpdate'],
   ): Promise<D<'CorrespondenceWriteResult'>>
   deleteCorrespondence(vault: string, id: string): Promise<D<'CorrespondenceWriteResult'>>
+  // The worldlines module.
+  replaceSegments(
+    vault: string,
+    entity: string,
+    body: Schemas['SegmentsPut'],
+  ): Promise<D<'WorldlineWriteResult'>>
+  timeTravel(
+    vault: string,
+    entity: string,
+    body: Schemas['TimeTravelIn'],
+  ): Promise<D<'TimeTravelResult'>>
 }

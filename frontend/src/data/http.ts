@@ -405,6 +405,33 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'MapOut',
       ),
+    worldline: async (vault, entity, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/worldlines/entities/{entity_id}/segments`, {
+            params: { path: { vault_id: vault, entity_id: entity }, query },
+          }),
+        ),
+        'Worldline',
+      ),
+    presence: async (vault, entity, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/worldlines/entities/{entity_id}/presence`, {
+            params: { path: { vault_id: vault, entity_id: entity }, query },
+          }),
+        ),
+        'Presence',
+      ),
+    personalTimeline: async (vault, entity, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/worldlines/entities/{entity_id}/personal-timeline`, {
+            params: { path: { vault_id: vault, entity_id: entity }, query },
+          }),
+        ),
+        'PersonalTimeline',
+      ),
     graph: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/m/graph/graph`, { params: { ...path(vault), query } })),
@@ -770,6 +797,26 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           }),
         ),
         'CorrespondenceWriteResult',
+      ),
+    replaceSegments: async (vault, entity, body) =>
+      toDomain(
+        await unwrap(
+          client.PUT(`${V}/m/worldlines/entities/{entity_id}/segments`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+            body,
+          }),
+        ),
+        'WorldlineWriteResult',
+      ),
+    timeTravel: async (vault, entity, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/worldlines/entities/{entity_id}/time-travel`, {
+            params: { path: { vault_id: vault, entity_id: entity } },
+            body,
+          }),
+        ),
+        'TimeTravelResult',
       ),
     deleteLexiconEntry: async (vault, entry) =>
       toDomain(

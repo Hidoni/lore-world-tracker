@@ -53,7 +53,7 @@ import {
 } from '@/components/ui/context-menu'
 import { droppedEntity } from '@/core/links'
 import { eventTime } from '@/core/events'
-import { useActiveModules } from '@/core/modules'
+import { useActiveModules, useExtensionList } from '@/core/modules'
 import {
   useDimensions,
   useEntity,
@@ -730,6 +730,7 @@ function Timeline({
   const comparing = compared.length > 0
   const differences = useDifferences(vault, comparing ? [branching.current, ...compared] : [])
   /** Dimension lanes: other dimensions' events mapped onto this axis (frontend.md §9.5). */
+  const layers = useExtensionList('timelineLayers', vault)
   const correspondencesOn = useActiveModules(vault).modules.some(
     (module) => module.id === 'correspondences',
   )
@@ -1051,6 +1052,16 @@ function Timeline({
                       )
                     })}
                   </svg>
+                  {layers.map((layer) => (
+                    <layer.component
+                      key={layer.id}
+                      vault={vault}
+                      timeline={timelineId}
+                      dimensionId={dimensionId}
+                      v={v}
+                      height={LANES_HEIGHT}
+                    />
+                  ))}
                   {comparing && (
                     <DivergenceMarkers
                       v={v}
