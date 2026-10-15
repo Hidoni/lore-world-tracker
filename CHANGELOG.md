@@ -59,6 +59,11 @@ All notable changes to this project are documented here. The format follows
   what the character lived, in order of lived time, with jumps as breaks (and as a list). Events
   ask which visit of a time traveler takes part, the life panel shows lived ages, and the timeline
   can draw the jumps of chosen characters.
+- **Paradox-aware checks** (#123): "effect before cause" now compares events in different
+  dimensions through their correspondences, and stays quiet when a time traveler takes part in
+  both and lived the cause first. New warning when a departure or arrival event doesn't match
+  the jump it documents; two informational rules (off by default) flag someone meeting their
+  other self and events that cause each other in a loop. The sample world has a time traveler.
 - **Anchors across dimensions** (#327): an event in one dimension can be anchored to an event in
   another, through their correspondence: it happens at the corresponding moment, and moves when
   either the other event or the correspondence changes. Without a correspondence relating the two

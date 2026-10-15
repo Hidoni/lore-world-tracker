@@ -445,3 +445,127 @@ def test_participations_are_assigned_to_visits(world: World) -> None:
     assert [f["rule_id"] for f in findings(world, "core.event.participant_not_existing")] == [
         "core.event.participant_not_existing"
     ]
+
+
+# --- advanced-time rules (#123) ------------------------------------------------------------------
+
+
+def severity(world: World, rule: str, value: str) -> None:
+    response = world.api.client.patch(
+        f"{world.api.base}/consistency/rules/{rule}", json={"severity": value}
+    )
+    assert response.status_code == 200, response.json()
+
+
+def test_a_traveler_explains_an_effect_before_its_cause(world: World) -> None:
+    """Vey hears the prophecy in year 30, travels back to year 5 and gives the warning in year
+    6: the warning is caused by the prophecy and starts before it, but Vey lives them in order."""
+    rule = "core.event.effect_before_cause"
+    prophecy = world.event("The Prophecy", 30 * YEAR)
+    warning = world.event("The Warning", 6 * YEAR)
+    world.api.made_link("core.causes", prophecy, warning)
+    [finding] = findings(world, rule)
+    assert [s["id"] for s in finding["subjects"]] == [warning["id"], prophecy["id"]]
+    world.replaced(world.vey, [world.segment(0, 40 * YEAR)])
+    world.api.made_link("core.participant", prophecy, world.vey)
+    link = world.api.made_link("core.participant", warning, world.vey)
+    # In one stretch of the worldline Vey lives the warning first: still reported.
+    assert len(findings(world, rule)) == 1
+    travelled = travel(
+        world,
+        world.vey,
+        departure={"at": at(31 * YEAR)},
+        destination={"dimension_id": world.aetheria["id"], "arrival": at(5 * YEAR),
+                     "until": at(7 * YEAR)},
+    )  # fmt: skip
+    assert travelled.status_code == 200, travelled.json()
+    first, second = travelled.json()["worldline"]["segments"]
+    # The warning is covered twice; the second visit (after the prophecy) gives it.
+    chosen = world.api.patch_link(link, data={"segment_id": second["id"]})
+    assert chosen.status_code == 200, chosen.json()
+    assert findings(world, rule) == []
+    # The first visit (a child of five who hasn't heard it yet) can't explain it.
+    again = world.api.patch_link(chosen.json()["link"], data={"segment_id": first["id"]})
+    assert again.status_code == 200, again.json()
+    assert len(findings(world, rule)) == 1
+
+
+def test_jump_events_must_match_the_segments(world: World) -> None:
+    rule = "worldlines.jump_event_mismatch"
+    leave = world.event("Leaving", 30 * YEAR)
+    land = world.event("Landing", 5 * YEAR)
+    world.replaced(
+        world.vey,
+        [
+            world.segment(10 * YEAR, 30 * YEAR, departure_event_id=leave["id"]),
+            world.segment(5 * YEAR, 8 * YEAR, arrival_event_id=land["id"]),
+        ],
+    )
+    assert findings(world, rule) == []
+    # The landing moves to year 6: Vey arrives in year 5 without it.
+    moved = world.api.patch(world.api.get(land["id"]).json(), ext={"start": at(6 * YEAR)})
+    assert moved.status_code == 200, moved.json()
+    [finding] = findings(world, rule)
+    assert {s["id"] for s in finding["subjects"]} == {world.vey["id"], land["id"]}
+    assert finding["timeline_id"] == world.prime
+    assert finding["data"]["side"] == "arrival"
+    assert finding["message"] == (
+        "“Vey” arrives at the start of segment 2, but its arrival event “Landing” isn't then."
+    )
+
+
+def test_self_encounters_are_informational(world: World) -> None:
+    rule = "worldlines.self_encounter"
+    first, second, third = world.replaced(
+        world.vey,
+        [
+            world.segment(10 * YEAR, 20 * YEAR),
+            world.segment(20 * YEAR, 30 * YEAR),  # a split: touching isn't meeting
+            world.segment(15 * YEAR, 25 * YEAR),
+        ],
+    )["segments"]
+    assert findings(world, rule) == []  # off by default
+    severity(world, rule, "warning")
+    found = findings(world, rule)
+    assert sorted(f["data"]["segment_ids"] for f in found) == sorted(
+        [[first["id"], third["id"]], [second["id"], third["id"]]]
+    )
+    assert {f["timeline_id"] for f in found} == {world.prime}
+    # In a branch, the finding belongs to the branch.
+    ilsa = world.character("Ilsa")
+    response = travel(
+        world,
+        ilsa,
+        departure={"at": at(30 * YEAR)},
+        destination={"dimension_id": world.aetheria["id"], "arrival": at(12 * YEAR),
+                     "until": at(14 * YEAR), "new_branch": {"name": "Again"}},
+    )  # fmt: skip
+    assert response.status_code == 200, response.json()
+    branch = response.json()["branch_id"]
+    segments = response.json()["worldline"]["segments"]
+    world.replaced(
+        ilsa,
+        [
+            *[world.segment(s["start"], s["end"], timeline_id=s["timeline_id"]) for s in segments],
+            world.segment(13 * YEAR, 15 * YEAR, timeline_id=branch),
+        ],
+    )
+    mine = [f for f in findings(world, rule) if f["subjects"][0]["id"] == ilsa["id"]]
+    assert [f["timeline_id"] for f in mine] == [branch]
+
+
+def test_causal_loops_are_informational(world: World) -> None:
+    rule = "worldlines.causal_loop"
+    severity(world, rule, "warning")
+    gift = world.event("The Gift", 10 * YEAR)
+    book = world.event("The Book", 20 * YEAR)
+    other = world.event("Unrelated", 1)
+    world.api.made_link("core.causes", gift, book)
+    world.api.made_link("core.causes", other, gift)
+    assert findings(world, rule) == []
+    closing = world.api.made_link("core.causes", book, gift)
+    [loop] = findings(world, rule)
+    assert {s["id"] for s in loop["subjects"]} == {gift["id"], book["id"]}
+    assert "The Book" in loop["message"]
+    assert world.api.delete_link(closing["id"]).status_code == 200
+    assert findings(world, rule) == []

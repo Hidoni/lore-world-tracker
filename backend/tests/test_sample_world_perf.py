@@ -120,11 +120,14 @@ def test_windows(world: World) -> None:
 
 
 def test_full_consistency_scan(world: World) -> None:
-    rule = "core.event.duplicate_name_same_time"
-    patched = world.client.patch(
-        f"{world.base}/consistency/rules/{rule}", json={"severity": "warning"}
-    )
-    assert patched.status_code == 200, patched.json()
+    """Every rule, the off-by-default ones too (with the advanced-time data of M9)."""
+    off = ("core.event.duplicate_name_same_time", "worldlines.self_encounter",
+           "worldlines.causal_loop")  # fmt: skip
+    for rule in off:
+        patched = world.client.patch(
+            f"{world.base}/consistency/rules/{rule}", json={"severity": "warning"}
+        )
+        assert patched.status_code == 200, patched.json()
     started = time.perf_counter()
     response = world.client.post(f"{world.base}/consistency/scan")
     elapsed = time.perf_counter() - started

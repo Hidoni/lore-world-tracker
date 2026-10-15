@@ -89,7 +89,11 @@ Implemented in `frontend/src/modules/worldlines/` (#122).
 
 When a worldline exists, `core.event.participant_not_existing` defers to these rules, and
 `core.event.effect_before_cause` uses subjective order for events experienced by the same
-entity.
+entity: an effect that starts before its cause isn't reported when someone takes part in both
+and lives the cause first (`consistency.md` §6). Jump events must span the segment end (departure)
+or start (arrival) they document. A self-encounter needs a real overlap (a split's shared end
+isn't one) and belongs to the timeline of the two segments. A causal loop is a cycle of
+`core.causes` links, reported once.
 
 ## Disabling / removal notes
 

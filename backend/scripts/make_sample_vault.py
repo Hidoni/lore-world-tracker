@@ -34,9 +34,9 @@ The world has two parts:
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Done: module kinds (M6: misc, locations,
-characters, groups, languages, species), facts and temporal links (M7). Planned: branches and
-worldlines (M9), correspondences (M9), media (M10), custom fields and kinds (M11). Old fixtures
-are never regenerated: the next milestone release commits a new one
+characters, groups, languages, species), facts and temporal links (M7), branches,
+correspondences and a time traveler (M9). Planned: media (M10), custom fields and kinds (M11).
+Old fixtures are never regenerated: the next milestone release commits a new one
 (``persistence-and-migrations.md`` §3.5).
 """
 
@@ -94,6 +94,8 @@ from lore.modules.correspondences.schemas import CorrespondenceCreate
 from lore.modules.correspondences.service import Correspondences
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
+from lore.modules.worldlines.schemas import TimeTravelIn
+from lore.modules.worldlines.travel import TimeTravel
 
 type Size = Literal["tiny", "small", "medium", "large"]
 type Doc = dict[str, Any]
@@ -1564,6 +1566,29 @@ def _core_correspondences(writer: Writer, core: Core, world: SampleWorld) -> Non
     }  # fmt: skip
 
 
+def _core_worldlines(writer: Writer, core: Core) -> None:
+    """Worldlines (M9): Wren sees the Sundering, goes back in time and warns of it. The warning is
+    caused by the Sundering and comes before it, which Wren's worldline explains (no
+    ``core.event.effect_before_cause`` finding)."""
+    with writer.transaction("Sample world: a time traveler") as s:
+        t = s.session.scalar(
+            select(Event.start_t).where(
+                Event.entity_id == core["The Sundering"], Event.overrides_id.is_(None)
+            )
+        )
+        assert t is not None
+        travel = TimeTravelIn.model_validate({
+            "departure": {"event_id": core["The Sundering"]},
+            "destination": {"dimension_id": core[WORLD_NAME], "arrival": point(t // 2),
+                            "until": point(t - 1), "event_name": "Wren's Warning"},
+        })  # fmt: skip
+        result = TimeTravel(s.context).run(core["Wren"], travel)
+        assert result.arrival_event_id is not None
+        core.ids["Wren's Warning"] = result.arrival_event_id
+        s.link("core.causes", core["The Sundering"], result.arrival_event_id,
+               data={"description": "Wren saw it happen."})  # fmt: skip
+
+
 def _moment(t: int | None) -> str | None:
     return None if t is None else str(t)
 
@@ -1652,6 +1677,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_links(writer, core)
     _core_branches(writer, core, world)
     _core_correspondences(writer, core, world)
+    _core_worldlines(writer, core)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {

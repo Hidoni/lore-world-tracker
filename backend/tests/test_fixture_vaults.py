@@ -277,7 +277,7 @@ def test_the_generator_is_deterministic_for_a_seed(
         "calendar": 11,
         "character": 8,
         "dimension": 4,
-        "event": 49 + 120,
+        "event": 50 + 120,
         "group": 7,
         "language": 5,
         "location": 9,
@@ -286,7 +286,7 @@ def test_the_generator_is_deterministic_for_a_seed(
         "timeline": 5,
         "writing_system": 2,
     }
-    assert first.links == 62 + 150
+    assert first.links == 65 + 150
     assert (first.entities, first.links) == (second.entities, second.links)
     assert _content(tmp_path / "a", first.vault_id) == _content(tmp_path / "b", second.vault_id)
     assert _content(tmp_path / "a", first.vault_id) != _content(tmp_path / "c", other.vault_id)
@@ -362,6 +362,24 @@ def test_the_core_has_a_correspondence(tmp_path: Path) -> None:
         assert check_vault(_manager(client), world.vault_id).problems == ()
 
 
+def test_the_core_has_a_time_traveler(tmp_path: Path) -> None:
+    """Wren (M9) leaves at the Sundering and warns of it before it happens: a warning caused by the
+    Sundering, before it, that the worldline explains (no effect-before-cause finding)."""
+    world = generate(tmp_path, "tiny")
+    with _client(tmp_path) as client:
+        base = f"/api/v1/vaults/{world.vault_id}"
+        wren = next(e for e in _all(client, f"{base}/entities", kind="character")
+                    if e["name"] == "Wren")  # fmt: skip
+        worldline = client.get(f"{base}/m/worldlines/entities/{wren['id']}/segments").json()
+        assert len(worldline["segments"]) == 2
+        items = client.get(f"{base}/m/worldlines/entities/{wren['id']}/personal-timeline")
+        names = [i["name"] for i in items.json()["items"] if i["kind"] == "participation"]
+        assert names[-2:] == ["The Sundering", "Wren's Warning"]
+        found = client.get(f"{base}/consistency/findings",
+                           params={"rule": "core.event.effect_before_cause"}).json()  # fmt: skip
+        assert "Wren's Warning" not in str(found)
+
+
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
     target = tmp_path / "v9.9.9"
     world = make_sample_vault.write_fixture(target)
@@ -375,7 +393,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "109 entities, 62 links" in capsys.readouterr().out
+    assert "110 entities, 65 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 

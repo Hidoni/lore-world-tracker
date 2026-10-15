@@ -265,3 +265,24 @@ def test_vault_check_reports_unmapped_anchors(api: LinkApi, worlds: Worlds) -> N
         session.execute(delete(Correspondence).where(Correspondence.id == portal["id"]))
     [found] = problems()
     assert "doesn't resolve (unmapped)" in found
+
+
+def test_effect_before_cause_across_dimensions(api: LinkApi, worlds: Worlds) -> None:
+    """A cause in Aetheria and its effect in the Dreamrealm compare once mapped (#123)."""
+    rule = "core.event.effect_before_cause"
+    spell = api.make("event", "The Spell", dimension_id=worlds.aetheria, ext={"start": at(150)})
+    dream = api.make("event", "The Dream", dimension_id=worlds.dream, ext={"start": at(1500)})
+    api.made_link("core.causes", spell, dream)
+    # Without a correspondence the pair isn't checked.
+    assert worlds.findings(rule) == []
+    # Aetheria 150 is Dreamrealm 2000: the dream (1500) comes first. The rule is rechecked on a
+    # rescan (a correspondence isn't one of its triggers) or when either event changes.
+    worlds.made(worlds.aetheria, worlds.dream, [(100, 1000), (200, 3000)])
+    moved = api.patch(api.get(dream["id"]).json(), ext={"start": at(1999)})
+    assert moved.status_code == 200, moved.json()
+    [finding] = worlds.findings(rule)
+    assert [s["id"] for s in finding["subjects"]] == [dream["id"], spell["id"]]
+    assert finding["certainty"] == "definite"
+    later = api.patch(api.get(dream["id"]).json(), ext={"start": at(2000)})
+    assert later.status_code == 200, later.json()
+    assert worlds.findings(rule) == []
