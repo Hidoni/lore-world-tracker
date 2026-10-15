@@ -165,6 +165,8 @@ class SampleWorld:
     # Correspondence name -> {"from": dimension name, "to": dimension name, "t": a moment of
     # "from", "mapped": what it maps to} (v0.8.0 on).
     correspondences: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Entity name -> its worldline segments, [start_t, end_t] in worldline order (v0.8.0 on).
+    worldlines: dict[str, list[list[str]]] = field(default_factory=dict)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -1566,7 +1568,7 @@ def _core_correspondences(writer: Writer, core: Core, world: SampleWorld) -> Non
     }  # fmt: skip
 
 
-def _core_worldlines(writer: Writer, core: Core) -> None:
+def _core_worldlines(writer: Writer, core: Core, world: SampleWorld) -> None:
     """Worldlines (M9): Wren sees the Sundering, goes back in time and warns of it. The warning is
     caused by the Sundering and comes before it, which Wren's worldline explains (no
     ``core.event.effect_before_cause`` finding)."""
@@ -1587,6 +1589,9 @@ def _core_worldlines(writer: Writer, core: Core) -> None:
         core.ids["Wren's Warning"] = result.arrival_event_id
         s.link("core.causes", core["The Sundering"], result.arrival_event_id,
                data={"description": "Wren saw it happen."})  # fmt: skip
+        world.worldlines["Wren"] = [
+            [str(segment.start_t), str(segment.end_t)] for segment in result.worldline.segments
+        ]
 
 
 def _moment(t: int | None) -> str | None:
@@ -1677,7 +1682,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_links(writer, core)
     _core_branches(writer, core, world)
     _core_correspondences(writer, core, world)
-    _core_worldlines(writer, core)
+    _core_worldlines(writer, core, world)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {

@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
+Advanced time (M9): stories that branch, worlds whose time runs differently and characters who
+travel through it. "What if" branches share their past with the timeline they branch from and
+can change what happens after; compare mode lays them side by side. Correspondences relate the
+time of two dimensions, so events show what happens concurrently elsewhere and can be anchored
+across dimensions. Worldlines give time travelers a life of their own: a Time travel wizard,
+a personal timeline in the order they lived it, lived ages, and consistency checks that know about
+paradoxes. New tables for branches' changes, correspondences and worldline segments are added
+when a v0.7.0 vault opens.
+
 ### Added
 
 - **Branches** (#114): alternate timelines. A new branches module creates a "what if" branch
@@ -545,7 +556,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.4.0...v0.5.0

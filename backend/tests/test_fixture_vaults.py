@@ -31,13 +31,14 @@ FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:6] == [
+    assert [path.name for path in FIXTURE_DIRS][:7] == [
         "v0.1.0",
         "v0.2.0",
         "v0.3.0",
         "v0.4.0",
         "v0.5.0",
         "v0.6.0",
+        "v0.8.0",
     ]
 
 
@@ -97,6 +98,12 @@ def test_fixture_content_survives_the_upgrade(upgraded: Any) -> None:
     client, expected = upgraded
     base = f"/api/v1/vaults/{expected['vault_id']}"
     entities = _all(client, f"{base}/entities")
+    # Branch-only entities (v0.8.0 on) are listed in their branch.
+    timelines = {e["name"]: e["id"] for e in entities if e["kind"] == "timeline"}
+    for branch in expected.get("branches", {}):
+        seen = {entity["id"] for entity in entities}
+        own = _all(client, f"{base}/entities", timeline=timelines[branch])
+        entities += [entity for entity in own if entity["id"] not in seen]
     assert dict(Counter(entity["kind"] for entity in entities)) == expected["entities"]
     assert len(_all(client, f"{base}/trash")) >= expected["trashed_entities"]
     by_name = {entity["name"]: entity["id"] for entity in entities}
@@ -201,6 +208,27 @@ def test_fixture_facts_survive_the_upgrade(upgraded: Any) -> None:
     assert [(i["other"]["name"], i["link"]["valid_from_t"]) for i in married] == [
         ("Lord Tavish", died)
     ]
+
+
+def test_fixture_advanced_time_survives_the_upgrade(upgraded: Any) -> None:
+    """Branches, correspondences and worldlines (v0.8.0 on): the branch point, a mapped moment
+    and the time traveler's segments."""
+    client, expected = upgraded
+    if not expected.get("worldlines"):
+        pytest.skip("this fixture predates advanced time")
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    ids = {entity["name"]: entity["id"] for entity in _all(client, f"{base}/entities")}
+    for name, branch in expected["branches"].items():
+        timeline = client.get(f"{base}/entities/{ids[name]}").json()
+        assert timeline["ext"]["branch_t"] == branch["branch_t"], name
+    for gate in expected["correspondences"].values():
+        found = client.get(f"{base}/m/correspondences/map", params={
+            "from_dimension": ids[gate["from"]], "to_dimension": ids[gate["to"]],
+            "t": gate["t"]}).json()  # fmt: skip
+        assert found["result_t"] == gate["mapped"]
+    for name, segments in expected["worldlines"].items():
+        found = client.get(f"{base}/m/worldlines/entities/{ids[name]}/segments").json()
+        assert [[s["start_t"], s["end_t"]] for s in found["segments"]] == segments, name
 
 
 def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
