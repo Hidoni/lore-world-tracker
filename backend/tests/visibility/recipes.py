@@ -694,3 +694,37 @@ def media_gallery(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/m/media/entities/{entity_id}/gallery")
     for hidden_id in sorted(c.hidden_ids):
         yield Call(f"{_v(c)}/m/media/entities/{hidden_id}/gallery", status=404)
+
+
+# --- maps (#128) ----------------------------------------------------------------------------------
+
+
+@recipe(f"{V}/m/maps/maps")
+def maps_list(c: Canary) -> Iterator[Call]:
+    path = f"{_v(c)}/m/maps/maps"
+    yield Call(path)
+    for entity_id in c.public.values():
+        yield Call(path, {"location": entity_id})
+    for hidden_id in sorted(c.hidden_ids):
+        yield Call(path, {"location": hidden_id}, status=404)
+
+
+@recipe(f"{V}/m/maps/maps/{{map_id}}")
+def maps_map(c: Canary) -> Iterator[Call]:
+    """The public map without its private, hidden-target and private-timeline pins, at every
+    cursor; hidden maps (and hidden timelines) are 404."""
+    path = f"{_v(c)}/m/maps/maps/{c.records['Harbor map']}"
+    yield Call(path)
+    yield Call(path, {"at": "42"})
+    yield Call(path, {"at": "100", "timeline": c.public["Prime"]})
+    for hidden_id in sorted(c.hidden_ids):
+        yield Call(path, {"timeline": hidden_id}, status=404)
+        yield Call(f"{_v(c)}/m/maps/maps/{hidden_id}", status=404)
+
+
+@recipe(f"{V}/m/maps/entities/{{entity_id}}/pins")
+def maps_entity_pins(c: Canary) -> Iterator[Call]:
+    for entity_id in c.public.values():
+        yield Call(f"{_v(c)}/m/maps/entities/{entity_id}/pins")
+    for hidden_id in sorted(c.hidden_ids):
+        yield Call(f"{_v(c)}/m/maps/entities/{hidden_id}/pins", status=404)
