@@ -119,6 +119,50 @@ def test_windows(world: World) -> None:
     assert not slow, f"over budget: {slow}"
 
 
+ENTITY_PAGE_BUDGET_MS = 300.0
+SEARCH_BUDGET_MS = 100.0
+
+
+def test_entity_pages_and_search(world: World) -> None:
+    """An entity page's calls (the entity, its links and its backlinks; ``testing.md`` §4) for
+    a core character, the home dimension and a bulk event with its random links, and search
+    (full and quick) over the whole world, for the author and for readers."""
+    character = world.named("character", "Ilsa the Tidebound")
+    dimension = world.named("dimension", "Aetheria")
+    bulk = world.get("/entities", kind="event", sort="-created", limit=1)["items"][0]
+
+    def page(entity_id: str, **params: Any) -> Callable[[], None]:
+        def call() -> None:
+            world.get(f"/entities/{entity_id}", **params)
+            world.get(f"/entities/{entity_id}/links", **params)
+            world.get(f"/entities/{entity_id}/backlinks", **params)
+
+        return call
+
+    def search(path: str, q: str, **params: Any) -> Callable[[], None]:
+        def call() -> None:
+            world.get(path, q=q, **params)
+
+        return call
+
+    budgets = [
+        *((f"page {name}{' (reader)' if reader else ''}", page(e["id"], **reader),
+           ENTITY_PAGE_BUDGET_MS)
+          for name, e in (("character", character), ("dimension", dimension), ("bulk event", bulk))
+          for reader in ({}, {"as_reader": True})),
+        *((f"{label}{' (reader)' if reader else ''}", search(path, q, **reader), SEARCH_BUDGET_MS)
+          for label, path, q in (("search", "/search", "ley lines"),
+                                 ("search, common word", "/search", "the"),
+                                 ("quick", "/search/quick", "Ils"))
+          for reader in ({}, {"as_reader": True})),
+    ]  # fmt: skip
+    results = {label: (_p95_ms(call), limit) for label, call, limit in budgets}
+    for label, (ms, limit) in results.items():
+        print(f"\n{label}: p95 {ms:.0f} ms (budget {limit:.0f})", end="")
+    slow = {label: ms for label, (ms, limit) in results.items() if ms > limit}
+    assert not slow, f"over budget: {slow}"
+
+
 def test_full_consistency_scan(world: World) -> None:
     """Every rule, the off-by-default ones too (with the advanced-time data of M9)."""
     off = ("core.event.duplicate_name_same_time", "worldlines.self_encounter",
