@@ -139,4 +139,9 @@ export const test = base.extend<{ lore: Lore }>({
 
 test.skip(!process.env.E2E_BASE_URL, 'E2E_BASE_URL is not set')
 
+/** The read-only server serving the author's publish directory (`scripts/e2e.sh`). */
+export const READER_URL = process.env.E2E_READER_URL ?? ''
+
+export { HEADERS }
+
 export { expect }
