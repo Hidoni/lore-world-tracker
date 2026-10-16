@@ -8,6 +8,7 @@ import type { CausalityGraph } from '@/data'
 import { dimensionRow } from '@/test/calendars'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 /** The first layout loads ELK, which can take a while under a loaded test run. */
@@ -252,5 +253,14 @@ describe('sidebar events', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Events' }))
     expect(within(section).queryByRole('link', { name: /^War/ })).not.toBeInTheDocument()
     expect(localStorage.getItem('lore.sidebar.collapsed')).toContain(':events')
+  })
+})
+
+describe('causality pages in reader mode', () => {
+  it.each(['/v/v1/e/riot', '/v/v1/e/riot/causality'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

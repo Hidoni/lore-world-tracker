@@ -10,6 +10,7 @@ import { TickSnap } from '@/core/timeline/cursor-line'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const D = 10n ** 100n
@@ -518,5 +519,14 @@ describe('timeline layers', () => {
     const materialized = screen.getByRole('button', { name: 'Feast 2' })
     expect(materialized).toHaveAttribute('data-sub-events')
     expect(materialized).toHaveAttribute('title', 'Feast 2 (has sub-events)')
+  })
+})
+
+describe('timeline pages in reader mode', () => {
+  it.each(['/v/v1/d/d1/timeline'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

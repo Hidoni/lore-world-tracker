@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { FamilyTree } from '@/data'
 import { layoutEdges, layoutFamily } from '@/modules/languages/views/layout'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -142,4 +143,16 @@ describe('family layout', () => {
     expect(y('old')).toBeLessThan(y('varnish'))
     expect(y('varnish')).toBeLessThan(y('cant'))
   })
+})
+
+describe('languages pages in reader mode', () => {
+  it.each(['/v/v1/e/varnish', '/v/v1/e/runes', '/v/v1/m/languages/family-tree'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

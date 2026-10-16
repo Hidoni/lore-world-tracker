@@ -18,6 +18,7 @@ import {
   type LinkRow,
 } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const DAY = 86_400n
@@ -411,5 +412,14 @@ describe('event outline', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/v/v1/e/ev-cor')
     })
+  })
+})
+
+describe('events pages in reader mode', () => {
+  it.each(['/v/v1/e/ev-feast', '/v/v1/e/ev-cor'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

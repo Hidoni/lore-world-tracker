@@ -14,6 +14,7 @@ import {
   type FactRow,
   type LinkRow,
 } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -308,4 +309,16 @@ describe('family tree', () => {
       expect(router.state.location.pathname).toBe('/v/v1/e/mara')
     })
   }, 20_000)
+})
+
+describe('characters pages in reader mode', () => {
+  it.each(['/v/v1/e/ilsa', '/v/v1/e/tam', '/v/v1/m/characters/ilsa/family-tree?at=60'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

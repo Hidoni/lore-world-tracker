@@ -16,6 +16,7 @@ import {
   type LinkRow,
 } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 import { moduleDefinitions } from '../modules'
@@ -643,4 +644,16 @@ describe('timeline pages and notes', () => {
     await screen.findByRole('region', { name: 'Lifespan' }, WAIT)
     expect(screen.queryByRole('region', { name: 'Notes in this timeline' })).toBeNull()
   })
+})
+
+describe('branches pages in reader mode', () => {
+  it.each(['/v/v1/e/crown?tl=b1', '/v/v1/e/b1', '/v/v1/d/d1/timeline?tl=b1&from=0&to=1000'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

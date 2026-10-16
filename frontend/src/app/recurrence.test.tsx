@@ -14,6 +14,7 @@ import { compiledCalendar } from '@/core/time'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { CAPS, defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const compiled = compiledCalendar(presetCalendar('c-greg', 'gregorian'), testDimension())
@@ -460,5 +461,14 @@ describe('occurrences', () => {
     const fromSeries = within(participants).getByRole('region', { name: 'From the series' })
     expect(await within(fromSeries).findByRole('link', { name: 'Crown' })).toBeInTheDocument()
     expect(within(fromSeries).getByText('host')).toBeInTheDocument()
+  })
+})
+
+describe('recurrence pages in reader mode', () => {
+  it.each(['/v/v1/e/festival', '/v/v1/e/coronation'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

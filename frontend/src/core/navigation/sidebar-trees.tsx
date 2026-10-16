@@ -549,8 +549,8 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
             )}
             <Link
               ref={setDragRef}
-              {...listeners}
-              {...attributes}
+              // Readers can't move entities: no drag listeners or "draggable" announcements.
+              {...(editable ? { ...listeners, ...attributes } : {})}
               // dnd-kit's role="button" would hide the link from link queries and screen readers.
               role={undefined}
               to="/v/$vault/e/$entity"

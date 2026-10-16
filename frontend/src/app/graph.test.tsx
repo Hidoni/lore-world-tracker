@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defaultRows, graphQueries, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 // jsdom has no WebGL: the drawing is replaced by the names of its nodes.
@@ -180,5 +181,14 @@ describe('graph page', () => {
     await waitFor(() => {
       expect(lastQuery()).toMatchObject({ include_mentions: 'false' })
     })
+  })
+})
+
+describe('graph pages in reader mode', () => {
+  it.each(['/v/v1/m/graph', '/v/v1/e/a1'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

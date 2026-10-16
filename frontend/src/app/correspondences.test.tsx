@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 import { moduleDefinitions } from '../modules'
@@ -301,4 +302,16 @@ describe('the timeline', () => {
       expect(screen.queryByTestId('dimension-lane')).toBeNull()
     })
   })
+})
+
+describe('correspondences pages in reader mode', () => {
+  it.each(['/v/v1/d/d1', '/v/v1/e/ev-1', '/v/v1/d/d1/timeline?from=0&to=400'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })
