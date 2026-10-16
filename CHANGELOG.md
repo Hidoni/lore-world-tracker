@@ -26,6 +26,11 @@ All notable changes to this project are documented here. The format follows
   more comfortable: bodies at a readable size and width, an optional serif reading font, and on
   phones a navigation drawer, a top bar that fits, and pinch-to-zoom on the timeline.
 
+- **Sharing guide and reader deployment** (#142): `docs/guides/sharing.md` walks through
+  visibility, previewing as a reader, publishing, running the read-only `reader` profile of
+  `docker-compose.yml` (now functional) and updating it; `deploy/Caddyfile` puts it behind HTTPS
+  with an optional password. The container smoke test now runs the whole workflow.
+
 ### Fixed
 
 - A private map sharing a public map's image no longer hides that image from readers (#140).

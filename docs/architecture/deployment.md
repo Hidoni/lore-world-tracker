@@ -101,9 +101,10 @@ services:
       LORE_PUBLISH_DIR: /published # where "Publish snapshot" writes (a data-dir layout)
     restart: unless-stopped
 
-  # Read-only instance for sharing a published snapshot: `docker compose --profile reader up -d`.
-  # NOT FUNCTIONAL YET: reader mode (LORE_READ_ONLY, snapshot publishing) arrives in M12. Until
-  # then this service is a placeholder that documents the intended setup.
+  # Read-only instance serving the published snapshots in ./published (docs/guides/sharing.md):
+  #   docker compose --profile reader up -d reader   → http://<this host>:8081
+  # It can't change anything (writes answer 403) and mounts ./published read-only. Expose it to
+  # the internet behind a TLS proxy (deploy/Caddyfile).
   reader:
     profiles: ['reader']
     image: lore-world-tracker:local
@@ -121,16 +122,20 @@ Create both directories yourself: if Docker creates a missing bind-mount source,
 root and not writable by the container user. `LORE_UID`/`LORE_GID` default to `1000`; set them
 (e.g. in a `.env` file next to the compose file) when `id -u`/`id -g` differ.
 
-The `reader` service only becomes functional in M12 (reader mode and snapshot publishing, #142).
-
 Sharing workflow: `docker compose exec lore lore vault publish <vault>` (`--out DIR` overrides
 `LORE_PUBLISH_DIR`), or **Settings → Publishing → Publish snapshot**, which writes into
 `LORE_PUBLISH_DIR` and shows when the vault was last published. The target is a **data-dir root**:
 the snapshot lands in `/published/vaults/<folder>/`, replacing an earlier snapshot of the same
 vault (a folder there that isn't one is never overwritten). Publishing refuses to write into the
 author's own data directory, and an author server refuses to open a snapshot (`vault_published`).
-Then `docker compose --profile reader up -d reader`. Put a reverse proxy (Caddy/nginx) with TLS in
-front of `reader` if it is exposed to the internet. Basic auth at the proxy is optional.
+Then `docker compose --profile reader up -d reader`: it serves `./published` read-only on port
+8081 (writes answer `403 read_only`; the bind mount is `:ro` too). Publishing again replaces the
+snapshot folder; the running reader keeps serving the copy it opened until it restarts
+(`docker compose restart reader`). Put a reverse proxy
+with TLS in front of `reader` if it is exposed to the internet: `deploy/Caddyfile` is a Caddy
+example (automatic HTTPS, optional basic auth). The step-by-step user guide is
+`docs/guides/sharing.md`. CI's `docker` job runs the whole workflow (`scripts/docker-smoke.sh`:
+publish through the API, start `reader`, a GET works, a POST is refused, private data is absent).
 
 Upgrading: `git pull && docker compose build && docker compose up -d`. Vaults auto-migrate on
 first open, with a pre-migration backup.

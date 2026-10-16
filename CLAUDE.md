@@ -77,10 +77,11 @@ backend/          uv project; package `lore` in src/lore/
 packages/chronology/  @lore/chronology: TS time engine + viewport/tick math
 frontend/         @lore/web: React SPA (src/app, api, data, core, editor, components/ui, modules), e2e/
 spec/chronology/  JSON Schemas (exported), presets, conformance vectors: shared by both engines
-docs/             product/, architecture/, modules/, adr/, plan/
+docs/             product/, architecture/, modules/, guides/, adr/, plan/
 scripts/          e2e.sh (`make e2e`), docker-smoke.sh (`make docker-smoke`); CI: .github/workflows/ci.yml
                   (PR gate) and nightly.yml (differential fuzzing, benchmarks)
 Dockerfile, docker-compose.yml   the image and the suggested deployment (deployment.md §2–§3)
+deploy/           Caddyfile: TLS proxy example for the read-only `reader` (docs/guides/sharing.md)
 tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclaim|stats`
 .claude/skills/next-issue/  project skill: take the next ready issue through the whole workflow
 ```

@@ -17,9 +17,10 @@ services:
       LORE_PUBLISH_DIR: /published # where "Publish snapshot" writes (a data-dir layout)
     restart: unless-stopped
 
-  # Read-only instance for sharing a published snapshot: `docker compose --profile reader up -d`.
-  # NOT FUNCTIONAL YET: reader mode (LORE_READ_ONLY, snapshot publishing) arrives in M12. Until
-  # then this service is a placeholder that documents the intended setup.
+  # Read-only instance serving the published snapshots in ./published (docs/guides/sharing.md):
+  #   docker compose --profile reader up -d reader   → http://<this host>:8081
+  # It can't change anything (writes answer 403) and mounts ./published read-only. Expose it to
+  # the internet behind a TLS proxy (deploy/Caddyfile).
   reader:
     profiles: ['reader']
     image: lore-world-tracker:local

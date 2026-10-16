@@ -43,6 +43,9 @@
 [`branches`](modules/branches.md) · [`correspondences`](modules/correspondences.md) ·
 [`worldlines`](modules/worldlines.md)
 
+### Guides
+- [`guides/sharing.md`](guides/sharing.md): share a world with readers: visibility, preview, publish, the reader instance
+
 ### Decisions
 - [`adr/README.md`](adr/README.md): architecture decision records
 
