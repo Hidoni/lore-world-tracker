@@ -1,0 +1,16 @@
+# Caddy in front of the read-only `reader` service (docs/guides/sharing.md, deployment.md §3).
+# Caddy gets and renews the TLS certificate for your domain by itself (ports 80 and 443 must
+# reach this host). Replace lore.example.com with your domain, then run Caddy next to the compose
+# project, e.g. `caddy run --config deploy/Caddyfile`, or as a service in docker-compose.yml.
+# Set LORE_ALLOWED_HOSTS=lore.example.com on the reader instead of '*'.
+
+lore.example.com {
+	encode zstd gzip
+
+	# Optional: a password for your readers. Make the hash with `caddy hash-password`.
+	# basic_auth {
+	# 	reader $2a$14$replace.with.the.output.of.caddy.hash-password
+	# }
+
+	reverse_proxy 127.0.0.1:8081
+}
