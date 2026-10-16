@@ -95,14 +95,16 @@ Measured on the `large` sample vault on a typical dev laptop:
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `GET /timelines/{id}/window` (1 tile, 1,500 px): ≤ 20k overlapping events, or any window already computed                                                                   | < 150 ms                                        |
 | `GET /timelines/{id}/window`: cold whole-dimension zoom-out over 100k events (decided 2026-10-07; repeats are served from the window cache)                                 | < 500 ms                                        |
-| Entity page API calls (entity + links + backlinks)                                                                                                                          | < 300 ms total                                  |
-| Search (`/search`, `/search/quick`)                                                                                                                                         | < 100 ms                                        |
+| Entity page API calls (entity + links + backlinks; `test_entity_pages_and_search`)                                                                                         | < 300 ms total                                  |
+| Search (`/search`, `/search/quick`; `test_entity_pages_and_search`)                                                                                                         | < 100 ms                                        |
 | Calendar proposal over 10k dependent records (preview, and apply; `tests/time/test_proposals_perf.py`)                                                                      | < 5 s each                                      |
 | Calendar proposal apply on a large vault (the `large` sample world: 23k dependents, 1.6 GB; it backs the whole vault up first. Decided 2026-10-10; the preview stays < 5 s) | < 30 s                                          |
 | Full consistency scan (100k events; `tests/consistency/test_consistency_perf.py`)                                                                                           | < 10 s                                          |
 | Graph endpoint, 10k nodes                                                                                                                                                   | < 1 s                                           |
 | Graph page pan/zoom at 10k nodes and 50k edges, layout frozen or running (`make bench-graph`, on a GPU)                                                                     | median frame ≤ 34 ms, p95 ≤ 100 ms; drawn < 8 s |
-| Timeline pan/zoom with 1,000 visible items                                                                                                                                  | 60 fps (Playwright trace)                       |
+| Entity page interactive in the app: heading, content and its reads done; visualizations may draw after (`make bench-pages`)                                                | < 300 ms                                        |
+| Timeline pan/zoom with 1,000 visible items (`make bench-pages`)                                                                                                             | 60 fps                                          |
+| Initial JS of the shell (`npm run check:bundle`, part of `make check-frontend`)                                                                                             | < 400 kB gzip                                   |
 
 Perf tests are marked `perf`; `make perf` runs the backend ones (`make bench` the chronology
 ones). They are meant to run nightly and when a PR has the label `perf`, and regressions greater
@@ -121,6 +123,19 @@ in a headed Chromium (`e2e/bench.config.ts`). For the default limit and for "Sho
 with the layout frozen and running, it pans and zooms for 4 s while timing animation frames, then
 prints one PASS/FAIL line per case with the WebGL renderer. It needs a GPU: headless or GPU-less
 browsers draw WebGL in software (SwiftShader, llvmpipe) and fail it, so it isn't part of CI.
+
+`make bench-pages` (`scripts/pages-bench.sh`) measures pages in Chromium on the sample world: it
+generates one (`BENCH_SIZE`, default `small`: 1,000 bulk events) or serves an existing data dir
+(`BENCH_DATA_DIR`, e.g. a cached `large` world), and runs `frontend/e2e/pages.bench.ts`. The
+entity page is timed on the page's own clock (animation frames and Resource Timing, not
+Playwright's polling) from the navigation until its heading shows, nothing says "Loading…" and
+its last read has finished, both as a full load and as a navigation in the app (the budget);
+the panels that draw a visualization (family tree, local graph, map) are timed separately
+("drawn"). The timeline is panned and zoomed for 4 s while animation frames are counted.
+
+`npm run check:bundle -w @lore/web` (`frontend/scripts/check-bundle.ts`, part of
+`make check-frontend` and so of CI) sums the gzipped JS that `dist/index.html` loads before
+anything else and fails above 400 kB.
 
 ### 4.0 Results
 
