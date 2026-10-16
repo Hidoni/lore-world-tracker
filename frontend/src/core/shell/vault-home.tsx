@@ -5,13 +5,21 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { usePlaceList } from '@/core/navigation/places'
 import { DimensionWizard } from '@/core/time'
-import { useDimensions, useMutations, useVault } from '@/data'
+import { useDimensions, useMutations, useReaderMode, useVault } from '@/data'
+
+import { ReaderHome } from './reader-home'
 
 /**
  * The vault home (`/v/$vault`, frontend.md §4): the vault's dimensions, with "Create dimension"
- * (a call to action when there are none yet), and the pinned entities.
+ * (a call to action when there are none yet), and the pinned entities. Readers get their landing
+ * page (`ReaderHome`).
  */
 export function VaultHome({ vault }: { vault: string }) {
+  if (useReaderMode().active) return <ReaderHome vault={vault} />
+  return <AuthorHome vault={vault} />
+}
+
+function AuthorHome({ vault }: { vault: string }) {
   const found = useVault(vault)
   const dimensions = useDimensions(vault)
   const pinned = usePlaceList('pinned', vault)

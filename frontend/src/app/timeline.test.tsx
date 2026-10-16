@@ -117,6 +117,29 @@ describe('the timeline view', () => {
     })
   }, 60_000)
 
+  it('zooms with a two-finger pinch (touch)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const year = 10n ** 12n
+    world(year * 100_000n)
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${year * 10n}&to=${year * 20n}`)
+    await screen.findByRole('application', { name: 'Timeline' })
+    const lanes = screen.getByTestId('timeline-lanes')
+    fireEvent.pointerDown(lanes, { pointerId: 1, clientX: 100 })
+    fireEvent.pointerDown(lanes, { pointerId: 2, clientX: 200 })
+    // Spreading the fingers to four times their distance zooms in four times.
+    fireEvent.pointerMove(lanes, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(lanes, { pointerId: 2, clientX: 400 })
+    fireEvent.pointerUp(lanes, { pointerId: 1 })
+    fireEvent.pointerUp(lanes, { pointerId: 2 })
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    await waitFor(() => {
+      const [from, to] = urlRange(router)
+      expect(to - from).toBe((year * 10n) / 4n)
+    })
+  })
+
   it('pans with the keyboard and the minimap, zooms with the wheel, and goes to a date', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const year = 10n ** 12n

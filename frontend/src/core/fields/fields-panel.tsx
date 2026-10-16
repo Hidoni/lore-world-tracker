@@ -3,6 +3,7 @@ import { Suspense, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { useExtensionRecord } from '@/core/modules'
+import { Spoiler } from '@/core/reader'
 import { fieldErrors, isRevisionConflict, type components, type Entity } from '@/data'
 import { LazyRichTextEditor, isDoc, type SaveOutcome } from '@/editor'
 import { readStored, writeStored } from '@/lib/storage'
@@ -287,14 +288,24 @@ function FieldRow({
             }}
           />
         ) : asOf?.fromFact === true ? (
-          <AsOfValue vault={vault} field={field} asOf={asOf} staticValue={value} />
+          <Spoiler
+            spoiler={(visibility ?? field.default_visibility) === 'spoiler'}
+            label={field.label}
+          >
+            <AsOfValue vault={vault} field={field} asOf={asOf} staticValue={value} />
+          </Spoiler>
         ) : (
           <div className="flex min-h-9 items-center text-sm">
-            {Renderer !== undefined ? (
-              <Renderer vault={vault} fieldKey={field.key} value={value} />
-            ) : (
-              <FieldDisplay vault={vault} field={field} value={value} />
-            )}
+            <Spoiler
+              spoiler={(visibility ?? field.default_visibility) === 'spoiler'}
+              label={field.label}
+            >
+              {Renderer !== undefined ? (
+                <Renderer vault={vault} fieldKey={field.key} value={value} />
+              ) : (
+                <FieldDisplay vault={vault} field={field} value={value} />
+              )}
+            </Spoiler>
           </div>
         )}
         {asOf !== undefined && asOf.changes > 0 && (

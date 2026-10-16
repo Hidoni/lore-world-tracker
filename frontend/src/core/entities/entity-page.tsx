@@ -19,10 +19,18 @@ import { EntityHistory } from '@/core/history'
 import { RelationsPanel } from '@/core/links'
 import type { EntityPanel, EntityViewProps } from '@/core/modules'
 import { forget, visit } from '@/core/navigation/places'
+import { SpoilerGate } from '@/core/reader'
 import { useKind, type Kind } from '@/core/registry'
 import { isRevisionConflict } from '@/data'
 import { LazyRichTextEditor, RichTextView, isDoc, type SaveOutcome } from '@/editor'
-import { useDeleteEntity, useEntity, useMutations, useRestoreEntity, type Entity } from '@/data'
+import {
+  useDeleteEntity,
+  useEntity,
+  useMutations,
+  useReaderMode,
+  useRestoreEntity,
+  type Entity,
+} from '@/data'
 
 import { ExistenceNote, useEntityTime } from './as-of'
 import { Lifespan } from './lifespan'
@@ -133,7 +141,14 @@ function Body({
 }) {
   const doc = isDoc(entity.body) ? entity.body : null
   if (!editable) {
-    return doc ? <RichTextView vault={vault} doc={doc} /> : <Pending>Nothing written yet.</Pending>
+    // A comfortable line length for reading.
+    return doc ? (
+      <div className="max-w-prose text-base leading-relaxed">
+        <RichTextView vault={vault} doc={doc} />
+      </div>
+    ) : (
+      <Pending>Nothing written yet.</Pending>
+    )
   }
   return (
     <Suspense fallback={<Pending>Loading the editor…</Pending>}>
@@ -166,6 +181,8 @@ function EntityView({
     visit(vault, { id: data.id, name: data.name, kind: data.kind })
   }, [vault, data.id, data.name, data.kind])
   const editable = useMutations() !== null && data.deleted_at === null
+  // Readers get no history (it is the author's record of edits).
+  const reading = useReaderMode().active
   const main = kind?.panels.filter((panel) => panel.placement === 'main') ?? []
   const side = kind?.panels.filter((panel) => panel.placement === 'side') ?? []
   const media = kind?.headerMedia ?? []
@@ -184,88 +201,94 @@ function EntityView({
       </div>
       <ExistenceNote vault={vault} entity={data} time={time} />
       <Lifespan vault={vault} entity={data} kind={kind} />
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview">
-          <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
-            <div className="flex flex-col gap-4">
-              {data.summary && <p className="text-muted-foreground">{data.summary}</p>}
-              <Section title="Fields">
-                <FieldsPanel
-                  key={saver.generation}
-                  vault={vault}
-                  entity={data}
-                  fields={kind?.fields ?? []}
-                  editable={editable}
-                  save={saver.save}
-                  asOf={time.fields}
-                />
-              </Section>
-              {kind?.capabilities.has_body !== false && (
-                <Section title="Body">
-                  <Body
+      <SpoilerGate spoiler={data.visibility === 'spoiler'} name={data.name}>
+        <Tabs defaultValue="overview">
+          {!reading && (
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+          )}
+          <TabsContent value="overview">
+            <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+              <div className="flex flex-col gap-4">
+                {data.summary && <p className="text-muted-foreground">{data.summary}</p>}
+                <Section title="Fields">
+                  <FieldsPanel
                     key={saver.generation}
                     vault={vault}
                     entity={data}
+                    fields={kind?.fields ?? []}
                     editable={editable}
                     save={saver.save}
+                    asOf={time.fields}
                   />
                 </Section>
-              )}
-              {data.kind === EVENT && (
-                <>
-                  <OccurrenceHeader vault={vault} entity={data} />
-                  <Section title="Time">
-                    <EventTimeSection vault={vault} entity={data} editable={editable} />
+                {kind?.capabilities.has_body !== false && (
+                  <Section title="Body">
+                    <Body
+                      key={saver.generation}
+                      vault={vault}
+                      entity={data}
+                      editable={editable}
+                      save={saver.save}
+                    />
                   </Section>
-                  {eventTime(data).recurrence !== null && (
-                    <Section title="Occurrences">
-                      <OccurrencesSection vault={vault} entity={data} editable={editable} />
+                )}
+                {data.kind === EVENT && (
+                  <>
+                    <OccurrenceHeader vault={vault} entity={data} />
+                    <Section title="Time">
+                      <EventTimeSection vault={vault} entity={data} editable={editable} />
                     </Section>
-                  )}
-                  <Section title="Sub-events">
-                    <SubEventsSection vault={vault} entity={data} editable={editable} />
-                  </Section>
-                  <Section title="Causes and effects">
-                    <CausesSection vault={vault} entity={data} editable={editable} />
-                    <CausalityPanel vault={vault} eventId={data.id} compact />
-                  </Section>
-                  <Section title="Participants">
-                    <ParticipantsSection vault={vault} entity={data} editable={editable} />
-                  </Section>
-                  <Section title="Changes caused">
-                    <ChangesCausedSection vault={vault} eventId={data.id} />
-                  </Section>
-                </>
-              )}
-              <Section title="Relations">
-                <RelationsPanel
-                  vault={vault}
-                  entity={data}
-                  editable={editable}
-                  exclude={data.kind === EVENT ? EVENT_LINK_TYPES : []}
-                />
-              </Section>
-              {main.map((panel) => (
-                <PanelSection key={panel.id} panel={panel} props={props} />
-              ))}
-            </div>
-            {side.length > 0 && (
-              <aside aria-label="Entity panels" className="flex flex-col gap-4">
-                {side.map((panel) => (
+                    {eventTime(data).recurrence !== null && (
+                      <Section title="Occurrences">
+                        <OccurrencesSection vault={vault} entity={data} editable={editable} />
+                      </Section>
+                    )}
+                    <Section title="Sub-events">
+                      <SubEventsSection vault={vault} entity={data} editable={editable} />
+                    </Section>
+                    <Section title="Causes and effects">
+                      <CausesSection vault={vault} entity={data} editable={editable} />
+                      <CausalityPanel vault={vault} eventId={data.id} compact />
+                    </Section>
+                    <Section title="Participants">
+                      <ParticipantsSection vault={vault} entity={data} editable={editable} />
+                    </Section>
+                    <Section title="Changes caused">
+                      <ChangesCausedSection vault={vault} eventId={data.id} />
+                    </Section>
+                  </>
+                )}
+                <Section title="Relations">
+                  <RelationsPanel
+                    vault={vault}
+                    entity={data}
+                    editable={editable}
+                    exclude={data.kind === EVENT ? EVENT_LINK_TYPES : []}
+                  />
+                </Section>
+                {main.map((panel) => (
                   <PanelSection key={panel.id} panel={panel} props={props} />
                 ))}
-              </aside>
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent value="history">
-          <EntityHistory vault={vault} entityId={data.id} />
-        </TabsContent>
-      </Tabs>
+              </div>
+              {side.length > 0 && (
+                <aside aria-label="Entity panels" className="flex flex-col gap-4">
+                  {side.map((panel) => (
+                    <PanelSection key={panel.id} panel={panel} props={props} />
+                  ))}
+                </aside>
+              )}
+            </div>
+          </TabsContent>
+          {!reading && (
+            <TabsContent value="history">
+              <EntityHistory vault={vault} entityId={data.id} />
+            </TabsContent>
+          )}
+        </Tabs>
+      </SpoilerGate>
       {saver.dialog}
     </article>
   )

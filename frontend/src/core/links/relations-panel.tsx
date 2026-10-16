@@ -15,6 +15,7 @@ import {
   type RecordPlace,
 } from '@/core/time'
 import { useDeleteLink, useLinks, useRevertOverride, type EntityLink } from '@/data'
+import { Spoiler } from '@/core/reader'
 import { cn } from '@/lib/utils'
 
 import { LinkDialog, type LinkDialogMode } from './link-dialog'
@@ -145,27 +146,29 @@ export function RelationsPanel({
                   {Icon && (
                     <Icon aria-hidden className="size-4 shrink-0" style={{ color: kind.color }} />
                   )}
-                  <Link
-                    to="/v/$vault/e/$entity"
-                    params={{ vault, entity: other.id }}
-                    className="font-medium hover:underline"
-                  >
-                    {other.name}
-                  </Link>
-                  {link.role && <span className="text-muted-foreground">as {link.role}</span>}
-                  {Renderer ? (
-                    <Renderer
-                      vault={vault}
-                      linkId={link.id}
-                      linkType={link.link_type}
-                      role={link.role}
-                      data={link.data}
-                    />
-                  ) : (
-                    summary !== '' && (
-                      <span className="text-xs text-muted-foreground">{summary}</span>
-                    )
-                  )}
+                  <Spoiler spoiler={link.visibility === 'spoiler'} label={label}>
+                    <Link
+                      to="/v/$vault/e/$entity"
+                      params={{ vault, entity: other.id }}
+                      className="font-medium hover:underline"
+                    >
+                      {other.name}
+                    </Link>
+                    {link.role && <span className="text-muted-foreground">as {link.role}</span>}
+                    {Renderer ? (
+                      <Renderer
+                        vault={vault}
+                        linkId={link.id}
+                        linkType={link.link_type}
+                        role={link.role}
+                        data={link.data}
+                      />
+                    ) : (
+                      summary !== '' && (
+                        <span className="text-xs text-muted-foreground">{summary}</span>
+                      )
+                    )}
+                  </Spoiler>
                   <RecordBranchBadge place={place} branchName={branching.name(branch)} />
                   {link.visibility !== 'public' && (
                     <Badge variant="secondary">
