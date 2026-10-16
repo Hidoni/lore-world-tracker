@@ -10,6 +10,7 @@ import { TickSnap } from '@/core/timeline/cursor-line'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const D = 10n ** 100n
@@ -115,6 +116,29 @@ describe('the timeline view', () => {
       expect(to - from).toBeGreaterThanOrEqual(D)
     })
   }, 60_000)
+
+  it('zooms with a two-finger pinch (touch)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const year = 10n ** 12n
+    world(year * 100_000n)
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=${year * 10n}&to=${year * 20n}`)
+    await screen.findByRole('application', { name: 'Timeline' })
+    const lanes = screen.getByTestId('timeline-lanes')
+    fireEvent.pointerDown(lanes, { pointerId: 1, clientX: 100 })
+    fireEvent.pointerDown(lanes, { pointerId: 2, clientX: 200 })
+    // Spreading the fingers to four times their distance zooms in four times.
+    fireEvent.pointerMove(lanes, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(lanes, { pointerId: 2, clientX: 400 })
+    fireEvent.pointerUp(lanes, { pointerId: 1 })
+    fireEvent.pointerUp(lanes, { pointerId: 2 })
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    await waitFor(() => {
+      const [from, to] = urlRange(router)
+      expect(to - from).toBe((year * 10n) / 4n)
+    })
+  })
 
   it('pans with the keyboard and the minimap, zooms with the wheel, and goes to a date', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -518,5 +542,14 @@ describe('timeline layers', () => {
     const materialized = screen.getByRole('button', { name: 'Feast 2' })
     expect(materialized).toHaveAttribute('data-sub-events')
     expect(materialized).toHaveAttribute('title', 'Feast 2 (has sub-events)')
+  })
+})
+
+describe('timeline pages in reader mode', () => {
+  it.each(['/v/v1/d/d1/timeline'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

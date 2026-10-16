@@ -15,7 +15,14 @@ import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
 import { SettingsPage } from '@/core/settings'
-import { PlaceholderPage, ShellLayout, VaultHome, VaultPicker, VaultScope } from '@/core/shell'
+import {
+  AuthorOnly,
+  PlaceholderPage,
+  ShellLayout,
+  VaultHome,
+  VaultPicker,
+  VaultScope,
+} from '@/core/shell'
 import { CalendarEditor, DimensionOverview, NewCalendar } from '@/core/time'
 import { TimelineView } from '@/core/timeline'
 import { moduleDefinitions } from '@/modules'
@@ -134,9 +141,11 @@ const calendarEditRoute = createRoute({
   component: function CalendarEditRoute() {
     const { vault, calendar } = calendarEditRoute.useParams()
     return (
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
-        <CalendarEditor key={calendar} vault={vault} calendarId={calendar} />
-      </Suspense>
+      <AuthorOnly vault={vault}>
+        <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+          <CalendarEditor key={calendar} vault={vault} calendarId={calendar} />
+        </Suspense>
+      </AuthorOnly>
     )
   },
 })
@@ -151,12 +160,18 @@ const calendarNewRoute = createRoute({
   component: function CalendarNewRoute() {
     const { vault } = calendarNewRoute.useParams()
     const { dimension } = calendarNewRoute.useSearch()
-    return dimension === undefined ? (
-      <PlaceholderPage title="New calendar">Open it from a dimension’s overview.</PlaceholderPage>
-    ) : (
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
-        <NewCalendar key={dimension} vault={vault} dimensionId={dimension} />
-      </Suspense>
+    return (
+      <AuthorOnly vault={vault}>
+        {dimension === undefined ? (
+          <PlaceholderPage title="New calendar">
+            Open it from a dimension’s overview.
+          </PlaceholderPage>
+        ) : (
+          <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+            <NewCalendar key={dimension} vault={vault} dimensionId={dimension} />
+          </Suspense>
+        )}
+      </AuthorOnly>
     )
   },
 })
@@ -202,13 +217,15 @@ const changesRoute = createRoute({
     const { origin } = changesRoute.useSearch()
     const navigate = changesRoute.useNavigate()
     return (
-      <ChangesPage
-        vault={vault}
-        origins={origin?.split(',') ?? []}
-        onOriginsChange={(origins) => {
-          void navigate({ search: origins.length > 0 ? { origin: origins.join(',') } : {} })
-        }}
-      />
+      <AuthorOnly vault={vault}>
+        <ChangesPage
+          vault={vault}
+          origins={origin?.split(',') ?? []}
+          onOriginsChange={(origins) => {
+            void navigate({ search: origins.length > 0 ? { origin: origins.join(',') } : {} })
+          }}
+        />
+      </AuthorOnly>
     )
   },
 })
@@ -217,7 +234,11 @@ const trashRoute = createRoute({
   path: 'trash',
   component: function TrashRoute() {
     const { vault } = trashRoute.useParams()
-    return <TrashPage vault={vault} />
+    return (
+      <AuthorOnly vault={vault}>
+        <TrashPage vault={vault} />
+      </AuthorOnly>
+    )
   },
 })
 const kindListRoute = createRoute({
@@ -247,13 +268,15 @@ const consistencyRoute = createRoute({
     const params = consistencyRoute.useSearch()
     const navigate = consistencyRoute.useNavigate()
     return (
-      <FindingsPage
-        vault={vault}
-        params={params}
-        onChange={(next) => {
-          void navigate({ search: next, replace: true })
-        }}
-      />
+      <AuthorOnly vault={vault}>
+        <FindingsPage
+          vault={vault}
+          params={params}
+          onChange={(next) => {
+            void navigate({ search: next, replace: true })
+          }}
+        />
+      </AuthorOnly>
     )
   },
 })
@@ -267,7 +290,11 @@ const settingsIndexRoute = createRoute({
   path: '/',
   component: function SettingsIndexRoute() {
     const { vault } = settingsIndexRoute.useParams()
-    return <SettingsPage vault={vault} page="" />
+    return (
+      <AuthorOnly vault={vault}>
+        <SettingsPage vault={vault} page="" />
+      </AuthorOnly>
+    )
   },
 })
 const settingsPageRoute = createRoute({
@@ -275,7 +302,11 @@ const settingsPageRoute = createRoute({
   path: '$',
   component: function SettingsPageRoute() {
     const { vault, _splat } = settingsPageRoute.useParams()
-    return <SettingsPage vault={vault} page={_splat ?? ''} />
+    return (
+      <AuthorOnly vault={vault}>
+        <SettingsPage vault={vault} page={_splat ?? ''} />
+      </AuthorOnly>
+    )
   },
 })
 // Paths of modules without routes, or that don't exist.

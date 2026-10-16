@@ -1,6 +1,7 @@
 import createClient, { type ClientOptions, type Middleware } from 'openapi-fetch'
 
 import { toApiError } from './errors'
+import { readerPreviewMiddleware } from './reader-preview'
 import type { paths } from './schema.gen'
 
 export const CLIENT_HEADER = 'X-Lore-Client'
@@ -22,7 +23,11 @@ export const problemMiddleware: Middleware = {
   },
 }
 
-export const apiMiddleware: readonly Middleware[] = [clientHeaderMiddleware, problemMiddleware]
+export const apiMiddleware: readonly Middleware[] = [
+  clientHeaderMiddleware,
+  readerPreviewMiddleware,
+  problemMiddleware,
+]
 
 /** A typed client for the backend API. Data hooks use it through the `DataSource`, never directly. */
 export function createApiClient(options: ClientOptions = {}) {

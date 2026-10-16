@@ -1,4 +1,5 @@
 // App shell: layout, top bar, sidebar navigation, vault picker (frontend.md §3).
+export { AuthorOnly } from './author-only'
 export { lastVault, rememberVault } from './last-vault'
 export { PlaceholderPage } from './placeholder-page'
 export { ShellLayout } from './shell-layout'

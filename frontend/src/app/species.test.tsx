@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { DescentTree } from '@/data'
 import { layoutDescent, layoutEdges } from '@/modules/species/views/layout'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -114,4 +115,16 @@ describe('descent layout', () => {
     expect(y('first')).toBeLessThan(y('elves'))
     expect(y('elves')).toBeLessThan(y('sea'))
   })
+})
+
+describe('species pages in reader mode', () => {
+  it.each(['/v/v1/e/elves', '/v/v1/m/species/descent-tree'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

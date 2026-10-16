@@ -1,5 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router'
 import {
+  EyeIcon,
+  EyeOffIcon,
   LibraryIcon,
   MenuIcon,
   PanelLeftIcon,
@@ -10,6 +12,7 @@ import {
 import { useEffect } from 'react'
 
 import { ThemeMenu } from '@/components/theme-toggle'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { isTyping, usePalette } from '@/core/palette'
 import { NewEntityMenu } from '@/core/entities'
@@ -19,7 +22,7 @@ import {
   TimeCursorControl,
   TimelineSwitcher,
 } from '@/core/time'
-import { useVault } from '@/data'
+import { useReaderMode, useVault } from '@/data'
 
 import { useShell } from './shell-store'
 
@@ -59,6 +62,49 @@ function useGlobalShortcuts(vault: string | undefined) {
   }, [vault])
 }
 
+/**
+ * Reader mode in the top bar (frontend.md §3, §13): the "Read-only" badge on a read-only server;
+ * for the author, the "Preview as reader" toggle and, while previewing, its badge.
+ */
+function ReaderModeControl() {
+  const reader = useReaderMode()
+  if (reader.readOnly) return <Badge variant="secondary">Read-only</Badge>
+  if (reader.previewing) {
+    return (
+      <>
+        <Badge variant="secondary" className="hidden sm:inline-flex">
+          Previewing as reader
+        </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Stop previewing as reader"
+          aria-pressed
+          onClick={() => {
+            reader.setPreviewing(false)
+          }}
+        >
+          <EyeOffIcon />
+        </Button>
+      </>
+    )
+  }
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Preview as reader"
+      aria-pressed={false}
+      title="Preview as reader"
+      onClick={() => {
+        reader.setPreviewing(true)
+      }}
+    >
+      <EyeIcon />
+    </Button>
+  )
+}
+
 /** The shell's top bar (frontend.md §3): vault, dimension, display calendar and time cursor. */
 export function TopBar() {
   const { vault } = useParams({ strict: false })
@@ -67,10 +113,12 @@ export function TopBar() {
   const toggleSidebar = useShell((state) => state.toggleSidebar)
   const toggleRightPanel = useShell((state) => state.toggleRightPanel)
   const setDrawerOpen = useShell((state) => state.setDrawerOpen)
+  const reading = useReaderMode().active
   useGlobalShortcuts(vault)
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1 border-b px-2">
+    // Below `md` the time controls get a second row of their own (scrolling sideways if needed).
+    <header className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1 md:h-12 md:flex-nowrap md:py-0">
       <Button
         variant="ghost"
         size="icon"
@@ -93,16 +141,26 @@ export function TopBar() {
       >
         <PanelLeftIcon />
       </Button>
-      <Link to="/" search={{ pick: true }} className="px-2 font-semibold whitespace-nowrap">
+      <Link
+        to="/"
+        search={{ pick: true }}
+        className="hidden px-2 font-semibold whitespace-nowrap sm:inline"
+      >
         Lore
       </Link>
       {vault !== undefined && (
         <>
           <VaultSwitcher vault={vault} />
-          <DimensionSwitcher vault={vault} />
-          <TimelineSwitcher vault={vault} />
-          <CalendarSelector vault={vault} />
-          <TimeCursorControl vault={vault} />
+          <div
+            role="group"
+            aria-label="Time"
+            className="order-last flex w-full min-w-0 items-center gap-1 overflow-x-auto md:order-none md:w-auto md:overflow-visible"
+          >
+            <DimensionSwitcher vault={vault} />
+            <TimelineSwitcher vault={vault} />
+            <CalendarSelector vault={vault} />
+            <TimeCursorControl vault={vault} />
+          </div>
         </>
       )}
       <div className="flex-1" />
@@ -131,11 +189,14 @@ export function TopBar() {
           >
             <PanelRightIcon />
           </Button>
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/v/$vault/settings" params={{ vault }} aria-label="Settings">
-              <SettingsIcon />
-            </Link>
-          </Button>
+          <ReaderModeControl />
+          {!reading && (
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/v/$vault/settings" params={{ vault }} aria-label="Settings">
+                <SettingsIcon />
+              </Link>
+            </Button>
+          )}
         </>
       )}
       <ThemeMenu />

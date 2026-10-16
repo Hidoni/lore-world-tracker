@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { dimensionRow } from '@/test/calendars'
 import { CAPS, defaultRows, FIELD, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -201,4 +202,16 @@ describe('locations module', () => {
         .map((link) => link.textContent),
     ).toEqual(['Galaxy', 'Varn', 'Harbor', 'Spire'])
   })
+})
+
+describe('locations pages in reader mode', () => {
+  it.each(['/v/v1', '/v/v1/e/varn', '/v/v1/e/storm', '/v/v1/m/locations/tree'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

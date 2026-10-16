@@ -18,6 +18,7 @@ import {
   serveVault,
   type LexiconRow,
 } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -378,4 +379,16 @@ describe('lexiconRef', () => {
     expect(link).toHaveAttribute('href', '/v/v1/m/languages/varnish/lexicon')
     expect(await within(results).findByText(/Word · Varnish/, {}, WAIT)).toBeVisible()
   })
+})
+
+describe('lexicon pages in reader mode', () => {
+  it.each(['/v/v1/e/varnish', '/v/v1/m/languages/varnish/lexicon'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

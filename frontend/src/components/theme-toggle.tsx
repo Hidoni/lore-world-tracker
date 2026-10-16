@@ -7,8 +7,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useReading } from '@/lib/reading'
 import { useTheme, type ThemePreference } from '@/lib/theme'
 
 const OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -21,17 +23,22 @@ function isPreference(value: string): value is ThemePreference {
   return OPTIONS.some((option) => option.value === value)
 }
 
-/** Light, dark or system theme (frontend.md §11), persisted by `@/lib/theme`. */
+/**
+ * Display preferences (frontend.md §11): light, dark or system theme (`@/lib/theme`) and the
+ * reading font of rendered bodies (`@/lib/reading`), per browser.
+ */
 export function ThemeMenu() {
   const preference = useTheme((state) => state.preference)
   const resolved = useTheme((state) => state.resolved)
   const setPreference = useTheme((state) => state.setPreference)
+  const font = useReading((state) => state.font)
+  const setFont = useReading((state) => state.setFont)
   const Icon = preference === 'system' ? MonitorIcon : resolved === 'dark' ? MoonIcon : SunIcon
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Theme">
+        <Button variant="ghost" size="icon" aria-label="Display">
           <Icon />
         </Button>
       </DropdownMenuTrigger>
@@ -48,6 +55,17 @@ export function ThemeMenu() {
               {label}
             </DropdownMenuRadioItem>
           ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Reading font</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={font}
+          onValueChange={(value) => {
+            setFont(value === 'serif' ? 'serif' : 'sans')
+          }}
+        >
+          <DropdownMenuRadioItem value="sans">Sans-serif</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="serif">Serif</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

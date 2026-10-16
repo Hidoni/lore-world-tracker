@@ -5,6 +5,7 @@ import './query-meta'
 export type { components } from '@/api'
 
 export { DataProvider, useDataSource, useMutations } from './context'
+export { ReaderModeProvider, useReaderMode, type ReaderMode } from './reader'
 export {
   bigintReplacer,
   bigintReviver,

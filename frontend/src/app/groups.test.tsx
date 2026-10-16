@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -218,4 +219,13 @@ describe('membership history and org chart', () => {
       expect(screen.getAllByTestId('org-item')).toHaveLength(3)
     })
   }, 20_000)
+})
+
+describe('groups pages in reader mode', () => {
+  it.each(['/v/v1/e/empire', '/v/v1/e/rebels'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
+  })
 })

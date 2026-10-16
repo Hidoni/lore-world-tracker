@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 import { moduleDefinitions } from '../modules'
@@ -367,4 +368,16 @@ describe('the timeline', () => {
       expect(timeline.querySelector('[data-testid="jump-arc"]')).not.toBeNull()
     })
   })
+})
+
+describe('worldlines pages in reader mode', () => {
+  it.each(['/v/v1/e/vey', '/v/v1/m/worldlines/entities/vey'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+    },
+  )
 })

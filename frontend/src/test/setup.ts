@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 
 import { cleanup } from '@testing-library/react'
+import { toast } from 'sonner'
 import { afterAll, afterEach, beforeAll } from 'vitest'
+
+import { setPreviewingAsReader } from '@/api/reader-preview'
 
 import { server } from './msw'
 
@@ -51,6 +54,9 @@ afterEach(() => {
   cleanup()
   server.resetHandlers()
   if (typeof localStorage !== 'undefined') localStorage.clear()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
+  setPreviewingAsReader(false)
+  toast.dismiss() // sonner's store outlives each test's Toaster
 })
 
 afterAll(() => {

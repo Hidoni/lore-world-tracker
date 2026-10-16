@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { CAPS, defaultRows, FIELD, kind, KINDS, row, serveVault } from '@/test/fake-vault'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const MISC = kind('misc', 'Misc entry', {
@@ -131,5 +132,14 @@ describe('misc module', () => {
         'Magic',
       ])
     })
+  })
+})
+
+describe('misc pages in reader mode', () => {
+  it.each(['/v/v1/e/tt', '/v/v1/e/loose'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

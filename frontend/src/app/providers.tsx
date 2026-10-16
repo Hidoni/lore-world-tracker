@@ -8,7 +8,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   createHttpDataSource,
   createHttpMutations,
-  DataProvider,
+  ReaderModeProvider,
   type DataSource,
   type Mutations,
   withSaveAnyway,
@@ -18,8 +18,9 @@ import { moduleDefinitions } from '@/modules'
 import { createQueryClient } from './query-client'
 
 /**
- * The app's providers. The data layer defaults to the HTTP API; reader mode (#138) and tests pass
- * their own `dataSource` and `mutations` (`null`: no writes). Writes refused by consistency rules
+ * The app's providers. The data layer defaults to the HTTP API; tests pass their own `dataSource`
+ * and `mutations` (`null`: no writes). Reader mode (a read-only server, or the author's preview)
+ * drops the `Mutations` (`ReaderModeProvider`). Writes refused by consistency rules
  * go through the save-anyway dialog. `modules` defaults to `@/modules`.
  */
 export function AppProviders({
@@ -45,7 +46,7 @@ export function AppProviders({
 
   return (
     <QueryClientProvider client={client}>
-      <DataProvider dataSource={source} mutations={writes}>
+      <ReaderModeProvider dataSource={source} mutations={writes}>
         <ModuleDefinitionsProvider definitions={modules}>
           <TooltipProvider>
             {children}
@@ -53,7 +54,7 @@ export function AppProviders({
             <Toaster />
           </TooltipProvider>
         </ModuleDefinitionsProvider>
-      </DataProvider>
+      </ReaderModeProvider>
     </QueryClientProvider>
   )
 }

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { CAPS, FIELD, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 const WAIT = { timeout: 5000 }
@@ -390,5 +391,14 @@ describe('media module', () => {
     expect(image).toHaveAttribute('loading', 'lazy')
     expect(image.getAttribute('src')).toContain('/m/media/items/m1/file?size=480')
     expect(screen.getByText('Varn, before the flood').tagName).toBe('FIGCAPTION')
+  })
+})
+
+describe('media pages in reader mode', () => {
+  it.each(['/v/v1/m/media/library', '/v/v1/e/a1'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })

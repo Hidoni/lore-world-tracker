@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react'
 
 import { useExtensionRecord, type RichTextNodeProps } from '@/core/modules'
 import { TimeRefView } from '@/core/time'
+import { useReading } from '@/lib/reading'
 
 import { EntityLinkView } from './entity-link-view'
 import { isSafeHref, type RichTextDoc } from './schema'
@@ -201,6 +202,11 @@ function renderNode(
 /** The read-only renderer (reader mode and previews), same schema as the editor. */
 export function RichTextView({ vault, doc }: { vault: string; doc: RichTextDoc | null }) {
   const renderers = useExtensionRecord('richTextNodeRenderers', vault)
+  const serif = useReading((state) => state.font) === 'serif'
   if (!doc || (doc.content ?? []).length === 0) return null
-  return <div className="rich-text">{children(vault, renderers, doc, 'n')}</div>
+  return (
+    <div className={serif ? 'rich-text font-serif' : 'rich-text'}>
+      {children(vault, renderers, doc, 'n')}
+    </div>
+  )
 }

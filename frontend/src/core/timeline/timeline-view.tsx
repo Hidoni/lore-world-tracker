@@ -438,6 +438,9 @@ function Timeline({
   const [modifier, setModifier] = useState<ZoomModifier>(readModifier)
   const [goTo, setGoTo] = useState(false)
   const drag = useRef<{ x: number; moved: number } | null>(null)
+  // Touch: the pointers down on the lanes (id → x), for a two-finger pinch zoom.
+  const touches = useRef(new Map<number, number>())
+  const pinch = useRef<number | null>(null)
   const lanes = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const materialize = useMaterializeOccurrence(vault)
@@ -1010,10 +1013,33 @@ function Timeline({
                     createAt(fromPx(v, event.clientX - box.left))
                   }}
                   onPointerDown={(event) => {
-                    drag.current = { x: event.clientX, moved: 0 }
+                    touches.current.set(event.pointerId, event.clientX)
                     capture(event.currentTarget, event.pointerId)
+                    if (touches.current.size === 2) {
+                      // A second finger: pinch to zoom instead of panning.
+                      const [a = 0, b = 0] = touches.current.values()
+                      pinch.current = Math.abs(a - b)
+                      drag.current = null
+                      return
+                    }
+                    drag.current = { x: event.clientX, moved: 0 }
                   }}
                   onPointerMove={(event) => {
+                    if (touches.current.has(event.pointerId)) {
+                      touches.current.set(event.pointerId, event.clientX)
+                    }
+                    if (pinch.current !== null && touches.current.size >= 2) {
+                      const [a = 0, b = 0] = touches.current.values()
+                      const distance = Math.abs(a - b)
+                      if (pinch.current > 8 && distance > 8 && distance !== pinch.current) {
+                        // Fingers apart zoom in (a factor below 1), together zoom out.
+                        const box = event.currentTarget.getBoundingClientRect()
+                        const steps = Math.log2(pinch.current / distance)
+                        controls.zoom((a + b) / 2 - box.left, zoomFactor(steps))
+                      }
+                      pinch.current = distance
+                      return
+                    }
                     if (drag.current === null) return
                     const dx = event.clientX - drag.current.x
                     drag.current = { x: event.clientX, moved: drag.current.moved + Math.abs(dx) }
@@ -1029,7 +1055,14 @@ function Timeline({
                       setSelected(null)
                     }
                     drag.current = null
+                    touches.current.delete(event.pointerId)
+                    if (touches.current.size < 2) pinch.current = null
                     release(event.currentTarget, event.pointerId)
+                  }}
+                  onPointerCancel={(event) => {
+                    drag.current = null
+                    touches.current.delete(event.pointerId)
+                    if (touches.current.size < 2) pinch.current = null
                   }}
                 >
                   <svg

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanvasMarker, Point } from '@/modules/maps/views/map-canvas'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
+import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
 // jsdom draws no Leaflet maps: the canvas is replaced by a button per marker drawn, and (editing)
@@ -478,5 +479,14 @@ describe('maps module', () => {
       expect(screen.queryByRole('dialog', { name: 'New map' })).toBeNull()
     })
     expect(await within(panel).findByRole('link', { name: 'Full screen' }, WAIT)).toBeVisible()
+  })
+})
+
+describe('maps pages in reader mode', () => {
+  it.each(['/v/v1/e/varn', '/v/v1/m/maps/maps/m-varn'])('%s offers no editing', async (path) => {
+    world()
+    await renderApp(path, undefined, { readOnly: true })
+    await settled()
+    expectNoEditing()
   })
 })
