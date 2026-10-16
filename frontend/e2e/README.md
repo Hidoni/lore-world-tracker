@@ -2,7 +2,8 @@
 
 Playwright against the real app (`testing.md` §3). `make e2e` (`scripts/e2e.sh`) builds the SPA,
 serves it from `lore serve` on a temp data dir and runs every `*.spec.ts` here with
-`E2E_BASE_URL`; without it the specs skip. Extra arguments go to Playwright, e.g.
+`E2E_BASE_URL`; without it the specs skip. A second, read-only server serves the author's publish
+directory at `E2E_READER_URL` (`READER_URL` in `./fixtures`), like the `reader` compose profile. Extra arguments go to Playwright, e.g.
 `scripts/e2e.sh --headed e5` or `SKIP_BUILD=1 scripts/e2e.sh e5` after a first build.
 
 ## Writing a journey
@@ -44,14 +45,16 @@ CI uploads that folder as the `playwright-report` artifact. Open one with
 
 ## Journeys
 
-| #      | Spec                         | Covers                                                                                                                                                                                              |
-| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| smoke  | `smoke.spec.ts`              | the shell loads; create and reopen a vault                                                                                                                                                          |
-| E5     | `e5-linking.spec.ts`         | a `[[` link in the editor, the backlink on the target, rename relabels the link                                                                                                                     |
-| E6     | `e6-relationships.spec.ts`   | a marriage valid from a wedding to a death, the family tree, the time cursor changes who is married and alive                                                                                       |
-| E7     | `e7-branches.spec.ts`        | "What if…" branches at an assassination, the war spanning it ends earlier in the branch, compare mode shows both timelines, the divergence and the shorter war                                      |
-| E8     | `e8-worldlines.spec.ts`      | a first worldline segment and the Time travel… wizard, then the personal timeline lists what the traveler lived in their order (meeting, departure, jump, warning) with ages                        |
-| E9     | `e9-correspondences.spec.ts` | a correspondence with two sync points from the dimension overview, then "Concurrently in" on an event page                                                                                          |
-| E10    | `e10-maps.spec.ts`           | a map uploaded in "New map", a child location pinned from the tray, drill-down and back, then the time cursor hides the pin of a destroyed city                                                     |
-| graph  | `graph.spec.ts`              | the graph page draws with WebGL while the layout runs, pans and zooms, freezes, finds and opens an entity                                                                                           |
-| reader | `reader-mobile.spec.ts`      | reader mode on a phone (Pixel 7): previewing as a reader, five pages fit the screen, have tap targets of 24 px (WCAG 2.5.8), 16 px bodies and no editing; spoilers fold; the navigation is a drawer |
+| #      | Spec                         | Covers                                                                                                                                                                                                                               |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| smoke  | `smoke.spec.ts`              | the shell loads; create and reopen a vault                                                                                                                                                                                           |
+| E5     | `e5-linking.spec.ts`         | a `[[` link in the editor, the backlink on the target, rename relabels the link                                                                                                                                                      |
+| E6     | `e6-relationships.spec.ts`   | a marriage valid from a wedding to a death, the family tree, the time cursor changes who is married and alive                                                                                                                        |
+| E7     | `e7-branches.spec.ts`        | "What if…" branches at an assassination, the war spanning it ends earlier in the branch, compare mode shows both timelines, the divergence and the shorter war                                                                       |
+| E8     | `e8-worldlines.spec.ts`      | a first worldline segment and the Time travel… wizard, then the personal timeline lists what the traveler lived in their order (meeting, departure, jump, warning) with ages                                                         |
+| E9     | `e9-correspondences.spec.ts` | a correspondence with two sync points from the dimension overview, then "Concurrently in" on an event page                                                                                                                           |
+| E10    | `e10-maps.spec.ts`           | a map uploaded in "New map", a child location pinned from the tray, drill-down and back, then the time cursor hides the pin of a destroyed city                                                                                      |
+| E12    | `e12-publish-reader.spec.ts` | content with private and spoiler parts, published from Settings → Publishing, then the reader instance (`E2E_READER_URL`): read-only, no editing, spoilers folded, no private canary on any page, in search or by id, writes refused |
+| E13    | `e13-backup-restore.spec.ts` | a backup with media from Settings → Backups, downloaded and restored into a new vault: the same entities, bodies, fields, media files and links (API), the text and the image shown (UI)                                             |
+| graph  | `graph.spec.ts`              | the graph page draws with WebGL while the layout runs, pans and zooms, freezes, finds and opens an entity                                                                                                                            |
+| reader | `reader-mobile.spec.ts`      | reader mode on a phone (Pixel 7): previewing as a reader, five pages fit the screen, have tap targets of 24 px (WCAG 2.5.8), 16 px bodies and no editing; spoilers fold; the navigation is a drawer                                  |
