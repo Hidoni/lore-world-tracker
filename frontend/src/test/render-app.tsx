@@ -1,7 +1,9 @@
+import type { QueryClient } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { act, render } from '@testing-library/react'
 
 import { AppProviders } from '@/app/providers'
+import { createHttpDataSource, keys } from '@/data'
 import { createQueryClient } from '@/app/query-client'
 import { createAppRouter, createMemoryHistory } from '@/app/router'
 import { useSaveAnyway } from '@/core/consistency'
@@ -9,6 +11,12 @@ import type { ModuleDefinition } from '@/core/modules'
 import { usePlaces } from '@/core/navigation/places'
 import { usePalette } from '@/core/palette'
 import { useShell } from '@/core/shell'
+
+/** The app renders once the server says whether it is read-only (`ReaderModeProvider`). */
+export async function prefetchMeta(queryClient: QueryClient): Promise<void> {
+  const source = createHttpDataSource()
+  await queryClient.prefetchQuery({ queryKey: keys.meta(), queryFn: () => source.meta() })
+}
 
 /**
  * Renders the whole app (providers, router, shell) at `path`, with `@/modules` or `modules`;
@@ -26,6 +34,7 @@ export async function renderApp(
   const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }), modules)
   const queryClient = createQueryClient()
   queryClient.setDefaultOptions({ queries: { retry: false }, mutations: { retry: false } })
+  await prefetchMeta(queryClient)
   const utils = render(
     <AppProviders
       queryClient={queryClient}

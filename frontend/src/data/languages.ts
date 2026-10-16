@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import type { components } from '@/api'
+import { readerUrl, type components } from '@/api'
 
 import { useDataSource, useRequiredMutations } from './context'
 import type { Domain } from './domain'
@@ -104,5 +104,7 @@ export function useImportLexicon(vault: string, language: string) {
 
 /** Where a language's lexicon downloads from as CSV (same origin; what the request may see). */
 export function lexiconExportUrl(vault: string, language: string): string {
-  return `/api/v1/vaults/${encodeURIComponent(vault)}/m/languages/${encodeURIComponent(language)}/lexicon/export`
+  return readerUrl(
+    `/api/v1/vaults/${encodeURIComponent(vault)}/m/languages/${encodeURIComponent(language)}/lexicon/export`,
+  )
 }

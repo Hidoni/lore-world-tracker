@@ -12,6 +12,7 @@ import type { ComponentType } from 'react'
 
 import { useExtensionList } from '@/core/modules'
 import { SidebarTrees } from '@/core/navigation'
+import { useReaderMode } from '@/data'
 
 interface NavItem {
   to:
@@ -23,15 +24,17 @@ interface NavItem {
     | '/v/$vault/settings'
   label: string
   icon: ComponentType<{ className?: string }>
+  /** Author-only (history, findings, trash and settings answer readers `404`). */
+  author?: boolean
 }
 
 const ITEMS: NavItem[] = [
   { to: '/v/$vault', label: 'Home', icon: HomeIcon },
   { to: '/v/$vault/search', label: 'Search', icon: SearchIcon },
-  { to: '/v/$vault/changes', label: 'Recent changes', icon: HistoryIcon },
-  { to: '/v/$vault/consistency', label: 'Consistency', icon: AlertTriangleIcon },
-  { to: '/v/$vault/trash', label: 'Trash', icon: Trash2Icon },
-  { to: '/v/$vault/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/v/$vault/changes', label: 'Recent changes', icon: HistoryIcon, author: true },
+  { to: '/v/$vault/consistency', label: 'Consistency', icon: AlertTriangleIcon, author: true },
+  { to: '/v/$vault/trash', label: 'Trash', icon: Trash2Icon, author: true },
+  { to: '/v/$vault/settings', label: 'Settings', icon: SettingsIcon, author: true },
 ]
 
 const LINK_CLASS =
@@ -54,6 +57,8 @@ function ModuleSections({ vault }: { vault: string }) {
  */
 export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
   const { vault } = useParams({ strict: false })
+  const reading = useReaderMode().active
+  const items = reading ? ITEMS.filter((item) => item.author !== true) : ITEMS
 
   return (
     <nav aria-label="Vault" className="flex flex-col gap-0.5 p-2">
@@ -63,7 +68,7 @@ export function VaultNav({ onNavigate }: { onNavigate?: () => void }) {
           Vaults
         </Link>
       ) : (
-        ITEMS.map(({ to, label, icon: Icon }) => (
+        items.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}

@@ -3,6 +3,8 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 
+import { setPreviewingAsReader } from '@/api/reader-preview'
+
 import { server } from './msw'
 
 // jsdom lacks these browser APIs; sonner, Radix and ProseMirror use them. (Some suites run in node.)
@@ -51,6 +53,8 @@ afterEach(() => {
   cleanup()
   server.resetHandlers()
   if (typeof localStorage !== 'undefined') localStorage.clear()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
+  setPreviewingAsReader(false)
 })
 
 afterAll(() => {

@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api'
 import { AppProviders } from '@/app/providers'
+import { prefetchMeta } from '@/test/render-app'
 import { createQueryClient } from '@/app/query-client'
 import { globalSearchSchema, parseSearch, stringifySearch } from '@/app/search'
 import { EndSpecPicker, TimePointPicker, timeWriteProblem } from '@/core/time'
@@ -113,6 +114,7 @@ async function renderWithRouter(element: ReactNode) {
   })
   const queryClient = createQueryClient()
   queryClient.setDefaultOptions({ queries: { retry: false } })
+  await prefetchMeta(queryClient)
   render(
     <AppProviders queryClient={queryClient}>
       <RouterProvider router={router} />

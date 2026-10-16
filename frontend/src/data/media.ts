@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 
-import type { components } from '@/api'
+import { readerUrl, type components } from '@/api'
 
 import { useDataSource, useRequiredMutations } from './context'
 import type { Domain } from './domain'
@@ -38,7 +38,9 @@ export function mediaFileUrl(
   version?: string,
 ): string {
   const v = version === undefined ? '' : `&v=${encodeURIComponent(version.slice(0, 16))}`
-  return `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/file?size=${size}${v}`
+  return readerUrl(
+    `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/file?size=${size}${v}`,
+  )
 }
 
 /** The library (one page: `limit` items, newest first). */
