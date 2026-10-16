@@ -265,22 +265,25 @@ export function RegimesEditor({
   return (
     <section aria-label="Reforms" className="flex flex-col gap-2">
       <h3 className="text-sm font-semibold">Rules and reforms</h3>
-      <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Rules">
-        {regimes.map((each, index) => (
-          <Button
-            key={index}
-            type="button"
-            role="tab"
-            aria-selected={index === regimeIndex}
-            variant={index === regimeIndex ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => {
-              onSelect(index)
-            }}
-          >
-            {each.name || each.id}
-          </Button>
-        ))}
+      <div className="flex flex-wrap items-center gap-1">
+        {/* Only the tabs in the tablist: its other controls sit beside it (ARIA). */}
+        <div className="contents" role="tablist" aria-label="Rules">
+          {regimes.map((each, index) => (
+            <Button
+              key={index}
+              type="button"
+              role="tab"
+              aria-selected={index === regimeIndex}
+              variant={index === regimeIndex ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                onSelect(index)
+              }}
+            >
+              {each.name || each.id}
+            </Button>
+          ))}
+        </div>
         <Button
           type="button"
           variant="ghost"

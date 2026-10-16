@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, KINDS, kind, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -243,6 +244,17 @@ describe('calendar editor', () => {
       ext: { definition: PRESETS.get('simple-360')?.definition },
     })
   })
+
+  it(
+    'has no serious accessibility violations',
+    async () => {
+      vault()
+      await renderApp('/v/v1/calendars/c-greg/edit')
+      expect(await screen.findByRole('heading', { name: 'Gregorian' })).toBeInTheDocument()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 
   it('saves an existing calendar nothing depends on through an empty proposal', async () => {
     const calls = proposals({ items: [] })

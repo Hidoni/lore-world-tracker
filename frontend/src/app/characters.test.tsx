@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
 import {
   CAPS,
@@ -319,6 +320,21 @@ describe('characters pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
     },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('characters pages for the author', () => {
+  it.each(['/v/v1/e/ilsa', '/v/v1/e/tam', '/v/v1/m/characters/ilsa/family-tree?at=60'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
   )
 })

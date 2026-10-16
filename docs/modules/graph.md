@@ -129,6 +129,9 @@ Local graph and visual linking (#111):
   - "Open in the graph" goes to `/v/$vault/m/graph/focus/<entity>`, the graph page starting on
     that neighborhood.
   - It says when there are no connections yet.
+  - "As a list" (#145) shows the neighbors as links, each with how it connects to the entity: the
+    link type (its inverse label for links pointing here, with the link's role), a mention or a
+    parent; at two steps, neighbors of neighbors say which neighbor they come through.
 - **Visual linking:** `Alt`+drag from a node to another, in either view, opens the add-link
   dialog from the first entity with the second as target (`LinkDialog` takes a preselected
   `target`). The link types that fit both kinds are offered.

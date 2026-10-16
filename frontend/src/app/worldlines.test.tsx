@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -367,6 +368,11 @@ describe('the timeline', () => {
     await waitFor(() => {
       expect(timeline.querySelector('[data-testid="jump-arc"]')).not.toBeNull()
     })
+    // The arcs as a list: the chosen entity's personal timeline.
+    expect(screen.getByRole('link', { name: 'Personal timeline of Vey' })).toHaveAttribute(
+      'href',
+      '/v/v1/m/worldlines/entities/vey',
+    )
   })
 })
 
@@ -378,6 +384,21 @@ describe('worldlines pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
     },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('worldlines pages for the author', () => {
+  it.each(['/v/v1/e/vey', '/v/v1/m/worldlines/entities/vey'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
   )
 })

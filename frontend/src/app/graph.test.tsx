@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { defaultRows, graphQueries, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -155,6 +156,18 @@ describe('graph page', () => {
     expect(await screen.findByRole('heading', { name: 'Graph', level: 1 })).toBeVisible()
   })
 
+  it('shows the local graph as a list of neighbors and how they connect', async () => {
+    world()
+    await renderApp('/v/v1/e/a1')
+    const panel = await screen.findByRole('region', { name: 'Local graph' }, WAIT)
+    await within(panel).findByText('Treasury', {}, WAIT)
+    await userEvent.click(within(panel).getByRole('checkbox', { name: 'As a list' }))
+    const list = within(panel).getByRole('list', { name: 'Neighbors' })
+    const treasury = within(list).getByRole('link', { name: 'Treasury' })
+    expect(treasury).toHaveAttribute('href', '/v/v1/e/a2')
+    expect(treasury.closest('li')?.textContent).toMatch(/Treasury.+·/)
+  })
+
   it('saves views and says when the graph is truncated', async () => {
     world({ graphLimit: 2 })
     await renderApp('/v/v1/m/graph')
@@ -185,10 +198,28 @@ describe('graph page', () => {
 })
 
 describe('graph pages in reader mode', () => {
-  it.each(['/v/v1/m/graph', '/v/v1/e/a1'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-  })
+  it.each(['/v/v1/m/graph', '/v/v1/e/a1'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('graph pages for the author', () => {
+  it.each(['/v/v1/m/graph', '/v/v1/e/a1'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

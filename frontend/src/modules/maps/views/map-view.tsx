@@ -110,6 +110,7 @@ function LoadedMap({
   const [selected, setSelected] = useState<string | null>(focusPin)
   const editable = useMutations() !== null
   const [editing, setEditing] = useState(false)
+  const [asList, setAsList] = useState(false)
   const [placing, setPlacing] = useState<Point | null>(null)
   const place = useEntity(vault, detail.location_id)
   const dimensionId = place.data?.dimension_id ?? null
@@ -234,6 +235,18 @@ function LoadedMap({
             {editing ? 'Done editing' : 'Edit pins'}
           </Button>
         )}
+        {!editing && (
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={asList}
+              onChange={(event) => {
+                setAsList(event.target.checked)
+              }}
+            />
+            As a list
+          </label>
+        )}
         {asOf !== undefined && !editing && (
           <label className="flex items-center gap-1">
             <input
@@ -252,64 +265,68 @@ function LoadedMap({
           Click the map to add a pin, drag pins to move them, click one to edit it.
         </p>
       )}
-      <div className="flex min-h-64 flex-1 gap-3">
-        <div className="relative flex-1 overflow-hidden rounded-md border">
-          <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading map…</p>}>
-            <MapCanvas
-              image={mediaFileUrl(vault, detail.media_id)}
-              width={detail.width}
-              height={detail.height}
-              markers={markers}
-              selected={selected}
-              focus={focusPin}
-              onSelect={setSelected}
-              editing={editing}
-              onPlace={setPlacing}
-              onMove={movePin}
-              onDropEntity={(entity, at) => {
-                addPin({ target: entity }, at)
-              }}
-            />
-          </Suspense>
-          {editing && chosen !== null && (
-            <PinEditor
-              key={`${chosen.pin.id}:${String(chosen.pin.revision)}`}
-              vault={vault}
-              pin={chosen.pin}
-              dimension={dimensionId}
-              timeline={editTimeline}
-              onClose={() => {
-                setSelected(null)
-              }}
-            />
-          )}
-          {!editing && chosen !== null && (
-            <PinPopover
-              vault={vault}
-              location={detail.location_id}
-              shown={chosen}
-              layer={layerOf(chosen.pin)}
-              registry={registry}
-              onOpenMap={onOpenMap}
-              onClose={() => {
-                setSelected(null)
-              }}
-            />
+      {asList && !editing ? (
+        <PinList vault={vault} shown={shown} registry={registry} onOpenMap={onOpenMap} />
+      ) : (
+        <div className="flex min-h-64 flex-1 gap-3">
+          <div className="relative flex-1 overflow-hidden rounded-md border">
+            <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading map…</p>}>
+              <MapCanvas
+                image={mediaFileUrl(vault, detail.media_id)}
+                width={detail.width}
+                height={detail.height}
+                markers={markers}
+                selected={selected}
+                focus={focusPin}
+                onSelect={setSelected}
+                editing={editing}
+                onPlace={setPlacing}
+                onMove={movePin}
+                onDropEntity={(entity, at) => {
+                  addPin({ target: entity }, at)
+                }}
+              />
+            </Suspense>
+            {editing && chosen !== null && (
+              <PinEditor
+                key={`${chosen.pin.id}:${String(chosen.pin.revision)}`}
+                vault={vault}
+                pin={chosen.pin}
+                dimension={dimensionId}
+                timeline={editTimeline}
+                onClose={() => {
+                  setSelected(null)
+                }}
+              />
+            )}
+            {!editing && chosen !== null && (
+              <PinPopover
+                vault={vault}
+                location={detail.location_id}
+                shown={chosen}
+                layer={layerOf(chosen.pin)}
+                registry={registry}
+                onOpenMap={onOpenMap}
+                onClose={() => {
+                  setSelected(null)
+                }}
+              />
+            )}
+          </div>
+          {editing && (
+            <aside className="w-56 shrink-0">
+              <ChildTray
+                vault={vault}
+                location={detail.location_id}
+                pins={detail.pins}
+                onPlace={(entity) => {
+                  addPin({ target: entity }, { x: detail.width / 2, y: detail.height / 2 })
+                }}
+              />
+            </aside>
           )}
         </div>
-        {editing && (
-          <aside className="w-56 shrink-0">
-            <ChildTray
-              vault={vault}
-              location={detail.location_id}
-              pins={detail.pins}
-              onPlace={(entity) => {
-                addPin({ target: entity }, { x: detail.width / 2, y: detail.height / 2 })
-              }}
-            />
-          </aside>
-        )}
-      </div>
+      )}
       {placing !== null && (
         <AddPinDialog
           vault={vault}
@@ -324,6 +341,73 @@ function LoadedMap({
         />
       )}
     </div>
+  )
+}
+
+/**
+ * The map as a list (frontend.md §9.6): the pins shown (the same layers and time cursor), by label,
+ * each with its kind, whether it is there at the cursor, its page and the map it drills into.
+ */
+function PinList({
+  vault,
+  shown,
+  registry,
+  onOpenMap,
+}: {
+  vault: string
+  shown: ShownPin[] | null
+  registry: KindRegistry | undefined
+  onOpenMap: (mapId: string) => void
+}) {
+  if (shown === null) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (shown.length === 0) return <p className="text-sm text-muted-foreground">No pins shown.</p>
+  const sorted = [...shown].sort((a, b) => a.pin.display_label.localeCompare(b.pin.display_label))
+  return (
+    <ul aria-label="Pins" className="flex flex-col divide-y rounded-md border text-sm">
+      {sorted.map(({ pin, ghost }) => {
+        const layer = layerOf(pin)
+        return (
+          <li key={pin.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+            {createElement(pinIcon(pin, registry), {
+              'aria-hidden': true,
+              className: 'size-4 shrink-0',
+            })}
+            {pin.target !== null ? (
+              <Link
+                to="/v/$vault/e/$entity"
+                params={{ vault, entity: pin.target.id }}
+                className="font-medium underline-offset-2 hover:underline"
+              >
+                {pin.display_label}
+              </Link>
+            ) : (
+              <span className="font-medium">{pin.display_label}</span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {layer === LABEL_LAYER ? 'Label' : (registry?.kind(layer)?.label ?? layer)}
+            </span>
+            {ghost && (
+              <span className="text-xs text-muted-foreground">
+                {pin.shown === 'possible' ? 'possibly there' : 'not there at the cursor'}
+              </span>
+            )}
+            {pin.drill_map_id !== null && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto"
+                onClick={() => {
+                  if (pin.drill_map_id !== null) onOpenMap(pin.drill_map_id)
+                }}
+              >
+                <MapIcon aria-hidden />
+                Drill into map
+              </Button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

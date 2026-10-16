@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -165,8 +166,12 @@ describe('the dimension overview', () => {
     expect(within(list).getByText('The Portal')).toBeInTheDocument()
     expect(within(list).getByRole('link', { name: 'Dreamrealm' })).toBeInTheDocument()
     expect(within(list).getByText('2 sync points')).toBeInTheDocument()
-    const graph = screen.getByTestId('connected-dimensions')
-    expect(within(graph).getByRole('link', { name: 'Open Dreamrealm' })).toBeInTheDocument()
+    expect(screen.getByTestId('connected-dimensions')).toBeInTheDocument()
+    const connected = screen.getByRole('list', { name: 'Connected dimensions' })
+    expect(within(connected).getByRole('link', { name: 'Dreamrealm' })).toHaveAttribute(
+      'href',
+      '/v/v1/d/d2',
+    )
   })
 
   it('creates a correspondence, previewing and trying the mapping', async () => {
@@ -312,6 +317,21 @@ describe('correspondences pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
     },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('correspondences pages for the author', () => {
+  it.each(['/v/v1/d/d1', '/v/v1/e/ev-1', '/v/v1/d/d1/timeline?from=0&to=400'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
   )
 })

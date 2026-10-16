@@ -67,6 +67,9 @@ None. Maps belong to locations.
   integration: pins not existing at the cursor are hidden or ghosted (toggle, "Ghost what isn't
   there"). Ghost mode also loads the pins of the cursor's timeline at any time; pins only
   possibly there (`shown: possible`) are faded in both modes. Without a cursor every pin shows.
+- "As a list" (#145, outside edit mode) shows the map as a list for keyboard and screen-reader
+  use: the pins shown (the same layers and time cursor), by label, with their kind, whether they
+  are there at the cursor, a link to the pinned entity and "Drill into map".
 - Entity pages of pinned entities get a "Show on map" side panel (one entry per pin) that opens
   the map at the pin; it is left out on entities pinned nowhere.
 - Edit mode (#130; authors, "Edit pins"): every pin of the map shows, whenever it stands, and

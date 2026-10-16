@@ -1,4 +1,5 @@
 import { toPx, type Viewport } from '@lore/chronology/viewport'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -114,16 +115,27 @@ function Chooser({
       <PopoverContent align="end" className="flex w-64 flex-col gap-2">
         <p className="text-xs text-muted-foreground">Draw the time jumps of…</p>
         {chosen.map((entity) => (
-          <label key={entity.id} className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked
-              onChange={() => {
-                onChange(chosen.filter((each) => each.id !== entity.id))
-              }}
-            />
-            {entity.name}
-          </label>
+          <div key={entity.id} className="flex items-center gap-2 text-sm">
+            <label className="flex flex-1 items-center gap-2">
+              <input
+                type="checkbox"
+                checked
+                onChange={() => {
+                  onChange(chosen.filter((each) => each.id !== entity.id))
+                }}
+              />
+              {entity.name}
+            </label>
+            {/* The jumps as a list (frontend.md §9.6): the personal timeline's list view. */}
+            <Link
+              to="/v/$vault/m/$module/$"
+              params={{ vault, module: 'worldlines', _splat: `entities/${entity.id}` }}
+              aria-label={`Personal timeline of ${entity.name}`}
+              className="text-xs text-primary underline-offset-2 hover:underline"
+            >
+              Personal timeline
+            </Link>
+          </div>
         ))}
         <Input
           aria-label="Find an entity"

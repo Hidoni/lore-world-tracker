@@ -219,6 +219,7 @@ export default function LibraryPage() {
                   size="160"
                   sizes="10rem"
                   className="max-h-full object-contain"
+                  inert
                 />
               </button>
               <span className="truncate font-medium">{item.filename}</span>

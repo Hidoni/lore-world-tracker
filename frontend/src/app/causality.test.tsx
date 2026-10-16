@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { layoutCausality, layoutEdges } from '@/core/events/causality/layout'
 import type { CausalityGraph } from '@/data'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -257,10 +258,28 @@ describe('sidebar events', () => {
 })
 
 describe('causality pages in reader mode', () => {
-  it.each(['/v/v1/e/riot', '/v/v1/e/riot/causality'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-  })
+  it.each(['/v/v1/e/riot', '/v/v1/e/riot/causality'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('causality pages for the author', () => {
+  it.each(['/v/v1/e/riot', '/v/v1/e/riot/causality'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

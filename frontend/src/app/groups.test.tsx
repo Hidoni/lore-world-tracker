@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -222,10 +223,28 @@ describe('membership history and org chart', () => {
 })
 
 describe('groups pages in reader mode', () => {
-  it.each(['/v/v1/e/empire', '/v/v1/e/rebels'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-  })
+  it.each(['/v/v1/e/empire', '/v/v1/e/rebels'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('groups pages for the author', () => {
+  it.each(['/v/v1/e/empire', '/v/v1/e/rebels'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
 import { TickSnap } from '@/core/timeline/cursor-line'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -221,6 +222,34 @@ describe('the timeline view', () => {
       // Centered on the middle of the dimension (to a pixel of the whole strip).
       const middle = (from + to) / 2n
       expect(middle > total / 2n - total / 500n && middle < total / 2n + total / 500n).toBe(true)
+    })
+  })
+
+  it('moves the view from the minimap with the keyboard', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const total = 10n ** 15n
+    world(total)
+    const span = 10n ** 12n
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=0&to=${span}`)
+    const minimap = await screen.findByRole('slider', { name: 'Minimap' })
+    minimap.focus()
+    const settle = () => {
+      act(() => {
+        vi.advanceTimersByTime(300)
+      })
+    }
+    fireEvent.keyDown(minimap, { key: 'End' })
+    settle()
+    await waitFor(() => {
+      expect(urlRange(router)).toEqual([total - span, total])
+    })
+    fireEvent.keyDown(minimap, { key: 'ArrowLeft' })
+    settle()
+    // About one view to the left (the view is a little wider than the range in the URL).
+    await waitFor(() => {
+      const [from, to] = urlRange(router)
+      expect(to - from).toBe(span)
+      expect(from < total - span - span / 2n && from > total - 3n * span).toBe(true)
     })
   })
 })
@@ -546,10 +575,28 @@ describe('timeline layers', () => {
 })
 
 describe('timeline pages in reader mode', () => {
-  it.each(['/v/v1/d/d1/timeline'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-  })
+  it.each(['/v/v1/d/d1/timeline'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('timeline pages for the author', () => {
+  it.each(['/v/v1/d/d1/timeline'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

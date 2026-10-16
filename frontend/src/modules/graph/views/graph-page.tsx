@@ -51,7 +51,7 @@ function CheckList({
       </legend>
       <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto pr-1">
         {options.map((option) => (
-          <label key={option.value} className="flex items-center gap-2 text-sm">
+          <label key={option.value} className="flex min-h-6 items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={values.includes(option.value)}
@@ -137,7 +137,7 @@ function FilterPanel({
       )}
       <div className="flex flex-col gap-0.5">
         {flags.map(([label, key]) => (
-          <label key={key} className="flex items-center gap-2 text-sm">
+          <label key={key} className="flex min-h-6 items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={filters[key]}

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
 import { CAPS, defaultRows, FIELD, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -212,6 +213,21 @@ describe('locations pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
     },
+    AXE_TIMEOUT,
+  )
+})
+
+describe('locations pages for the author', () => {
+  it.each(['/v/v1', '/v/v1/e/varn', '/v/v1/e/storm', '/v/v1/m/locations/tree'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
   )
 })
