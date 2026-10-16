@@ -656,6 +656,8 @@ def _languages(b: _Builder, home: dict[str, Any]) -> None:
         assert made.status_code == 201, made.json()
         if body.get("visibility") == "private":
             b.canary.hidden_ids.add(made.json()["entry"]["id"])
+        else:
+            b.canary.records["Public word"] = made.json()["entry"]["id"]
     hidden = b.api.client.post(
         f"{b.api.base}/m/languages/{secret['id']}/lexicon", json={"headword": b.canary_string()}
     )
@@ -727,8 +729,13 @@ def _custom_fields(b: _Builder, home: dict[str, Any]) -> None:
                                                "type": "text", "default_visibility": visibility,
                                                "temporal": True}, headers=HEADERS)  # fmt: skip
         assert response.status_code == 201, response.json()
+    lore = {"kind_key": "*", "key": "annals", "label": "Annals", "type": "rich_text"}
+    made = api.client.post(base, json=lore, headers=HEADERS)
+    assert made.status_code == 201, made.json()
+    annals = doc(p(text("public annals")), private(p(text(b.canary_string()))))
     ledger = b.public("gadget", "Ledger", fields={"custom.cipher": b.canary_string(),
-                                                  "custom.motto": b.canary_string()},
+                                                  "custom.motto": b.canary_string(),
+                                                  "custom.annals": annals},
                       field_visibility={"custom.motto": "private"}, **home)  # fmt: skip
     fact = api.client.post(f"{api.base}/entities/{ledger['id']}/facts", headers=HEADERS, json={
         "field_key": "custom.cipher", "value": b.canary_string(),
@@ -743,7 +750,14 @@ def _custom_fields(b: _Builder, home: dict[str, Any]) -> None:
         body = {"key": key, "label": key.title(), "plural": f"{key.title()}s"}
         made = api.client.post(kinds, json=body, headers=HEADERS)
         assert made.status_code == 201, made.json()
-    b.public("custom.relic", "Crown", **home)
+    crown = b.public(
+        "custom.relic",
+        "Crown",
+        aliases=[{"alias": b.canary_string(), "visibility": "private"}],
+        body=doc(p(text("a public crown")), private(p(text(b.canary_string())))),
+        **home,
+    )
+    b.canary.hidden_ids.add(b.api.get(crown["id"]).json()["aliases"][0]["id"])
     b.hidden("custom.relic", visibility="private", **home)
     b.hidden("custom.ghost", **home)
     archived = api.client.patch(f"{kinds}/custom.ghost", json={"revision": 1, "archived": True},
