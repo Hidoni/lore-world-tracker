@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { SELECT_CLASS } from '@/core/settings'
+import { SELECT_CLASS } from '@/components/settings-section'
 import {
   fieldErrors,
   useCreateCustomField,

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useKindRegistry } from '@/core/registry'
-import { Section, SELECT_CLASS } from '@/core/settings'
+import { Section, SELECT_CLASS } from '@/components/settings-section'
 import {
   useCustomFields,
   useDeleteCustomField,

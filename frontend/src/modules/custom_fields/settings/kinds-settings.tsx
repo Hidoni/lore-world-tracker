@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { iconFor, iconMap, useKindRegistry, type KindRegistry } from '@/core/registry'
-import { Section, SELECT_CLASS } from '@/core/settings'
+import { Section, SELECT_CLASS } from '@/components/settings-section'
 import {
   fieldErrors,
   useCreateCustomKind,
