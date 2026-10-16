@@ -12,6 +12,16 @@ All notable changes to this project are documented here. The format follows
 - **Read-only server mode, hardened** (#138): on a read-only server (`LORE_READ_ONLY=true`) every
   request that would change something is refused before it reaches the app, and serving a vault
   leaves its folder untouched: not even SQLite's side files appear while no author is writing.
+- **Published snapshots** (#140): share your world without its secrets. **Settings → Publishing →
+  Publish snapshot** (or `lore vault publish <vault>`) writes a copy of the vault for a read-only
+  server into `LORE_PUBLISH_DIR`: private entities, fields, blocks, notes, links and module data
+  are physically removed, time points anchored to hidden records become plain moments, and
+  history, findings and proposals are dropped. A leak check runs before anything is written, and
+  an author server refuses to open a snapshot.
+
+### Fixed
+
+- A private map sharing a public map's image no longer hides that image from readers (#140).
 
 ## [0.10.0] - 2026-10-16
 

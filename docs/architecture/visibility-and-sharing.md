@@ -79,24 +79,45 @@ correspondences · timelines (as entities) · module rows (map pins, gallery ite
 
 ## 4. Published snapshots
 
-`lore vault publish <vault> --out <dir>` (and a button in settings):
+`lore vault publish <vault> [--out <dir>]` (default `LORE_PUBLISH_DIR`), `POST /vaults/{v}/publish`
+and **Settings → Publishing** (`lore.core.vaults.publish`). `<dir>` is a data-dir root; the
+snapshot replaces an earlier one of the same vault in `<dir>/vaults/<folder>/`.
 
-1. `VACUUM INTO` a temporary copy of `lore.db`.
-2. Run the **publish sanitizer** on the copy, in one transaction:
-   - delete private entities and everything owned by them (aliases, facts, links, extension
-     rows, notes, module rows),
-   - delete private aliases, facts, links, segments, correspondences, notes and module rows,
-   - remove private field values (and their facts), rewrite bodies/rich-text fields with
-     `filter_for_reader` (spoilers kept, flagged),
-   - drop history (`changesets`, `changes`), consistency findings/suppressions and proposals,
-   - freeze anchors that reference deleted records (convert to absolute at the resolved moment),
-   - module `publish_contributors` run their own sanitization,
-   - rebuild search tables, `VACUUM`, set `journal_mode=DELETE`.
-3. Copy only the media referenced by remaining visible contexts.
-4. Write `vault.json` with `"published": true` and the source vault id. A published vault opens
-   **read-only only**. The author UI refuses to open it in author mode, to avoid confusion.
-5. Run the leak checker (§5) against the snapshot as a final gate. Publishing fails if any canary
-   or private-marked data remains.
+1. Copy `lore.db` into a staging folder inside `<dir>` (SQLite's online backup: a consistent copy
+   while the author server keeps writing).
+2. Run the **publish sanitizer** on the copy, in one transaction, with the consistency engine in
+   record-only mode and foreign keys deferred:
+   - **freeze time points** first, while everything they reference is still there: every stored
+     point (event start/end, fact and link validity and `time_point` values, entity `time_point`
+     fields and their `entity_time_fields` rows, branch points, dimension presents, worldline
+     segments, correspondence points, module rows with `valid_*_spec`) becomes what readers are
+     shown (`ReaderTimes`: an anchor into a hidden record turns absolute at its moment). A series'
+     rule in a calendar readers can't see is dropped: the snapshot can't keep that calendar, so
+     the series becomes a single event at its first occurrence (live readers still get the
+     occurrences, computed on the server),
+   - delete the entities readers can't see (private, effectively private, trashed, of a kind no
+     enabled module offers), private aliases, hidden or trashed links and facts, facts of fields
+     readers can't see, each module's hidden rows (its `visibility_filters`), and in every table
+     the rows with `visibility = 'private'` or a `deleted_at`,
+   - repair references: an optional reference to a deleted row (`parent_id`, a fact's source
+     event, a dimension's default calendar, a pin's child map, a segment's arrival/departure) is
+     cleared; any other row referencing a deleted row is deleted, until nothing changes,
+   - rewrite bodies, fields and per-timeline notes as readers get them (`filter_for_reader`:
+     spoilers kept, flagged; hidden fields and overrides removed); unused tags go,
+   - module `publish_contributors` run their own sanitization (`modules.md`; media copies the
+     visible items' files and thumbnails, maps drop hidden maps),
+   - drop history (`changesets`, `changes`, `change_entities`), consistency findings and
+     suppressions, and proposals.
+3. Rebuild every derived table (search, mentions, time, module checks: `lore vault reindex`) and
+   rescan consistency, then drop the findings again; `VACUUM`, `journal_mode=DELETE`.
+4. Write `vault.json` with `"published": true`, `source_vault_id` and `published_at`. A published
+   vault opens **read-only only**: an author server refuses it with `409 vault_published`.
+5. Run the **leak gate** on the staging folder: no rows in the dropped tables, no
+   `visibility = 'private'` row, no private `visibilityBlock` in any text column, no SQLite side
+   files. Any problem fails the publish (`409 publish_failed`) and the staging folder is deleted;
+   only a clean snapshot is moved into place. The tests publish the canary vault and byte-scan
+   every output file for canary strings and ids, then run the whole leak suite (§5) against the
+   snapshot served read-only.
 
 ## 5. Leak tests (mandatory)
 
@@ -118,7 +139,7 @@ canary ids. The suite:
    a read-only server and with `?as_reader=true`. A positive control checks that the author sees
    every canary through the same recipes, so a missing canary means it was filtered.
 4. Runs the same assertions against a **published snapshot** of the fixture, served in read-only
-   mode (with published snapshots, #140).
+   mode (reader mode `published` in `test_leaks.py`).
 
 These tests run in CI on every PR that touches the backend.
 

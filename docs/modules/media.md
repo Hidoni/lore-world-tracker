@@ -105,8 +105,9 @@ Removal requires an export of `media/`.
 - **`lore vault check`** (`derived_checks`): stale references (`media`, `stale_refs`) and items
   whose file is missing (`missing_file`); `lore vault reindex` rebuilds the references.
 - **Backups** include the `media/` folder (core, `include_media`). **Publish**: `publish_media`
-  copies the reader-visible items and their thumbnails into the published vault folder; #140
-  calls it when snapshots arrive.
+  copies the reader-visible items and their thumbnails (made in advance, as a read-only server
+  can't write them) into the published vault folder and deletes the other items from the
+  snapshot.
 - The `media` field type holds an item id (a list for `multiple` fields); custom fields (M11) can
   use it.
 

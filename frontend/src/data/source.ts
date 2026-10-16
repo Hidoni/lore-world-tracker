@@ -31,6 +31,8 @@ export interface DataSource {
   settings(vault: string): Promise<Schemas['VaultSettings']>
   registry(vault: string): Promise<Schemas['Registry']>
   backups(vault: string): Promise<Schemas['BackupList']>
+  /** Whether the vault can be published and when it last was (author-only). */
+  publishStatus(vault: string): Promise<Schemas['PublishStatus']>
   entities(vault: string, query?: Query<'entities_list'>): Promise<EntityPage>
   entity(vault: string, id: string, query?: Query<'entities_get'>): Promise<Entity>
   /** As-of state (time-model.md §10.5): existence, name and temporal fields at a moment. */
@@ -214,6 +216,8 @@ export interface Mutations {
   /** Restores a backup zip into a new vault; `onProgress` gets the upload's fraction (0..1). */
   restoreBackup(file: Blob, onProgress?: (fraction: number) => void): Promise<Vault>
   createBackup(vault: string, body: Schemas['BackupCreate']): Promise<Schemas['Backup']>
+  /** Publishes a sanitized snapshot into the server's publish directory. */
+  publishVault(vault: string): Promise<Schemas['PublishStatus']>
   updateSettings(
     vault: string,
     body: Schemas['VaultSettingsUpdate'],

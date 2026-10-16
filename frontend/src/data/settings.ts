@@ -38,6 +38,23 @@ export function useCreateBackup(vault: string) {
   })
 }
 
+export function usePublishStatus(vault: string) {
+  const source = useDataSource()
+  return useQuery({ queryKey: keys.publish(vault), queryFn: () => source.publishStatus(vault) })
+}
+
+/** Publishes a snapshot for readers (visibility-and-sharing.md §4). */
+export function usePublish(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => mutations.publishVault(vault),
+    onSuccess: (status) => {
+      client.setQueryData(keys.publish(vault), status)
+    },
+  })
+}
+
 /** Where a backup's zip downloads from (same origin; author-only). */
 export function backupDownloadUrl(vault: string, id: string): string {
   return `/api/v1/vaults/${encodeURIComponent(vault)}/backups/${encodeURIComponent(id)}/download`

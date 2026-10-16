@@ -123,9 +123,12 @@ root and not writable by the container user. `LORE_UID`/`LORE_GID` default to `1
 
 The `reader` service only becomes functional in M12 (reader mode and snapshot publishing, #142).
 
-Sharing workflow: `docker compose exec lore lore vault publish <vault> --out /published` (or the
-settings button, which writes into `LORE_PUBLISH_DIR`). `--out` is a **data-dir root**: the
-snapshot lands in `/published/vaults/<folder>/`, replacing an earlier snapshot of the same vault.
+Sharing workflow: `docker compose exec lore lore vault publish <vault>` (`--out DIR` overrides
+`LORE_PUBLISH_DIR`), or **Settings → Publishing → Publish snapshot**, which writes into
+`LORE_PUBLISH_DIR` and shows when the vault was last published. The target is a **data-dir root**:
+the snapshot lands in `/published/vaults/<folder>/`, replacing an earlier snapshot of the same
+vault (a folder there that isn't one is never overwritten). Publishing refuses to write into the
+author's own data directory, and an author server refuses to open a snapshot (`vault_published`).
 Then `docker compose --profile reader up -d reader`. Put a reverse proxy (Caddy/nginx) with TLS in
 front of `reader` if it is exposed to the internet. Basic auth at the proxy is optional.
 

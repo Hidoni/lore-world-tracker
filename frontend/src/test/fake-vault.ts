@@ -481,6 +481,8 @@ export function serveVault(
     backups?: BackupRow[]
     /** The first restores answer `422 invalid_backup`. */
     restoreFailures?: number
+    /** Publishing: unavailable (no publish directory) with `false`; default available. */
+    publishable?: boolean
     findings?: ReturnType<typeof finding>[]
     rules?: ReturnType<typeof rule>[]
     /** Entity writes (create, update) without `suppress` answer `422 consistency_error` with
@@ -519,6 +521,7 @@ export function serveVault(
   }
   const backups = [...(options.backups ?? [])]
   let restoreFailures = options.restoreFailures ?? 0
+  let publishedAt: string | null = null
   const findings = [...(options.findings ?? [])]
   const rules = [...(options.rules ?? [])]
   let refusals = options.refusals?.times ?? Number.POSITIVE_INFINITY
@@ -1635,6 +1638,14 @@ export function serveVault(
       }
       backups.unshift(backup)
       return HttpResponse.json(backup, { status: 201 })
+    }),
+    http.get('*/api/v1/vaults/v1/publish', () =>
+      HttpResponse.json({ available: options.publishable ?? true, published_at: publishedAt }),
+    ),
+    http.post('*/api/v1/vaults/v1/publish', async ({ request }) => {
+      await record(request)
+      publishedAt = '2026-10-16T12:00:00Z'
+      return HttpResponse.json({ available: true, published_at: publishedAt })
     }),
     http.post('*/api/v1/vaults/restore', () => {
       // (jsdom's XHR uploads reach MSW without their multipart body: failures are counted.)

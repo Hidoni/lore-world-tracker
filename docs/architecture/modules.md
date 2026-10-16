@@ -111,8 +111,14 @@ also holds core's own definitions (the field types of `data-model.md` §4.2, kin
 `core.related`). `slot_providers` are `lore.core.time.SlotProvider(record_type, model, slots,
 …)` (`time-model.md` §6; record types `<module id>.<type>`, models among the module's `models`).
 Extension points whose machinery comes later (timeline tables, graph,
-backup and publish contributors) are accepted and stored as opaque objects
-until their issue defines the protocol. `derived_hooks` (#126) are
+backup contributors) are accepted and stored as opaque objects
+until their issue defines the protocol. `publish_contributors` (#140) are
+`(PublishContext) -> None` (`lore.core.vaults.publish`): they run inside the publish sanitizer's
+transaction on the snapshot's copy (`context`: its session, as a reader would see it), after core
+has deleted what readers can't see, and remove or copy what core can't know about (the media
+module copies the files of the items readers see from `source` into `target`; maps drop the maps
+readers can't see). A module table with a `visibility` or `deleted_at` column loses its private
+and trashed rows without help, and rows whose references were deleted go with them. `derived_hooks` (#126) are
 `(VaultContext, Sequence[RecordedChange]) -> None`: the enabled modules' hooks run with the
 changes each changeset is about to record, before the consistency check, for every writer and
 undo, to rebuild derived rows (the media module's `media_refs`); raising a typed error refuses the
