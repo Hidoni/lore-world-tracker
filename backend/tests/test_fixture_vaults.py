@@ -31,7 +31,7 @@ FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:7] == [
+    assert [path.name for path in FIXTURE_DIRS][:8] == [
         "v0.1.0",
         "v0.2.0",
         "v0.3.0",
@@ -39,6 +39,7 @@ def test_there_is_a_fixture_for_every_release() -> None:
         "v0.5.0",
         "v0.6.0",
         "v0.8.0",
+        "v0.9.0",
     ]
 
 
@@ -229,6 +230,26 @@ def test_fixture_advanced_time_survives_the_upgrade(upgraded: Any) -> None:
     for name, segments in expected["worldlines"].items():
         found = client.get(f"{base}/m/worldlines/entities/{ids[name]}/segments").json()
         assert [[s["start_t"], s["end_t"]] for s in found["segments"]] == segments, name
+
+
+def test_fixture_maps_and_media_survive_the_upgrade(upgraded: Any) -> None:
+    """Maps with their pins and drill-downs, and their images' files (v0.9.0 on)."""
+    client, expected = upgraded
+    if not expected.get("maps"):
+        pytest.skip("this fixture predates maps")
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    maps = {m["name"]: m for m in client.get(f"{base}/m/maps/maps").json()["items"]}
+    for name, wanted in expected["maps"].items():
+        detail = client.get(f"{base}/m/maps/maps/{maps[name]['id']}").json()
+        assert sorted(p["display_label"] for p in detail["pins"]) == wanted["pins"], name
+        drills = {p["display_label"]: p["drill_map_id"] for p in detail["pins"]}
+        for label, child in wanted["drill"].items():
+            assert drills[label] == maps[child]["id"]
+        image = client.get(
+            f"{base}/m/media/items/{detail['media_id']}/file", params={"size": "160"}
+        )
+        assert image.status_code == 200
+        assert image.headers["content-type"] == "image/webp"
 
 
 def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
@@ -429,7 +450,12 @@ def test_the_core_has_maps(tmp_path: Path) -> None:
 def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) -> None:
     target = tmp_path / "v9.9.9"
     world = make_sample_vault.write_fixture(target)
-    assert sorted(path.name for path in (target / "vault").iterdir()) == ["lore.db", "vault.json"]
+    vault = target / "vault"
+    assert sorted(path.name for path in vault.iterdir()) == ["lore.db", "media", "vault.json"]
+    # The map images (the maps), without their thumbnails.
+    files = [path for path in (vault / "media").rglob("*") if path.is_file()]
+    assert len(files) == 2
+    assert not (vault / "media" / "thumbs").exists()
     expected = json.loads((target / "expected.json").read_text("utf-8"))
     assert expected["vault_id"] == world.vault_id
     assert expected["size"] == "tiny"

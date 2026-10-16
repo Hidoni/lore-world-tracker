@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-16
+
+Media and maps (M10): pictures in a world. Upload images and files into a vault, put images in
+pages (paste or drop them), give entities cover images and galleries, and keep it all in a media
+library that shows where every file is used. Locations get maps to pin places, characters,
+events and labels on, with nested maps to drill into and pins that follow the time cursor:
+a destroyed city's pin is gone after its destruction. New tables for media and maps are added
+when a v0.8.0 vault opens.
+
 ### Added
 
 - **Map editing** (#130): create a map for a location from an image, then pin places, characters,
@@ -594,7 +603,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.5.0...v0.6.0

@@ -1,6 +1,6 @@
 {
   "name": "@lore/chronology",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Lore time engine: calendars, recurrence, correspondences, viewport/tick math (bigint-exact).",
   "type": "module",
