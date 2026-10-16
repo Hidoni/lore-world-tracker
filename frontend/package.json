@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "gen:api": "node scripts/gen-api.ts",
-    "check:api": "node scripts/gen-api.ts --check"
+    "check:api": "node scripts/gen-api.ts --check",
+    "check:bundle": "node scripts/check-bundle.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

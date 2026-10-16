@@ -78,7 +78,7 @@ export const fixtureModule = defineModule({
     nodes: { relic: { color: '#123456' } },
     edges: { 'fixture.guards': { dashed: true } },
   },
-  editorExtensions: [{ name: 'fixtureMark' }],
+  editorExtensions: [() => Promise.resolve({ name: 'fixtureMark' })],
   commands: [{ id: 'fixture.polish', title: 'Polish relics', run: () => undefined }],
   settingsPages: [{ id: 'fixture', title: 'Relic settings', component: () => null }],
   searchResultRenderers: { 'fixture.relic': () => <span>relic hit</span> },

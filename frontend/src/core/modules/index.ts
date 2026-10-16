@@ -14,6 +14,7 @@ export {
   type CommandContext,
   type DimensionSection,
   type EditorExtension,
+  type EditorExtensionLoader,
   type EntityPanel,
   type EntityViewProps,
   type FieldEditorExtensionProps,

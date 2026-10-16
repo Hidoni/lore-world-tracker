@@ -39,11 +39,12 @@ check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, 
 	$(UV) run lore db check
 	$(UV) run pytest -n auto
 
-check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build
+check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build, initial bundle budget
 	npm run lint
 	npm run typecheck
 	npm run test
 	npm run build
+	npm run check:bundle -w @lore/web
 
 test: test-backend test-frontend test-chronology ## All unit tests (backend, frontend, chronology conformance)
 

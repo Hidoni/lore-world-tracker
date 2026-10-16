@@ -4,7 +4,6 @@ import { createElement, lazy, Suspense, type ComponentType } from 'react'
 import { defineModule, type EntityViewProps } from '@/core/modules'
 
 import { ImageFigure } from './editor/image-figure'
-import { ImageNode } from './editor/image-node'
 import { MediaFieldEditor, MediaFieldValue } from './panels/media-field'
 import { useGalleryShown } from './panels/gallery-panel'
 
@@ -46,7 +45,7 @@ export default defineModule({
       useShown: useGalleryShown,
     },
   ],
-  editorExtensions: [ImageNode],
+  editorExtensions: [() => import('./editor/image-node').then((loaded) => loaded.ImageNode)],
   richTextNodeRenderers: { image: ImageFigure },
   fieldTypeRenderers: { media: MediaFieldValue },
   fieldTypeEditors: { media: MediaFieldEditor },

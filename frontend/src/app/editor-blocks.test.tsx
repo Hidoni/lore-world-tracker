@@ -84,18 +84,21 @@ describe('slash menu and blocks', () => {
     const stamps = defineModule({
       id: 'stamps',
       editorExtensions: [
-        Extension.create({
-          name: 'stampSlash',
-          addOptions: () => ({
-            slashItems: [
-              {
-                id: 'stamp',
-                title: 'Royal stamp',
-                run: (e: Editor) => e.chain().focus().insertContent('[seal]').run(),
-              },
-            ],
-          }),
-        }),
+        () =>
+          Promise.resolve(
+            Extension.create({
+              name: 'stampSlash',
+              addOptions: () => ({
+                slashItems: [
+                  {
+                    id: 'stamp',
+                    title: 'Royal stamp',
+                    run: (e: Editor) => e.chain().focus().insertContent('[seal]').run(),
+                  },
+                ],
+              }),
+            }),
+          ),
       ],
     })
     await renderApp('/v/v1/e/a1', [stamps])

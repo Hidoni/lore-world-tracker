@@ -20,11 +20,11 @@ import {
   TableIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
-import { useExtensionList } from '@/core/modules'
+import { useExtensionList, type EditorExtension, type EditorExtensionLoader } from '@/core/modules'
 import { useDataSource, useMutations } from '@/data'
 import { cn } from '@/lib/utils'
 
@@ -36,6 +36,44 @@ import { isSafeHref, type RichTextDoc } from './schema'
 import { SuggestionBridge, type SuggestionState } from './suggestion-state'
 import { SuggestionMenu } from './suggestion-menu'
 import { TimeRefDialog } from './time-ref-dialog'
+
+const loaded = new Map<EditorExtensionLoader, Promise<EditorExtension>>()
+const loadedSets = new Map<string, Promise<EditorExtension[]>>()
+const loaderIds = new WeakMap<EditorExtensionLoader, number>()
+let nextLoaderId = 0
+
+/**
+ * The modules' editor extensions, loaded once each (`editorExtensions` are loaders). The promise
+ * for a set of loaders is cached too, so `use()` sees the same one after it suspends.
+ */
+function moduleExtensionsOf(loaders: readonly EditorExtensionLoader[]): Promise<EditorExtension[]> {
+  const key = loaders
+    .map((loader) => {
+      let id = loaderIds.get(loader)
+      if (id === undefined) {
+        nextLoaderId += 1
+        id = nextLoaderId
+        loaderIds.set(loader, id)
+      }
+      return id
+    })
+    .join(',')
+  let found = loadedSets.get(key)
+  if (found === undefined) {
+    found = Promise.all(
+      loaders.map((loader) => {
+        let one = loaded.get(loader)
+        if (one === undefined) {
+          one = loader()
+          loaded.set(loader, one)
+        }
+        return one
+      }),
+    )
+    loadedSets.set(key, found)
+  }
+  return found
+}
 
 /** How long typing pauses before an autosave (frontend.md §6). */
 export const AUTOSAVE_DELAY_MS = 1500
@@ -79,7 +117,7 @@ export default function RichTextEditor({
   placeholder,
 }: RichTextEditorProps) {
   const bridge = useMemo(() => new SuggestionBridge(), [])
-  const moduleExtensions = useExtensionList('editorExtensions', vault)
+  const moduleExtensions = use(moduleExtensionsOf(useExtensionList('editorExtensions', vault)))
   const resolveName = useNameResolver(vault)
   /** The editor asking for a date (slash menu, `@date`): the date dialog inserts it there. */
   const [dating, setDating] = useState<Editor | null>(null)

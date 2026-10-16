@@ -1,4 +1,4 @@
-import { Extension, type Editor } from '@tiptap/core'
+import type { Editor } from '@tiptap/core'
 
 import type { Mutations } from '@/data'
 
@@ -8,12 +8,6 @@ export interface EditorContext {
   /** `null` in reader contexts. */
   mutations: Mutations | null
 }
-
-/** Carries the `EditorContext` in the editor's storage (set by `RichTextEditor`). */
-export const EditorContextExtension = Extension.create<object, EditorContext>({
-  name: 'loreContext',
-  addStorage: () => ({ vault: '', mutations: null }),
-})
 
 /** The editor's context (module extensions call this from their plugins and commands). */
 export function editorContextOf(editor: Editor): EditorContext {

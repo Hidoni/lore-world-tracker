@@ -9,10 +9,7 @@ import { EyeOffIcon, InfoIcon, LockIcon, QuoteIcon, TriangleAlertIcon, XIcon } f
 
 import { cn } from '@/lib/utils'
 
-export const CALLOUT_TONES = ['note', 'warning', 'quote'] as const
-export type CalloutTone = (typeof CALLOUT_TONES)[number]
-export const BLOCK_LEVELS = ['spoiler', 'private'] as const
-export type BlockLevel = (typeof BLOCK_LEVELS)[number]
+import { CALLOUT_TONES, type BlockLevel, type CalloutTone } from './block-kinds'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {

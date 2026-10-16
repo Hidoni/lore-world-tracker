@@ -6,7 +6,7 @@ import {
   Outlet,
   type RouterHistory,
 } from '@tanstack/react-router'
-import { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 
 import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
@@ -14,7 +14,6 @@ import { CausalityPage, EventOutline } from '@/core/events'
 import { ChangesPage } from '@/core/history'
 import { ModuleGate, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
-import { SettingsPage } from '@/core/settings'
 import {
   AuthorOnly,
   PlaceholderPage,
@@ -24,7 +23,6 @@ import {
   VaultScope,
 } from '@/core/shell'
 import { CalendarEditor, DimensionOverview, NewCalendar } from '@/core/time'
-import { TimelineView } from '@/core/timeline'
 import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
@@ -33,6 +31,16 @@ import { globalSearchSchema, parseSearch, stringifySearch } from './search'
 // Code-based route tree (frontend.md §4). Every route exists; most render placeholders until their
 // issues land. Module route factories attach under `/v/$vault/m/<id>` (modules.md §3), reachable
 // only while the module is active in the vault.
+
+/** Settings, loaded on first use (authors only; frontend.md §12). */
+const SettingsPage = lazy(() =>
+  import('@/core/settings/settings-page').then((loaded) => ({ default: loaded.SettingsPage })),
+)
+
+/** The timeline view, loaded on first use (frontend.md §12: heavy views load per route). */
+const TimelineView = lazy(() =>
+  import('@/core/timeline/timeline-view').then((loaded) => ({ default: loaded.TimelineView })),
+)
 
 const rootRoute = createRootRoute({
   validateSearch: (search) => globalSearchSchema.parse(search),
@@ -105,7 +113,11 @@ const timelineRoute = createRoute({
   },
   component: function TimelineRoute() {
     const { vault, dimension } = timelineRoute.useParams()
-    return <TimelineView key={dimension} vault={vault} dimensionId={dimension} />
+    return (
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+        <TimelineView key={dimension} vault={vault} dimensionId={dimension} />
+      </Suspense>
+    )
   },
 })
 const eventsRoute = createRoute({
@@ -292,7 +304,9 @@ const settingsIndexRoute = createRoute({
     const { vault } = settingsIndexRoute.useParams()
     return (
       <AuthorOnly vault={vault}>
-        <SettingsPage vault={vault} page="" />
+        <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+          <SettingsPage vault={vault} page="" />
+        </Suspense>
       </AuthorOnly>
     )
   },
@@ -304,7 +318,9 @@ const settingsPageRoute = createRoute({
     const { vault, _splat } = settingsPageRoute.useParams()
     return (
       <AuthorOnly vault={vault}>
-        <SettingsPage vault={vault} page={_splat ?? ''} />
+        <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Loading…</p>}>
+          <SettingsPage vault={vault} page={_splat ?? ''} />
+        </Suspense>
       </AuthorOnly>
     )
   },

@@ -134,6 +134,12 @@ export interface EditorExtension {
   readonly name: string
 }
 
+/**
+ * Loads a module's editor extension (a dynamic `import()`): TipTap and the module's nodes stay out
+ * of the initial bundle until an editor opens (frontend.md §12).
+ */
+export type EditorExtensionLoader = () => Promise<EditorExtension>
+
 /** A module's rendering of one of its rich-text nodes in read-only views (`RichTextView`). */
 export interface RichTextNodeProps {
   vault: string
@@ -173,7 +179,7 @@ export interface ModuleDefinition {
   fieldTypeEditors?: Readonly<Record<string, ComponentType<FieldEditorExtensionProps>>>
   timelineLayers?: readonly TimelineLayer[]
   graphStyles?: GraphStyles
-  editorExtensions?: readonly EditorExtension[]
+  editorExtensions?: readonly EditorExtensionLoader[]
   commands?: readonly Command[]
   settingsPages?: readonly SettingsPage[]
   searchResultRenderers?: Readonly<Record<string, ComponentType<SearchHitProps>>>

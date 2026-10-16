@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import type { ComponentType } from 'react'
+import { Suspense, type ComponentType } from 'react'
 
 import { ConsistencySettings } from '@/core/consistency'
 import { useExtensionList } from '@/core/modules'
@@ -53,7 +53,9 @@ export function SettingsPage({ vault, page }: { vault: string; page: string }) {
         {Page ? (
           <>
             <h2 className="sr-only">{current.title}</h2>
-            <Page vault={vault} />
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+              <Page vault={vault} />
+            </Suspense>
           </>
         ) : (
           <p className="text-muted-foreground">No settings page “{page}”.</p>
