@@ -735,3 +735,17 @@ def _custom_fields(b: _Builder, home: dict[str, Any]) -> None:
         "timeline_id": b.canary.public["Prime"]})  # fmt: skip
     assert fact.status_code == 201, fact.json()
     b.canary.hidden_ids.add(fact.json()["fact"]["id"])
+
+    # Custom kinds: a public entity of a live kind, a private one, and a public entity of an
+    # archived kind (hidden with its kind).
+    kinds = f"{api.base}/m/custom_fields/kinds"
+    for key in ("relic", "ghost"):
+        body = {"key": key, "label": key.title(), "plural": f"{key.title()}s"}
+        made = api.client.post(kinds, json=body, headers=HEADERS)
+        assert made.status_code == 201, made.json()
+    b.public("custom.relic", "Crown", **home)
+    b.hidden("custom.relic", visibility="private", **home)
+    b.hidden("custom.ghost", **home)
+    archived = api.client.patch(f"{kinds}/custom.ghost", json={"revision": 1, "archived": True},
+                                headers=HEADERS)  # fmt: skip
+    assert archived.status_code == 200, archived.json()

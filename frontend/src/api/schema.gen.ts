@@ -2302,6 +2302,79 @@ export interface paths {
         patch: operations["custom_fields_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Kinds
+         * @description The custom kinds (archived ones too), with how many entities have each.
+         */
+        get: operations["custom_fields_list_kinds"];
+        put?: never;
+        /**
+         * Create Kind
+         * @description A kind keyed `custom.<key>`: its entities work like any other kind's.
+         */
+        post: operations["custom_fields_create_kind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/kinds/{kind_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Kind */
+        get: operations["custom_fields_get_kind"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Kind
+         * @description Delete a kind no entity has (the trash included; `409 conflict` otherwise), with its
+         *     custom fields.
+         */
+        delete: operations["custom_fields_delete_kind"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Kind
+         * @description Change the kind; `archived` hides it and its entities (nothing is deleted).
+         */
+        patch: operations["custom_fields_update_kind"];
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/convert-kind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert Kind
+         * @description Give entities another kind (built-in ↔ custom), in one changeset: `field_mapping` moves
+         *     values, facts and visibility overrides to the new kind's fields (`null` drops them);
+         *     unmapped values stay stored. Kinds with data of their own (events, dimensions, timelines,
+         *     calendars, languages) can't be converted.
+         */
+        post: operations["custom_fields_convert_kind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3022,6 +3095,34 @@ export interface components {
              */
             results: components["schemas"]["ConvertResult"][];
         };
+        /**
+         * ConvertKind
+         * @description Give entities another kind (built-in ↔ custom), in one changeset. ``field_mapping`` moves
+         *     values (and facts, visibility overrides) from a field key to one of the new kind (``null``:
+         *     drop them); unmapped values stay stored, hidden unless the new kind has the field, so
+         *     converting back restores them.
+         */
+        ConvertKind: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Entity Ids */
+            entity_ids: string[];
+            /** To Kind */
+            to_kind: string;
+            /** Field Mapping */
+            field_mapping?: {
+                [key: string]: string | null;
+            };
+        };
+        /** ConvertKindResult */
+        ConvertKindResult: {
+            /** Entity Ids */
+            entity_ids: string[];
+            affected: components["schemas"]["Affected"];
+        };
         /** ConvertOut */
         ConvertOut: {
             /** Items */
@@ -3314,6 +3415,129 @@ export interface components {
         /** CustomFieldWriteResult */
         CustomFieldWriteResult: {
             field: components["schemas"]["CustomFieldOut"];
+            affected: components["schemas"]["Affected"];
+        };
+        /** CustomKindCreate */
+        CustomKindCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /**
+             * Key
+             * @description The slug: the kind's key is `custom.<slug>`.
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /** Plural */
+            plural: string;
+            /**
+             * Icon
+             * @default box
+             */
+            icon?: string;
+            /** @default #64748b */
+            color?: components["schemas"]["Color"];
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /**
+             * Allowed Parents
+             * @description Kinds entities of the kind may be nested under (its own key included).
+             */
+            allowed_parents?: string[];
+            capabilities?: components["schemas"]["KindCapabilitiesIn"];
+            /** @description New entities' visibility (default: the vault's). */
+            default_visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /** CustomKindDeleteResult */
+        CustomKindDeleteResult: {
+            /** Key */
+            key: string;
+            affected: components["schemas"]["Affected"];
+        };
+        /** CustomKindList */
+        CustomKindList: {
+            /** Items */
+            items: components["schemas"]["CustomKindOut"][];
+        };
+        /** CustomKindOut */
+        CustomKindOut: {
+            /**
+             * Key
+             * @description `custom.<slug>`: the `kind` of its entities.
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /** Plural */
+            plural: string;
+            /** Icon */
+            icon: string;
+            /** Color */
+            color: string;
+            /** Description */
+            description: string;
+            /** Allowed Parents */
+            allowed_parents: string[];
+            capabilities: components["schemas"]["KindCapabilitiesIn"];
+            default_visibility: components["schemas"]["Visibility"] | null;
+            /** Archived */
+            archived: boolean;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Entities
+             * @description Entities of the kind (the trash included).
+             */
+            entities: number;
+        };
+        /**
+         * CustomKindUpdate
+         * @description Only the members sent change. Archiving hides the kind and its entities (nothing is
+         *     deleted).
+         */
+        CustomKindUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            /** Label */
+            label?: string | null;
+            /** Plural */
+            plural?: string | null;
+            /** Icon */
+            icon?: string | null;
+            color?: components["schemas"]["Color"] | null;
+            /** Description */
+            description?: string | null;
+            /** Allowed Parents */
+            allowed_parents?: string[] | null;
+            capabilities?: components["schemas"]["KindCapabilitiesIn"] | null;
+            default_visibility?: components["schemas"]["Visibility"] | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /** CustomKindWriteResult */
+        CustomKindWriteResult: {
+            kind: components["schemas"]["CustomKindOut"];
             affected: components["schemas"]["Affected"];
         };
         /** Definition */
@@ -4617,6 +4841,28 @@ export interface components {
         JsonObject: {
             [key: string]: unknown;
         };
+        /**
+         * KindCapabilitiesIn
+         * @description What entities of the kind can do (``data-model.md`` §3.3); a custom kind always has a
+         *     body and is never time-bound or a system kind.
+         */
+        KindCapabilitiesIn: {
+            /**
+             * Has Existence
+             * @default true
+             */
+            has_existence?: boolean;
+            /**
+             * Can Be Multiversal
+             * @default true
+             */
+            can_be_multiversal?: boolean;
+            /**
+             * Can Have Worldline
+             * @default false
+             */
+            can_have_worldline?: boolean;
+        };
         /** KindCapabilitiesOut */
         KindCapabilitiesOut: {
             /** Has Body */
@@ -4653,6 +4899,8 @@ export interface components {
             /** Allowed Parents */
             allowed_parents: string[];
             capabilities: components["schemas"]["KindCapabilitiesOut"];
+            /** Default Visibility */
+            default_visibility: ("public" | "spoiler" | "private") | null;
             /** Fields */
             fields: components["schemas"]["FieldOut"][];
         };
@@ -12605,6 +12853,222 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomFieldWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_list_kinds: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomKindList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_create_kind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomKindCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomKindWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_get_kind: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description `custom.<slug>`. */
+                kind_key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomKindOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_delete_kind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `custom.<slug>`. */
+                kind_key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomKindDeleteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_update_kind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `custom.<slug>`. */
+                kind_key: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomKindUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomKindWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_convert_kind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertKind"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertKindResult"];
                 };
             };
             /** @description Problem */

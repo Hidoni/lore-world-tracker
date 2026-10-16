@@ -610,7 +610,8 @@ class EntityService:
         kind = self.kinds.get(entity.kind)
         if kind is None:
             raise ModuleDisabledError(
-                f"Entities of kind {entity.kind!r} are unavailable: their module is disabled."
+                f"Entities of kind {entity.kind!r} are unavailable: their module is disabled "
+                "(or the custom kind is archived)."
             )
         return kind
 

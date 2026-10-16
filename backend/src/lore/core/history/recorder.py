@@ -15,7 +15,8 @@
 **Merging** (decided 2026-10-04): consecutive saves of one entity by the same client within
 ``MERGE_WINDOW``, with nothing recorded in between, are merged into the previous changeset, so an
 editing session (autosave) is one history entry and one undo. Both changesets must be plain edits
-of the same single entity: no entity row inserted or deleted, no trash or restore, no undo.
+of the same single entity: no entity row inserted or deleted, no trash or restore, no kind change,
+no undo.
 """
 
 import copy
@@ -306,13 +307,16 @@ def _owners(session: Session, change: _Pending) -> list[str]:
 
 
 def _is_edit(changes: Sequence[_Pending]) -> bool:
-    """Plain edits only: no entity row inserted or deleted, no trash or restore."""
+    """Plain edits only: no entity row inserted or deleted, no trash or restore, no change of
+    kind (converting an entity is an undo step of its own)."""
     for change in changes:
         if change.table != ENTITY_TABLE:
             continue
         if change.before is None or change.after is None:
             return False
         if change.before.get("deleted_at") != change.after.get("deleted_at"):
+            return False
+        if change.before.get("kind") != change.after.get("kind"):
             return False
     return True
 

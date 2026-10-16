@@ -80,6 +80,7 @@ class ModuleSpec:
     field_contributions: tuple[FieldContribution, ...] = ()   # fields added to other modules' kinds
     field_types: tuple[FieldTypeDef, ...] = ()                # extra field value types (media: "media")
     field_providers: tuple[FieldProvider, ...] = ()           # fields kept in the vault DB (custom_fields)
+    kind_providers: tuple[KindProvider, ...] = ()             # kinds kept in the vault DB (custom kinds)
     link_types: tuple[LinkTypeDef, ...] = ()                  # keys must start with "<id>."
     models: tuple[type, ...] = ()                             # ORM classes of the module's tables ("<id>_…")
     history_tables: tuple[HistoryTable, ...] = ()            # how history treats each table (all must be listed)
@@ -130,7 +131,7 @@ undo (`data-model.md` §9). A module field type can set `FieldTypeDef.search_tex
 field) -> str`) to make its values searchable. `field_types` and `models` were added to the original
 design: the media module provides the `media` field type, and the explicit model list lets the
 registry validate table prefixes and include module tables in the migration metadata
-(`lore.modules.load_metadata`). `field_providers` (`(session, kind_keys) -> {kind_key: [FieldDef]}`, one cheap query) were added with custom fields (#133): they supply fields stored in the vault's database, `"*"` meaning every kind but the system ones. `ModuleRegistry.vault_kinds(session, enabled)` merges them (dropping fields whose type the vault lacks, values kept) and is what every reader of a kind's fields uses (entities, search, `GET /registry`, media refs, narrative rules). `on_enable`/`on_disable` receive a `VaultContext` (vault,
+(`lore.modules.load_metadata`). `field_providers` (`(session, kind_keys) -> {kind_key: [FieldDef]}`, one cheap query) were added with custom fields (#133): they supply fields stored in the vault's database, `"*"` meaning every kind but the system ones. `kind_providers` (`(session) -> [KindDef]`, #134) supply the vault's live custom kinds the same way. `ModuleRegistry.vault_kinds(session, enabled)` merges both (dropping fields whose type the vault lacks, values kept) and is what every reader of the vault's kinds or a kind's fields uses (entities, links, link types, search, graph, history, consistency, `GET /registry`, media). Enabling or disabling a module with providers re-indexes every entity for search. `on_enable`/`on_disable` receive a `VaultContext` (vault,
 request session inside its transaction, registry). `kind_extensions` and `purge_hooks`
 (`lore.core.entities.extensions`) were added with the entity service: a `KindExtension(kind, write,
 read)` validates and stores the `ext` object of entity writes (called on every create and on

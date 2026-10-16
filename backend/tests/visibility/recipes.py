@@ -750,3 +750,14 @@ def custom_fields_list(c: Canary) -> Iterator[Call]:
 def custom_fields_field(c: Canary) -> Iterator[Call]:
     for hidden_id in sorted(c.hidden_ids):
         yield Call(f"{_v(c)}/m/custom_fields/fields/{hidden_id}", status=404)
+
+
+@recipe(f"{V}/m/custom_fields/kinds")
+def custom_fields_kinds(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/custom_fields/kinds", status=404)
+
+
+@recipe(f"{V}/m/custom_fields/kinds/{{kind_key}}")
+def custom_fields_kind(c: Canary) -> Iterator[Call]:
+    for key in ("custom.relic", "custom.ghost"):
+        yield Call(f"{_v(c)}/m/custom_fields/kinds/{key}", status=404)
