@@ -64,17 +64,20 @@ export function NewMapDialog({
           onSubmit={(event) => {
             event.preventDefault()
             if (image === null || name.trim() === '') return
-            create.mutate(
-              { location_id: location, media_id: image.id, name: name.trim() },
-              {
-                onSuccess: (result) => {
+            // A promise, not mutate's callbacks: those are dropped if this dialog remounts
+            // while the list of maps refreshes.
+            create
+              .mutateAsync({ location_id: location, media_id: image.id, name: name.trim() })
+              .then(
+                (result) => {
                   onCreated(result.map.id)
                 },
-                onError: (error) => {
-                  toast.error(`The map wasn't created: ${error.message}`)
+                (error: unknown) => {
+                  toast.error(
+                    `The map wasn't created: ${error instanceof Error ? error.message : 'error'}`,
+                  )
                 },
-              },
-            )
+              )
           }}
         >
           <label htmlFor="new-map-name" className="text-sm">

@@ -39,6 +39,12 @@ All notable changes to this project are documented here. The format follows
   deleted 30 days later; `lore vault check` reports missing files. New tables `media_items`,
   `media_refs` and `media_gallery` (migrated automatically).
 
+### Fixed
+
+- Map pins near the bottom of the page can be clicked: the page no longer scrolls to the map (or
+  the map to the pin) between pressing and releasing the mouse, which made the click miss (#131).
+- Creating a location's first map no longer reopens the empty "New map" dialog (#131).
+
 ## [0.8.0] - 2026-10-15
 
 Advanced time (M9): stories that branch, worlds whose time runs differently and characters who

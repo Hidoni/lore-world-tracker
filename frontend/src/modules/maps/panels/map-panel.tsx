@@ -21,47 +21,25 @@ export function MapPanel({ vault, entityId }: EntityViewProps) {
   if (maps.isPending) return <p className="text-sm text-muted-foreground">Loading…</p>
   const items = maps.data?.items ?? []
   const shown = items.find((map) => map.id === chosen) ?? items[0]
-  const newMap = editable && (
-    <>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          setAdding(true)
-        }}
-      >
-        <PlusIcon aria-hidden />
-        New map
-      </Button>
-      {adding && (
-        <NewMapDialog
-          vault={vault}
-          location={entityId}
-          defaultName={place.data?.name ?? ''}
-          onCreated={(map) => {
-            setAdding(false)
-            setChosen(map)
-          }}
-          onClose={() => {
-            setAdding(false)
-          }}
-        />
-      )}
-    </>
-  )
-  if (shown === undefined) {
-    return (
-      <div className="flex items-center gap-3">
-        <p className="text-sm text-muted-foreground">No maps of this place.</p>
-        {newMap}
-      </div>
-    )
-  }
+  // One tree whether or not there are maps: the dialog keeps its place (and its pending save)
+  // when the new map turns the panel from "No maps" into the map view.
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 text-sm">
-        {newMap}
-        {items.length > 1 && (
+        {editable && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setAdding(true)
+            }}
+          >
+            <PlusIcon aria-hidden />
+            New map
+          </Button>
+        )}
+        {shown === undefined && <p className="text-muted-foreground">No maps of this place.</p>}
+        {items.length > 1 && shown !== undefined && (
           <label className="flex items-center gap-2">
             Map
             <select
@@ -79,28 +57,46 @@ export function MapPanel({ vault, entityId }: EntityViewProps) {
             </select>
           </label>
         )}
-        <Link
-          className="ml-auto flex items-center gap-1 text-muted-foreground hover:underline"
-          to="/v/$vault/m/$module/$"
-          params={{ vault, module: 'maps', _splat: `maps/${shown.id}` }}
-        >
-          <Maximize2Icon aria-hidden className="size-3.5" />
-          Full screen
-        </Link>
+        {shown !== undefined && (
+          <Link
+            className="ml-auto flex items-center gap-1 text-muted-foreground hover:underline"
+            to="/v/$vault/m/$module/$"
+            params={{ vault, module: 'maps', _splat: `maps/${shown.id}` }}
+          >
+            <Maximize2Icon aria-hidden className="size-3.5" />
+            Full screen
+          </Link>
+        )}
       </div>
-      <MapView
-        vault={vault}
-        mapId={shown.id}
-        className="h-96"
-        onOpenMap={(map) => {
-          if (items.some((item) => item.id === map)) setChosen(map)
-          else
-            void navigate({
-              to: '/v/$vault/m/$module/$',
-              params: { vault, module: 'maps', _splat: `maps/${map}` },
-            })
-        }}
-      />
+      {shown !== undefined && (
+        <MapView
+          vault={vault}
+          mapId={shown.id}
+          className="h-96"
+          onOpenMap={(map) => {
+            if (items.some((item) => item.id === map)) setChosen(map)
+            else
+              void navigate({
+                to: '/v/$vault/m/$module/$',
+                params: { vault, module: 'maps', _splat: `maps/${map}` },
+              })
+          }}
+        />
+      )}
+      {adding && (
+        <NewMapDialog
+          vault={vault}
+          location={entityId}
+          defaultName={place.data?.name ?? ''}
+          onCreated={(map) => {
+            setAdding(false)
+            setChosen(map)
+          }}
+          onClose={() => {
+            setAdding(false)
+          }}
+        />
+      )}
     </div>
   )
 }

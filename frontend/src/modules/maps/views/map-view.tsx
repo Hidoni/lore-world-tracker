@@ -103,6 +103,8 @@ function LoadedMap({
 }) {
   const registry = useKindRegistry(vault)
   const asOf = useEntityAsOf(vault, detail.location_id)
+  // A new object each render: memos depend on whether there is a cursor (so markers stay put).
+  const cursor = asOf !== undefined
   const [mode, setMode] = useState<CursorMode>('hide')
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
   const [selected, setSelected] = useState<string | null>(focusPin)
@@ -124,11 +126,11 @@ function LoadedMap({
   )
   const shown: ShownPin[] | null = useMemo(() => {
     // Editing: every pin of the map, whenever it stands.
-    if (asOf === undefined || editing) return pinsToShow(detail.pins, null, mode, hidden)
+    if (!cursor || editing) return pinsToShow(detail.pins, null, mode, hidden)
     const now = current.data?.pins
     if (now === undefined) return null
     return pinsToShow(mode === 'ghost' ? (timeline.data?.pins ?? now) : now, now, mode, hidden)
-  }, [asOf, editing, detail.pins, current.data, timeline.data, mode, hidden])
+  }, [cursor, editing, detail.pins, current.data, timeline.data, mode, hidden])
   const createPin = useCreatePin(vault, detail.id)
   const updatePin = useUpdatePin(vault)
   const failed = (error: Error) => {

@@ -473,5 +473,10 @@ describe('maps module', () => {
         body: { location_id: 'fort', media_id: 'img9', name: 'Fort' },
       })
     })
+    // The dialog closes on the new map.
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'New map' })).toBeNull()
+    })
+    expect(await within(panel).findByRole('link', { name: 'Full screen' }, WAIT)).toBeVisible()
   })
 })
