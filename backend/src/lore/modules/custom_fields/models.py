@@ -4,6 +4,8 @@
   a system kind (``"*"``). Keys are ``custom.<slug>``, unique per kind (a ``"*"`` key is unique
   everywhere). Values live where every field's do: ``entities.fields`` and, for temporal fields,
   ``entity_facts``.
+- ``custom_fields_kinds``: authors' own kinds, keyed ``custom.<slug>``. Archived kinds leave the
+  vault's kinds (their entities are hidden); a kind is deleted only when no entity has it.
 """
 
 from typing import Any
@@ -36,3 +38,18 @@ class CustomFieldDef(IdMixin, RevisionMixin, TimestampsMixin, Base):
         UniqueConstraint("kind_key", "key", name="uq_custom_fields_defs_kind_key"),
         Index("ix_custom_fields_defs_key", "key"),
     )
+
+
+class CustomKind(RevisionMixin, TimestampsMixin, Base):
+    __tablename__ = "custom_fields_kinds"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    label: Mapped[str] = mapped_column(String)
+    plural: Mapped[str] = mapped_column(String)
+    icon: Mapped[str] = mapped_column(String)
+    color: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String, default="", server_default="")
+    allowed_parents: Mapped[list[str]] = mapped_column(JSON, default=list)
+    capabilities: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
+    default_visibility: Mapped[str | None] = mapped_column(String)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")

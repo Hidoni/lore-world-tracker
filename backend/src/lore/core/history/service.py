@@ -103,9 +103,9 @@ class HistoryService:
         )
         entity = self.session.get(Entity, entity_id)
         if entity is not None:
-            kinds = {
-                k.key for k in self.registry.kinds_for(enabled_modules(self.session, self.registry))
-            }
+            kinds = self.registry.vault_kind_keys(
+                self.session, enabled_modules(self.session, self.registry)
+            )
             if entity.kind not in kinds:
                 raise ModuleDisabledError(f"The module of kind {entity.kind!r} is disabled.")
         elif self.session.scalar(select(func.count()).select_from(touching.subquery())) == 0:

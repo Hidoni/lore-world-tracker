@@ -51,6 +51,9 @@ type DerivedHook = Callable[["VaultContext", Sequence["RecordedChange"]], None]
 # vault's kind keys, the fields to add to each (by kind key). Read on every request that builds the
 # vault's kinds (``ModuleRegistry.vault_kinds``), so it must be one cheap query.
 type FieldProvider = Callable[[Session, Sequence[str]], Mapping[str, Sequence[FieldDef]]]
+# Kinds a module keeps in the vault's database (the custom_fields module's custom kinds): the live
+# (not archived) ones, read like ``FieldProvider``s on every request that builds the vault's kinds.
+type KindProvider = Callable[[Session], Sequence[KindDef]]
 # A daily job per open vault in author mode (the media module's garbage collection); ``now`` is
 # the scheduler's clock.
 type MaintenanceTask = Callable[["VaultContext", datetime], None]
@@ -77,6 +80,7 @@ class ModuleSpec:
     field_contributions: tuple[FieldContribution, ...] = ()  # fields on other modules' kinds
     field_types: tuple[FieldTypeDef, ...] = ()  # e.g. the media module's ``media`` type
     field_providers: tuple[FieldProvider, ...] = ()  # per-vault fields (custom fields)
+    kind_providers: tuple[KindProvider, ...] = ()  # per-vault kinds (custom kinds)
     link_types: tuple[LinkTypeDef, ...] = ()  # keys start with "<id>."
     # SQLAlchemy model classes of the module's tables (names start with "<id>_"). Listed
     # explicitly so the registry can validate them and include them in the migration metadata.

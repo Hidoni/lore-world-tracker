@@ -127,7 +127,7 @@ class GraphReader:
 
     def _node_statement(self, query: Query) -> Any:
         enabled = enabled_modules(self.session, self.registry)
-        kinds = {kind.key for kind in self.registry.kinds_for(enabled)}
+        kinds = self.registry.vault_kind_keys(self.session, enabled)
         if query.kinds:
             kinds &= set(query.kinds)
         conditions: list[Any] = [

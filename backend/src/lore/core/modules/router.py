@@ -69,6 +69,7 @@ class KindOut(BaseModel):
     description: str
     allowed_parents: list[str]
     capabilities: KindCapabilitiesOut
+    default_visibility: Literal["public", "spoiler", "private"] | None
     fields: list[FieldOut]
 
 

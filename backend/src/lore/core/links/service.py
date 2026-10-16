@@ -161,7 +161,7 @@ class LinkService:
         self.vault = vault  # reads for readers need it (resolving hidden anchors)
         self._reader_times: ReaderTimes | None = None
         enabled = enabled_modules(session, registry)
-        self.kinds = {kind.key for kind in registry.kinds_for(enabled)}
+        self.kinds = registry.vault_kind_keys(session, enabled)
         self.catalog = LinkTypeCatalog(session, registry, enabled)
 
     def _shown(self, link: Link) -> LinkOut:

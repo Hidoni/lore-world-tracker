@@ -77,7 +77,7 @@ def link_type_out(info: LinkTypeInfo) -> LinkTypeOut:
 class LinkTypeCatalog:
     def __init__(self, session: Session, registry: ModuleRegistry, enabled: Iterable[str]) -> None:
         enabled = frozenset(enabled)
-        available = {kind.key for kind in registry.kinds_for(enabled)}
+        available = registry.vault_kind_keys(session, enabled)
         self._offered: dict[str, LinkTypeInfo] = {
             t.definition.key: LinkTypeInfo(t.definition, t.owner, False)
             for t in registry.link_types_for(enabled)

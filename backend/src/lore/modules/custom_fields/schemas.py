@@ -107,3 +107,98 @@ class CustomFieldDeleteResult(BaseModel):
 
 def option_dicts(options: list[FieldOptionIn]) -> list[dict[str, Any]]:
     return [option.model_dump() for option in options]
+
+
+# --- custom kinds --------------------------------------------------------------------------------
+
+Icon = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{0,49}$")]
+Description = Annotated[str, StringConstraints(max_length=2000)]
+
+
+class KindCapabilitiesIn(BaseModel):
+    """What entities of the kind can do (``data-model.md`` §3.3); a custom kind always has a
+    body and is never time-bound or a system kind."""
+
+    has_existence: bool = True
+    can_be_multiversal: bool = True
+    can_have_worldline: bool = False
+
+
+class CustomKindOut(BaseModel):
+    key: str = Field(description="`custom.<slug>`: the `kind` of its entities.")
+    label: str
+    plural: str
+    icon: str
+    color: str
+    description: str
+    allowed_parents: list[str]
+    capabilities: KindCapabilitiesIn
+    default_visibility: Visibility | None
+    archived: bool
+    revision: int
+    created_at: datetime
+    updated_at: datetime
+    entities: int = Field(description="Entities of the kind (the trash included).")
+
+
+class CustomKindList(BaseModel):
+    items: list[CustomKindOut]
+
+
+class CustomKindCreate(SuppressIn):
+    key: Slug = Field(description="The slug: the kind's key is `custom.<slug>`.")
+    label: Label
+    plural: Label
+    icon: Icon = "box"
+    color: Color = "#64748b"
+    description: Description = ""
+    allowed_parents: list[KindKey] = Field(
+        default_factory=list,
+        description="Kinds entities of the kind may be nested under (its own key included).",
+    )
+    capabilities: KindCapabilitiesIn = Field(default_factory=KindCapabilitiesIn)
+    default_visibility: Visibility | None = Field(
+        default=None, description="New entities' visibility (default: the vault's)."
+    )
+
+
+class CustomKindUpdate(SuppressIn):
+    """Only the members sent change. Archiving hides the kind and its entities (nothing is
+    deleted)."""
+
+    revision: int
+    label: Label | None = None
+    plural: Label | None = None
+    icon: Icon | None = None
+    color: Color | None = None
+    description: Description | None = None
+    allowed_parents: list[KindKey] | None = None
+    capabilities: KindCapabilitiesIn | None = None
+    default_visibility: Visibility | None = None
+    archived: bool | None = None
+
+
+class CustomKindWriteResult(BaseModel):
+    kind: CustomKindOut
+    affected: Affected
+
+
+class CustomKindDeleteResult(BaseModel):
+    key: str
+    affected: Affected
+
+
+class ConvertKind(SuppressIn):
+    """Give entities another kind (built-in ↔ custom), in one changeset. ``field_mapping`` moves
+    values (and facts, visibility overrides) from a field key to one of the new kind (``null``:
+    drop them); unmapped values stay stored, hidden unless the new kind has the field, so
+    converting back restores them."""
+
+    entity_ids: list[str] = Field(min_length=1, max_length=500)
+    to_kind: KindKey
+    field_mapping: dict[str, str | None] = Field(default_factory=dict)
+
+
+class ConvertKindResult(BaseModel):
+    entity_ids: list[str]
+    affected: Affected

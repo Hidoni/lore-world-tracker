@@ -100,7 +100,7 @@ class CustomFields:
         self.session = context.session
         self.registry = context.registry
         enabled = enabled_modules(self.session, self.registry)
-        self.kinds = {kind.key: kind for kind in self.registry.kinds_for(enabled)}
+        self.kinds = {kind.key: kind for kind in self.registry.vault_kinds(self.session, enabled)}
         self.field_types = self.registry.field_types_for(enabled)
 
     # --- reads ----------------------------------------------------------------------------------

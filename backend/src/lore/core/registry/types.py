@@ -101,6 +101,8 @@ class KindDef:
     allowed_parents: tuple[str, ...] = ()
     fields: tuple[FieldDef, ...] = ()
     capabilities: KindCapabilities = field(default_factory=KindCapabilities)
+    # New entities' visibility when the write sends none (else the vault's default).
+    default_visibility: Visibility | None = None
 
 
 @dataclass(frozen=True)

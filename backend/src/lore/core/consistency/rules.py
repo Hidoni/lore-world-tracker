@@ -306,7 +306,8 @@ def _kinds(ctx: RuleContext) -> dict[str, tuple[str, ...]]:
     from lore.core.modules.service import enabled_modules  # noqa: PLC0415 (import cycle)
 
     enabled = enabled_modules(ctx.session, ctx.registry)
-    return {k.key: k.definition.allowed_parents for k in ctx.registry.kinds_for(enabled)}
+    kinds = ctx.registry.vault_kinds(ctx.session, enabled)
+    return {k.key: k.definition.allowed_parents for k in kinds}
 
 
 def _not_allowed(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[FindingDraft]:

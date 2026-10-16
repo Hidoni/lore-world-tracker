@@ -244,7 +244,9 @@ class EntityService:
             body_schema_version=RICHTEXT_SCHEMA_VERSION if data.body is not None else None,
             fields=self._rich_fields(kind, kind_fields.merge_values({}, data.fields), data.fields),
             field_visibility=kind_fields.merge_visibility({}, data.field_visibility),
-            visibility=data.visibility or self._default_visibility(),
+            visibility=(
+                data.visibility or kind.definition.default_visibility or self._default_visibility()
+            ),
             icon=data.icon,
             color=data.color.lower() if data.color else None,
             sort_key=data.sort_key,
