@@ -167,7 +167,7 @@ class Maps:
         )  # fmt: skip
         self.session.add(row)
         self.session.flush()
-        media.reference(self.session, image.id, location.id, MEDIA_CONTEXT, row.visibility)
+        self._reference_images(location.id)
         return MapWriteResult(map=map_out(row), affected=self._affected([location.id]))
 
     def _check_revision(self, revision: int, current: int, what: str) -> None:

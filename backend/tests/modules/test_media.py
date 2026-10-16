@@ -19,7 +19,7 @@ from lore.modules.media import api as media_api
 from lore.modules.media import storage
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect
-from lore.modules.media.publish import publish_media
+from lore.modules.media.publish import copy_visible_media
 from tests.entity_api import HEADERS, LinkApi, invalid, make_client
 from tests.entity_modules import with_real_modules
 
@@ -350,7 +350,7 @@ def test_publishing_copies_only_what_readers_see(
     registry = client.app.state.registry  # type: ignore[attr-defined]
     target = tmp_path / "published"
     with vault.sessions() as session:
-        copied = publish_media(VaultContext(vault, session, registry), target)
+        copied = copy_visible_media(VaultContext(vault, session, registry), target)
     assert copied == [shown["id"]]
     assert storage.file_path(target, shown["sha256"]).is_file()
     assert storage.thumb_path(target, shown["sha256"], 160).is_file()

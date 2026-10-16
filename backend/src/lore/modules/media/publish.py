@@ -1,24 +1,34 @@
 """The media module's publish contributor (``docs/modules/media.md``, Visibility, backup,
-publish): a published snapshot gets the files of the items readers may see, with their
-thumbnails made in advance (a reader-side server may not be able to write). Published snapshots
-themselves arrive with #140, which calls this through ``ModuleSpec.publish_contributors``."""
+publish): a published snapshot keeps the items readers may see, with their files and their
+thumbnails made in advance (a reader-side server may not be able to write); the others are
+deleted from it (``ModuleSpec.publish_contributors``, ``lore.core.vaults.publish``)."""
 
 import shutil
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from lore.core.modules.spec import VaultContext
+from lore.core.vaults.publish import PublishContext
 from lore.core.visibility import READER
 from lore.modules.media import storage
 from lore.modules.media.models import MediaItem
 from lore.modules.media.service import Media
 
 
-def publish_media(context: VaultContext, target: Path) -> list[str]:
-    """Copy the reader-visible items' files (and, for raster images, every thumbnail size) into
-    ``target`` (a vault folder being published) at the same paths; returns their ids."""
-    source = context.vault.info.path
+def publish_media(publish: PublishContext) -> None:
+    """Delete the items readers can't see from the snapshot, and copy the others' files."""
+    kept = copy_visible_media(publish.context, publish.target, source=publish.source)
+    publish.context.session.execute(delete(MediaItem).where(MediaItem.id.not_in(kept)))
+
+
+def copy_visible_media(
+    context: VaultContext, target: Path, *, source: Path | None = None
+) -> list[str]:
+    """Copy the reader-visible items' files (and, for raster images, every thumbnail size) from
+    ``source`` (default: the context's vault folder) into ``target`` (a vault folder being
+    published) at the same paths; returns their ids."""
+    source = source or context.vault.info.path
     service = Media(context, READER)
     rows = context.session.execute(
         select(MediaItem.id, MediaItem.sha256, MediaItem.mime)
@@ -46,4 +56,4 @@ def publish_media(context: VaultContext, target: Path) -> list[str]:
     return copied
 
 
-__all__ = ["publish_media"]
+__all__ = ["copy_visible_media", "publish_media"]

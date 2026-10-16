@@ -38,11 +38,14 @@ if TYPE_CHECKING:
     from lore.core.search.documents import SearchContributor
     from lore.core.time.slots import SlotProvider
     from lore.core.vaults import OpenVault
+    from lore.core.vaults.publish import PublishContext
 
 type TimelineTableSpec = object
 type GraphContributor = object
 type BackupContributor = object
-type PublishContributor = object
+# Sanitizes a module's part of a published snapshot and copies its files (media), given the
+# snapshot's session and the source and target vault folders (``lore.core.vaults.publish``).
+type PublishContributor = Callable[["PublishContext"], None]
 # Rebuilds a module's derived rows from the changes a changeset is about to record (``media_refs``
 # from bodies, fields and covers); runs before the consistency check, undo included. Raising a
 # typed error refuses the write.
