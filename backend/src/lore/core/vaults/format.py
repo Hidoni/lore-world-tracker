@@ -66,6 +66,9 @@ class VaultManifest(BaseModel):
     published_at: datetime | None = None
 
 
+_SNAPSHOT_KEYS = ("source_vault_id", "published_at")
+
+
 class ManifestError(ValueError):
     """``vault.json`` is missing, unreadable, invalid or from a newer app."""
 
@@ -138,7 +141,11 @@ def read_manifest(folder: Path) -> tuple[VaultManifest, bool]:
 
 def write_manifest(folder: Path, manifest: VaultManifest) -> None:
     """Replace ``<folder>/vault.json`` atomically (write a temp file, fsync, rename)."""
-    text = json.dumps(manifest.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n"
+    data = manifest.model_dump(mode="json")
+    for key in _SNAPSHOT_KEYS:  # only published snapshots carry them
+        if data.get(key) is None:
+            data.pop(key, None)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     target = folder / MANIFEST_NAME
     temporary = folder / f".{MANIFEST_NAME}.tmp"
     with temporary.open("w", encoding="utf-8") as handle:
