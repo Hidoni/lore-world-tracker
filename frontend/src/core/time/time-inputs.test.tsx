@@ -144,6 +144,19 @@ describe('TimePointPicker', () => {
     expect(emitted()).toBeNull()
   })
 
+  it('takes the default calendar when the calendars arrive after it opened', async () => {
+    const { dimension, lenses } = presetLenses('gregorian')
+    const noop = () => undefined
+    const { rerender } = render(
+      <TimePointPicker dimension={dimension} lenses={[]} value={null} onChange={noop} />,
+    )
+    expect(screen.queryByRole('combobox', { name: 'Precision' })).toBeNull()
+    rerender(<TimePointPicker dimension={dimension} lenses={lenses} value={null} onChange={noop} />)
+    await userEvent.click(screen.getByRole('tab', { name: 'Date' }))
+    expect(screen.getByRole('combobox', { name: 'Precision' })).toBeInTheDocument()
+    expect(select('Calendar')).toHaveValue(lenses[0]?.id)
+  })
+
   it('round-trips a stored time point through the engine', async () => {
     const { lenses } = presetLenses('alternating-years')
     const calendar = lenses[0]?.calendar

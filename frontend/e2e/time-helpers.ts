@@ -54,6 +54,8 @@ export function yearStart(year: number): bigint {
 export async function moveCursor(page: Page, year: number, month: string, day: number) {
   await page.getByRole('button', { name: /^Time cursor:/ }).click()
   const popover = page.getByRole('dialog')
+  // The picker opens on the absolute tab while the display calendar is still loading.
+  await popover.getByRole('group', { name: 'Moment' }).getByRole('tab', { name: 'Date' }).click()
   await typeDay(popover, year, month, day, 'Moment')
   await popover.getByRole('button', { name: 'Go to this moment' }).click()
   await expect(page.getByRole('button', { name: /^Time cursor:/ })).toHaveAccessibleName(

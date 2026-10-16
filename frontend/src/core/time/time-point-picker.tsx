@@ -273,9 +273,17 @@ export function TimePointPicker({
   const [draft, setDraft] = useState(() => draftOf(value, lenses, dimension.defaultCalendarId))
   const id = useId()
   const calendars = lenses.filter((lens) => lens.calendar !== null)
-  const lens = calendars.find((candidate) => candidate.id === draft.calendarId) ?? null
+  /** The draft's calendar; none picked yet (the calendars loaded after the picker opened): the
+   * dimension's default one, else the first. */
+  const lensOf = (calendarId: string | null): Lens | null =>
+    calendarId === null
+      ? (calendars.find((candidate) => candidate.id === dimension.defaultCalendarId) ??
+        calendars[0] ??
+        null)
+      : (calendars.find((candidate) => candidate.id === calendarId) ?? null)
+  const lens = lensOf(draft.calendarId)
   const calendar = lens?.calendar ?? null
-  const resolved = resolve(draft, calendar)
+  const resolved = resolve({ ...draft, calendarId: lens?.id ?? null }, calendar)
   const absoluteOk = draft.absolute !== null && draft.absolute <= dimension.duration
   const current: TimePoint | null =
     draft.tab === 'relative'
@@ -308,8 +316,10 @@ export function TimePointPicker({
           : { ...next.relativePoint, approximate: next.approximate },
       )
     } else if (next.tab === 'date') {
-      const nextLens = calendars.find((candidate) => candidate.id === next.calendarId) ?? null
-      onChange(resolve(next, nextLens?.calendar ?? null).point)
+      const nextLens = lensOf(next.calendarId)
+      onChange(
+        resolve({ ...next, calendarId: nextLens?.id ?? null }, nextLens?.calendar ?? null).point,
+      )
     } else {
       onChange(
         next.absolute !== null && next.absolute <= dimension.duration
@@ -370,7 +380,7 @@ export function TimePointPicker({
                 id={`${id}-calendar`}
                 className={SELECT_CLASS}
                 onKeyDown={confirmOnEnter}
-                value={draft.calendarId ?? ''}
+                value={lens?.id ?? ''}
                 onChange={(event) => {
                   update({
                     calendarId: event.target.value,

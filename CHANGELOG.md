@@ -23,7 +23,12 @@ All notable changes to this project are documented here. The format follows
   capabilities, archive) and Settings → Fields (per kind, by section, reorder, option editor,
   temporal and visibility settings, safe type changes with a value-mapping step, delete with
   values). Relation fields ("Wielder → Character") are custom link types from a kind and show as
-  rows in a Relations panel on its entities' pages.
+  rows in a Relation fields panel on its entities' pages.
+
+### Fixed
+
+- A date picker opened before the dimension's calendars loaded (the time cursor right after a
+  page load) showed no date fields; it now takes the default calendar once they arrive (#136).
 
 ## [0.9.0] - 2026-10-16
 
