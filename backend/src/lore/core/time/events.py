@@ -956,6 +956,37 @@ def event_tree(
         )
         found.sort(key=lambda pair: _order(pair[0], pair[1]))
         found = found[: limit + 1]
+    elif len(view.lineage) == 1:
+        # The roots: one probe per event with a parent (or series) for whether the tree shows
+        # it, instead of listing every event the timeline shows twice (1.3 s in a large world,
+        # #144). The probes need the candidates in a subquery: they read the same tables.
+        rows = statement.with_only_columns(
+            Event.entity_id, Event.start_t, Event.end_t, Entity.sort_name,
+            Entity.parent_id, Event.series_entity_id,
+        ).subquery("tree_rows")  # fmt: skip
+
+        def is_shown(ref: Any) -> Any:
+            return shown(view.select(Event, where=lambda e: [e.entity_id == ref])).exists()
+
+        roots = (
+            select(rows.c.entity_id)
+            .where(
+                or_(rows.c.parent_id.is_(None), ~is_shown(rows.c.parent_id)),
+                or_(
+                    rows.c.parent_id.is_not(None),
+                    rows.c.series_entity_id.is_(None),
+                    ~is_shown(rows.c.series_entity_id),
+                ),
+            )
+            .order_by(rows.c.start_t, rows.c.end_t.desc(), rows.c.sort_name, rows.c.entity_id)
+            .limit(limit + 1)
+        )
+        root_ids: list[str] = list(session.scalars(roots))
+        found = [
+            (row, entity)
+            for row, entity in session.execute(statement.where(Event.entity_id.in_(root_ids)))
+        ]
+        found.sort(key=lambda pair: _order(pair[0], pair[1]))
     else:
         ids = shown(view.select(Event)).with_only_columns(Event.entity_id).scalar_subquery()
         found = page_of(

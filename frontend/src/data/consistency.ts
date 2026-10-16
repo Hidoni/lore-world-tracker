@@ -8,17 +8,21 @@ import type { Query } from './source'
 
 type Schemas = components['schemas']
 
-/** Consistency findings (author-only: readers get `404`); `enabled: false` skips the fetch. */
+/**
+ * Consistency findings (author-only: readers get `404`); `enabled: false` skips the fetch,
+ * `staleTime` keeps a read for longer (writes invalidate findings either way).
+ */
 export function useFindings(
   vault: string,
   query: Query<'consistency_findings'> = {},
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; staleTime?: number } = {},
 ) {
   const source = useDataSource()
   return useQuery({
     queryKey: keys.findings(vault, query),
     queryFn: () => source.findings(vault, query),
     enabled: options.enabled ?? true,
+    ...(options.staleTime === undefined ? {} : { staleTime: options.staleTime }),
     meta: { toast: false },
   })
 }

@@ -8,6 +8,12 @@ type Severity = components['schemas']['ShownSeverity']
 
 /** Findings counted for badges: one query shared by every badge (the open findings, worst first). */
 const BADGE_QUERY = { limit: 500 }
+/**
+ * How long the badges' counts are kept before a page reads them again: writes invalidate them, so
+ * this only delays changes made elsewhere (a scan from the CLI). Reading 500 findings of a large
+ * vault on every page took longer than the rest of the page (#144).
+ */
+const BADGE_STALE_MS = 60_000
 const RANK: Record<Severity, number> = { error: 0, warning: 1, info: 2 }
 
 export interface FindingCount {
@@ -22,7 +28,7 @@ export interface FindingCount {
  */
 export function useFindingCounts(vault: string): ReadonlyMap<string, FindingCount> {
   const author = useMutations() !== null
-  const findings = useFindings(vault, BADGE_QUERY, { enabled: author })
+  const findings = useFindings(vault, BADGE_QUERY, { enabled: author, staleTime: BADGE_STALE_MS })
   const counts = new Map<string, FindingCount>()
   for (const finding of findings.data?.items ?? []) {
     for (const subject of finding.subjects) {
