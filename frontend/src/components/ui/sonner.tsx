@@ -4,11 +4,11 @@ import {
   Loader2Icon,
   OctagonXIcon,
   TriangleAlertIcon,
-} from 'lucide-react'
-import { Toaster as Sonner, type ToasterProps } from 'sonner'
+} from "lucide-react"
+import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 // Local edit (frontend.md §11): the theme comes from @/lib/theme instead of next-themes.
-import { useTheme } from '@/lib/theme'
+import { useTheme } from "@/lib/theme"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useTheme((state) => state.preference)
@@ -26,10 +26,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          '--normal-bg': 'var(--popover)',
-          '--normal-text': 'var(--popover-foreground)',
-          '--normal-border': 'var(--border)',
-          '--border-radius': 'var(--radius)',
+          "--normal-bg": "var(--popover)",
+          "--normal-text": "var(--popover-foreground)",
+          "--normal-border": "var(--border)",
+          "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
       {...props}

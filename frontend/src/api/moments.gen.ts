@@ -5,602 +5,602 @@ import type { MomentShape } from './moment'
 
 /** Where moments sit in each API schema that holds any (`MomentShape`). */
 export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
-  Age: {
-    o: {
-      t: 'm',
-    },
+  "Age": {
+    "o": {
+      "t": "m"
+    }
   },
-  Backlink: {
-    o: {
-      links: {
-        a: {
-          r: 'EntityLink',
-        },
+  "Backlink": {
+    "o": {
+      "links": {
+        "a": {
+          "r": "EntityLink"
+        }
+      }
+    }
+  },
+  "Backlinks": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "Backlink"
+        }
+      }
+    }
+  },
+  "BranchDiff": {
+    "o": {
+      "branch_t": "m",
+      "created": {
+        "a": {
+          "r": "DiffRecord"
+        }
       },
-    },
-  },
-  Backlinks: {
-    o: {
-      items: {
-        a: {
-          r: 'Backlink',
-        },
+      "overridden": {
+        "a": {
+          "r": "DiffRecord"
+        }
       },
-    },
+      "inherited_spanning": {
+        "a": {
+          "r": "DiffRecord"
+        }
+      }
+    }
   },
-  BranchDiff: {
-    o: {
-      branch_t: 'm',
-      created: {
-        a: {
-          r: 'DiffRecord',
-        },
+  "CalendarProposalItem": {
+    "o": {
+      "old_t": "m",
+      "new_t": "m",
+      "constrained_t": "m"
+    }
+  },
+  "CalendarProposalOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "CalendarProposalItem"
+        }
       },
-      overridden: {
-        a: {
-          r: 'DiffRecord',
-        },
+      "series": {
+        "a": {
+          "r": "SeriesBoundsChange"
+        }
+      }
+    }
+  },
+  "CausalityGraphOut": {
+    "o": {
+      "nodes": {
+        "a": {
+          "r": "CausalityNodeOut"
+        }
+      }
+    }
+  },
+  "CausalityNodeOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "ConvertIn": {
+    "o": {
+      "moments": {
+        "a": "m"
+      }
+    }
+  },
+  "ConvertItem": {
+    "o": {
+      "t": "m"
+    }
+  },
+  "ConvertOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "ConvertItem"
+        }
+      }
+    }
+  },
+  "CorrespondenceList": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "CorrespondenceOut"
+        }
+      }
+    }
+  },
+  "CorrespondenceOut": {
+    "o": {
+      "points": {
+        "a": {
+          "r": "SyncPointOut"
+        }
+      }
+    }
+  },
+  "CorrespondenceWriteResult": {
+    "o": {
+      "correspondence": {
+        "r": "CorrespondenceOut"
+      }
+    }
+  },
+  "DiffRecord": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "EntityLink": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
+  "EntityLinks": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityLink"
+        }
+      }
+    }
+  },
+  "EntityPin": {
+    "o": {
+      "pin": {
+        "r": "PinOut"
+      }
+    }
+  },
+  "EntityPins": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityPin"
+        }
+      }
+    }
+  },
+  "EntityRead": {
+    "o": {
+      "state": {
+        "r": "EntityStateOut"
+      }
+    }
+  },
+  "EntityStateOut": {
+    "o": {
+      "at": "m"
+    }
+  },
+  "EventTreeNode": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "EventTreePage": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EventTreeNode"
+        }
+      }
+    }
+  },
+  "Extent": {
+    "o": {
+      "lo": "m",
+      "hi": "m"
+    }
+  },
+  "FactList": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "FactOut"
+        }
+      }
+    }
+  },
+  "FactOut": {
+    "o": {
+      "value_t": "m",
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "FactWriteResult": {
+    "o": {
+      "fact": {
+        "r": "FactOut"
+      }
+    }
+  },
+  "Genealogy": {
+    "o": {
+      "people": {
+        "a": {
+          "r": "GenealogyPerson"
+        }
+      }
+    }
+  },
+  "GenealogyPerson": {
+    "o": {
+      "from_t": "m",
+      "to_t": "m"
+    }
+  },
+  "Leaders": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "Leadership"
+        }
+      }
+    }
+  },
+  "Leadership": {
+    "o": {
+      "item": {
+        "r": "EntityLink"
       },
-      inherited_spanning: {
-        a: {
-          r: 'DiffRecord',
-        },
+      "from_t": "m",
+      "to_t": "m"
+    }
+  },
+  "LexiconEntryOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "LexiconPage": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "LexiconEntryOut"
+        }
+      }
+    }
+  },
+  "LexiconWriteResult": {
+    "o": {
+      "entry": {
+        "r": "LexiconEntryOut"
+      }
+    }
+  },
+  "Life": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "LifeEvent"
+        }
+      }
+    }
+  },
+  "LifeEvent": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "LinkDeleteResult": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
+  "LinkOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "LinkWriteResult": {
+    "o": {
+      "link": {
+        "r": "LinkOut"
+      }
+    }
+  },
+  "LocationEvent": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "LocationEvents": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "LocationEvent"
+        }
+      }
+    }
+  },
+  "MapBatchIn": {
+    "o": {
+      "t": {
+        "a": "m"
+      }
+    }
+  },
+  "MapBatchOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "MappedMoment"
+        }
+      }
+    }
+  },
+  "MapDetail": {
+    "o": {
+      "pins": {
+        "a": {
+          "r": "PinOut"
+        }
+      }
+    }
+  },
+  "MapOut": {
+    "o": {
+      "t": "m",
+      "result_t": "m"
+    }
+  },
+  "MappedMoment": {
+    "o": {
+      "t": "m",
+      "result_t": "m"
+    }
+  },
+  "Members": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "Membership"
+        }
+      }
+    }
+  },
+  "Membership": {
+    "o": {
+      "item": {
+        "r": "EntityLink"
       },
-    },
+      "from_t": "m",
+      "to_t": "m"
+    }
   },
-  CalendarProposalItem: {
-    o: {
-      old_t: 'm',
-      new_t: 'm',
-      constrained_t: 'm',
-    },
+  "OccurrenceOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
   },
-  CalendarProposalOut: {
-    o: {
-      items: {
-        a: {
-          r: 'CalendarProposalItem',
-        },
+  "OccurrencePage": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "OccurrenceOut"
+        }
       },
-      series: {
-        a: {
-          r: 'SeriesBoundsChange',
-        },
+      "estimated_count": "m"
+    }
+  },
+  "PersonalItem": {
+    "o": {
+      "age": {
+        "r": "Age"
       },
-    },
+      "t": "m",
+      "to_t": "m"
+    }
   },
-  CausalityGraphOut: {
-    o: {
-      nodes: {
-        a: {
-          r: 'CausalityNodeOut',
-        },
+  "PersonalTimeline": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "PersonalItem"
+        }
+      }
+    }
+  },
+  "PinOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "PinWriteResult": {
+    "o": {
+      "pin": {
+        "r": "PinOut"
+      }
+    }
+  },
+  "Presence": {
+    "o": {
+      "t": "m",
+      "segments": {
+        "a": {
+          "r": "SegmentOut"
+        }
+      }
+    }
+  },
+  "RecurrenceProposalItem": {
+    "o": {
+      "original_start_t": "m",
+      "start_t": "m",
+      "new_start_t": "m",
+      "rekey_start_t": "m"
+    }
+  },
+  "RecurrenceProposalOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "RecurrenceProposalItem"
+        }
+      }
+    }
+  },
+  "RelationshipGroup": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "EntityLink"
+        }
+      }
+    }
+  },
+  "Relationships": {
+    "o": {
+      "groups": {
+        "a": {
+          "r": "RelationshipGroup"
+        }
+      }
+    }
+  },
+  "ResolvedPoint": {
+    "o": {
+      "t": "m",
+      "extent": {
+        "r": "Extent"
+      }
+    }
+  },
+  "ResolveItem": {
+    "o": {
+      "start": {
+        "r": "ResolvedPoint"
       },
-    },
+      "end": {
+        "r": "ResolvedPoint"
+      }
+    }
   },
-  CausalityNodeOut: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
+  "ResolveOut": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "ResolveItem"
+        }
+      }
+    }
   },
-  ConvertIn: {
-    o: {
-      moments: {
-        a: 'm',
+  "SegmentOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "SeriesBandOut": {
+    "o": {
+      "from": "m",
+      "to": "m",
+      "estimated_count": "m"
+    }
+  },
+  "SeriesBoundsChange": {
+    "o": {
+      "old_start_t": "m",
+      "old_end_t": "m",
+      "new_start_t": "m",
+      "new_end_t": "m"
+    }
+  },
+  "SyncPointOut": {
+    "o": {
+      "a_t": "m",
+      "b_t": "m"
+    }
+  },
+  "TimelineNode": {
+    "o": {
+      "branch_t": "m",
+      "children": {
+        "a": {
+          "r": "TimelineNode"
+        }
+      }
+    }
+  },
+  "TimelineTree": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "TimelineNode"
+        }
+      }
+    }
+  },
+  "TimelineWindow": {
+    "o": {
+      "items": {
+        "a": {
+          "r": "WindowItemOut"
+        }
       },
-    },
-  },
-  ConvertItem: {
-    o: {
-      t: 'm',
-    },
-  },
-  ConvertOut: {
-    o: {
-      items: {
-        a: {
-          r: 'ConvertItem',
-        },
+      "buckets": {
+        "a": {
+          "r": "WindowBucket"
+        }
       },
-    },
-  },
-  CorrespondenceList: {
-    o: {
-      items: {
-        a: {
-          r: 'CorrespondenceOut',
-        },
-      },
-    },
-  },
-  CorrespondenceOut: {
-    o: {
-      points: {
-        a: {
-          r: 'SyncPointOut',
-        },
-      },
-    },
-  },
-  CorrespondenceWriteResult: {
-    o: {
-      correspondence: {
-        r: 'CorrespondenceOut',
-      },
-    },
-  },
-  DiffRecord: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  EntityLink: {
-    o: {
-      link: {
-        r: 'LinkOut',
-      },
-    },
-  },
-  EntityLinks: {
-    o: {
-      items: {
-        a: {
-          r: 'EntityLink',
-        },
-      },
-    },
-  },
-  EntityPin: {
-    o: {
-      pin: {
-        r: 'PinOut',
-      },
-    },
-  },
-  EntityPins: {
-    o: {
-      items: {
-        a: {
-          r: 'EntityPin',
-        },
-      },
-    },
-  },
-  EntityRead: {
-    o: {
-      state: {
-        r: 'EntityStateOut',
-      },
-    },
-  },
-  EntityStateOut: {
-    o: {
-      at: 'm',
-    },
-  },
-  EventTreeNode: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  EventTreePage: {
-    o: {
-      items: {
-        a: {
-          r: 'EventTreeNode',
-        },
-      },
-    },
-  },
-  Extent: {
-    o: {
-      lo: 'm',
-      hi: 'm',
-    },
-  },
-  FactList: {
-    o: {
-      items: {
-        a: {
-          r: 'FactOut',
-        },
-      },
-    },
-  },
-  FactOut: {
-    o: {
-      value_t: 'm',
-      valid_from_t: 'm',
-      valid_to_t: 'm',
-    },
-  },
-  FactWriteResult: {
-    o: {
-      fact: {
-        r: 'FactOut',
-      },
-    },
-  },
-  Genealogy: {
-    o: {
-      people: {
-        a: {
-          r: 'GenealogyPerson',
-        },
-      },
-    },
-  },
-  GenealogyPerson: {
-    o: {
-      from_t: 'm',
-      to_t: 'm',
-    },
-  },
-  Leaders: {
-    o: {
-      items: {
-        a: {
-          r: 'Leadership',
-        },
-      },
-    },
-  },
-  Leadership: {
-    o: {
-      item: {
-        r: 'EntityLink',
-      },
-      from_t: 'm',
-      to_t: 'm',
-    },
-  },
-  LexiconEntryOut: {
-    o: {
-      valid_from_t: 'm',
-      valid_to_t: 'm',
-    },
-  },
-  LexiconPage: {
-    o: {
-      items: {
-        a: {
-          r: 'LexiconEntryOut',
-        },
-      },
-    },
-  },
-  LexiconWriteResult: {
-    o: {
-      entry: {
-        r: 'LexiconEntryOut',
-      },
-    },
-  },
-  Life: {
-    o: {
-      items: {
-        a: {
-          r: 'LifeEvent',
-        },
-      },
-    },
-  },
-  LifeEvent: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  LinkDeleteResult: {
-    o: {
-      link: {
-        r: 'LinkOut',
-      },
-    },
-  },
-  LinkOut: {
-    o: {
-      valid_from_t: 'm',
-      valid_to_t: 'm',
-    },
-  },
-  LinkWriteResult: {
-    o: {
-      link: {
-        r: 'LinkOut',
-      },
-    },
-  },
-  LocationEvent: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  LocationEvents: {
-    o: {
-      items: {
-        a: {
-          r: 'LocationEvent',
-        },
-      },
-    },
-  },
-  MapBatchIn: {
-    o: {
-      t: {
-        a: 'm',
-      },
-    },
-  },
-  MapBatchOut: {
-    o: {
-      items: {
-        a: {
-          r: 'MappedMoment',
-        },
-      },
-    },
-  },
-  MapDetail: {
-    o: {
-      pins: {
-        a: {
-          r: 'PinOut',
-        },
-      },
-    },
-  },
-  MapOut: {
-    o: {
-      t: 'm',
-      result_t: 'm',
-    },
-  },
-  MappedMoment: {
-    o: {
-      t: 'm',
-      result_t: 'm',
-    },
-  },
-  Members: {
-    o: {
-      items: {
-        a: {
-          r: 'Membership',
-        },
-      },
-    },
-  },
-  Membership: {
-    o: {
-      item: {
-        r: 'EntityLink',
-      },
-      from_t: 'm',
-      to_t: 'm',
-    },
-  },
-  OccurrenceOut: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  OccurrencePage: {
-    o: {
-      items: {
-        a: {
-          r: 'OccurrenceOut',
-        },
-      },
-      estimated_count: 'm',
-    },
-  },
-  PersonalItem: {
-    o: {
-      age: {
-        r: 'Age',
-      },
-      t: 'm',
-      to_t: 'm',
-    },
-  },
-  PersonalTimeline: {
-    o: {
-      items: {
-        a: {
-          r: 'PersonalItem',
-        },
-      },
-    },
-  },
-  PinOut: {
-    o: {
-      valid_from_t: 'm',
-      valid_to_t: 'm',
-    },
-  },
-  PinWriteResult: {
-    o: {
-      pin: {
-        r: 'PinOut',
-      },
-    },
-  },
-  Presence: {
-    o: {
-      t: 'm',
-      segments: {
-        a: {
-          r: 'SegmentOut',
-        },
-      },
-    },
-  },
-  RecurrenceProposalItem: {
-    o: {
-      original_start_t: 'm',
-      start_t: 'm',
-      new_start_t: 'm',
-      rekey_start_t: 'm',
-    },
-  },
-  RecurrenceProposalOut: {
-    o: {
-      items: {
-        a: {
-          r: 'RecurrenceProposalItem',
-        },
-      },
-    },
-  },
-  RelationshipGroup: {
-    o: {
-      items: {
-        a: {
-          r: 'EntityLink',
-        },
-      },
-    },
-  },
-  Relationships: {
-    o: {
-      groups: {
-        a: {
-          r: 'RelationshipGroup',
-        },
-      },
-    },
-  },
-  ResolvedPoint: {
-    o: {
-      t: 'm',
-      extent: {
-        r: 'Extent',
-      },
-    },
-  },
-  ResolveItem: {
-    o: {
-      start: {
-        r: 'ResolvedPoint',
-      },
-      end: {
-        r: 'ResolvedPoint',
-      },
-    },
-  },
-  ResolveOut: {
-    o: {
-      items: {
-        a: {
-          r: 'ResolveItem',
-        },
-      },
-    },
-  },
-  SegmentOut: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  SeriesBandOut: {
-    o: {
-      from: 'm',
-      to: 'm',
-      estimated_count: 'm',
-    },
-  },
-  SeriesBoundsChange: {
-    o: {
-      old_start_t: 'm',
-      old_end_t: 'm',
-      new_start_t: 'm',
-      new_end_t: 'm',
-    },
-  },
-  SyncPointOut: {
-    o: {
-      a_t: 'm',
-      b_t: 'm',
-    },
-  },
-  TimelineNode: {
-    o: {
-      branch_t: 'm',
-      children: {
-        a: {
-          r: 'TimelineNode',
-        },
-      },
-    },
-  },
-  TimelineTree: {
-    o: {
-      items: {
-        a: {
-          r: 'TimelineNode',
-        },
-      },
-    },
-  },
-  TimelineWindow: {
-    o: {
-      items: {
-        a: {
-          r: 'WindowItemOut',
-        },
-      },
-      buckets: {
-        a: {
-          r: 'WindowBucket',
-        },
-      },
-      series_bands: {
-        a: {
-          r: 'SeriesBandOut',
-        },
-      },
-    },
-  },
-  TimeTravelResult: {
-    o: {
-      worldline: {
-        r: 'Worldline',
-      },
-    },
-  },
-  WindowBucket: {
-    o: {
-      from: 'm',
-      to: 'm',
-    },
-  },
-  WindowItemOut: {
-    o: {
-      start_t: 'm',
-      end_t: 'm',
-    },
-  },
-  Worldline: {
-    o: {
-      segments: {
-        a: {
-          r: 'SegmentOut',
-        },
-      },
-    },
-  },
-  WorldlineWriteResult: {
-    o: {
-      worldline: {
-        r: 'Worldline',
-      },
-    },
-  },
+      "series_bands": {
+        "a": {
+          "r": "SeriesBandOut"
+        }
+      }
+    }
+  },
+  "TimeTravelResult": {
+    "o": {
+      "worldline": {
+        "r": "Worldline"
+      }
+    }
+  },
+  "WindowBucket": {
+    "o": {
+      "from": "m",
+      "to": "m"
+    }
+  },
+  "WindowItemOut": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
+  "Worldline": {
+    "o": {
+      "segments": {
+        "a": {
+          "r": "SegmentOut"
+        }
+      }
+    }
+  },
+  "WorldlineWriteResult": {
+    "o": {
+      "worldline": {
+        "r": "Worldline"
+      }
+    }
+  }
 }
