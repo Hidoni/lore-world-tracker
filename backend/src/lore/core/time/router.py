@@ -323,7 +323,7 @@ def get_event_tree(
         context, policy, timeline_id, parent_id=parent, cursor=cursor, limit=limit
     )
     times = EventTimes(context, policy)
-    kinds = {kind.key for kind in registry.kinds_for(enabled_modules(session, registry))}
+    kinds = registry.vault_kind_keys(session, enabled_modules(session, registry))
     counts = participant_counts(session, policy, kinds, [item.entity.id for item in rows])
     return EventTreePage(
         items=[

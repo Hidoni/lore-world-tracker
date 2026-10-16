@@ -185,7 +185,8 @@ class LinkTypeService:
     def _kinds(self, value: Any, path: str) -> Any:
         if value == ANY_KIND:
             return ANY_KIND
-        known = self.registry.all_kind_keys()
+        enabled = enabled_modules(self.session, self.registry)
+        known = self.registry.all_kind_keys() | self.registry.vault_kind_keys(self.session, enabled)
         unknown = [f"{path}.{i}" for i, kind in enumerate(value) if kind not in known]
         if unknown:
             raise InvalidInputError(

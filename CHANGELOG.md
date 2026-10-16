@@ -14,6 +14,11 @@ All notable changes to this project are documented here. The format follows
   show, search and hide from readers like built-in fields. Archive a field to hide it with its
   values, convert its type safely (values follow), reorder fields, and delete a field with its
   values in one undoable step.
+- **Custom kinds** (#134, backend): define your own kinds ("Artifact", "Spell", "Ship") with a
+  label, icon, color, allowed parents, capabilities and a default visibility; their entities work
+  like any other kind's in lists, search, links, the graph and consistency checks. Archive a kind
+  to hide it with its entities, delete it once nothing uses it, and convert entities between
+  kinds (built-in or custom), mapping their fields, in one undoable step.
 
 ## [0.9.0] - 2026-10-16
 

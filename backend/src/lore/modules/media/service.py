@@ -15,6 +15,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from lore.core.entities.models import Entity
+from lore.core.entities.service import EntityService
 from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
 from lore.core.history import recorder
 from lore.core.modules.spec import VaultContext
@@ -276,12 +277,14 @@ class Media:
     # --- galleries -----------------------------------------------------------------------------
 
     def _entity(self, entity_id: str) -> Entity:
+        """A visible entity of an available kind (not one of a disabled module's or an archived
+        custom kind)."""
         entity = self.session.scalars(
             select(Entity).where(Entity.id == entity_id, *self.policy.entities(Entity))
         ).one_or_none()
         if entity is None:
             raise NotFoundError(f"No entity {entity_id}.")
-        return entity
+        return EntityService(self.context, self.policy).load(entity_id)
 
     def _gallery_out(self, row: MediaGalleryItem, media: MediaItem) -> GalleryItemOut:
         return GalleryItemOut(

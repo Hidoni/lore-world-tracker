@@ -11,13 +11,22 @@ from lore.core.consistency.schemas import request_suppress
 from lore.core.entities.schemas import ID_PATTERN
 from lore.core.modules.spec import VaultContext
 from lore.core.visibility import VisibilityPolicy
+from lore.modules.custom_fields.kinds import CustomKinds
 from lore.modules.custom_fields.schemas import (
+    ConvertKind,
+    ConvertKindResult,
     CustomFieldCreate,
     CustomFieldDeleteResult,
     CustomFieldList,
     CustomFieldOut,
     CustomFieldUpdate,
     CustomFieldWriteResult,
+    CustomKindCreate,
+    CustomKindDeleteResult,
+    CustomKindList,
+    CustomKindOut,
+    CustomKindUpdate,
+    CustomKindWriteResult,
     FieldReorder,
     KindKey,
 )
@@ -26,6 +35,9 @@ from lore.modules.custom_fields.service import CustomFields
 router = APIRouter(tags=["custom_fields"])
 
 IdPath = Annotated[str, Path(pattern=ID_PATTERN)]
+KindPath = Annotated[
+    str, Path(pattern=r"^custom\.[a-z][a-z0-9_]{0,59}$", description="`custom.<slug>`.")
+]
 
 
 def _author_only(policy: VisibilityPolicy) -> None:
@@ -106,3 +118,65 @@ def delete_field(
     return CustomFields(VaultContext(vault, session, registry)).delete(
         field_id, delete_values=delete_values
     )
+
+
+# --- kinds ---------------------------------------------------------------------------------------
+
+
+@router.get("/kinds", name="list_kinds")
+def list_kinds(
+    *, vault: VaultDep, session: SessionDep, registry: ModuleRegistryDep, policy: PolicyDep
+) -> CustomKindList:
+    """The custom kinds (archived ones too), with how many entities have each."""
+    _author_only(policy)
+    return CustomKinds(VaultContext(vault, session, registry)).list_kinds()
+
+
+@router.post("/kinds", name="create_kind", status_code=201)
+def create_kind(
+    body: CustomKindCreate, vault: WritableVaultDep, session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> CustomKindWriteResult:  # fmt: skip
+    """A kind keyed `custom.<key>`: its entities work like any other kind's."""
+    request_suppress(session, body.suppress)
+    return CustomKinds(VaultContext(vault, session, registry)).create(body)
+
+
+@router.get("/kinds/{kind_key}", name="get_kind")
+def get_kind(
+    *, kind_key: KindPath, vault: VaultDep, session: SessionDep, registry: ModuleRegistryDep,
+    policy: PolicyDep,
+) -> CustomKindOut:  # fmt: skip
+    _author_only(policy)
+    return CustomKinds(VaultContext(vault, session, registry)).get(kind_key)
+
+
+@router.patch("/kinds/{kind_key}", name="update_kind")
+def update_kind(
+    kind_key: KindPath, body: CustomKindUpdate, vault: WritableVaultDep, session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> CustomKindWriteResult:  # fmt: skip
+    """Change the kind; `archived` hides it and its entities (nothing is deleted)."""
+    request_suppress(session, body.suppress)
+    return CustomKinds(VaultContext(vault, session, registry)).update(kind_key, body)
+
+
+@router.delete("/kinds/{kind_key}", name="delete_kind")
+def delete_kind(
+    kind_key: KindPath, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+) -> CustomKindDeleteResult:
+    """Delete a kind no entity has (the trash included; `409 conflict` otherwise), with its
+    custom fields."""
+    return CustomKinds(VaultContext(vault, session, registry)).delete(kind_key)
+
+
+@router.post("/convert-kind", name="convert_kind")
+def convert_kind(
+    body: ConvertKind, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+) -> ConvertKindResult:
+    """Give entities another kind (built-in ↔ custom), in one changeset: `field_mapping` moves
+    values, facts and visibility overrides to the new kind's fields (`null` drops them);
+    unmapped values stay stored. Kinds with data of their own (events, dimensions, timelines,
+    calendars, languages) can't be converted."""
+    request_suppress(session, body.suppress)
+    return CustomKinds(VaultContext(vault, session, registry)).convert(body)

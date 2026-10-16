@@ -149,14 +149,22 @@ class ModuleRegistry:
         return kinds
 
     def vault_kinds(self, session: Session, enabled: Iterable[str]) -> list[RegisteredKind]:
-        """The kinds as this vault sees them: ``kinds_for`` plus the fields the enabled modules
-        keep in the vault's database (``ModuleSpec.field_providers``: custom fields). Fields
-        provided for ``"*"`` go to every kind but the system ones (dimensions, timelines,
-        calendars); fields of a type the vault doesn't have (a disabled module's) are left out,
-        their values kept. Every reader of a kind's fields uses this, so custom fields validate,
-        index and show."""
+        """The kinds as this vault sees them: ``kinds_for`` plus the kinds and fields the enabled
+        modules keep in the vault's database (``ModuleSpec.kind_providers``: custom kinds,
+        ``field_providers``: custom fields). Fields provided for ``"*"`` go to every kind but
+        the system ones (dimensions, timelines, calendars); fields of a type the vault doesn't
+        have (a disabled module's) are left out, their values kept. Every reader of the vault's
+        kinds or a kind's fields uses this, so custom kinds and fields behave like built-in ones."""
         enabled = frozenset(enabled)
         kinds = self.kinds_for(enabled)
+        static = {kind.key for kind in kinds} | self.all_kind_keys()
+        for owner, module in self._owners(enabled):
+            for kind_provider in module.kind_providers if module else ():
+                kinds.extend(
+                    RegisteredKind(kind, owner, kind.fields)
+                    for kind in kind_provider(session)
+                    if kind.key not in static
+                )
         keys = [kind.key for kind in kinds]
         types = {field_type.key for field_type in self.field_types_for(enabled)}
         extra: dict[str, list[FieldDef]] = {}
@@ -176,6 +184,10 @@ class ModuleRegistry:
             )
             for kind in kinds
         ]
+
+    def vault_kind_keys(self, session: Session, enabled: Iterable[str]) -> set[str]:
+        """The keys of ``vault_kinds``."""
+        return {kind.key for kind in self.vault_kinds(session, enabled)}
 
     def field_types_for(self, enabled: Iterable[str]) -> list[FieldTypeDef]:
         types = list(CORE_FIELD_TYPES)

@@ -407,7 +407,7 @@ summary is set by the service (`history.describe`) or generated ("Created misc â
 **Merging** (decided 2026-10-04): consecutive saves of one entity by the same client within 2
 minutes, with nothing recorded in between, merge into the previous changeset (its `updated_at`
 moves), so an autosave burst is one history entry and one undo. Only plain edits of a single
-entity merge (no creation, trash, restore, purge, link to another entity or undo).
+entity merge (no creation, trash, restore, purge, kind change, link to another entity or undo).
 
 **Undo** (`POST /changes/{id}/revert`) inverts the changes in reverse order **only if** every
 affected row still equals its `after` snapshot, ignoring `revision` and `updated_at`. Otherwise it

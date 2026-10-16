@@ -178,7 +178,8 @@ class EntityQueries:
     def _kinds(self, e: EntityTable, kinds: Sequence[str] | None) -> list[ColumnElement[bool]]:
         if not kinds:
             return []
-        unknown = [kind for kind in kinds if kind not in self.service.registry.all_kind_keys()]
+        known = self.service.registry.all_kind_keys() | set(self.service.kinds)
+        unknown = [kind for kind in kinds if kind not in known]
         if unknown:
             raise _invalid("kind", f"Unknown kind {unknown[0]!r}.")
         return [e.kind.in_(kinds)]

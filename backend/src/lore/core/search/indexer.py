@@ -191,28 +191,27 @@ class SearchIndexer:
     def reindex_for_modules(self, module_ids: Iterable[str]) -> None:
         """After modules were enabled or disabled: re-index the entities of the kinds they own
         or contribute fields to, and the documents they contribute (whose text may depend on
-        other modules)."""
+        other modules). Modules keeping kinds or fields in the vault (``kind_providers``,
+        ``field_providers``) may touch any kind: every entity is re-indexed."""
         changed = set(module_ids)
         if not changed:
             return
         registry = self.context.registry
         kinds: set[str] = set()
+        everything = False
         for module_id in changed:
             module = registry.get(module_id)
             if module is None:
                 continue
             kinds |= {kind.key for kind in module.kinds}
             kinds |= {contribution.kind for contribution in module.field_contributions}
+            everything |= bool(module.kind_providers or module.field_providers)
         last = ""
-        while kinds:
-            ids = list(
-                self.session.scalars(
-                    select(Entity.id)
-                    .where(Entity.kind.in_(kinds), Entity.id > last)
-                    .order_by(Entity.id)
-                    .limit(BATCH)
-                )
-            )
+        while kinds or everything:
+            statement = select(Entity.id).where(Entity.id > last)
+            if not everything:
+                statement = statement.where(Entity.kind.in_(kinds))
+            ids = list(self.session.scalars(statement.order_by(Entity.id).limit(BATCH)))
             if not ids:
                 break
             self.index_entities(ids)

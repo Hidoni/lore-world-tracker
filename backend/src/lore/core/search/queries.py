@@ -146,7 +146,9 @@ class SearchQueries:
             conditions += ["d.visibility != 'private'", self._visible_owner()]
         conditions.append(self._in_timeline())
         if kinds:
-            known = self.registry.all_kind_keys() | set(contributors(self.registry))
+            known = (
+                self.registry.all_kind_keys() | set(self.kinds) | set(contributors(self.registry))
+            )
             unknown = [kind for kind in kinds if kind not in known]
             if unknown:
                 raise _invalid("kind", f"Unknown kind {unknown[0]!r}.")

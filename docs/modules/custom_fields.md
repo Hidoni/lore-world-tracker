@@ -29,7 +29,7 @@
 | Table | Columns |
 |-------|---------|
 | `custom_fields_defs` | `id`, `kind_key` (a kind or `*`), `key` (`custom.<slug>`, unique per kind; a `*` key unique everywhere), `label`, `type`, `options` JSON, `multiple`, `required`, `temporal`, `default_visibility`, `section`, `sort_key`, `help`, `searchable`, `archived`, `revision`, timestamps |
-| `custom_fields_kinds` (#134) | `key` PK, `label`, `plural`, `icon`, `color`, `description`, `allowed_parents` JSON, `capabilities` JSON, `default_visibility`, `archived`, `revision`, timestamps |
+| `custom_fields_kinds` | `key` PK (`custom.<slug>`), `label`, `plural`, `icon`, `color`, `description`, `allowed_parents` JSON, `capabilities` JSON (`has_existence`, `can_be_multiversal`, `can_have_worldline`), `default_visibility` (new entities'; null: the vault's), `archived`, `revision`, timestamps |
 
 ## Rules for changes
 
@@ -52,19 +52,27 @@
   the field's changeset.
 - A field whose type the vault lacks (a `media` field while `media` is disabled) is left out of
   the kind; its values are kept.
-- Custom kinds can be archived (entities hidden) or deleted only when no entities of the kind
-  exist (or after converting them to another kind with the **convert kind** action, which is also
-  usable for built-in kinds → custom kinds and vice versa when field mapping is possible).
+- Custom kinds can be archived (the kind and its entities leave the vault's kinds: hidden from
+  lists, search, graph and entity reads) or deleted only when no entities of the kind exist, the
+  trash included (`409 conflict` otherwise; its custom fields go with it). Converting entities to
+  another kind with the **convert kind** action is also usable for built-in kinds → custom kinds
+  and vice versa. Kinds that keep data of their own (events, dimensions, timelines, calendars,
+  languages: a kind extension) can't be converted. `field_mapping` moves values, visibility
+  overrides and facts (to a temporal field only) to the new kind's fields, `null` drops them;
+  unmapped values stay stored (hidden unless the new kind has the field), so converting back
+  restores them. A conversion is one changeset and never merges with earlier edits.
+- `can_be_multiversal` can't be turned off while entities of the kind are multiversal.
 
 ## API
 
 - `GET|POST /m/custom_fields/fields?kind=`, `GET|PATCH|DELETE /m/custom_fields/fields/{id}`
   (`?delete_values=`), `POST /m/custom_fields/fields/reorder` (`{kind_key, ids}`). Author-only:
   readers get `404` (they see what they may of the fields through `GET /registry` and entities).
-- `GET|POST /m/custom_fields/kinds`, `PATCH|DELETE /m/custom_fields/kinds/{key}`
+- `GET|POST /m/custom_fields/kinds`, `GET|PATCH|DELETE /m/custom_fields/kinds/{key}` (author-only)
 - `POST /m/custom_fields/convert-kind {entity_ids, to_kind, field_mapping}`
 - The registry endpoint (`GET /registry`) includes custom kinds and fields when the module is
-  enabled (`ModuleSpec.field_providers`, `modules.md`).
+  enabled (`ModuleSpec.kind_providers` and `field_providers`, `modules.md`); a kind's
+  `default_visibility` is new entities' visibility when a create sends none.
 
 ## UI
 
