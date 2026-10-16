@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { layoutCausality, layoutEdges } from '@/core/events/causality/layout'
 import type { CausalityGraph } from '@/data'
+import { expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -262,5 +263,15 @@ describe('causality pages in reader mode', () => {
     await renderApp(path, undefined, { readOnly: true })
     await settled()
     expectNoEditing()
+    await expectAccessible()
+  })
+})
+
+describe('causality pages for the author', () => {
+  it.each(['/v/v1/e/riot', '/v/v1/e/riot/causality'])('%s is accessible', async (path) => {
+    world()
+    await renderApp(path)
+    await settled()
+    await expectAccessible()
   })
 })

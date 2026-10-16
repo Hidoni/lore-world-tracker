@@ -18,6 +18,7 @@ import {
   serveVault,
   type LexiconRow,
 } from '@/test/fake-vault'
+import { expectAccessible } from '@/test/axe'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
 
@@ -389,6 +390,19 @@ describe('lexicon pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
+    },
+  )
+})
+
+describe('lexicon pages for the author', () => {
+  it.each(['/v/v1/e/varnish', '/v/v1/m/languages/varnish/lexicon'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
     },
   )
 })

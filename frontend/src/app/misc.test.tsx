@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
+import { expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, FIELD, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -141,5 +142,15 @@ describe('misc pages in reader mode', () => {
     await renderApp(path, undefined, { readOnly: true })
     await settled()
     expectNoEditing()
+    await expectAccessible()
+  })
+})
+
+describe('misc pages for the author', () => {
+  it.each(['/v/v1/e/tt', '/v/v1/e/loose'])('%s is accessible', async (path) => {
+    world()
+    await renderApp(path)
+    await settled()
+    await expectAccessible()
   })
 })

@@ -17,6 +17,7 @@ export function MediaImage({
   alt,
   className,
   sizes,
+  inert = false,
 }: {
   vault: string
   item: MediaItem
@@ -27,7 +28,18 @@ export function MediaImage({
   className?: string
   /** The `sizes` attribute (how wide the image shows). */
   sizes?: string
+  /** Inside another control (a tile's button): a file that isn't an image shows its name, not a
+   * download link (no link inside a button). */
+  inert?: boolean
 }) {
+  if (!isImage(item) && inert) {
+    return (
+      <span className={cn('flex items-center gap-2 text-sm', className)}>
+        <FileIcon aria-hidden className="size-4 shrink-0" />
+        {item.filename}
+      </span>
+    )
+  }
   if (!isImage(item)) {
     return (
       <a

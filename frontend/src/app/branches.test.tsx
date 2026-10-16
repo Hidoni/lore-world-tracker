@@ -15,6 +15,7 @@ import {
   type FactRow,
   type LinkRow,
 } from '@/test/fake-vault'
+import { expectAccessible } from '@/test/axe'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -654,6 +655,19 @@ describe('branches pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
+    },
+  )
+})
+
+describe('branches pages for the author', () => {
+  it.each(['/v/v1/e/crown?tl=b1', '/v/v1/e/b1', '/v/v1/d/d1/timeline?tl=b1&from=0&to=1000'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
     },
   )
 })

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FamilyTree } from '@/data'
 import { layoutEdges, layoutFamily } from '@/modules/languages/views/layout'
+import { expectAccessible } from '@/test/axe'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -153,6 +154,19 @@ describe('languages pages in reader mode', () => {
       await renderApp(path, undefined, { readOnly: true })
       await settled()
       expectNoEditing()
+      await expectAccessible()
+    },
+  )
+})
+
+describe('languages pages for the author', () => {
+  it.each(['/v/v1/e/varnish', '/v/v1/e/runes', '/v/v1/m/languages/family-tree'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
     },
   )
 })

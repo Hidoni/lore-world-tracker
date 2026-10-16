@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
+import { expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -249,6 +250,7 @@ describe('dimension overview', () => {
         name: 'Coronation',
       }),
     ).toBeInTheDocument()
+    await expectAccessible()
   })
 
   it('switches the default calendar', async () => {

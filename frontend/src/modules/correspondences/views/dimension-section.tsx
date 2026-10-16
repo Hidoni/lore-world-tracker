@@ -20,7 +20,8 @@ const RADIUS = 80
 /**
  * The dimensions connected to this one through correspondences (docs/modules/correspondences.md,
  * UI): this dimension in the middle, the others of its connected group around it, a line per
- * correspondence. A node opens that dimension's overview. The list beside it is the text view.
+ * correspondence. A node opens that dimension's overview (by mouse). The list under it is the text
+ * and keyboard view: every dimension of the group, linked (frontend.md §9.6).
  */
 export function ConnectedDimensions({
   vault,
@@ -61,74 +62,87 @@ export function ConnectedDimensions({
     (row) => position.has(row.dimension_a_id) && position.has(row.dimension_b_id),
   )
   return (
-    <svg
-      role="img"
-      aria-label="Connected dimensions"
-      viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="mx-auto w-full max-w-60"
-      data-testid="connected-dimensions"
-    >
-      {edges.map((row) => {
-        const from = position.get(row.dimension_a_id)
-        const to = position.get(row.dimension_b_id)
-        if (from === undefined || to === undefined) return null
-        return (
-          <line
-            key={row.id}
-            x1={from.x}
-            y1={from.y}
-            x2={to.x}
-            y2={to.y}
-            strokeWidth={2}
-            className="stroke-border"
-          >
-            <title>{row.name}</title>
-          </line>
-        )
-      })}
-      {group.map((id) => {
-        const at = position.get(id)
-        if (at === undefined) return null
-        const self = id === dimensionId
-        const name = names.get(id) ?? 'Dimension'
-        return (
-          <g
-            key={id}
-            role={self ? undefined : 'link'}
-            tabIndex={self ? undefined : 0}
-            aria-label={self ? undefined : `Open ${name}`}
-            className={self ? undefined : 'cursor-pointer'}
-            onClick={() => {
-              if (!self)
-                void navigate({ to: '/v/$vault/d/$dimension', params: { vault, dimension: id } })
-            }}
-            onKeyDown={(event) => {
-              if (!self && event.key === 'Enter') {
-                void navigate({ to: '/v/$vault/d/$dimension', params: { vault, dimension: id } })
-              }
-            }}
-          >
-            <circle
-              cx={at.x}
-              cy={at.y}
-              r={self ? 8 : 6}
+    <figure className="flex flex-col gap-2">
+      <svg
+        aria-hidden
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="mx-auto w-full max-w-60"
+        data-testid="connected-dimensions"
+      >
+        {edges.map((row) => {
+          const from = position.get(row.dimension_a_id)
+          const to = position.get(row.dimension_b_id)
+          if (from === undefined || to === undefined) return null
+          return (
+            <line
+              key={row.id}
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
               strokeWidth={2}
-              className={
-                self ? 'fill-primary stroke-background' : 'fill-muted-foreground stroke-background'
-              }
-            />
-            <text
-              x={at.x}
-              y={at.y + (at.y > center ? 20 : -12)}
-              textAnchor="middle"
-              className={`text-[11px] ${self ? 'fill-foreground font-medium' : 'fill-muted-foreground'}`}
+              className="stroke-border"
             >
-              {name}
-            </text>
-          </g>
-        )
-      })}
-    </svg>
+              <title>{row.name}</title>
+            </line>
+          )
+        })}
+        {group.map((id) => {
+          const at = position.get(id)
+          if (at === undefined) return null
+          const self = id === dimensionId
+          const name = names.get(id) ?? 'Dimension'
+          return (
+            <g
+              key={id}
+              className={self ? undefined : 'cursor-pointer'}
+              onClick={() => {
+                if (!self)
+                  void navigate({ to: '/v/$vault/d/$dimension', params: { vault, dimension: id } })
+              }}
+            >
+              <circle
+                cx={at.x}
+                cy={at.y}
+                r={self ? 8 : 6}
+                strokeWidth={2}
+                className={
+                  self
+                    ? 'fill-primary stroke-background'
+                    : 'fill-muted-foreground stroke-background'
+                }
+              />
+              <text
+                x={at.x}
+                y={at.y + (at.y > center ? 20 : -12)}
+                textAnchor="middle"
+                className={`text-[11px] ${self ? 'fill-foreground font-medium' : 'fill-muted-foreground'}`}
+              >
+                {name}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      <figcaption>
+        <ul
+          aria-label="Connected dimensions"
+          className="flex flex-wrap justify-center gap-x-3 text-sm"
+        >
+          {others.map((id) => (
+            <li key={id}>
+              <Link
+                to="/v/$vault/d/$dimension"
+                params={{ vault, dimension: id }}
+                className="underline-offset-2 hover:underline"
+              >
+                {names.get(id) ?? 'Dimension'}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </figcaption>
+    </figure>
   )
 }
 

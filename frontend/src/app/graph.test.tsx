@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { expectAccessible } from '@/test/axe'
 import { defaultRows, graphQueries, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -190,5 +191,15 @@ describe('graph pages in reader mode', () => {
     await renderApp(path, undefined, { readOnly: true })
     await settled()
     expectNoEditing()
+    await expectAccessible()
+  })
+})
+
+describe('graph pages for the author', () => {
+  it.each(['/v/v1/m/graph', '/v/v1/e/a1'])('%s is accessible', async (path) => {
+    world()
+    await renderApp(path)
+    await settled()
+    await expectAccessible()
   })
 })
