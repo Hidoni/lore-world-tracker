@@ -28,8 +28,8 @@
 
 | Table | Columns |
 |-------|---------|
-| `custom_field_defs` | `id`, `kind_key`, `key` (unique per kind), `label`, `type`, `options` JSON, `multiple`, `required`, `temporal`, `default_visibility`, `section`, `sort_key`, `help`, `archived`, `revision`, timestamps |
-| `custom_kinds` | `key` PK, `label`, `plural`, `icon`, `color`, `description`, `allowed_parents` JSON, `capabilities` JSON, `default_visibility`, `archived`, `revision`, timestamps |
+| `custom_fields_defs` | `id`, `kind_key` (a kind or `*`), `key` (`custom.<slug>`, unique per kind; a `*` key unique everywhere), `label`, `type`, `options` JSON, `multiple`, `required`, `temporal`, `default_visibility`, `section`, `sort_key`, `help`, `searchable`, `archived`, `revision`, timestamps |
+| `custom_fields_kinds` (#134) | `key` PK, `label`, `plural`, `icon`, `color`, `description`, `allowed_parents` JSON, `capabilities` JSON, `default_visibility`, `archived`, `revision`, timestamps |
 
 ## Rules for changes
 
@@ -38,21 +38,33 @@
   undoable.
 - **Type changes** are allowed only along safe conversions (text ↔ long_text, enum →
   multi_enum, text → enum with a value mapping step, integer → decimal). Others require creating
-  a new field and migrating values with a helper.
+  a new field and migrating values with a helper (`422 unsafe_type_change`). Values (entities',
+  trashed ones too, and facts) migrate in the same changeset: long_text → text joins lines,
+  text → enum needs `value_map` covering every stored value (an option key, or `null` to clear
+  it), enum → multi_enum wraps the value in a list.
+- Options in use can't be removed. `multiple` false → true wraps values in lists; true → false
+  is refused while an entity has several values.
 - Turning `temporal` on keeps the static value as the default. Turning it off requires choosing
-  what happens to facts (drop or keep archived).
+  what happens to facts: `facts: "drop"` (to the trash, through the facts service) or `"keep"`
+  (stored, hidden while the field isn't temporal).
+- Deleting a field with values without `delete_values=true` is `409 conflict`
+  (`context.entities`). With it, values, visibility overrides, `time_point` rows and facts go in
+  the field's changeset.
+- A field whose type the vault lacks (a `media` field while `media` is disabled) is left out of
+  the kind; its values are kept.
 - Custom kinds can be archived (entities hidden) or deleted only when no entities of the kind
   exist (or after converting them to another kind with the **convert kind** action, which is also
   usable for built-in kinds → custom kinds and vice versa when field mapping is possible).
 
 ## API
 
-- `GET|POST /m/custom_fields/fields?kind=`, `PATCH|DELETE /m/custom_fields/fields/{id}`,
-  `POST /m/custom_fields/fields/reorder`
+- `GET|POST /m/custom_fields/fields?kind=`, `GET|PATCH|DELETE /m/custom_fields/fields/{id}`
+  (`?delete_values=`), `POST /m/custom_fields/fields/reorder` (`{kind_key, ids}`). Author-only:
+  readers get `404` (they see what they may of the fields through `GET /registry` and entities).
 - `GET|POST /m/custom_fields/kinds`, `PATCH|DELETE /m/custom_fields/kinds/{key}`
 - `POST /m/custom_fields/convert-kind {entity_ids, to_kind, field_mapping}`
 - The registry endpoint (`GET /registry`) includes custom kinds and fields when the module is
-  enabled (registry contributor).
+  enabled (`ModuleSpec.field_providers`, `modules.md`).
 
 ## UI
 

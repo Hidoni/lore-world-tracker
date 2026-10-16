@@ -152,16 +152,18 @@ class ModuleRegistry:
         """The kinds as this vault sees them: ``kinds_for`` plus the fields the enabled modules
         keep in the vault's database (``ModuleSpec.field_providers``: custom fields). Fields
         provided for ``"*"`` go to every kind but the system ones (dimensions, timelines,
-        calendars). Every reader of a kind's fields uses this, so custom fields validate, index
-        and show."""
+        calendars); fields of a type the vault doesn't have (a disabled module's) are left out,
+        their values kept. Every reader of a kind's fields uses this, so custom fields validate,
+        index and show."""
         enabled = frozenset(enabled)
         kinds = self.kinds_for(enabled)
         keys = [kind.key for kind in kinds]
+        types = {field_type.key for field_type in self.field_types_for(enabled)}
         extra: dict[str, list[FieldDef]] = {}
         for _owner, module in self._owners(enabled):
             for provider in module.field_providers if module else ():
                 for key, fields in provider(session, keys).items():
-                    extra.setdefault(key, []).extend(fields)
+                    extra.setdefault(key, []).extend(f for f in fields if f.type in types)
         if not extra:
             return kinds
         everywhere = tuple(extra.get(ANY_KIND, ()))

@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Custom fields** (#133, backend): add your own fields to any kind, or to every kind at once,
+  of any field type (also temporal fields with a history, time points and media). They validate,
+  show, search and hide from readers like built-in fields. Archive a field to hide it with its
+  values, convert its type safely (values follow), reorder fields, and delete a field with its
+  values in one undoable step.
+
 ## [0.9.0] - 2026-10-16
 
 Media and maps (M10): pictures in a world. Upload images and files into a vault, put images in
