@@ -4,7 +4,7 @@
 Their models use their own declarative base so they never leak into the real migration metadata.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -32,6 +32,9 @@ from lore.core.search import SearchContributor
 from lore.core.time import SlotDef, SlotProvider, moment_column, spec_column, status_column
 from lore.core.visibility import VisibilityFilter
 
+if TYPE_CHECKING:
+    from lore.core.vaults.publish import PublishContext
+
 
 class SampleBase(DeclarativeBase):
     pass
@@ -45,6 +48,10 @@ class SampleNote(SampleBase):
     noted_spec: Mapped[TimePoint | None] = spec_column()
     noted_t: Mapped[int | None] = moment_column()
     time_status: Mapped[str | None] = status_column()
+
+
+def _publish(publish: PublishContext) -> None:
+    """Sample notes have no visibility of their own: a snapshot keeps them all."""
 
 
 class SampleSettings(BaseModel):
@@ -199,7 +206,7 @@ SAMPLE = ModuleSpec(
     visibility_filters=(VisibilityFilter(SampleNote, visibility_column=None),),
     richtext_nodes=(STAMP,),
     backup_contributors=(object(),),
-    publish_contributors=(object(),),
+    publish_contributors=(_publish,),
     settings_model=SampleSettings,
     on_enable=_hook("enable", "sample"),
     on_disable=_hook("disable", "sample"),

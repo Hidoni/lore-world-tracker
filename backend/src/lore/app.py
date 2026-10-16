@@ -42,7 +42,7 @@ from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules import router as modules_router
 from lore.core.search import router as search_router
 from lore.core.time import router as time_router
-from lore.core.vaults import VaultManager, backups_router
+from lore.core.vaults import VaultManager, backups_router, publish_router
 from lore.core.vaults import router as vaults_router
 from lore.core.vaults.scheduler import MaintenanceScheduler
 from lore.modules import ALL_MODULES
@@ -110,6 +110,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(backups_router.router)
     api.include_router(vaults_router.router)
     api.include_router(backups_router.settings_router)
+    api.include_router(publish_router.router)
     api.include_router(modules_router.router)
     api.include_router(entities_router.router)
     api.include_router(entities_router.tree_router)

@@ -15,15 +15,17 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import create_engine
 
 from lore.app import create_app
 from lore.config import Settings
 from lore.core.modules import ModuleSpec
+from lore.core.vaults.publish import publish_vault
 from lore.modules import ALL_MODULES
 from tests.conftest import local_client
 from tests.entity_api import HEADERS, YEARS, LinkApi
 from tests.entity_modules import ENTITY_MODULES
-from tests.sample_modules import ADDON, BASE, SAMPLE
+from tests.sample_modules import ADDON, BASE, SAMPLE, SampleBase
 
 # The real modules plus test modules with kinds, fields and module routes to cover.
 LEAK_MODULES: tuple[ModuleSpec, ...] = tuple(
@@ -35,6 +37,14 @@ POINT = {"anchor": {"kind": "absolute", "t": "42"}, "precision": "base", "approx
 def leak_client(data_dir: Path, **settings: Any) -> TestClient:
     app = create_app(Settings(data_dir=data_dir, **settings), modules=LEAK_MODULES)
     return local_client(app, headers=HEADERS)
+
+
+def publish_canary(canary: Canary, out: Path) -> Path:
+    """Publish the canary vault into the data directory ``out`` (returned)."""
+    with leak_client(canary.data_dir) as client:
+        _sample_tables(client, canary.vault)
+        publish_vault(client.app.state.vaults, canary.vault, out)  # type: ignore[attr-defined]
+    return out
 
 
 def doc(*content: Any) -> dict[str, Any]:
@@ -103,6 +113,15 @@ class _Builder:
         link = self.api.made_link(*args, **body)
         self.canary.hidden_ids.add(link["id"])
         return link
+
+
+def _sample_tables(client: TestClient, vault_id: str) -> None:
+    """The test module `sample` has a table but no migration: give the vault its table, so that
+    publishing (which reindexes the whole vault) can read it."""
+    database = client.app.state.vaults.get(vault_id).database_path  # type: ignore[attr-defined]
+    engine = create_engine(f"sqlite:///{database}")
+    SampleBase.metadata.create_all(engine)
+    engine.dispose()
 
 
 def build_canary_vault(data_dir: Path) -> Canary:

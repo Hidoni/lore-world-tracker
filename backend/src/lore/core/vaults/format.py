@@ -61,6 +61,9 @@ class VaultManifest(BaseModel):
     created_at: datetime
     created_by_app_version: str
     published: bool = False
+    # Set on published snapshots (``visibility-and-sharing.md`` §4).
+    source_vault_id: VaultId | None = None
+    published_at: datetime | None = None
 
 
 class ManifestError(ValueError):

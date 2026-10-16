@@ -40,7 +40,14 @@ from sqlalchemy.orm import Session
 from lore.core.db import snapshot
 from lore.core.errors import ConflictError, LoreError
 from lore.core.modules.spec import VaultContext
-from lore.core.vaults.format import DATABASE_NAME, LOCK_NAME, write_manifest
+from lore.core.vaults.format import (
+    DATABASE_NAME,
+    LOCK_NAME,
+    ManifestError,
+    VaultManifest,
+    read_manifest,
+    write_manifest,
+)
 from lore.core.visibility import READER
 
 if TYPE_CHECKING:
@@ -95,6 +102,11 @@ def publish_vault(manager: VaultManager, vault_id: str, out: Path) -> VaultInfo:
     info = manager.get(vault_id)
     if info.manifest.published:
         raise ConflictError("A published snapshot can't be published again.")
+    if out.resolve() == manager.data_dir.resolve():
+        raise PublishError("Publish into another data directory than the vault's own.")
+    previous = out / "vaults" / info.folder
+    if previous.exists() and last_published(out, info) is None:
+        raise PublishError(f"{previous} exists and isn't a snapshot of this vault.")
     out.mkdir(parents=True, exist_ok=True)
     staging = out / f".publishing-{uuid.uuid7()}"
     folder = staging / "vaults" / info.folder
@@ -125,7 +137,7 @@ def publish_vault(manager: VaultManager, vault_id: str, out: Path) -> VaultInfo:
                 update={
                     "published": True,
                     "source_vault_id": info.id,
-                    "published_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                    "published_at": datetime.now(UTC),
                 }
             ),
         )
@@ -149,6 +161,17 @@ def publish_vault(manager: VaultManager, vault_id: str, out: Path) -> VaultInfo:
     return Manager(out, read_only=True).get(info.id)
 
 
+def last_published(out: Path, info: VaultInfo) -> VaultManifest | None:
+    """The manifest of the vault's snapshot in the data directory ``out``, if there is one."""
+    try:
+        manifest, _ = read_manifest(out / "vaults" / info.folder)
+    except ManifestError:
+        return None
+    if not manifest.published or manifest.source_vault_id != info.id:
+        return None
+    return manifest
+
+
 # --- the sanitizer -------------------------------------------------------------------------------
 
 
@@ -166,8 +189,7 @@ def _sanitize(publish: PublishContext) -> None:
     _filter_content(context)
     for module in context.registry.modules:
         for contributor in module.publish_contributors:
-            if callable(contributor):
-                contributor(publish)
+            contributor(publish)
     _repair_references(session)
     _drop_bookkeeping(session)
 
@@ -237,51 +259,52 @@ def _freeze_time_points(context: VaultContext) -> None:
     session.flush()
 
 
+_GONE = object()
+
+
+def _shown_value(times: Any, value: Any, dimension: str | None, owner: str | None) -> Any:
+    """A ``time_point`` value (one point or a list) as readers get it; ``_GONE``: none."""
+    if isinstance(value, list):
+        shown = [times.point(v, dimension, owner=owner) for v in value]
+        return [v for v in shown if v is not None]
+    point = times.point(value, dimension, owner=owner)
+    return _GONE if point is None else point
+
+
 def _freeze_time_point_fields(context: VaultContext, times: Any) -> None:
-    """``time_point`` field values as readers get them (``EntityService.shown_fields``)."""
+    """``time_point`` field values and facts as readers get them (``EntityService.shown_fields``,
+    ``FactService``)."""
     from lore.core.entities.models import Entity  # noqa: PLC0415
     from lore.core.entities.service import EntityService  # noqa: PLC0415
     from lore.core.facts.models import EntityFact  # noqa: PLC0415
 
-    service = EntityService(context, READER)
-    for entity in context.session.scalars(select(Entity)):
-        kind = service.kinds.get(entity.kind)
-        if kind is None or not entity.fields:
-            continue
-        active = service.kind_fields(kind).active
-        fields = dict(entity.fields)
-        for key, value in entity.fields.items():
-            if key not in active or active[key].type != "time_point" or value is None:
-                continue
-            values = value if isinstance(value, list) else [value]
-            shown = [times.point(v, entity.dimension_id) for v in values]
-            shown = [v for v in shown if v is not None]
-            if isinstance(value, list):
-                fields[key] = shown
-            elif shown:
-                fields[key] = shown[0]
-            else:
-                del fields[key]
-        if fields != entity.fields:
-            entity.fields = fields
     session = context.session
-    timelines = _timeline_dimensions(session)
-    facts = session.execute(
-        select(EntityFact, Entity).join(Entity, Entity.id == EntityFact.entity_id)
-    ).all()
-    for fact, entity in facts:
+    service = EntityService(context, READER)
+
+    def is_point(entity: Entity, key: str) -> bool:
         kind = service.kinds.get(entity.kind)
-        field = None if kind is None else service.kind_fields(kind).active.get(fact.field_key)
-        if field is None or field.type != "time_point" or fact.value is None:
-            continue
-        dimension = timelines.get(fact.timeline_id)
-        if isinstance(fact.value, list):
-            shown_list = [times.point(v, dimension, owner=fact.id) for v in fact.value]
-            value: Any = [v for v in shown_list if v is not None]
-        else:
-            value = times.point(fact.value, dimension, owner=fact.id)
-        if value != fact.value:
-            fact.value = value
+        field = None if kind is None else service.kind_fields(kind).active.get(key)
+        return field is not None and field.type == "time_point"
+
+    for entity in session.scalars(select(Entity)):
+        fields = dict(entity.fields or {})
+        for key, value in (entity.fields or {}).items():
+            if value is not None and is_point(entity, key):
+                shown = _shown_value(times, value, entity.dimension_id, None)
+                if shown is _GONE:
+                    del fields[key]
+                else:
+                    fields[key] = shown
+        if fields != (entity.fields or {}):
+            entity.fields = fields
+    timelines = _timeline_dimensions(session)
+    joined = select(EntityFact, Entity).join(Entity, Entity.id == EntityFact.entity_id)
+    rows = session.execute(joined)
+    for fact, entity in rows.all():
+        if fact.value is not None and is_point(entity, fact.field_key):
+            shown = _shown_value(times, fact.value, timelines.get(fact.timeline_id), fact.id)
+            if shown != fact.value:
+                fact.value = None if shown is _GONE else shown
     session.flush()
 
 

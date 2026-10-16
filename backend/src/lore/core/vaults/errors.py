@@ -30,6 +30,14 @@ class VaultNewerThanAppError(ConflictError):
     title = "Vault newer than app"
 
 
+class VaultPublishedError(ConflictError):
+    """The vault is a published snapshot: it opens only on a read-only server
+    (``visibility-and-sharing.md`` §4)."""
+
+    code = "vault_published"
+    title = "Published snapshot"
+
+
 class VaultMigrationFailedError(LoreError):
     """Migrating the vault failed. The database was left untouched, a pre-migration backup
     exists (``context.backup``), and the vault stays unusable until the app restarts."""
