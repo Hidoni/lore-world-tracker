@@ -8,9 +8,11 @@ Pure ASGI middlewares, outermost first:
    ``internal_error`` problem for unexpected exceptions (so even those responses carry the id and
    the security headers).
 3. ``HostCheckMiddleware``: ``Host`` allowlist against DNS rebinding.
-4. ``CORSMiddleware``, only when ``LORE_CORS_ORIGINS`` is set (development).
-5. ``MutationGuardMiddleware``: CSRF guard (``X-Lore-Client`` header + ``Origin`` check).
-6. ``BodySizeLimitMiddleware``: request bodies are capped at ``MAX_JSON_BODY_BYTES``.
+4. ``ReadOnlyMiddleware``, only on a read-only server (``LORE_READ_ONLY``): every method but
+   GET/HEAD/OPTIONS is ``403 read_only`` before routing (``visibility-and-sharing.md`` §7).
+5. ``CORSMiddleware``, only when ``LORE_CORS_ORIGINS`` is set (development).
+6. ``MutationGuardMiddleware``: CSRF guard (``X-Lore-Client`` header + ``Origin`` check).
+7. ``BodySizeLimitMiddleware``: request bodies are capped at ``MAX_JSON_BODY_BYTES``.
 """
 
 import logging
@@ -172,6 +174,26 @@ class HostCheckMiddleware:
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
+
+
+class ReadOnlyMiddleware:
+    """A read-only server answers every mutation ``403 read_only``, whatever the route (even one
+    that doesn't exist): nothing reaches a handler that could write."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] in SAFE_METHODS:
+            await self.app(scope, receive, send)
+            return
+        response = problem_response(
+            status=403,
+            code="read_only",
+            title="Read-only",
+            detail="This server is read-only: nothing can be changed.",
+        )
+        await response(scope, receive, send)
 
 
 class MutationGuardMiddleware:

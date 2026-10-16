@@ -28,7 +28,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from lore import __version__
-from lore.core.db import WriteCounter, create_vault_engine, for_writing, optimize
+from lore.core.db import (
+    WriteCounter,
+    create_vault_engine,
+    for_writing,
+    optimize,
+    writer_active,
+)
 from lore.core.db.migrate import (
     Migrator,
     SchemaState,
@@ -390,7 +396,7 @@ class VaultManager:
         if info.id in self._open:
             return VaultSchema("current", head, head)
         try:
-            status = self.migrator.status_of(info.database_path)
+            status = self.migrator.status_of(info.database_path, immutable=self._untouched(info))
         except Exception:
             logger.warning("cannot read the database of vault %s", info.id, exc_info=True)
             return VaultSchema("database_unreadable", None, head)
@@ -399,6 +405,13 @@ class VaultManager:
         return VaultSchema(status.state.value, status.revision, head)
 
     # --- writes -------------------------------------------------------------------------------
+
+    def _untouched(self, info: VaultInfo) -> bool:
+        """Whether a read-only server opens the database ``immutable=1``, so not even SQLite's
+        ``-wal``/``-shm`` files appear in the vault folder: published snapshots, and databases no
+        process is writing (an author server running on the same folder keeps ``-wal`` while it
+        has the vault open; readers then open it ``mode=ro`` to see its writes)."""
+        return self.read_only and (info.manifest.published or not writer_active(info.database_path))
 
     def _require_writable(self) -> None:
         if self.read_only:
@@ -702,9 +715,12 @@ class VaultManager:
             info = self.get(vault_id)
             self._raise_if_failed(vault_id)
             if self.read_only:
-                self._require_current(self.migrator.status_of(info.database_path))
+                immutable = self._untouched(info)
+                self._require_current(
+                    self.migrator.status_of(info.database_path, immutable=immutable)
+                )
                 engine = create_vault_engine(
-                    info.database_path, read_only=True, immutable=info.manifest.published
+                    info.database_path, read_only=True, immutable=immutable
                 )
             else:
                 self._lock(info)

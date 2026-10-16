@@ -13,6 +13,7 @@ from lore.core.db.engine import (
     snapshot,
     unindexed,
     vacuum,
+    writer_active,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "snapshot",
     "unindexed",
     "vacuum",
+    "writer_active",
 ]

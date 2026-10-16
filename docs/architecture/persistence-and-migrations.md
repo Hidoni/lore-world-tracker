@@ -114,7 +114,10 @@ PRAGMA temp_store = MEMORY;
   - `lore vault reindex <vault>` runs every checker's rebuild in one write transaction (search
     index, then mentions, then time), fixing whatever `check` reports about derived data.
 - **Read-only mode** opens `file:lore.db?mode=ro&uri=true`. Published snapshots
-  (`journal_mode=DELETE`) are additionally opened with `immutable=1`.
+  (`journal_mode=DELETE`), and databases no process is writing (no `lore.db-wal`), are
+  additionally opened with `immutable=1`, so not even SQLite's `-wal`/`-shm` side files appear in
+  the vault folder. While an author server has the vault open (its `-wal` exists), readers open
+  it `mode=ro` only, to see its committed writes.
 - Requirements: SQLite ≥ 3.45 with FTS5 (incl. the trigram tokenizer with `remove_diacritics`),
   JSON1 and window functions. The Python 3.14 builds used locally (3.50.x) and in the Docker
   image satisfy this. Startup (the app lifespan) checks it with probes on an in-memory database

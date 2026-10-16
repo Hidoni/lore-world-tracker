@@ -144,9 +144,10 @@ class Migrator:
             state = SchemaState.NEWER_THAN_APP
         return SchemaStatus(revision, head, state)
 
-    def status_of(self, path: Path) -> SchemaStatus:
-        """The schema status of a database file, read without writing anything."""
-        engine = create_vault_engine(path, read_only=True, pool=NullPool)
+    def status_of(self, path: Path, *, immutable: bool = False) -> SchemaStatus:
+        """The schema status of a database file, read without writing anything (``immutable``:
+        not even SQLite's ``-wal``/``-shm`` files, for a database no process writes)."""
+        engine = create_vault_engine(path, read_only=True, immutable=immutable, pool=NullPool)
         try:
             with engine.connect() as connection:
                 return self.status(connection)
