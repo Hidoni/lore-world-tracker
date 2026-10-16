@@ -27,11 +27,15 @@ from tests.conftest import local_client
 from tests.entity_api import HEADERS
 
 FIXTURES = Path(__file__).parent / "fixtures" / "vaults"
-FIXTURE_DIRS = sorted(path for path in FIXTURES.iterdir() if path.is_dir())
+# By version (v0.10.0 after v0.9.0), not by name.
+FIXTURE_DIRS = sorted(
+    (path for path in FIXTURES.iterdir() if path.is_dir()),
+    key=lambda path: tuple(int(part) for part in path.name.removeprefix("v").split(".")),
+)
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:8] == [
+    assert [path.name for path in FIXTURE_DIRS][:9] == [
         "v0.1.0",
         "v0.2.0",
         "v0.3.0",
@@ -40,6 +44,7 @@ def test_there_is_a_fixture_for_every_release() -> None:
         "v0.6.0",
         "v0.8.0",
         "v0.9.0",
+        "v0.10.0",
     ]
 
 
@@ -252,6 +257,40 @@ def test_fixture_maps_and_media_survive_the_upgrade(upgraded: Any) -> None:
         assert image.headers["content-type"] == "image/webp"
 
 
+def test_fixture_custom_kinds_and_fields_survive_the_upgrade(upgraded: Any) -> None:
+    """Custom kinds and fields (v0.10.0 on): in the registry, on their entities, and a temporal
+    custom field's value changing at the coronation."""
+    client, expected = upgraded
+    if not expected.get("custom"):
+        pytest.skip("this fixture predates custom kinds and fields")
+    custom = expected["custom"]
+    base = f"/api/v1/vaults/{expected['vault_id']}"
+    kinds = {kind["key"]: kind for kind in client.get(f"{base}/registry").json()["kinds"]}
+    for key, label in custom["kinds"].items():
+        assert kinds[key]["label"] == label
+    for key, fields in custom["fields"].items():
+        found = client.get(f"{base}/m/custom_fields/fields", params={"kind": key}).json()
+        assert set(fields) <= {field["key"] for field in found["items"]}, key
+    prime = next(
+        e for e in _all(client, f"{base}/entities", kind="timeline") if e["name"] == "Prime"
+    )
+    crowned = int(expected["moments"]["Coronation of Ilsa"][0])
+    for name, wanted in custom["values"].items():
+        [entity] = [e for e in _all(client, f"{base}/entities", kind=wanted["kind"])
+                    if e["name"] == name]  # fmt: skip
+        full = client.get(f"{base}/entities/{entity['id']}").json()
+        assert {k: v for k, v in full["fields"].items() if k in wanted["fields"]} == wanted[
+            "fields"
+        ]
+        titles = [
+            client.get(f"{base}/entities/{entity['id']}/state",
+                       params={"timeline": prime["id"], "at": at}).json()["fields"]
+            ["custom.keeper_title"]["value"]
+            for at in (crowned - 1, crowned)
+        ]  # fmt: skip
+        assert titles == wanted["keeper_title"], name
+
+
 def test_an_upgraded_fixture_takes_writes_and_undo(upgraded: Any) -> None:
     client, expected = upgraded
     base = f"/api/v1/vaults/{expected['vault_id']}"
@@ -325,6 +364,7 @@ def test_the_generator_is_deterministic_for_a_seed(
     assert first.entities == {
         "calendar": 11,
         "character": 8,
+        "custom.relic": 1,
         "dimension": 4,
         "event": 50 + 120,
         "group": 7,
@@ -465,7 +505,7 @@ def test_a_fixture_is_a_bare_vault_folder_with_its_expectations(tmp_path: Path) 
 
 def test_the_script_entry_point(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     make_sample_vault.main(["--size", "tiny", "--out", str(tmp_path)])
-    assert "110 entities, 65 links" in capsys.readouterr().out
+    assert "111 entities, 65 links" in capsys.readouterr().out
     assert len(list((tmp_path / "vaults").iterdir())) == 1
 
 

@@ -35,8 +35,8 @@ the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with
 and, where volume matters, to the bulk. Add what tests should check to ``SampleWorld`` (it is
 written to ``expected.json`` for fixtures). Done: module kinds (M6: misc, locations,
 characters, groups, languages, species), facts and temporal links (M7), branches,
-correspondences and a time traveler (M9), media and maps (M10). Planned: custom fields and
-kinds (M11).
+correspondences and a time traveler (M9), media and maps (M10), a custom kind with custom
+fields, one temporal, and a field every kind has (M11).
 Old fixtures are never regenerated: the next milestone release commits a new one
 (``persistence-and-migrations.md`` §3.5).
 """
@@ -95,6 +95,13 @@ from lore.core.visibility import AUTHOR
 from lore.modules import ALL_MODULES
 from lore.modules.correspondences.schemas import CorrespondenceCreate
 from lore.modules.correspondences.service import Correspondences
+from lore.modules.custom_fields.kinds import CustomKinds
+from lore.modules.custom_fields.schemas import (
+    CustomFieldCreate,
+    CustomKindCreate,
+    KindCapabilitiesIn,
+)
+from lore.modules.custom_fields.service import CustomFields
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
 from lore.modules.maps.schemas import MapCreate, PinCreate
@@ -176,6 +183,10 @@ class SampleWorld:
     # Map name -> {"location": its location's name, "pins": pin labels (all time), "drill":
     # {pin label: the map it drills into}} (v0.9.0 on).
     maps: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Custom kinds and fields (v0.10.0 on): {"kinds": {key: label}, "fields": {kind key:
+    # [field keys]}, "values": {entity name: {"kind": key, "fields": {key: value}, "at": {moment:
+    # the temporal field's value then}}}}.
+    custom: dict[str, Any] = field(default_factory=dict)
 
 
 # --- rich text -----------------------------------------------------------------------------------
@@ -1513,6 +1524,58 @@ def _core_facts(writer: Writer, core: Core, world: SampleWorld) -> None:
     }
 
 
+def _core_custom(writer: Writer, core: Core, world: SampleWorld) -> None:
+    """Custom kinds and fields (M11): the Relic kind with a choice field and a temporal one, a
+    field every kind has, and the Sunblade, whose keeper's title changes at the coronation."""
+    prime = {"timeline_id": core["Prime"]}
+    coronation = after(core["Coronation of Ilsa"])
+    with writer.transaction("Sample world: custom kinds and fields") as s:
+        CustomKinds(s.context).create(CustomKindCreate(
+            key="relic", label="Relic", plural="Relics", icon="gem", color="#b45309",
+            allowed_parents=["misc", "custom.relic"],
+            capabilities=KindCapabilitiesIn(can_have_worldline=False),
+        ))  # fmt: skip
+        fields = CustomFields(s.context)
+        fields.create(CustomFieldCreate.model_validate({
+            "kind_key": "custom.relic", "key": "rarity", "label": "Rarity", "type": "enum",
+            "options": [{"key": "common", "label": "Common"},
+                        {"key": "legendary", "label": "Legendary"}],
+        }))  # fmt: skip
+        fields.create(CustomFieldCreate.model_validate({
+            "kind_key": "custom.relic", "key": "keeper_title", "label": "Keeper's title",
+            "type": "text", "temporal": True,
+        }))  # fmt: skip
+        fields.create(CustomFieldCreate(kind_key="*", key="motto", label="Motto", type="text"))
+    # A new transaction: its services see the new kind and fields.
+    with writer.transaction("Sample world: a relic") as s:
+        sunblade = s.entity(
+            "custom.relic",
+            "The Sunblade",
+            dimension_id=core[WORLD_NAME],
+            parent_id=core["Time Travel"],
+            fields={"custom.rarity": "legendary", "custom.motto": "Dawn follows"},
+        )
+        core.ids["The Sunblade"] = sunblade
+        s.fact(sunblade, "custom.keeper_title", value="Squire's blade", valid_to=coronation,
+               **prime)  # fmt: skip
+        s.fact(sunblade, "custom.keeper_title", value="Queen's blade", valid_from=coronation,
+               **prime)  # fmt: skip
+    world.custom = {
+        "kinds": {"custom.relic": "Relic"},
+        "fields": {
+            "*": ["custom.motto"],
+            "custom.relic": ["custom.keeper_title", "custom.rarity"],
+        },
+        "values": {
+            "The Sunblade": {
+                "kind": "custom.relic",
+                "fields": {"custom.motto": "Dawn follows", "custom.rarity": "legendary"},
+                "keeper_title": ["Squire's blade", "Queen's blade"],
+            }
+        },
+    }
+
+
 def _core_branches(writer: Writer, core: Core, world: SampleWorld) -> None:
     """Branches (M9): "What if Aurel survived", anchored to the start of his assassination, with
     a branch-only survivor's council, its own event and a fact; with what tests check."""
@@ -1734,6 +1797,7 @@ def _build_core(writer: Writer, world: SampleWorld) -> Core:
     _core_correspondences(writer, core, world)
     _core_worldlines(writer, core, world)
     _core_maps(writer, core, world)
+    _core_custom(writer, core, world)
     _core_history(writer, core)
     _core_moments(writer, core, world)
     world.backlinks = {
