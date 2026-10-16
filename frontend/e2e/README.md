@@ -44,13 +44,14 @@ CI uploads that folder as the `playwright-report` artifact. Open one with
 
 ## Journeys
 
-| #     | Spec                         | Covers                                                                                                                                                                       |
-| ----- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| smoke | `smoke.spec.ts`              | the shell loads; create and reopen a vault                                                                                                                                   |
-| E5    | `e5-linking.spec.ts`         | a `[[` link in the editor, the backlink on the target, rename relabels the link                                                                                              |
-| E6    | `e6-relationships.spec.ts`   | a marriage valid from a wedding to a death, the family tree, the time cursor changes who is married and alive                                                                |
-| E7    | `e7-branches.spec.ts`        | "What if…" branches at an assassination, the war spanning it ends earlier in the branch, compare mode shows both timelines, the divergence and the shorter war               |
-| E8    | `e8-worldlines.spec.ts`      | a first worldline segment and the Time travel… wizard, then the personal timeline lists what the traveler lived in their order (meeting, departure, jump, warning) with ages |
-| E9    | `e9-correspondences.spec.ts` | a correspondence with two sync points from the dimension overview, then "Concurrently in" on an event page                                                                   |
-| E10   | `e10-maps.spec.ts`           | a map uploaded in "New map", a child location pinned from the tray, drill-down and back, then the time cursor hides the pin of a destroyed city                              |
-| graph | `graph.spec.ts`              | the graph page draws with WebGL while the layout runs, pans and zooms, freezes, finds and opens an entity                                                                    |
+| #      | Spec                         | Covers                                                                                                                                                                                              |
+| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| smoke  | `smoke.spec.ts`              | the shell loads; create and reopen a vault                                                                                                                                                          |
+| E5     | `e5-linking.spec.ts`         | a `[[` link in the editor, the backlink on the target, rename relabels the link                                                                                                                     |
+| E6     | `e6-relationships.spec.ts`   | a marriage valid from a wedding to a death, the family tree, the time cursor changes who is married and alive                                                                                       |
+| E7     | `e7-branches.spec.ts`        | "What if…" branches at an assassination, the war spanning it ends earlier in the branch, compare mode shows both timelines, the divergence and the shorter war                                      |
+| E8     | `e8-worldlines.spec.ts`      | a first worldline segment and the Time travel… wizard, then the personal timeline lists what the traveler lived in their order (meeting, departure, jump, warning) with ages                        |
+| E9     | `e9-correspondences.spec.ts` | a correspondence with two sync points from the dimension overview, then "Concurrently in" on an event page                                                                                          |
+| E10    | `e10-maps.spec.ts`           | a map uploaded in "New map", a child location pinned from the tray, drill-down and back, then the time cursor hides the pin of a destroyed city                                                     |
+| graph  | `graph.spec.ts`              | the graph page draws with WebGL while the layout runs, pans and zooms, freezes, finds and opens an entity                                                                                           |
+| reader | `reader-mobile.spec.ts`      | reader mode on a phone (Pixel 7): previewing as a reader, five pages fit the screen, have tap targets of 24 px (WCAG 2.5.8), 16 px bodies and no editing; spoilers fold; the navigation is a drawer |

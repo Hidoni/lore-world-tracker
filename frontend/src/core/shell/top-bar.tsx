@@ -117,7 +117,8 @@ export function TopBar() {
   useGlobalShortcuts(vault)
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1 border-b px-2">
+    // Below `md` the time controls get a second row of their own (scrolling sideways if needed).
+    <header className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1 md:h-12 md:flex-nowrap md:py-0">
       <Button
         variant="ghost"
         size="icon"
@@ -140,16 +141,26 @@ export function TopBar() {
       >
         <PanelLeftIcon />
       </Button>
-      <Link to="/" search={{ pick: true }} className="px-2 font-semibold whitespace-nowrap">
+      <Link
+        to="/"
+        search={{ pick: true }}
+        className="hidden px-2 font-semibold whitespace-nowrap sm:inline"
+      >
         Lore
       </Link>
       {vault !== undefined && (
         <>
           <VaultSwitcher vault={vault} />
-          <DimensionSwitcher vault={vault} />
-          <TimelineSwitcher vault={vault} />
-          <CalendarSelector vault={vault} />
-          <TimeCursorControl vault={vault} />
+          <div
+            role="group"
+            aria-label="Time"
+            className="order-last flex w-full min-w-0 items-center gap-1 overflow-x-auto md:order-none md:w-auto md:overflow-visible"
+          >
+            <DimensionSwitcher vault={vault} />
+            <TimelineSwitcher vault={vault} />
+            <CalendarSelector vault={vault} />
+            <TimeCursorControl vault={vault} />
+          </div>
         </>
       )}
       <div className="flex-1" />

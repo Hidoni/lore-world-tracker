@@ -19,6 +19,13 @@ All notable changes to this project are documented here. The format follows
   history, findings and proposals are dropped. A leak check runs before anything is written, and
   an author server refuses to open a snapshot.
 
+- **Reader mode** (#141): a read-only server is a clean wiki for readers: no editing anywhere,
+  spoilers folded behind a click (pages, field values, links and blocks), a landing page with the
+  dimensions, kinds to browse and the latest pages, and author-only pages kept out of the way.
+  Authors can **Preview as reader** from the top bar to see exactly what readers get. Reading is
+  more comfortable: bodies at a readable size and width, an optional serif reading font, and on
+  phones a navigation drawer, a top bar that fits, and pinch-to-zoom on the timeline.
+
 ### Fixed
 
 - A private map sharing a public map's image no longer hides that image from readers (#140).

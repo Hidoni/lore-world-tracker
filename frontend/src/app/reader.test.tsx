@@ -131,7 +131,7 @@ describe('reader mode', () => {
     const dimensions = await screen.findByRole('region', { name: 'Dimensions' })
     expect(within(dimensions).getByRole('link', { name: 'Aetheria' })).toHaveAttribute(
       'href',
-      '/v/v1/e/d1',
+      '/v/v1/d/d1',
     )
     expect(within(dimensions).getByRole('link', { name: 'Timeline of Aetheria' })).toHaveAttribute(
       'href',

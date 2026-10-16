@@ -75,8 +75,8 @@ until eslint-plugin-jsx-a11y supports 10.
 - **Main area:** the current route.
 - **Right panel (context, collapsible):** backlinks and mentions, local graph (graph module),
   document outline, consistency findings for the current entity, history, and the as-of summary.
-- Mobile/reader: the sidebar becomes a drawer, the right panel moves below content, and editing UI
-  is absent.
+- Mobile/reader: the sidebar becomes a drawer, the right panel moves below content, the top bar's
+  time controls take a second row, and editing UI is absent (§13).
 
 Implementation (`core/shell/`, #58): the sidebar width (180–480 px, keyboard-resizable through its
 `separator` handle) and the open/closed sidebar and context panel persist in `localStorage`
@@ -1007,7 +1007,7 @@ supports keyboard navigation between items (arrow keys) and announces focused it
     so reapply the edit.
 - Kind colors and icons come from the registry. Icons are lucide names mapped by a curated
   `iconMap`. Custom kinds pick from that set.
-- Typography: a UI sans plus an optional serif reading font for bodies in reader mode.
+- Typography: a UI sans plus an optional serif reading font for rendered bodies (display menu).
 - Accessibility: Radix primitives, visible focus, AA contrast, `?` opens the keyboard shortcut
   sheet.
 
@@ -1026,6 +1026,49 @@ supports keyboard navigation between items (arrow keys) and announces focused it
 - `meta.read_only` (or `?as_reader=true` preview) puts the app in reader mode: the `Mutations`
   context is absent, so editing UI does not render. Spoilers fold. The layout is optimized for
   reading.
+
+Implementation (#141):
+
+- **Mode** (`data/reader.tsx`, `ReaderModeProvider`, `useReaderMode()`): a read-only server
+  (`meta.read_only`), or the author's **Preview as reader** toggle in the top bar (an eye button;
+  per tab in `sessionStorage`, `lore.previewAsReader`). The app renders once the meta arrives, so
+  editing UI never flashes. While previewing, every GET carries `as_reader=true`
+  (`readerPreviewMiddleware` in `api/`, and `readerUrl` for media and export URLs), and the toggle
+  resets every cached query so pages reload as readers see them. The top bar shows the
+  "Read-only" or "Previewing as reader" badge.
+- **No editing:** components show edit controls only when `useMutations()` isn't `null`. Sidebar
+  trees drop their drag handles, the entity page drops its History tab (author-only), and author
+  pages (settings, trash, recent changes, consistency, calendar editing) show "For authors"
+  (`AuthorOnly`) and leave the sidebar. Component tests render each page type in reader mode
+  (`renderApp(…, { readOnly: true })`) and assert `expectNoEditing()` (`test/reader.ts`: no
+  edit-named buttons or menu items, editable text, drag handles or file inputs); an author-mode
+  positive control checks the helper finds them.
+- **Spoilers** (`core/reader`): an entity marked spoiler asks first (`SpoilerGate`, "Show
+  spoilers"); spoiler field values (by override or the field's default) and spoiler links show a
+  "Spoiler" chip that reveals them (`Spoiler`); spoiler blocks in bodies are folded `<details>`.
+  Authors see everything unfolded, with markers.
+- **Reading layout:** bodies render at 16 px with a comfortable line length (`max-w-prose`); the
+  display menu (top bar) has a **Reading font** choice (sans-serif or serif, `lore.readingFont`).
+  Below `md` the sidebar is a drawer, the context panel follows the content, and the top bar's
+  time controls take a second row that scrolls sideways. The timeline pans with one finger and
+  zooms with a two-finger pinch.
+- **Landing page:** in reader mode `/v/$vault` is `ReaderHome`: the dimensions with their summary
+  and links to their timeline and events, the kinds to browse, and the recently updated pages.
+
+Mobile check (`e2e/reader-mobile.spec.ts`, Pixel 7 emulation, 412 × 915, touch), measured on
+2026-10-16 while previewing as a reader:
+
+| Page | Wider than the screen | Tap targets under WCAG 2.5.8 | Body text |
+|------|-----------------------|------------------------------|-----------|
+| Vault home (reader landing) | no | none | – |
+| Dimension overview | no | none | – |
+| Entity page | no | none | 16 px |
+| Spoiler entity (gate) | no | none | – |
+| Timeline | no | none | – |
+
+Before the fix in #141 the top bar's controls overlapped on a phone (nothing could be tapped
+under the time cursor); the second row fixed it. The spec runs in `make e2e` and fails on any
+regression.
 - Reader screens may only use `DataSource` methods. Post-MVP, `StaticDataSource` implements them
   from JSON chunks of a published snapshot, using `@lore/chronology` for occurrence expansion and
   MiniSearch for search, with hash-based routing (`visibility-and-sharing.md` §6).

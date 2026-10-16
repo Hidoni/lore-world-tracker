@@ -44,8 +44,8 @@ export function ReaderHome({ vault }: { vault: string }) {
             {items.map((dimension) => (
               <li key={dimension.id} className="flex flex-col gap-2 rounded-lg border p-4">
                 <Link
-                  to="/v/$vault/e/$entity"
-                  params={{ vault, entity: dimension.id }}
+                  to="/v/$vault/d/$dimension"
+                  params={{ vault, dimension: dimension.id }}
                   className="flex items-center gap-2 text-lg font-medium hover:underline"
                 >
                   <GlobeIcon className="size-4 text-muted-foreground" aria-hidden />
