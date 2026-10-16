@@ -22,6 +22,7 @@ export function kind(key: string, label: string, extra: Record<string, unknown> 
     description: '',
     allowed_parents: [],
     capabilities: CAPS,
+    default_visibility: null,
     fields: [],
     ...extra,
   }

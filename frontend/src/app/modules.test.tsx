@@ -23,6 +23,7 @@ const RELIC = {
     is_time_bound: false,
     is_system: false,
   },
+  default_visibility: null,
   fields: [],
 }
 

@@ -27,6 +27,7 @@ function kind(key: string, icon: string, module = 'core') {
     description: '',
     allowed_parents: ['misc'],
     capabilities: CAPS,
+    default_visibility: null,
     fields: [],
   }
 }
