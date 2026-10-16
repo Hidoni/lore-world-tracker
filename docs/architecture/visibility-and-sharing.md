@@ -143,9 +143,12 @@ implementing it in `StaticDataSource`.
 - Enabled by `LORE_READ_ONLY=true`. `LORE_EXPOSED_VAULTS` (comma-separated vault ids or folder
   names) limits what is served. The default is all vaults found, but published snapshots are
   recommended.
-- Middleware rejects non-GET methods with `403 read_only` (before routing). The vault registry
-  never creates, migrates, locks or writes anything. SQLite is opened `mode=ro` (published
-  snapshots: `immutable=1`).
+- Middleware rejects non-GET methods with `403 read_only` (before routing, also for paths no
+  route has; `ReadOnlyMiddleware`). The vault registry never creates, migrates, locks or writes
+  anything, and the maintenance scheduler is off. SQLite is opened `mode=ro`, with
+  `immutable=1` for published snapshots and databases no author is writing, so a read-only run
+  changes no file in the data folder (`backend/tests/test_read_only.py`). Vaults not at head are
+  refused (`409 vault_needs_migration`).
 - `/meta` reports `read_only: true`. The SPA runs in reader mode.
 - Docker compose ships a `reader` profile (`deployment.md`).
 

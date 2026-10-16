@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Read-only server mode, hardened** (#138): on a read-only server (`LORE_READ_ONLY=true`) every
+  request that would change something is refused before it reaches the app, and serving a vault
+  leaves its folder untouched: not even SQLite's side files appear while no author is writing.
+
 ## [0.10.0] - 2026-10-16
 
 Custom fields and kinds (M11): make the app fit your world. Define kinds of your own (Artifact,

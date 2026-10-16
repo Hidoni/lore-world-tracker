@@ -91,6 +91,12 @@ def ensure_sqlite_capabilities(
         )
 
 
+def writer_active(path: Path) -> bool:
+    """Whether a process may be writing the database: SQLite keeps ``<db>-wal`` while a WAL
+    database is open for writing (and deletes it when the last connection closes)."""
+    return Path(f"{path}-wal").exists()
+
+
 def database_uri(path: Path, *, read_only: bool, immutable: bool) -> str:
     # URIs give explicit modes: rw refuses to create a missing database, ro refuses writes.
     uri = f"file:{quote(str(path.resolve()))}?mode={'ro' if read_only else 'rw'}"

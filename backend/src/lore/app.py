@@ -24,6 +24,7 @@ from lore.core.api.middleware import (
     BodySizeLimitMiddleware,
     HostCheckMiddleware,
     MutationGuardMiddleware,
+    ReadOnlyMiddleware,
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
     allowed_hosts,
@@ -166,6 +167,8 @@ def install_middleware(app: FastAPI, settings: Settings) -> None:
             allow_headers=[CLIENT_HEADER, REQUEST_ID_HEADER, "Content-Type"],
             expose_headers=[REQUEST_ID_HEADER],
         )
+    if settings.read_only:
+        app.add_middleware(ReadOnlyMiddleware)
     app.add_middleware(HostCheckMiddleware, hosts=hosts)
     app.add_middleware(RequestContextMiddleware, debug=settings.debug)
     app.add_middleware(SecurityHeadersMiddleware)
