@@ -9,7 +9,7 @@ the issue that builds each one replaces its alias with a real protocol:
 - ``PublishContributor``: published snapshots (M12)
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -22,6 +22,7 @@ from lore.core.entities.extensions import KindExtension, PurgeHook
 from lore.core.history.tables import HistoryTable
 from lore.core.registry.types import (
     FieldContribution,
+    FieldDef,
     FieldTypeDef,
     KindDef,
     LinkTypeDef,
@@ -46,6 +47,10 @@ type PublishContributor = object
 # from bodies, fields and covers); runs before the consistency check, undo included. Raising a
 # typed error refuses the write.
 type DerivedHook = Callable[["VaultContext", Sequence["RecordedChange"]], None]
+# Fields a vault keeps in its database (the custom_fields module's custom fields): given the
+# vault's kind keys, the fields to add to each (by kind key). Read on every request that builds the
+# vault's kinds (``ModuleRegistry.vault_kinds``), so it must be one cheap query.
+type FieldProvider = Callable[[Session, Sequence[str]], Mapping[str, Sequence[FieldDef]]]
 # A daily job per open vault in author mode (the media module's garbage collection); ``now`` is
 # the scheduler's clock.
 type MaintenanceTask = Callable[["VaultContext", datetime], None]
@@ -71,6 +76,7 @@ class ModuleSpec:
     kinds: tuple[KindDef, ...] = ()
     field_contributions: tuple[FieldContribution, ...] = ()  # fields on other modules' kinds
     field_types: tuple[FieldTypeDef, ...] = ()  # e.g. the media module's ``media`` type
+    field_providers: tuple[FieldProvider, ...] = ()  # per-vault fields (custom fields)
     link_types: tuple[LinkTypeDef, ...] = ()  # keys start with "<id>."
     # SQLAlchemy model classes of the module's tables (names start with "<id>_"). Listed
     # explicitly so the registry can validate them and include them in the migration metadata.

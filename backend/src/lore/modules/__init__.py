@@ -7,6 +7,7 @@ from lore.core.modules import ModuleSpec
 from lore.modules.branches import MODULE as BRANCHES
 from lore.modules.characters import MODULE as CHARACTERS
 from lore.modules.correspondences import MODULE as CORRESPONDENCES
+from lore.modules.custom_fields import MODULE as CUSTOM_FIELDS
 from lore.modules.graph import MODULE as GRAPH
 from lore.modules.groups import MODULE as GROUPS
 from lore.modules.languages import MODULE as LANGUAGES
@@ -20,7 +21,7 @@ from lore.modules.worldlines import MODULE as WORLDLINES
 # Every module's spec, in dependency order. Explicit: no entry points, no discovery (§2.2).
 ALL_MODULES: list[ModuleSpec] = [
     MEDIA, MISC, LOCATIONS, SPECIES, CHARACTERS, GROUPS, LANGUAGES, GRAPH, BRANCHES,
-    CORRESPONDENCES, WORLDLINES, MAPS,
+    CORRESPONDENCES, WORLDLINES, MAPS, CUSTOM_FIELDS,
 ]  # fmt: skip
 
 

@@ -157,7 +157,7 @@ def _kind_out(kind: RegisteredKind) -> KindOut:
 @router.get("/registry", name="get", tags=["registry"])
 def get_registry(session: SessionDep, registry: ModuleRegistryDep) -> Registry:
     enabled = enabled_modules(session, registry)
-    kinds = registry.kinds_for(enabled)
+    kinds = registry.vault_kinds(session, enabled)
     return Registry(
         kinds=[_kind_out(kind) for kind in kinds],
         field_types=[
