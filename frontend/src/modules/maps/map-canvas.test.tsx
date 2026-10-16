@@ -40,7 +40,12 @@ describe('map canvas', () => {
     )
     fireEvent.click(port)
     await waitFor(() => {
-      expect(onSelect).toHaveBeenCalledWith('p1')
+      expect(onSelect).toHaveBeenLastCalledWith('p1')
     })
+    // The map's own click (not on a marker) clears the selection.
+    const map = container.querySelector('.leaflet-container')
+    if (map === null) throw new Error('no map')
+    fireEvent.click(map)
+    expect(onSelect).toHaveBeenLastCalledWith(null)
   })
 })

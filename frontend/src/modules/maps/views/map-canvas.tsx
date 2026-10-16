@@ -113,10 +113,20 @@ export default function MapCanvas({
     L.imageOverlay(image, bounds).addTo(created)
     created.fitBounds(bounds)
     created.on('click', (event: L.LeafletMouseEvent) => {
+      // A marker's click reaches the map too: it selects, it doesn't clear or place.
+      const target = event.originalEvent.target
+      if (target instanceof Element && target.closest('.leaflet-marker-icon') !== null) return
       const { editing: placing, onPlace: place, onSelect: select } = handlers.current
       if (placing && place) place(pointOf(event.latlng))
       else select(null)
     })
+    // Leaflet focuses the map on every press (keyboard navigation) and only restores the
+    // window's scroll: a scrolling pane around the map would jump, and the press's target with it.
+    const box = created.getContainer()
+    const focus = box.focus.bind(box)
+    box.focus = (options?: FocusOptions) => {
+      focus({ ...options, preventScroll: true })
+    }
     map.current = created
     focused.current = null
     return () => {
@@ -156,9 +166,21 @@ export default function MapCanvas({
         title: marker.label,
         alt: marker.label,
         draggable: editing,
+        // Focus comes with the mouse press: panning then would move the pin from under the
+        // pointer before the release, and the click would land on the map.
+        autoPanOnFocus: false,
         zIndexOffset: marker.ghost ? -1000 : 0,
       })
         .bindTooltip(marker.label, { direction: 'right' })
+        .on('add', (event) => {
+          // Nor may the page scroll to the focused pin (a pin near the bottom of the view).
+          const element = (event.target as L.Marker).getElement()
+          if (element === undefined) return
+          L.DomEvent.on(element, 'mousedown', (down) => {
+            down.preventDefault()
+            element.focus({ preventScroll: true })
+          })
+        })
         .on('click', (event) => {
           L.DomEvent.stopPropagation(event)
           handlers.current.onSelect(marker.id)
