@@ -223,6 +223,24 @@ class EntityService:
     def create(self, data: EntityCreate, *, timeline_id: str | None = None) -> EntityWriteResult:
         """Create an entity. Created in a branch (``timeline_id``, a timeline of its dimension),
         it is branch-only there (``origin_timeline_id``, ``time-model.md`` §4.6)."""
+        entity, links, mentioned = self._create(data, timeline_id)
+        affected = self._affected(
+            [entity.id, entity.parent_id, *sorted(mentioned)], [entity.dimension_id], True
+        )
+        return EntityWriteResult(
+            entity=self.to_out(entity), affected=self._with_links(affected, links)
+        )
+
+    def insert(self, data: EntityCreate, *, timeline_id: str | None = None) -> str:
+        """``create`` for bulk writers (the sample world, imports): the same write, without the
+        response a client gets (the entity as read back, what the write affected). Returns the
+        new id."""
+        entity, _links, _mentioned = self._create(data, timeline_id)
+        return entity.id
+
+    def _create(
+        self, data: EntityCreate, timeline_id: str | None
+    ) -> tuple[Entity, list[Link], set[str]]:
         request_suppress(self.session, data.suppress)
         kind = self.kinds.get(data.kind)
         if kind is None:
@@ -268,12 +286,7 @@ class EntityService:
         mentioned = self.refresh_mentions(entity)
         self.session.flush()
         self.reindex(entity)
-        affected = self._affected(
-            [entity.id, entity.parent_id, *sorted(mentioned)], [entity.dimension_id], True
-        )
-        return EntityWriteResult(
-            entity=self.to_out(entity), affected=self._with_links(affected, links)
-        )
+        return entity, links, mentioned
 
     def update(self, entity_id: str, data: EntityUpdate) -> EntityWriteResult:
         request_suppress(self.session, data.suppress)
