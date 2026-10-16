@@ -116,7 +116,9 @@ class SearchQueries:
         # Branch-only entities are found in their branch's lineage (time-model.md §4.6).
         self.scope = scope_for(session, policy, timeline_id)
         enabled = enabled_modules(session, registry)
-        self.kinds: dict[str, RegisteredKind] = {k.key: k for k in registry.kinds_for(enabled)}
+        self.kinds: dict[str, RegisteredKind] = {
+            k.key: k for k in registry.vault_kinds(session, enabled)
+        }
         self.contributors: dict[str, SearchContributor] = {
             doc_type: contributor
             for doc_type, contributor in contributors(registry).items()

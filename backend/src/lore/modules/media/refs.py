@@ -82,7 +82,9 @@ class Refs:
         self.context = context
         self.session = context.session
         enabled = enabled_modules(self.session, context.registry)
-        self.kinds = {kind.key: kind for kind in context.registry.kinds_for(enabled)}
+        self.kinds = {
+            kind.key: kind for kind in context.registry.vault_kinds(context.session, enabled)
+        }
 
     def wanted(self, entity: Entity) -> dict[tuple[str, str], Visibility]:
         """``(media id, context) -> level`` of the entity's derived contexts."""

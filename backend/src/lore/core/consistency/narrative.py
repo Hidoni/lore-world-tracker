@@ -353,7 +353,7 @@ def _fields(ctx: RuleContext) -> dict[tuple[str, str], tuple[str, bool]]:
     """``(kind, field key)`` → (label, multiple) of the enabled kinds' fields."""
     from lore.core.modules.service import enabled_modules  # noqa: PLC0415 (import cycle)
 
-    kinds = ctx.registry.kinds_for(enabled_modules(ctx.session, ctx.registry))
+    kinds = ctx.registry.vault_kinds(ctx.session, enabled_modules(ctx.session, ctx.registry))
     return {(k.key, f.key): (f.label, f.multiple) for k in kinds for f in k.fields}
 
 

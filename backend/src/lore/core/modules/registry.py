@@ -11,6 +11,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 
 from sqlalchemy import MetaData
+from sqlalchemy.orm import Session
 
 from lore.core.consistency.rules import CORE_RULES
 from lore.core.entities.extensions import CORE_PURGE_HOOKS, KindExtension, PurgeHook
@@ -146,6 +147,35 @@ class ModuleRegistry:
                     kind = kinds[index]
                     kinds[index] = replace(kind, fields=kind.fields + contribution.fields)
         return kinds
+
+    def vault_kinds(self, session: Session, enabled: Iterable[str]) -> list[RegisteredKind]:
+        """The kinds as this vault sees them: ``kinds_for`` plus the fields the enabled modules
+        keep in the vault's database (``ModuleSpec.field_providers``: custom fields). Fields
+        provided for ``"*"`` go to every kind but the system ones (dimensions, timelines,
+        calendars); fields of a type the vault doesn't have (a disabled module's) are left out,
+        their values kept. Every reader of a kind's fields uses this, so custom fields validate,
+        index and show."""
+        enabled = frozenset(enabled)
+        kinds = self.kinds_for(enabled)
+        keys = [kind.key for kind in kinds]
+        types = {field_type.key for field_type in self.field_types_for(enabled)}
+        extra: dict[str, list[FieldDef]] = {}
+        for _owner, module in self._owners(enabled):
+            for provider in module.field_providers if module else ():
+                for key, fields in provider(session, keys).items():
+                    extra.setdefault(key, []).extend(f for f in fields if f.type in types)
+        if not extra:
+            return kinds
+        everywhere = tuple(extra.get(ANY_KIND, ()))
+        return [
+            replace(
+                kind,
+                fields=kind.fields
+                + tuple(extra.get(kind.key, ()))
+                + (() if kind.definition.capabilities.is_system else everywhere),
+            )
+            for kind in kinds
+        ]
 
     def field_types_for(self, enabled: Iterable[str]) -> list[FieldTypeDef]:
         types = list(CORE_FIELD_TYPES)

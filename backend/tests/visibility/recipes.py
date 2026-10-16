@@ -735,3 +735,18 @@ def maps_entity_pins(c: Canary) -> Iterator[Call]:
         yield Call(f"{_v(c)}/m/maps/entities/{entity_id}/pins")
     for hidden_id in sorted(c.hidden_ids):
         yield Call(f"{_v(c)}/m/maps/entities/{hidden_id}/pins", status=404)
+
+
+# --- custom fields (#133, author-only) -----------------------------------------------------------
+
+
+@recipe(f"{V}/m/custom_fields/fields")
+def custom_fields_list(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/custom_fields/fields", status=404)
+    yield Call(f"{_v(c)}/m/custom_fields/fields", {"kind": "gadget"}, status=404)
+
+
+@recipe(f"{V}/m/custom_fields/fields/{{field_id}}")
+def custom_fields_field(c: Canary) -> Iterator[Call]:
+    for hidden_id in sorted(c.hidden_ids):
+        yield Call(f"{_v(c)}/m/custom_fields/fields/{hidden_id}", status=404)

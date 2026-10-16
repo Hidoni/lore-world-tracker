@@ -2228,6 +2228,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List
+         * @description The custom fields (archived ones too), by kind then order, with how many live entities
+         *     have a value.
+         */
+        get: operations["custom_fields_list"];
+        put?: never;
+        /**
+         * Create
+         * @description A field of a kind (`*`: of every kind but the system ones), keyed `custom.<key>`.
+         */
+        post: operations["custom_fields_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/fields/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reorder
+         * @description The kind's custom fields in this order (each once).
+         */
+        post: operations["custom_fields_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/custom_fields/fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["custom_fields_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete
+         * @description Delete the field (archiving keeps the values). Its values go in the same changeset, so
+         *     undo brings everything back.
+         */
+        delete: operations["custom_fields_delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update
+         * @description Change the field. Type changes follow the safe conversions (text ↔ long_text,
+         *     enum → multi_enum, text → enum with `value_map`, integer → decimal) and migrate the values
+         *     in the same changeset; options in use can't be removed; turning `temporal` off with facts
+         *     needs `facts` (`drop` moves them to the trash, `keep` leaves them, hidden).
+         */
+        patch: operations["custom_fields_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3073,6 +3147,175 @@ export interface components {
             correspondence: components["schemas"]["CorrespondenceOut"];
             affected: components["schemas"]["Affected"];
         };
+        /** CustomFieldCreate */
+        CustomFieldCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Kind Key */
+            kind_key: string;
+            /**
+             * Key
+             * @description The slug: the field's key is `custom.<slug>`.
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Type
+             * @description A field type of the vault (`GET /registry`, `field_types`).
+             */
+            type: string;
+            /**
+             * Options
+             * @description `enum`, `multi_enum`.
+             */
+            options?: components["schemas"]["FieldOptionIn"][];
+            /**
+             * Multiple
+             * @default false
+             */
+            multiple?: boolean;
+            /**
+             * Required
+             * @default false
+             */
+            required?: boolean;
+            /**
+             * Temporal
+             * @default false
+             */
+            temporal?: boolean;
+            /** @default public */
+            default_visibility?: components["schemas"]["Visibility"];
+            /** Section */
+            section?: string | null;
+            /**
+             * Help
+             * @default
+             */
+            help?: string;
+            /**
+             * Searchable
+             * @default true
+             */
+            searchable?: boolean;
+        };
+        /** CustomFieldDeleteResult */
+        CustomFieldDeleteResult: {
+            /** Id */
+            id: string;
+            affected: components["schemas"]["Affected"];
+        };
+        /** CustomFieldList */
+        CustomFieldList: {
+            /** Items */
+            items: components["schemas"]["CustomFieldOut"][];
+        };
+        /** CustomFieldOut */
+        CustomFieldOut: {
+            /** Id */
+            id: string;
+            /**
+             * Kind Key
+             * @description A kind's key, or `*`: every kind but the system ones.
+             */
+            kind_key: string;
+            /**
+             * Key
+             * @description `custom.<slug>`: the key of the values in `fields`.
+             */
+            key: string;
+            /** Label */
+            label: string;
+            /** Type */
+            type: string;
+            /** Options */
+            options: components["schemas"]["FieldOptionIn"][];
+            /** Multiple */
+            multiple: boolean;
+            /** Required */
+            required: boolean;
+            /** Temporal */
+            temporal: boolean;
+            default_visibility: components["schemas"]["Visibility"];
+            /** Section */
+            section: string | null;
+            /** Sort Key */
+            sort_key: string;
+            /** Help */
+            help: string;
+            /** Searchable */
+            searchable: boolean;
+            /** Archived */
+            archived: boolean;
+            /** Revision */
+            revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Entities With Values
+             * @description Live entities with a value (or a fact).
+             */
+            entities_with_values: number;
+        };
+        /**
+         * CustomFieldUpdate
+         * @description Only the members sent change. ``type`` changes along safe conversions only (``value_map``
+         *     turns each existing text into an option key, or ``null`` to clear it, for text → enum).
+         *     Turning ``temporal`` off with facts needs ``facts``: ``drop`` them (to the trash) or ``keep``
+         *     them (hidden while the field isn't temporal).
+         */
+        CustomFieldUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            /** Label */
+            label?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Value Map */
+            value_map?: {
+                [key: string]: string | null;
+            } | null;
+            /** Options */
+            options?: components["schemas"]["FieldOptionIn"][] | null;
+            /** Multiple */
+            multiple?: boolean | null;
+            /** Required */
+            required?: boolean | null;
+            /** Temporal */
+            temporal?: boolean | null;
+            facts?: components["schemas"]["FactsChoice"] | null;
+            default_visibility?: components["schemas"]["Visibility"] | null;
+            /** Section */
+            section?: string | null;
+            /** Help */
+            help?: string | null;
+            /** Searchable */
+            searchable?: boolean | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /** CustomFieldWriteResult */
+        CustomFieldWriteResult: {
+            field: components["schemas"]["CustomFieldOut"];
+            affected: components["schemas"]["Affected"];
+        };
         /** Definition */
         Definition: {
             /** Gloss */
@@ -3888,6 +4131,8 @@ export interface components {
             fact: components["schemas"]["FactOut"];
             affected: components["schemas"]["Affected"];
         };
+        /** @enum {string} */
+        FactsChoice: "drop" | "keep";
         /** FamilyEdge */
         FamilyEdge: {
             /**
@@ -3935,6 +4180,14 @@ export interface components {
             /** Truncated */
             truncated: boolean;
         };
+        /** FieldOptionIn */
+        FieldOptionIn: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            color?: components["schemas"]["Color"] | null;
+        };
         /** FieldOptionOut */
         FieldOptionOut: {
             /** Key */
@@ -3975,6 +4228,16 @@ export interface components {
             searchable: boolean;
             /** Archived */
             archived: boolean;
+        };
+        /** FieldReorder */
+        FieldReorder: {
+            /** Kind Key */
+            kind_key: string;
+            /**
+             * Ids
+             * @description The kind's fields in their new order.
+             */
+            ids: string[];
         };
         /** FieldStateOut */
         FieldStateOut: {
@@ -12124,6 +12387,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityPins"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_list: {
+        parameters: {
+            query?: {
+                /** @description The fields of this kind: its own and those of every kind (`*`). */
+                kind?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldReorder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldList"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_get: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                field_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_delete: {
+        parameters: {
+            query?: {
+                /** @description Delete the values too (409 `conflict` otherwise, if any). */
+                delete_values?: boolean;
+            };
+            header?: never;
+            path: {
+                field_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldDeleteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    custom_fields_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                field_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldWriteResult"];
                 };
             };
             /** @description Problem */

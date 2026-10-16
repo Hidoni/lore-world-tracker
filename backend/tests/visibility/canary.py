@@ -358,6 +358,7 @@ def _module_content(b: _Builder, home: dict[str, Any]) -> None:
     _branches(b, home)
     _media(b, home)
     _maps(b, home)
+    _custom_fields(b, home)
 
 
 def _png(color: str) -> bytes:
@@ -714,3 +715,23 @@ def _series(
     b.public("event", "Comet return", ext=referenced, **home)
     hidden = {"kind": "interval", "every": "86400", "limit": {"kind": "never"}}
     b.hidden("event", visibility="private", ext={"start": start, "recurrence": hidden}, **home)
+
+
+def _custom_fields(b: _Builder, home: dict[str, Any]) -> None:
+    """A custom field private by default (its value must not reach readers through fields,
+    facts or search) on a public entity, and a public one with a private override."""
+    api = b.api
+    base = f"{api.base}/m/custom_fields/fields"
+    for key, visibility in (("cipher", "private"), ("motto", "public")):
+        response = api.client.post(base, json={"kind_key": "*", "key": key, "label": key.title(),
+                                               "type": "text", "default_visibility": visibility,
+                                               "temporal": True}, headers=HEADERS)  # fmt: skip
+        assert response.status_code == 201, response.json()
+    ledger = b.public("gadget", "Ledger", fields={"custom.cipher": b.canary_string(),
+                                                  "custom.motto": b.canary_string()},
+                      field_visibility={"custom.motto": "private"}, **home)  # fmt: skip
+    fact = api.client.post(f"{api.base}/entities/{ledger['id']}/facts", headers=HEADERS, json={
+        "field_key": "custom.cipher", "value": b.canary_string(),
+        "timeline_id": b.canary.public["Prime"]})  # fmt: skip
+    assert fact.status_code == 201, fact.json()
+    b.canary.hidden_ids.add(fact.json()["fact"]["id"])

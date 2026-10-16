@@ -64,7 +64,7 @@ class SearchIndexer:
         self.richtext = registry.richtext_handlers()
         self.kind_fields = {
             kind.key: KindFields.build(kind.fields, field_types)
-            for kind in registry.kinds_for(enabled)
+            for kind in registry.vault_kinds(self.session, enabled)
         }
 
     # --- entities -------------------------------------------------------------------------------
