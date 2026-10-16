@@ -1018,8 +1018,27 @@ supports keyboard navigation between items (arrow keys) and announces focused it
 - Cache compiled calendars in `@lore/chronology` keyed by `(calendar id, definition revision,
   resolved anchors hash)`.
 - Graph layout runs in a web worker.
-- Budgets (checked in CI with Playwright traces where practical): initial JS < 400 kB gzip for
-  the shell, entity page interactive < 300 ms locally, timeline pan/zoom 60 fps at 1,000 items.
+- Budgets: initial JS < 400 kB gzip for the shell (checked in CI: `npm run check:bundle`),
+  entity page interactive < 300 ms locally, timeline pan/zoom 60 fps at 1,000 items
+  (`make bench-pages`; testing.md §4).
+
+Implementation (#144):
+
+- **Initial bundle.** TipTap (the editor and every editor extension a module contributes:
+  `editorExtensions` are loaders, `() => import(…)`), the timeline view, the settings pages and
+  every module panel and page are separate chunks. The shell loads 387 kB of JS (gzip; it was 514
+  before #144).
+- **Lazy components** (`lazyComponent` in `core/modules`): the way modules declare panels, header
+  media, dimension sections and timeline layers. Until its code arrives one renders through
+  Suspense; once loaded it renders at once, so a page doesn't wait for React's delay before
+  revealing what a fallback stood for (300 ms).
+- **Preloading.** When the browser is idle after a vault opens, `VaultScope` loads the code of the
+  vault's active modules (`usePreloadModules`: every lazy component of their extension points
+  and their editor extensions) and, for authors, the editor. Visualizations inside panels (family
+  tree, local graph, maps) still load their renderer when first drawn.
+- **Shared reads.** Queries stay fresh for 2 s (`staleTime`, `app/query-client.ts`): the panels
+  of a page that mount one after another use one read instead of each fetching it again. Writes
+  invalidate what they change, so this never hides an edit.
 
 ## 13. Reader mode and static-export readiness
 

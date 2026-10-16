@@ -544,7 +544,7 @@ def _causality_scan(*, across: bool = False) -> Any:
             Event.entity_id.label("id"),
             Event.timeline_id.label("timeline_id"),
             Event.start_t.label("start_t"),
-            Event.start_spec.label("start_spec"),
+            _vague_start(Event.start_spec).label("start_vague"),
             Entity.name.label("name"),
             Entity.dimension_id.label("dimension_id"),
         )
@@ -565,8 +565,8 @@ def _causality_scan(*, across: bool = False) -> Any:
             effect.c.timeline_id,
             cause.c.start_t,
             effect.c.start_t,
-            cause.c.start_spec,
-            effect.c.start_spec,
+            cause.c.start_vague,
+            effect.c.start_vague,
         )
         .join(cause, cause.c.id == Link.source_id)
         .join(effect, effect.c.id == Link.target_id)
@@ -594,8 +594,8 @@ def _causality_statement(*, across: bool) -> Any:
             effect.timeline_id,
             cause.start_t,
             effect.start_t,
-            cause.start_spec,
-            effect.start_spec,
+            _vague_start(cause.start_spec),
+            _vague_start(effect.start_spec),
         )
         .join(cause_entity, cause_entity.id == Link.source_id)
         .join(effect_entity, effect_entity.id == Link.target_id)
@@ -639,9 +639,10 @@ def _causality_findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Ite
             if across:
                 for row in candidates:
                     cause_id, effect_id, _c, _e, cause_dim, effect_dim, _tl, *starts = row
-                    cause_t, effect_t, cause_spec, effect_spec = starts
+                    cause_t, effect_t, cause_vague, effect_vague = starts
                     certainty = mapper.violated(
-                        (cause_dim, cause_t, cause_spec), (effect_dim, effect_t, effect_spec)
+                        (cause_dim, cause_t, bool(cause_vague)),
+                        (effect_dim, effect_t, bool(effect_vague)),
                     )
                     if certainty is not None:
                         found[(cause_id, effect_id)] = (row, certainty)
@@ -709,6 +710,16 @@ def _duplicate_drafts(rows: Iterable[Any]) -> Iterator[FindingDraft]:
             certainty=POSSIBLE if a_circa or b_circa else DEFINITE,
             timeline_id=timeline_id,
         )
+
+
+def _vague_start(spec: Any) -> Any:
+    """Whether a stored start is circa or coarser than the base unit, read in SQL (parsing
+    every candidate's document cost a scan of a large world a second, #144)."""
+    raw = type_coerce(spec, String)
+    return or_(
+        func.coalesce(func.json_extract(raw, "$.approximate"), 0) != 0,
+        func.coalesce(func.json_extract(raw, "$.precision"), "base") != "base",
+    )
 
 
 def _circa(row: Any) -> Any:

@@ -31,9 +31,19 @@ All notable changes to this project are documented here. The format follows
   `docker-compose.yml` (now functional) and updating it; `deploy/Caddyfile` puts it behind HTTPS
   with an optional password. The container smoke test now runs the whole workflow.
 
+### Changed
+
+- **Faster pages** (#144): the app loads less code up front (387 kB instead of 514 kB, the
+  editor, timeline and settings now load when first used), entity pages no longer pause while
+  their panels arrive, and on large worlds the sidebar's events, the findings badges and the
+  consistency scan are much quicker. `make bench-pages` measures the entity page and the
+  timeline in a browser.
+
 ### Fixed
 
 - A private map sharing a public map's image no longer hides that image from readers (#140).
+- Cross-dimension "effect before its cause" findings were always reported as definite; a circa
+  or coarse start now makes them possible (#144).
 
 ## [0.10.0] - 2026-10-16
 

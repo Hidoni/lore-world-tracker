@@ -11,7 +11,7 @@ DATA_DIR := $(CURDIR)/data
 UV := uv --directory $(BACKEND)
 
 .PHONY: help setup dev check check-backend check-frontend check-chronology test test-backend \
-	test-frontend test-chronology test-differential bench bench-graph perf e2e gen check-contract fmt docker \
+	test-frontend test-chronology test-differential bench bench-graph bench-pages perf e2e gen check-contract fmt docker \
 	docker-smoke sample-vault
 
 help: ## List the targets
@@ -39,11 +39,12 @@ check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, 
 	$(UV) run lore db check
 	$(UV) run pytest -n auto
 
-check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build
+check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build, initial bundle budget
 	npm run lint
 	npm run typecheck
 	npm run test
 	npm run build
+	npm run check:bundle -w @lore/web
 
 test: test-backend test-frontend test-chronology ## All unit tests (backend, frontend, chronology conformance)
 
@@ -66,6 +67,9 @@ bench: ## Chronology benchmarks and perf budgets, both engines (testing.md §4.1
 
 bench-graph: ## Graph page at 10k nodes in a headed browser: frame times, pass/fail (scripts/graph-bench.sh; run on a machine with a GPU)
 	scripts/graph-bench.sh
+
+bench-pages: ## Entity page and timeline in Chromium on the sample world: load times, frame times (scripts/pages-bench.sh)
+	scripts/pages-bench.sh
 
 perf: ## Backend perf budgets (testing.md §4): synthetic data and the cached `large` sample world (built on first run, ~45 min)
 	$(UV) run pytest -m perf --ignore=tests/chronology --no-cov -s

@@ -21,7 +21,7 @@ describe('activeModules', () => {
 })
 
 describe('extension points', () => {
-  it('collect every list point in order', () => {
+  it('collect every list point in order', async () => {
     const modules = [fixtureModule, dependentModule]
     expect(collectList(modules, 'entityPanels').map((panel) => panel.id)).toEqual([
       'fixture.events', // order 0
@@ -34,7 +34,8 @@ describe('extension points', () => {
     ])
     expect(collectList(modules, 'navSections')).toHaveLength(1)
     expect(collectList(modules, 'timelineLayers')).toHaveLength(1)
-    expect(collectList(modules, 'editorExtensions')).toEqual([{ name: 'fixtureMark' }])
+    const [load] = collectList(modules, 'editorExtensions')
+    expect(await load?.()).toEqual({ name: 'fixtureMark' })
     expect(collectList(modules, 'settingsPages')).toHaveLength(1)
     expect(collectList([dependentModule], 'navSections')).toEqual([])
   })

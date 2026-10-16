@@ -1,26 +1,15 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
-/** A panel loaded with the first page that shows it. */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const RelationshipsPanel = lazyPanel(
+const RelationshipsPanel = lazyComponent(
   async () => (await import('./panels/relationships-panel')).RelationshipsPanel,
 )
-const AffiliationsPanel = lazyPanel(
+const AffiliationsPanel = lazyComponent(
   async () => (await import('./panels/affiliations-panel')).AffiliationsPanel,
 )
-const LifePanel = lazyPanel(async () => (await import('./panels/life-panel')).LifePanel)
-const FamilyTreePanel = lazyPanel(
+const LifePanel = lazyComponent(async () => (await import('./panels/life-panel')).LifePanel)
+const FamilyTreePanel = lazyComponent(
   async () => (await import('./panels/family-tree-panel')).FamilyTreePanel,
 )
 

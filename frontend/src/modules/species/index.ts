@@ -1,24 +1,17 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
-/** A panel loaded with the first page that shows it. */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const MembersPanel = lazyPanel(
+const MembersPanel = lazyComponent(
   async () => (await import('./panels/members-panel')).SpeciesMembersPanel,
 )
-const DescentPanel = lazyPanel(async () => (await import('./panels/descent-panel')).DescentPanel)
-const NativeToPanel = lazyPanel(async () => (await import('./panels/native-panel')).NativeToPanel)
-const SpeciesChip = lazyPanel(async () => (await import('./panels/species-chip')).SpeciesChip)
+const DescentPanel = lazyComponent(
+  async () => (await import('./panels/descent-panel')).DescentPanel,
+)
+const NativeToPanel = lazyComponent(
+  async () => (await import('./panels/native-panel')).NativeToPanel,
+)
+const SpeciesChip = lazyComponent(async () => (await import('./panels/species-chip')).SpeciesChip)
 
 /**
  * The species module (docs/modules/species.md): peoples and creatures in a subspecies tree, with

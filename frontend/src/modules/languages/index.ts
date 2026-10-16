@@ -1,26 +1,20 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
 import { LexiconHit } from './editor/lexicon-hit'
-import { LexiconRef } from './editor/lexicon-ref'
 import { LexiconRefNode } from './editor/lexicon-ref-view'
 
-/** A panel loaded with the first page that shows it. */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const FamilyPanel = lazyPanel(async () => (await import('./panels/family-panel')).FamilyPanel)
-const SpeakersPanel = lazyPanel(async () => (await import('./panels/speakers-panel')).SpeakersPanel)
-const ScriptsPanel = lazyPanel(async () => (await import('./panels/scripts-panel')).ScriptsPanel)
-const LexiconPanel = lazyPanel(async () => (await import('./panels/lexicon-panel')).LexiconPanel)
+const FamilyPanel = lazyComponent(async () => (await import('./panels/family-panel')).FamilyPanel)
+const SpeakersPanel = lazyComponent(
+  async () => (await import('./panels/speakers-panel')).SpeakersPanel,
+)
+const ScriptsPanel = lazyComponent(
+  async () => (await import('./panels/scripts-panel')).ScriptsPanel,
+)
+const LexiconPanel = lazyComponent(
+  async () => (await import('./panels/lexicon-panel')).LexiconPanel,
+)
 
 /**
  * The languages module (docs/modules/languages.md): languages (dialects as children) and writing
@@ -80,7 +74,7 @@ export default defineModule({
       order: 11,
     },
   ],
-  editorExtensions: [LexiconRef],
+  editorExtensions: [() => import('./editor/lexicon-ref').then((loaded) => loaded.LexiconRef)],
   richTextNodeRenderers: { lexiconRef: LexiconRefNode },
   searchResultRenderers: { 'languages.lexicon_entry': LexiconHit },
   commands: [

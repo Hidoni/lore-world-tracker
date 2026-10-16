@@ -1,5 +1,5 @@
 // TipTap editor setup, custom nodes/marks and renderers (frontend.md §6).
-import { lazy } from 'react'
+import { lazyComponent } from '@/core/modules'
 
 export { editorContextOf, type EditorContext } from './context'
 export { EntityLinkView } from './entity-link-view'
@@ -14,7 +14,9 @@ export {
 } from './schema'
 export type { RichTextEditorProps, SaveOutcome } from './rich-text-editor'
 export type { SlashItem } from './slash-items'
-export { CALLOUT_TONES, BLOCK_LEVELS, type BlockLevel, type CalloutTone } from './blocks'
+export { CALLOUT_TONES, BLOCK_LEVELS, type BlockLevel, type CalloutTone } from './block-kinds'
 
 /** The editor, loaded on first use (TipTap is a large chunk). */
-export const LazyRichTextEditor = lazy(() => import('./rich-text-editor'))
+export const LazyRichTextEditor = lazyComponent(
+  async () => (await import('./rich-text-editor')).default,
+)

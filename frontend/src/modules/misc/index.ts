@@ -1,15 +1,9 @@
-import { createElement, lazy, Suspense } from 'react'
-
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
 // Loaded with the first misc page: the module costs nothing until then.
-const LazyChildrenPanel = lazy(async () => ({
-  default: (await import('./panels/children-panel')).ChildrenPanel,
-}))
-
-function ChildrenPanel(props: EntityViewProps) {
-  return createElement(Suspense, { fallback: null }, createElement(LazyChildrenPanel, props))
-}
+const ChildrenPanel = lazyComponent(
+  async () => (await import('./panels/children-panel')).ChildrenPanel,
+)
 
 /**
  * The misc module (docs/modules/misc.md): entries that don't fit elsewhere and hold children of

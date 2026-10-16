@@ -1,22 +1,12 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
 import { usePinned } from './panels/pinned-panel'
 
 /** A panel loaded with the first page that shows it (with Leaflet: frontend.md §12). */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const MapPanel = lazyPanel(async () => (await import('./panels/map-panel')).MapPanel)
-const PinnedPanel = lazyPanel(async () => (await import('./panels/pinned-panel')).PinnedPanel)
+const MapPanel = lazyComponent(async () => (await import('./panels/map-panel')).MapPanel)
+const PinnedPanel = lazyComponent(async () => (await import('./panels/pinned-panel')).PinnedPanel)
 
 /**
  * The maps module (docs/modules/maps.md): location maps drawn with Leaflet, pins filtered by the

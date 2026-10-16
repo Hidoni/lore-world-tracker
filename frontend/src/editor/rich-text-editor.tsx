@@ -20,11 +20,11 @@ import {
   TableIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
-import { useExtensionList } from '@/core/modules'
+import { loadEditorExtensions, useExtensionList } from '@/core/modules'
 import { useDataSource, useMutations } from '@/data'
 import { cn } from '@/lib/utils'
 
@@ -79,7 +79,7 @@ export default function RichTextEditor({
   placeholder,
 }: RichTextEditorProps) {
   const bridge = useMemo(() => new SuggestionBridge(), [])
-  const moduleExtensions = useExtensionList('editorExtensions', vault)
+  const moduleExtensions = use(loadEditorExtensions(useExtensionList('editorExtensions', vault)))
   const resolveName = useNameResolver(vault)
   /** The editor asking for a date (slash menu, `@date`): the date dialog inserts it there. */
   const [dating, setDating] = useState<Editor | null>(null)

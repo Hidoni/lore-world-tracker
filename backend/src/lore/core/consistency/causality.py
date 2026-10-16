@@ -16,7 +16,6 @@
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any
 
 from sqlalchemy import select
 
@@ -42,13 +41,6 @@ def _chunks(ids: Iterable[str]) -> Iterator[list[str]]:
         yield wanted[start : start + _BATCH]
 
 
-def _vague(spec: Any) -> bool:
-    """Whether a stored start is circa or coarser than the base unit."""
-    if not isinstance(spec, dict):
-        return False
-    return bool(spec.get("approximate")) or spec.get("precision", "base") != "base"
-
-
 class Mapper:
     """Maps causes' starts into their effects' dimensions (the graph is loaded once, when the
     first pair needs it)."""
@@ -59,12 +51,13 @@ class Mapper:
 
     def violated(
         self,
-        cause: tuple[str, int | None, Any],
-        effect: tuple[str, int | None, Any],
+        cause: tuple[str, int | None, bool],
+        effect: tuple[str, int | None, bool],
     ) -> Certainty | None:
-        """How certainly the effect (``dimension, start_t, start_spec``) starts before the
-        cause's start mapped into its dimension; ``None`` when it doesn't or can't be told."""
-        (cause_dimension, cause_t, cause_spec), (effect_dimension, effect_t, effect_spec) = (
+        """How certainly the effect (``dimension, start_t, vague``: whether the start is circa or
+        coarser than the base unit) starts before the cause's start mapped into its dimension;
+        ``None`` when it doesn't or can't be told."""
+        (cause_dimension, cause_t, cause_vague), (effect_dimension, effect_t, effect_vague) = (
             cause,
             effect,
         )
@@ -75,7 +68,7 @@ class Mapper:
         mapped = self._graph.map(cause_dimension, effect_dimension, cause_t)
         if mapped.t is None or effect_t >= mapped.t:
             return None
-        return POSSIBLE if _vague(cause_spec) or _vague(effect_spec) else DEFINITE
+        return POSSIBLE if cause_vague or effect_vague else DEFINITE
 
 
 @dataclass(frozen=True)

@@ -7,6 +7,13 @@ export {
   useExtensionRecord,
   useModuleDefinitions,
 } from './context'
+export {
+  isLazyComponent,
+  lazyComponent,
+  loadEditorExtensions,
+  usePreloadModules,
+  type LazyComponent,
+} from './lazy'
 export { ModuleGate } from './module-gate'
 export {
   defineModule,
@@ -14,6 +21,7 @@ export {
   type CommandContext,
   type DimensionSection,
   type EditorExtension,
+  type EditorExtensionLoader,
   type EntityPanel,
   type EntityViewProps,
   type FieldEditorExtensionProps,
