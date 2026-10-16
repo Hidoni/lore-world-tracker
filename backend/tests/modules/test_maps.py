@@ -198,6 +198,10 @@ def test_readers_see_pins_only_when_everything_is_visible(atlas: Atlas) -> None:
     assert hidden.status_code == 404
     listed = api.client.get(f"{atlas.base}/maps", params={"as_reader": True}).json()
     assert {m["name"] for m in listed["items"]} == {"Varn", "Port"}
+    # The private map shares the public map's image: readers still see the image.
+    image = api.client.get(f"{api.base}/m/media/items/{atlas.continent['media_id']}/file",
+                           params={"as_reader": True})  # fmt: skip
+    assert image.status_code == 200
 
 
 def findings(atlas: Atlas, rule: str) -> list[dict[str, Any]]:

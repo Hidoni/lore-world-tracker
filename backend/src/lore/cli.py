@@ -18,6 +18,7 @@ from lore.core.maintenance import DERIVED_DATA, check_vault, optimize_vault, rei
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleRegistry
 from lore.core.vaults import VaultManager
+from lore.core.vaults.publish import publish_vault
 from lore.modules import ALL_MODULES, load_metadata
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
@@ -183,6 +184,32 @@ def vault_restore(
     finally:
         manager.close()
     typer.echo(f"{info.id}  {info.folder}  {info.name}")
+
+
+@vault_app.command("publish")
+def vault_publish(
+    vault: VaultArgument,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Data directory of the read-only server (default: LORE_PUBLISH_DIR); the "
+            "snapshot goes to <out>/vaults/<folder>/, replacing an earlier one."
+        ),
+    ] = None,
+) -> None:
+    """Publish a sanitized snapshot of a vault: private data removed, for a read-only server.
+    Fails (writing nothing) when the leak gate finds private data in the snapshot."""
+    target = out or Settings().publish_dir
+    if target is None:
+        _fail(ValueError("give --out or set LORE_PUBLISH_DIR"))
+    manager = _vault_manager()
+    try:
+        info = publish_vault(manager, manager.resolve(vault).id, target)
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(f"published: {info.path}")
 
 
 @vault_app.command("check")

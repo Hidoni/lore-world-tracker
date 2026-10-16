@@ -21,6 +21,8 @@ class Call:
     path: str
     params: dict[str, Any] = field(default_factory=dict)
     status: int = 200  # the reader's expected status
+    # The expected status against a published snapshot, when it differs (None: ``status``).
+    published: int | None = None
 
 
 type Recipe = Callable[[Canary], Iterator[Call]]
@@ -159,6 +161,11 @@ def settings(c: Canary) -> Iterator[Call]:
 @recipe(f"{V}/backups")
 def backups(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/backups", status=404)  # backups hold private data: author-only
+
+
+@recipe(f"{V}/publish")
+def publish_status(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/publish", status=404)  # author-only
 
 
 @recipe(f"{V}/backups/{{backup_id}}/download")
@@ -611,8 +618,10 @@ def occurrences(c: Canary) -> Iterator[Call]:
     window = {"from": "0", "to": str(10**12 + 1)}
     for name in ("Festival", "Comet"):
         url = f"{_v(c)}/events/{c.public[name]}/occurrences"
-        yield Call(url, window)
-        yield Call(url, {**window, "limit": 1})  # truncated
+        # A snapshot can't keep the Festival's rule (its calendar is private): a single event.
+        published = 409 if name == "Festival" else None
+        yield Call(url, window, published=published)
+        yield Call(url, {**window, "limit": 1}, published=published)  # truncated
     yield Call(f"{_v(c)}/events/{c.public['Coronation']}/occurrences", window, status=409)
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/events/{hidden_id}/occurrences", window, status=404)

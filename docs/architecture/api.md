@@ -51,7 +51,8 @@
 | GET/POST | `/vaults/{v}/backups` | list (newest first; author-only: readers get `404`) / create (`{include_media}`, default true) → `201 {id, kind, reason, created_at, size, includes_media, app_version, schema_revision}` |
 | GET | `/vaults/{v}/backups/{id}/download` | download the zip (author-only; `404 backup_not_found`) |
 | POST | `/vaults/restore` | restore a backup zip (multipart `file`) into a new vault → `201 Vault`; `422 invalid_backup`, `409 vault_newer_than_app` |
-| POST | `/vaults/{v}/publish` | write a published snapshot into `LORE_PUBLISH_DIR` (author mode; `visibility-and-sharing.md` §4) |
+| GET | `/vaults/{v}/publish` | `{available, published_at}`: whether `LORE_PUBLISH_DIR` is set, and when the vault's snapshot there was published (null: none). Author-only: readers get `404` |
+| POST | `/vaults/{v}/publish` | write a published snapshot into `LORE_PUBLISH_DIR`, replacing the previous one (author mode; `visibility-and-sharing.md` §4) → `200 {available, published_at}`; `409 publish_not_configured` without a publish directory, `409 publish_failed` when the leak gate finds private data (`context.problems`; nothing is written). Opening a published snapshot on an author server → `409 vault_published` |
 
 ### Entities (generic, all kinds)
 

@@ -25,6 +25,9 @@ $LORE_DATA_DIR/                      # default ./data (dev), /data (Docker)
   "created_by_app_version": "0.1.0", "published": false }
 ```
 
+A published snapshot (`visibility-and-sharing.md` §4) also has `"published": true`,
+`source_vault_id` and `published_at`.
+
 - `format_version` covers the **folder layout** (not the DB schema). Upgraders live in
   `lore.core.vaults.format` (`UPGRADERS[n]` turns version `n` into `n + 1`) and run before DB
   migrations when a vault is opened in author mode, which writes the upgraded `vault.json` back.

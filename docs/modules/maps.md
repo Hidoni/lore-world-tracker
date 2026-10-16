@@ -118,8 +118,9 @@ Disabling hides maps and pins. Data and media are kept.
 - **Purge:** purging an entity removes the pins pointing at it or living in it (a timeline) and
   the maps of it (a location). Trashing a map trashes its pins; trashing a pin trashes its
   overrides.
-- **Publish:** `published_maps` lists the maps readers see; their images are copied by the media
-  module's contributor (#140 wires both).
+- **Publish:** `publish_maps` keeps the maps readers see (their pins follow); their images are
+  copied by the media module's contributor. A map's image is visible to readers at its most
+  visible map's level, so a private map sharing a public map's image doesn't hide it.
 - The sample world has a map of Thalassa (pins: the city of Varn drilling into its map, the
   Sundering, a label) and one of Varn (the Spire, the Old Harbor until the Sundering).
 

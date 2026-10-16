@@ -9,6 +9,7 @@ import { BackupsSettings } from './backups'
 import { GeneralSettings } from './general'
 import { LinkTypesSettings } from './link-types'
 import { ModulesSettings } from './modules'
+import { PublishSettings } from './publish'
 
 const CORE_PAGES: { id: string; title: string; component: ComponentType<{ vault: string }> }[] = [
   { id: '', title: 'General', component: GeneralSettings },
@@ -16,11 +17,12 @@ const CORE_PAGES: { id: string; title: string; component: ComponentType<{ vault:
   { id: 'link-types', title: 'Link types', component: LinkTypesSettings },
   { id: 'consistency', title: 'Consistency', component: ConsistencySettings },
   { id: 'backups', title: 'Backups', component: BackupsSettings },
+  { id: 'publishing', title: 'Publishing', component: PublishSettings },
 ]
 
 /**
  * Vault settings (`/v/$vault/settings/*`, frontend.md §4): general, modules, link types,
- * consistency rules, backups,
+ * consistency rules, backups, publishing,
  * then the active modules' pages (`settingsPages`, at `settings/<id>`).
  */
 export function SettingsPage({ vault, page }: { vault: string; page: string }) {

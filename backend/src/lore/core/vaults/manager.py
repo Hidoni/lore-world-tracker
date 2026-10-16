@@ -65,6 +65,7 @@ from lore.core.vaults.errors import (
     VaultNeedsMigrationError,
     VaultNewerThanAppError,
     VaultNotFoundError,
+    VaultPublishedError,
 )
 from lore.core.vaults.format import (
     DATABASE_NAME,
@@ -723,6 +724,11 @@ class VaultManager:
                     info.database_path, read_only=True, immutable=immutable
                 )
             else:
+                if info.manifest.published:
+                    raise VaultPublishedError(
+                        f"{info.name} is a published snapshot: serve it with a read-only server "
+                        "(LORE_READ_ONLY=true) instead of opening it in author mode."
+                    )
                 self._lock(info)
                 if info.needs_format_upgrade:
                     write_manifest(info.path, info.manifest)

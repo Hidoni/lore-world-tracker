@@ -187,6 +187,32 @@ export interface paths {
         patch: operations["settings_update"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Publish Status
+         * @description Whether the vault can be published and when it last was.
+         */
+        get: operations["publish_publish_status"];
+        put?: never;
+        /**
+         * Publish
+         * @description Publish a sanitized snapshot of the vault into ``LORE_PUBLISH_DIR`` (replacing the
+         *     previous one), for a read-only server. ``409 publish_not_configured`` without a publish
+         *     directory; ``409 publish_failed`` when the leak gate finds private data (nothing is written).
+         */
+        post: operations["publish_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/registry": {
         parameters: {
             query?: never;
@@ -6325,6 +6351,17 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * PublishStatus
+         * @description Whether the server can publish (``LORE_PUBLISH_DIR`` is set) and the vault's latest
+         *     snapshot there (``published_at`` null: none yet).
+         */
+        PublishStatus: {
+            /** Available */
+            available: boolean;
+            /** Published At */
+            published_at: string | null;
+        };
         /** QuickFixOut */
         QuickFixOut: {
             /** Id */
@@ -8070,6 +8107,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VaultSettings"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    publish_publish_status: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishStatus"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    publish_publish: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishStatus"];
                 };
             };
             /** @description Problem */

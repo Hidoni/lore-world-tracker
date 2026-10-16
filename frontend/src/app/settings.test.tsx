@@ -227,6 +227,24 @@ describe('general and backups settings', () => {
   })
 })
 
+describe('publishing settings', () => {
+  it('publishes a snapshot and shows when', async () => {
+    const writes = serveVault()
+    await renderApp('/v/v1/settings/publishing')
+    expect(await screen.findByText('Not published yet.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Publish snapshot' }))
+    expect(await screen.findByText(/Last published/)).toBeInTheDocument()
+    expect(writes.at(-1)).toMatchObject({ method: 'POST', path: '/publish' })
+  })
+
+  it('explains when the server has no publish directory', async () => {
+    serveVault({ publishable: false })
+    await renderApp('/v/v1/settings/publishing')
+    expect(await screen.findByText(/Publishing isn’t set up/)).toHaveTextContent('LORE_PUBLISH_DIR')
+    expect(screen.queryByRole('button', { name: 'Publish snapshot' })).not.toBeInTheDocument()
+  })
+})
+
 describe('module settings pages', () => {
   it('lists them in the settings navigation', async () => {
     serveVault({ modules: ['maps'] })

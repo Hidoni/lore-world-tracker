@@ -10,13 +10,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.visibility.canary import Canary, build_canary_vault, leak_client
+from tests.visibility.canary import Canary, build_canary_vault, leak_client, publish_canary
 from tests.visibility.recipes import READER_SURFACE, RECIPES
 
-# Reader modes: (server settings, query parameters added to every request).
+# Reader modes: (server settings, query parameters added to every request). "published" serves
+# a published snapshot of the canary vault read-only (§5.4).
 READER_MODES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     "read_only": ({"read_only": True}, {}),
     "as_reader": ({}, {"as_reader": "true"}),
+    "published": ({"read_only": True}, {}),
 }
 
 
@@ -26,11 +28,16 @@ def canary(tmp_path_factory: pytest.TempPathFactory) -> Canary:
 
 
 @pytest.fixture(scope="module", params=sorted(READER_MODES))
-def reader(request: pytest.FixtureRequest, canary: Canary) -> Iterator[TestClient]:
+def reader(
+    request: pytest.FixtureRequest, canary: Canary, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[TestClient]:
     """A client seeing the canary vault as a reader (every request gets the mode's params); one
     per mode for the module (and per xdist worker), as reads change nothing."""
     settings, params = READER_MODES[request.param]
-    with leak_client(canary.data_dir, **settings) as client:
+    data_dir = canary.data_dir
+    if request.param == "published":
+        data_dir = publish_canary(canary, tmp_path_factory.mktemp("published"))
+    with leak_client(data_dir, **settings) as client:
         client.params = params
         yield client
 
@@ -69,12 +76,13 @@ def test_a_get_route_without_a_recipe_fails_the_suite(tmp_path: Path) -> None:
 
 
 def _responses(
-    client: TestClient, canary: Canary, routes: Iterable[str] = RECIPES
+    client: TestClient, canary: Canary, routes: Iterable[str] = RECIPES, *, published: bool = False
 ) -> Iterator[tuple[str, Any, int]]:
     for path in sorted(routes):
         for call in RECIPES[path](canary):
             response = client.get(call.path, params=call.params)
-            yield f"{path} {call.path} {call.params}", response, call.status
+            status = call.published if published and call.published is not None else call.status
+            yield f"{path} {call.path} {call.params}", response, status
 
 
 def test_the_reader_surface_is_documented() -> None:
@@ -93,9 +101,12 @@ def test_the_recipes_make_many_calls(canary: Canary) -> None:
 
 # One test per route (and reader mode), so that parallel workers share the suite (#307).
 @pytest.mark.parametrize("route", sorted(RECIPES))
-def test_readers_never_see_canaries(reader: TestClient, canary: Canary, route: str) -> None:
+def test_readers_never_see_canaries(
+    request: pytest.FixtureRequest, reader: TestClient, canary: Canary, route: str
+) -> None:
+    published = request.node.callspec.params["reader"] == "published"
     problems: list[str] = []
-    for where, response, status in _responses(reader, canary, [route]):
+    for where, response, status in _responses(reader, canary, [route], published=published):
         if response.status_code == 200 and route not in READER_SURFACE:
             problems.append(f"{route} answers readers: add it to READER_SURFACE and §6")
         if response.status_code != status:

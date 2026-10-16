@@ -66,6 +66,7 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
     settings: (vault) => unwrap(client.GET(`${V}/settings`, { params: path(vault) })),
     registry: (vault) => unwrap(client.GET(`${V}/registry`, { params: path(vault) })),
     backups: (vault) => unwrap(client.GET(`${V}/backups`, { params: path(vault) })),
+    publishStatus: (vault) => unwrap(client.GET(`${V}/publish`, { params: path(vault) })),
     entities: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/entities`, { params: { ...path(vault), query } })),
@@ -548,6 +549,7 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
     },
     createBackup: (vault, body) =>
       unwrap(client.POST(`${V}/backups`, { params: path(vault), body })),
+    publishVault: (vault) => unwrap(client.POST(`${V}/publish`, { params: path(vault) })),
     updateSettings: (vault, body) =>
       unwrap(client.PATCH(`${V}/settings`, { params: path(vault), body })),
     setModule: (vault, module, body) =>

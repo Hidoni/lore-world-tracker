@@ -111,6 +111,8 @@ export {
   useCreateBackup,
   useCreateLinkType,
   useDeleteLinkType,
+  usePublish,
+  usePublishStatus,
   useRestoreBackup,
   useSetModule,
   useSettings,
