@@ -205,6 +205,53 @@ What the numbers rest on, and what is left:
   100k events as in an empty vault (`test_writes_cost_the_same_in_a_large_vault`). #241 looks at
   the event service.
 
+#### The final pass (#144, 2026-10-16)
+
+Measured on `large` (100,365 events, 500,010 links; 35 rules, 66,280 findings) on a 4-core
+cloud container with no GPU, idle. It is about 1.6× slower than the machine above: the uniform
+scan takes 1.27 s (0.8 there), and a cold window over 1/10 of the bulk 160 ms (90 there).
+"Est." divides by 1.6.
+
+| Operation                                                                 | Measured here                              | Est. on the reference | Budget      |                    |
+| ------------------------------------------------------------------------- | ------------------------------------------ | --------------------- | ----------- | ------------------ |
+| Window, cold: 1/10 / 1/100 / 1/10,000 of the bulk; 1/10 as reader          | 160 / 96 / 45; 183 ms                      | 100 / 60 / 28; 114 ms | < 150 ms    | met                |
+| Window, cold: whole bulk / whole dimension / as reader                    | 460 / 448 / 532 ms                         | 287 / 280 / 332 ms    | < 500 ms    | met                |
+| Window, cached                                                            | 10–43 ms                                   |                       | < 150 ms    | met                |
+| Entity page API calls (entity + links + backlinks), author / reader       | 115–137 / 241–304 ms                       | 72–86 / 150–190 ms    | < 300 ms    | met                |
+| Search, rarer words / quick switcher (author and reader)                  | 19–22 / 12–27 ms                           |                       | < 100 ms    | met                |
+| Search, a word in nearly every document ("the"), author / reader          | 215 / 306 ms                               | 134 / 191 ms          | < 100 ms    | missed: #362       |
+| Calendar proposal over 22,989 dependents: preview / apply                 | 7.1 / 43.9 s                               | 4.4 / 27 s            | < 5 / 30 s  | met                |
+| Full consistency scan                                                     | 18.7 s (22.0 before #144)                  | about 11.7 s          | < 10 s      | missed: #361       |
+| Event tree roots (the sidebar's Events, every full load)                  | 0.13 s (1.3 s before #144)                 |                       | –           |                    |
+| Entity page interactive, in the app: Aetheria / Ilsa the Tidebound        | 167 / 439 ms (Ilsa: 560 before the reads)  | 104 / 274 ms          | < 300 ms    | Ilsa: #363         |
+| Entity page, full load (cold cache): Aetheria / Ilsa                      | 956 / 1,381 ms (Ilsa: 3,128 before)        |                       | –           |                    |
+| Timeline pan/zoom, 1,074 items on screen (`large` and `small`)            | 59.8 fps, frames 16.7 ms (p95 16.8)        |                       | 60 fps      | met                |
+| Initial JS of the shell                                                   | 387 kB gzip (514 before #144)              |                       | < 400 kB    | met                |
+
+What changed in #144:
+
+- **Bundle.** The editor (TipTap and the modules' editor extensions, now loaders), the timeline
+  view and the settings pages are separate chunks (`frontend.md` §12). `make check-frontend`
+  checks the budget.
+- **Entity page.** Lazy panels waited for React's delay before revealing what a Suspense fallback
+  stood for (300 ms). They now render at once when loaded, and the vault loads the modules'
+  code when the browser is idle (`lazyComponent`, `usePreloadModules`). Reads are shared for 2 s
+  (the default `staleTime`), so panels that mount one after another don't each read the same
+  thing. The findings badges read 500 findings of the vault on every page (430 ms on `large`);
+  they now keep them for a minute, and writes invalidate them as before. In the app, Ilsa's page
+  went from about 1 s (on `small`) to 0.39 s; what's left is the server answering 13 panel reads
+  at once (#363).
+- **Event tree.** The roots were the events whose parent the tree doesn't show, found by listing
+  every event the timeline shows, twice. They are now one probe per event with a parent, for
+  timelines without ancestors (`event_tree`).
+- **Consistency.** `core.event.effect_before_cause` parsed both start documents of every candidate
+  pair across dimensions (32k on `large`). It now reads the circa flag and precision in SQL. As a
+  model the documents never looked circa, so such findings were always "definite"; now a circa
+  or coarse start makes them "possible", as the rule says. `branches.override_start_changed`
+  walked every live entity's links (the trash check picked the index, see the gotcha in
+  `CLAUDE.md`). The rest of the scan is the sub-event rule over this world's 50,032 out-of-parent
+  sub-events (#361).
+
 ### 4.1 Chronology engine budgets
 
 Both engines, on the conformance calendar `gregorian-seconds` (one-second base units) unless
