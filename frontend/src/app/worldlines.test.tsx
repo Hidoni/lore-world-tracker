@@ -368,6 +368,11 @@ describe('the timeline', () => {
     await waitFor(() => {
       expect(timeline.querySelector('[data-testid="jump-arc"]')).not.toBeNull()
     })
+    // The arcs as a list: the chosen entity's personal timeline.
+    expect(screen.getByRole('link', { name: 'Personal timeline of Vey' })).toHaveAttribute(
+      'href',
+      '/v/v1/m/worldlines/entities/vey',
+    )
   })
 })
 

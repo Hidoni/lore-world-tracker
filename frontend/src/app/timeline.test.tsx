@@ -224,6 +224,34 @@ describe('the timeline view', () => {
       expect(middle > total / 2n - total / 500n && middle < total / 2n + total / 500n).toBe(true)
     })
   })
+
+  it('moves the view from the minimap with the keyboard', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const total = 10n ** 15n
+    world(total)
+    const span = 10n ** 12n
+    const { router } = await renderApp(`/v/v1/d/d1/timeline?from=0&to=${span}`)
+    const minimap = await screen.findByRole('slider', { name: 'Minimap' })
+    minimap.focus()
+    const settle = () => {
+      act(() => {
+        vi.advanceTimersByTime(300)
+      })
+    }
+    fireEvent.keyDown(minimap, { key: 'End' })
+    settle()
+    await waitFor(() => {
+      expect(urlRange(router)).toEqual([total - span, total])
+    })
+    fireEvent.keyDown(minimap, { key: 'ArrowLeft' })
+    settle()
+    // About one view to the left (the view is a little wider than the range in the URL).
+    await waitFor(() => {
+      const [from, to] = urlRange(router)
+      expect(to - from).toBe(span)
+      expect(from < total - span - span / 2n && from > total - 3n * span).toBe(true)
+    })
+  })
 })
 
 describe('event lanes', () => {
