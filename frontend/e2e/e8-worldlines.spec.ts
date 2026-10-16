@@ -54,6 +54,8 @@ test('E8: time traveler with two segments → personal timeline order and age', 
   // Vey takes part in both events; each is covered by one visit.
   await lore.link('core.participant', meeting, vey)
   await lore.link('core.participant', warning, vey)
+  // Written through the API, behind the app's back: reload so the app reads them.
+  await page.reload()
 
   // The personal timeline: lived time on the axis, the jump as a break; the list in Vey's order.
   await page.getByRole('link', { name: 'Personal timeline', exact: true }).click()
