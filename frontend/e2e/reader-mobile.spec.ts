@@ -44,7 +44,7 @@ async function measure(page: Page) {
           return touches(c, other.box)
         })
       })
-      .map(({ element }) => element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '')
+      .map(({ element }) => element.getAttribute('aria-label') ?? element.textContent.trim())
     const body = document.querySelector('.rich-text p')
     const bodyFont = body === null ? null : parseFloat(getComputedStyle(body).fontSize)
     return { overflow, small, bodyFont }
@@ -98,7 +98,7 @@ test('reader mode on a phone: no editing, fits the screen, tappable, readable', 
     const editing = await page.getByRole('button').evaluateAll((buttons, pattern) => {
       const re = new RegExp(pattern, 'i')
       return buttons
-        .map((b) => b.getAttribute('aria-label') ?? b.textContent?.trim() ?? '')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent.trim())
         .filter((label) => re.test(label))
     }, EDITING.source)
     expect(editing, `${name}: editing controls`).toEqual([])

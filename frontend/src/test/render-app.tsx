@@ -15,7 +15,9 @@ import { useShell } from '@/core/shell'
 /** The app renders once the server says whether it is read-only (`ReaderModeProvider`). */
 export async function prefetchMeta(queryClient: QueryClient): Promise<void> {
   const source = createHttpDataSource()
-  await queryClient.prefetchQuery({ queryKey: keys.meta(), queryFn: () => source.meta() })
+  await queryClient
+    .query({ queryKey: keys.meta(), queryFn: () => source.meta() })
+    .catch(() => undefined)
 }
 
 /**

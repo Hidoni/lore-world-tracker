@@ -16,6 +16,13 @@ function trackReads(): string[] {
   return reads
 }
 
+/** The first link named `name` (the sidebar and the page may both have one). */
+function first(name: string): HTMLElement {
+  const [link] = screen.getAllByRole('link', { name })
+  if (link === undefined) throw new Error(`no link ${name}`)
+  return link
+}
+
 function readOnlyServer() {
   server.use(
     http.get('*/api/v1/meta', () =>
@@ -46,7 +53,7 @@ describe('reader mode', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument()
     // Every read made while previewing asks for the reader's view.
     const start = reads.length
-    await userEvent.click(screen.getAllByRole('link', { name: 'Treasury' })[0]!)
+    await userEvent.click(first('Treasury'))
     expect(await screen.findByRole('heading', { name: 'Treasury' })).toBeInTheDocument()
     expect(reads.length).toBeGreaterThan(start)
     expect(reads.slice(start).filter((read) => !read.includes('as_reader=true'))).toEqual([])
@@ -98,7 +105,7 @@ describe('reader mode', () => {
     await userEvent.click(within(warning).getByRole('button', { name: 'Show spoilers' }))
     expect(await screen.findByText('It shows the traitor.')).toBeInTheDocument()
 
-    await userEvent.click(screen.getAllByRole('link', { name: 'Scroll' })[0]!)
+    await userEvent.click(first('Scroll'))
     expect(await screen.findByText('Varn')).toBeInTheDocument()
     expect(screen.queryByText('Written by the queen')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show spoiler: Era' }))

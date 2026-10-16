@@ -11,10 +11,7 @@ const EDITING =
 const READER_CONVENIENCES = new Set(['Save view', 'Forget views', 'Add dimension lane'])
 
 function describe(element: Element): string {
-  const name =
-    element.getAttribute('aria-label') ??
-    element.textContent?.trim().replace(/\s+/g, ' ') ??
-    element.tagName.toLowerCase()
+  const name = element.getAttribute('aria-label') ?? element.textContent.trim().replace(/\s+/g, ' ')
   return `${element.getAttribute('role') ?? element.tagName.toLowerCase()} "${name}"`
 }
 
@@ -29,7 +26,7 @@ export function editingControls(root: HTMLElement = document.body): string[] {
     ...screen.queryAllByRole('menuitem', { hidden: false }),
   ].filter((element) => root.contains(element))
   for (const element of actions) {
-    const name = (element.getAttribute('aria-label') ?? element.textContent ?? '').trim()
+    const name = (element.getAttribute('aria-label') ?? element.textContent).trim()
     if (EDITING.test(name) && !READER_CONVENIENCES.has(name)) found.push(describe(element))
   }
   for (const element of root.querySelectorAll('[contenteditable="true"]')) {
