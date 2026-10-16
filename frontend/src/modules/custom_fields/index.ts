@@ -17,7 +17,7 @@ export default defineModule({
     {
       id: 'custom_fields.relations',
       kinds: '*',
-      title: 'Relations',
+      title: 'Relation fields',
       component: RelationFieldsPanel,
       placement: 'main',
       order: 5,
