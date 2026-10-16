@@ -1,0 +1,442 @@
+{
+  "vault_id": "01a14424-f185-7143-84b8-042895933678",
+  "folder": "aetheria-01a14424",
+  "size": "tiny",
+  "seed": 1729,
+  "app_version": "0.9.0",
+  "entities": {
+    "calendar": 11,
+    "character": 8,
+    "dimension": 4,
+    "event": 50,
+    "group": 7,
+    "language": 5,
+    "location": 9,
+    "misc": 5,
+    "species": 4,
+    "timeline": 5,
+    "writing_system": 2
+  },
+  "trashed_entities": 1,
+  "links": 65,
+  "custom_link_types": [
+    "custom.allied_with",
+    "custom.foreshadows",
+    "custom.mirrors"
+  ],
+  "calendars": {
+    "Spire Reckoning": "alternating-years",
+    "Tide Count": "simple-360",
+    "Moon Count": "lunisolar-metonic",
+    "Dream Count": "simple-360",
+    "Deep Count": "mayan",
+    "Hearth Reckoning": "shire-reckoning",
+    "Draft Calendar": "simple-360",
+    "Common Era": "gregorian",
+    "Old Style": "julian-gregorian",
+    "Julian Count": "julian",
+    "Imperial Reckoning": "custom"
+  },
+  "moments": {
+    "Age of Embers": [
+      "0",
+      "1000000"
+    ],
+    "Assassination of Aurel": [
+      "3656786400",
+      "3656793600"
+    ],
+    "Bloom Week": [
+      "3333744000",
+      "3333744000"
+    ],
+    "Comet Vael": [
+      "1267624800",
+      "1267624800"
+    ],
+    "Coronation of Aurel": [
+      "3352357800",
+      "3352368600"
+    ],
+    "Coronation of Ilsa": [
+      "9640000",
+      "9726400"
+    ],
+    "Council of the Seventh Year": [
+      "3178083600",
+      "3178342800"
+    ],
+    "Dream of the Drowned King": [
+      "1200000",
+      "1200000"
+    ],
+    "Drowning of the Tide-Priest": [
+      "17814800",
+      "17815400"
+    ],
+    "Embassy of the Restoration": [
+      "9539856000",
+      "9542448000"
+    ],
+    "Feast of the First Moon": [
+      "1638403200",
+      "1638403200"
+    ],
+    "First Draft of the Fall": [
+      "0",
+      "0"
+    ],
+    "Founders' Day": [
+      "3283459200",
+      "3283459200"
+    ],
+    "Founding of Varn": [
+      "500000",
+      "500000"
+    ],
+    "Founding of the Empire": [
+      "952264800",
+      "952264800"
+    ],
+    "Funeral of Aurel": [
+      "3657052800",
+      "3657139200"
+    ],
+    "Hundredth-Day Feast": [
+      "3297369600",
+      "3297369600"
+    ],
+    "Jubilee of the Thousandth Year": [
+      "12664080000",
+      "12664080000"
+    ],
+    "Lantern Night": [
+      "23587200",
+      "23587200"
+    ],
+    "Last Frost of the Old Reckoning": [
+      "3089404800",
+      "3089404800"
+    ],
+    "Midsummer in the Hearth": [
+      "31898793600",
+      "31898793600"
+    ],
+    "Mirror Battle of Actium": [
+      "125186774400",
+      "125186774400"
+    ],
+    "Mirror Calendar Reform": [
+      "176060476800",
+      "176060476800"
+    ],
+    "Mirror Fall of Rome": [
+      "141155136000",
+      "141155136000"
+    ],
+    "Mirror Moon Landing": [
+      "188265413820",
+      "188265413820"
+    ],
+    "Mirror New Year": [
+      "186070608000",
+      "186070608000"
+    ],
+    "Moonday Drill": [
+      "3241382400",
+      "3241382400"
+    ],
+    "Moonday Market": [
+      "3193862400",
+      "3193891200"
+    ],
+    "Omen of Ash": [
+      "3656700000",
+      "3656700000"
+    ],
+    "Peace of Varn": [
+      "3776716800",
+      "3792528000"
+    ],
+    "Raising of the Seawall": [
+      "1295654400",
+      "1295654400"
+    ],
+    "Rite of Tides": [
+      "2000000",
+      "2086400"
+    ],
+    "Rite of Tides (cancelled)": [
+      "49433600",
+      "49520000"
+    ],
+    "Rite of Tides (the late one)": [
+      "33793200",
+      "33879600"
+    ],
+    "Rite of Tides (the third)": [
+      "17811200",
+      "17897600"
+    ],
+    "Siege of Thornwall": [
+      "3692217600",
+      "3700252800"
+    ],
+    "Tenth-Day Muster": [
+      "3260563200",
+      "3260563200"
+    ],
+    "The Endless Vigil": [
+      "4748565615",
+      "100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "The First Jump": [
+      "1500000",
+      "1500000"
+    ],
+    "The Imperial Reform": [
+      "3162240000",
+      "3162240000"
+    ],
+    "The Long Count Turns": [
+      "161740800000",
+      "161740800000"
+    ],
+    "The Long Night": [
+      "1000000",
+      "4456000"
+    ],
+    "The Midyear Fire": [
+      "3644956800",
+      "3645043200"
+    ],
+    "The Mourning Ends": [
+      "3660508800",
+      "3660508800"
+    ],
+    "The Sundering": [
+      "1000000",
+      "1000000"
+    ],
+    "The Whispering Accord": [
+      "900000",
+      "900000"
+    ],
+    "Vael Seen from Varn": [
+      "8459891160",
+      "8460150360"
+    ],
+    "War of the Succession": [
+      "3660508800",
+      "3776716800"
+    ],
+    "Wren's Warning": [
+      "500000",
+      "500000"
+    ]
+  },
+  "occurrences": {
+    "Rite of Tides": {
+      "2": "referenced",
+      "4": "modified",
+      "6": "cancelled"
+    }
+  },
+  "reader_hidden": [
+    "The Hollow",
+    "Hollow Draft",
+    "The Whispering Accord",
+    "First Draft of the Fall",
+    "The Whisperers"
+  ],
+  "search": {
+    "query": "ley lines",
+    "name": "The Sundering"
+  },
+  "backlinks": {
+    "The Sundering": [
+      "Dream of the Drowned King",
+      "Founding of Varn",
+      "The Long Night",
+      "The Whispering Accord"
+    ],
+    "Founding of Varn": [
+      "Coronation of Ilsa",
+      "Rite of Tides",
+      "The Sundering",
+      "War of the Succession"
+    ]
+  },
+  "lexicon": {
+    "Old Tidespeech": [
+      "thal"
+    ],
+    "Varnish": [
+      "sorrel",
+      "thalass",
+      "velkorran",
+      "ven"
+    ]
+  },
+  "lexicon_hidden": [
+    "velkorran"
+  ],
+  "facts": {
+    "King Aldric": [
+      [
+        "core.exists",
+        "100000",
+        "9640000"
+      ]
+    ],
+    "Queen Maren": [
+      [
+        "core.exists",
+        "120000",
+        null
+      ]
+    ],
+    "Ilsa the Tidebound": [
+      [
+        "core.exists",
+        "400000",
+        null
+      ],
+      [
+        "core.name",
+        "400000",
+        "9640000"
+      ],
+      [
+        "epithet",
+        "9640000",
+        null
+      ],
+      [
+        "title",
+        null,
+        "9640000"
+      ],
+      [
+        "title",
+        "9640000",
+        null
+      ]
+    ],
+    "Duke Halvard": [
+      [
+        "core.exists",
+        "350000",
+        null
+      ]
+    ],
+    "Varn": [
+      [
+        "population",
+        "500000",
+        null
+      ]
+    ]
+  },
+  "existence": {
+    "King Aldric": {
+      "50000": "not_exists",
+      "150000": "exists",
+      "9640000": "not_exists"
+    },
+    "Ilsa the Tidebound": {
+      "150000": "not_exists",
+      "9640000": "exists"
+    },
+    "Wren": {
+      "150000": "unknown"
+    }
+  },
+  "facts_hidden": [
+    "Duke Halvard"
+  ],
+  "branches": {
+    "What if Aurel survived": {
+      "parent": "Prime",
+      "branch_t": "3656786400",
+      "events": [
+        "Age of Embers",
+        "Bloom Week",
+        "Burned Archive",
+        "Comet Vael",
+        "Coronation of Aurel",
+        "Coronation of Ilsa",
+        "Council of the Seventh Year",
+        "Drowning of the Tide-Priest",
+        "Feast of the First Moon",
+        "Founders' Day",
+        "Founding of Varn",
+        "Founding of the Empire",
+        "Hundredth-Day Feast",
+        "Lantern Night",
+        "Last Frost of the Old Reckoning",
+        "Moonday Drill",
+        "Moonday Market",
+        "Omen of Ash",
+        "Raising of the Seawall",
+        "Recovery of Aurel",
+        "Rite of Tides",
+        "Rite of Tides (cancelled)",
+        "Rite of Tides (the late one)",
+        "Rite of Tides (the third)",
+        "Tenth-Day Muster",
+        "The First Jump",
+        "The Imperial Reform",
+        "The Long Night",
+        "The Midyear Fire",
+        "The Sundering",
+        "The Whispering Accord"
+      ],
+      "own": [
+        "Council of the Survivor",
+        "Recovery of Aurel"
+      ]
+    }
+  },
+  "correspondences": {
+    "The Drowned Gate": {
+      "from": "Aetheria",
+      "to": "The Dreaming",
+      "t": "1864000",
+      "mapped": "31851360000"
+    }
+  },
+  "worldlines": {
+    "Wren": [
+      [
+        "0",
+        "1000000"
+      ],
+      [
+        "500000",
+        "999999"
+      ]
+    ]
+  },
+  "maps": {
+    "Thalassa": {
+      "location": "Thalassa",
+      "pins": [
+        "Here be dragons",
+        "The Sundering",
+        "Varn"
+      ],
+      "drill": {
+        "Varn": "City of Varn"
+      }
+    },
+    "City of Varn": {
+      "location": "Varn",
+      "pins": [
+        "Old Harbor",
+        "The Spire"
+      ],
+      "drill": {}
+    }
+  }
+}

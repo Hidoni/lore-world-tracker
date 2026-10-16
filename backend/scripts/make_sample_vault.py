@@ -2070,8 +2070,9 @@ def generate(
 
 
 def write_fixture(target: Path, size: Size = "tiny", *, seed: int = DEFAULT_SEED) -> SampleWorld:
-    """A golden fixture: ``target/vault/`` (``vault.json`` and a compacted ``lore.db``, nothing
-    else) and ``target/expected.json`` (the ``SampleWorld``)."""
+    """A golden fixture: ``target/vault/`` (``vault.json``, a compacted ``lore.db`` and the
+    ``media/`` files, without their thumbnails, which are regenerated) and
+    ``target/expected.json`` (the ``SampleWorld``)."""
     if target.exists():
         raise FileExistsError(f"{target} exists: fixtures are never regenerated")
     with tempfile.TemporaryDirectory(prefix="lore-sample-") as scratch:
@@ -2081,6 +2082,12 @@ def write_fixture(target: Path, size: Size = "tiny", *, seed: int = DEFAULT_SEED
         shutil.copyfile(source / MANIFEST_NAME, target / "vault" / MANIFEST_NAME)
         with closing(sqlite3.connect(source / DATABASE_NAME)) as connection:
             connection.execute("VACUUM INTO ?", (str(target / "vault" / DATABASE_NAME),))
+        if (source / "media").is_dir():
+            shutil.copytree(
+                source / "media",
+                target / "vault" / "media",
+                ignore=shutil.ignore_patterns("thumbs"),
+            )
     expected = json.dumps(asdict(world), indent=2, ensure_ascii=False) + "\n"
     (target / "expected.json").write_text(expected, encoding="utf-8")
     return world
