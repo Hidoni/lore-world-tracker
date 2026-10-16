@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { DescentTree } from '@/data'
 import { layoutDescent, layoutEdges } from '@/modules/species/views/layout'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -128,14 +128,19 @@ describe('species pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
 describe('species pages for the author', () => {
-  it.each(['/v/v1/e/elves', '/v/v1/m/species/descent-tree'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/elves', '/v/v1/m/species/descent-tree'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

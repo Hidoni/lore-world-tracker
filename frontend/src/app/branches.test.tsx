@@ -15,7 +15,7 @@ import {
   type FactRow,
   type LinkRow,
 } from '@/test/fake-vault'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -657,6 +657,7 @@ describe('branches pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
@@ -669,5 +670,6 @@ describe('branches pages for the author', () => {
       await settled()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })

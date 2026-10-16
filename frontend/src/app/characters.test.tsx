@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
 import {
   CAPS,
@@ -322,6 +322,7 @@ describe('characters pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
@@ -334,5 +335,6 @@ describe('characters pages for the author', () => {
       await settled()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })

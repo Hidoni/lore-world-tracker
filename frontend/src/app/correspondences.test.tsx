@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -319,6 +319,7 @@ describe('correspondences pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
@@ -331,5 +332,6 @@ describe('correspondences pages for the author', () => {
       await settled()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })

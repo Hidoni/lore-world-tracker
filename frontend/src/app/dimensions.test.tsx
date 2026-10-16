@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -250,8 +250,19 @@ describe('dimension overview', () => {
         name: 'Coronation',
       }),
     ).toBeInTheDocument()
-    await expectAccessible()
   })
+
+  it(
+    'has no serious accessibility violations',
+    async () => {
+      vault()
+      await renderApp('/v/v1/d/d1')
+      expect(await screen.findByRole('heading', { name: 'Aetheria', level: 1 })).toBeInTheDocument()
+      await screen.findByRole('region', { name: 'Calendars' })
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 
   it('switches the default calendar', async () => {
     const writes = vault()

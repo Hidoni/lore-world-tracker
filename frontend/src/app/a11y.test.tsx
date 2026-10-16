@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import { describe, it } from 'vitest'
 
 import { moduleDefinitions } from '@/modules'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { serveVault } from '@/test/fake-vault'
 import { settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -24,24 +24,36 @@ const PAGES: string[] = [
 ]
 
 describe('accessibility (axe: no serious or critical violations)', () => {
-  it.each(PAGES)('%s, as the author', async (path) => {
-    serveVault()
-    await renderApp(path, moduleDefinitions)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(PAGES)(
+    '%s, as the author',
+    async (path) => {
+      serveVault()
+      await renderApp(path, moduleDefinitions)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 
-  it.each(PAGES.slice(0, 7))('%s, as a reader', async (path) => {
-    serveVault()
-    await renderApp(path, moduleDefinitions, { readOnly: true })
-    await settled()
-    await expectAccessible()
-  })
+  it.each(PAGES.slice(0, 7))(
+    '%s, as a reader',
+    async (path) => {
+      serveVault()
+      await renderApp(path, moduleDefinitions, { readOnly: true })
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 
-  it('the vault picker', async () => {
-    serveVault()
-    await renderApp('/', moduleDefinitions)
-    await screen.findAllByRole('heading', { level: 1 })
-    await expectAccessible()
-  })
+  it(
+    'the vault picker',
+    async () => {
+      serveVault()
+      await renderApp('/', moduleDefinitions)
+      await screen.findAllByRole('heading', { level: 1 })
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

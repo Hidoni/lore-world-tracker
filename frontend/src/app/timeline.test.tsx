@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
 import { TickSnap } from '@/core/timeline/cursor-line'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -575,20 +575,28 @@ describe('timeline layers', () => {
 })
 
 describe('timeline pages in reader mode', () => {
-  it.each(['/v/v1/d/d1/timeline'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/d/d1/timeline'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })
 
 describe('timeline pages for the author', () => {
-  it.each(['/v/v1/d/d1/timeline'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/d/d1/timeline'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

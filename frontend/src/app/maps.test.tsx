@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CanvasMarker, Point } from '@/modules/maps/views/map-canvas'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -508,20 +508,28 @@ describe('maps module', () => {
 })
 
 describe('maps pages in reader mode', () => {
-  it.each(['/v/v1/e/varn', '/v/v1/m/maps/maps/m-varn'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/varn', '/v/v1/m/maps/maps/m-varn'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })
 
 describe('maps pages for the author', () => {
-  it.each(['/v/v1/e/varn', '/v/v1/m/maps/maps/m-varn'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/varn', '/v/v1/m/maps/maps/m-varn'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

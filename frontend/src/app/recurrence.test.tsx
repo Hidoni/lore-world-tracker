@@ -11,7 +11,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import { CAPS, defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
@@ -466,20 +466,28 @@ describe('occurrences', () => {
 })
 
 describe('recurrence pages in reader mode', () => {
-  it.each(['/v/v1/e/festival', '/v/v1/e/coronation'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/festival', '/v/v1/e/coronation'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })
 
 describe('recurrence pages for the author', () => {
-  it.each(['/v/v1/e/festival', '/v/v1/e/coronation'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/festival', '/v/v1/e/coronation'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

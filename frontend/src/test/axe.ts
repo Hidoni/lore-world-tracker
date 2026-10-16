@@ -6,6 +6,9 @@ import axe from 'axe-core'
  */
 const NOT_IN_JSDOM = ['color-contrast', 'color-contrast-enhanced', 'target-size']
 
+/** A test running axe on a whole page: axe takes a second or two on a large one in CI. */
+export const AXE_TIMEOUT = 20_000
+
 /** Impacts that fail a test (R-NFR-3: no serious violations). */
 const FAILING = new Set(['serious', 'critical'])
 

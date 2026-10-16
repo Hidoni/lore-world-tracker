@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { CAPS, defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { expectNoEditing, settled } from '@/test/reader'
@@ -386,14 +386,19 @@ describe('worldlines pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
 describe('worldlines pages for the author', () => {
-  it.each(['/v/v1/e/vey', '/v/v1/m/worldlines/entities/vey'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/vey', '/v/v1/m/worldlines/entities/vey'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })

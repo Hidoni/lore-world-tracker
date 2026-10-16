@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { FamilyTree } from '@/data'
 import { layoutEdges, layoutFamily } from '@/modules/languages/views/layout'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { defaultRows, kind, KINDS, linkType, row, serveVault } from '@/test/fake-vault'
 import { expectNoEditing, settled } from '@/test/reader'
 import { renderApp } from '@/test/render-app'
@@ -156,6 +156,7 @@ describe('languages pages in reader mode', () => {
       expectNoEditing()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })
 
@@ -168,5 +169,6 @@ describe('languages pages for the author', () => {
       await settled()
       await expectAccessible()
     },
+    AXE_TIMEOUT,
   )
 })

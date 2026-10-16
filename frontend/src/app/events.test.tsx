@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import { compiledCalendar } from '@/core/time'
-import { expectAccessible } from '@/test/axe'
+import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow, presetCalendar, testDimension } from '@/test/calendars'
 import {
   CAPS,
@@ -417,20 +417,28 @@ describe('event outline', () => {
 })
 
 describe('events pages in reader mode', () => {
-  it.each(['/v/v1/e/ev-feast', '/v/v1/e/ev-cor'])('%s offers no editing', async (path) => {
-    world()
-    await renderApp(path, undefined, { readOnly: true })
-    await settled()
-    expectNoEditing()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/ev-feast', '/v/v1/e/ev-cor'])(
+    '%s offers no editing',
+    async (path) => {
+      world()
+      await renderApp(path, undefined, { readOnly: true })
+      await settled()
+      expectNoEditing()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })
 
 describe('events pages for the author', () => {
-  it.each(['/v/v1/e/ev-feast', '/v/v1/e/ev-cor'])('%s is accessible', async (path) => {
-    world()
-    await renderApp(path)
-    await settled()
-    await expectAccessible()
-  })
+  it.each(['/v/v1/e/ev-feast', '/v/v1/e/ev-cor'])(
+    '%s is accessible',
+    async (path) => {
+      world()
+      await renderApp(path)
+      await settled()
+      await expectAccessible()
+    },
+    AXE_TIMEOUT,
+  )
 })
