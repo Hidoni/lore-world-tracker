@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { defineModule } from '@/core/modules'
 import { useTheme } from '@/lib/theme'
+import { expectAccessible } from '@/test/axe'
 import { defaultRows, row, serveVault } from '@/test/fake-vault'
 import { server } from '@/test/msw'
 import { renderApp } from '@/test/render-app'
@@ -115,6 +116,11 @@ describe('shortcuts sheet', () => {
     await user.keyboard('?')
     const sheet = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
     expect(sheet).toHaveTextContent('Ctrl/⌘ K')
+    // Grouped by where they work, the timeline's and the outline's included.
+    const timeline = within(sheet).getByRole('region', { name: 'Timeline (when focused)' })
+    expect(within(timeline).getByText('Go to a date')).toBeInTheDocument()
+    expect(within(sheet).getByRole('region', { name: 'Event outline' })).toBeInTheDocument()
+    await expectAccessible(sheet)
   })
 })
 
