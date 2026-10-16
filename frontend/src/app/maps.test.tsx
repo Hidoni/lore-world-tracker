@@ -337,6 +337,30 @@ describe('maps module', () => {
     })
   })
 
+  it('shows the map as a list: the same pins, their pages and the maps they drill into', async () => {
+    world()
+    await renderApp('/v/v1/m/maps/maps/m-varn?at=250')
+    await drawn()
+    await userEvent.click(screen.getByRole('checkbox', { name: 'As a list' }))
+    const list = await screen.findByRole('list', { name: 'Pins' }, WAIT)
+    await waitFor(() => {
+      expect(
+        within(list)
+          .getAllByRole('listitem')
+          .map((item) => item.textContent),
+      ).toEqual([expect.stringContaining('Hero Sword'), expect.stringContaining('Port')])
+    }, WAIT)
+    expect(within(list).getByRole('link', { name: 'Port' })).toHaveAttribute('href', '/v/v1/e/port')
+    // With ghosts, a pin not there at the cursor says so.
+    await userEvent.click(screen.getByRole('checkbox', { name: "Ghost what isn't there" }))
+    expect(await within(list).findByText('not there at the cursor', {}, WAIT)).toBeInTheDocument()
+    await userEvent.click(within(list).getByRole('button', { name: 'Drill into map' }))
+    const crumbs = () => screen.getByRole('navigation', { name: 'Map breadcrumbs' })
+    await waitFor(() => {
+      expect(within(crumbs()).getByText('Port')).toHaveAttribute('aria-current', 'page')
+    }, WAIT)
+  })
+
   it('offers "Show on map" on pinned entities, opening the map at the pin', async () => {
     world()
     await renderApp('/v/v1/e/hero')
