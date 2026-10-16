@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests.visibility.canary import Canary, build_canary_vault, leak_client
-from tests.visibility.recipes import RECIPES
+from tests.visibility.recipes import READER_SURFACE, RECIPES
 
 # Reader modes: (server settings, query parameters added to every request).
 READER_MODES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
@@ -77,6 +77,16 @@ def _responses(
             yield f"{path} {call.path} {call.params}", response, call.status
 
 
+def test_the_reader_surface_is_documented() -> None:
+    """Every reader-facing route's operation is listed in ``visibility-and-sharing.md`` §6 (the
+    static-export contract), and only routes with recipes are listed."""
+    doc = (Path(__file__).parents[3] / "docs/architecture/visibility-and-sharing.md").read_text()
+    section = doc.split("## 6.", 1)[1].split("## 7.", 1)[0]
+    missing = sorted({n for n in READER_SURFACE.values() if n and f"`{n}`" not in section})
+    assert missing == [], "add these to visibility-and-sharing.md §6"
+    assert sorted(set(READER_SURFACE) - set(RECIPES)) == []
+
+
 def test_the_recipes_make_many_calls(canary: Canary) -> None:
     assert sum(len(list(recipe(canary))) for recipe in RECIPES.values()) > 1000
 
@@ -86,6 +96,8 @@ def test_the_recipes_make_many_calls(canary: Canary) -> None:
 def test_readers_never_see_canaries(reader: TestClient, canary: Canary, route: str) -> None:
     problems: list[str] = []
     for where, response, status in _responses(reader, canary, [route]):
+        if response.status_code == 200 and route not in READER_SURFACE:
+            problems.append(f"{route} answers readers: add it to READER_SURFACE and §6")
         if response.status_code != status:
             problems.append(f"{where}: status {response.status_code} (expected {status})")
         # An error may echo the requested id ("No entity <id>."): that tells nothing new.

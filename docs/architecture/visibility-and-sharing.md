@@ -127,13 +127,18 @@ These tests run in CI on every PR that touches the backend.
 The reader UI may only use these read operations (DataSource methods). The post-MVP
 `StaticDataSource` must implement all of them from a snapshot:
 
-`meta`, `registry`, `entities` (list/filter, by existence at `at`), `entity` (+ `state` as-of), `facts`, `causedFacts`, `tree`, `tags`, `children`,
-`links`, `backlinks`, `unlinkedMentions`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
-`graph`, `characterRelationships`, `characterLife`, `familyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
-`orgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
-`speciesDescentTree`, `lexicon`, `lexiconEntry`, `languageFamilyTree`, `maps`/`pins`, `entityPins`, `mediaItem`, `mediaFile`,
-`gallery`, `correspondenceMap`, `worldline`, `personalTimeline`, `presence`, `timelines` (tree),
-`timelineDiff`, `timelineNotes`.
+`meta`, `vaults`/`vault`, `registry`, `settings`, `entities` (list/filter, by existence at `at`), `entity` (+ `state` as-of), `facts`, `causedFacts`, `tree`, `tags`, `fieldValues`, `children`,
+`links`, `backlinks`, `unlinkedMentions`, `linkTypes`, `calendarPresets`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
+`graph`, `characterRelationships`, `characterLife`, `characterFamilyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
+`groupOrgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
+`speciesDescentTree`, `lexicon`, `lexiconEntry`, `lexiconExport`, `languageFamilyTree`, `maps`/`mapDetail`, `entityPins`, `mediaItems`, `mediaItem`, `mediaFile`,
+`gallery`, `correspondences`, `correspondence`, `correspondenceMap` (`mapMoment`), `worldline`, `personalTimeline`, `presence`, `timelines` (tree),
+`timelineDiff` (`branchDiff`), `timelineNotes` (`timelineNote`).
+
+Names are the `DataSource` methods (`frontend/src/data/source.ts`; `lexiconExport` and
+`mediaFile` are URLs the SPA links to). Every other GET route is author-only (`404` for readers:
+history, trash, consistency, backups, custom field and kind definitions). The audit of #139 lists
+each route's reader status from the leak recipes: a route a reader gets `200` from belongs here.
 
 Adding a reader-facing endpoint means adding it here, adding a leak-test recipe, and (post-MVP)
 implementing it in `StaticDataSource`.

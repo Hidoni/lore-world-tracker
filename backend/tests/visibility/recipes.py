@@ -28,6 +28,75 @@ type Recipe = Callable[[Canary], Iterator[Call]]
 RECIPES: dict[str, Recipe] = {}
 
 
+# The routes readers get answers from, and the reader operation (``DataSource`` method) each
+# serves: ``visibility-and-sharing.md`` §6 lists every one (the static-export contract). A route
+# that answers a reader with 200 and isn't here fails the suite.
+READER_SURFACE: dict[str, str] = {
+    "/api/v1/health": "meta",
+    "/api/v1/meta": "meta",
+    "/api/v1/vaults": "vaults",
+    f"{V}": "vault",
+    f"{V}/calendars/presets": "calendarPresets",
+    f"{V}/dimensions/{{dimension_id}}/timelines": "timelines",
+    f"{V}/entities": "entities",
+    f"{V}/entities/field-values": "fieldValues",
+    f"{V}/entities/{{entity_id}}": "entity",
+    f"{V}/entities/{{entity_id}}/backlinks": "backlinks",
+    f"{V}/entities/{{entity_id}}/children": "children",
+    f"{V}/entities/{{entity_id}}/facts": "facts",
+    f"{V}/entities/{{entity_id}}/links": "links",
+    f"{V}/entities/{{entity_id}}/state": "entity",
+    f"{V}/entities/{{entity_id}}/unlinked-mentions": "unlinkedMentions",
+    f"{V}/events/{{event_id}}/occurrences": "occurrences",
+    f"{V}/facts": "causedFacts",
+    f"{V}/link-types": "linkTypes",
+    f"{V}/m/branches/notes/{{entity_id}}/{{timeline_id}}": "timelineNotes",
+    f"{V}/m/branches/timelines/{{timeline_id}}/diff": "timelineDiff",
+    f"{V}/m/characters/{{character_id}}/family-tree": "characterFamilyTree",
+    f"{V}/m/characters/{{character_id}}/life": "characterLife",
+    f"{V}/m/characters/{{character_id}}/relationships": "characterRelationships",
+    f"{V}/m/correspondences": "correspondences",
+    f"{V}/m/correspondences/map": "correspondenceMap",
+    f"{V}/m/correspondences/{{correspondence_id}}": "correspondence",
+    f"{V}/m/graph/graph": "graph",
+    f"{V}/m/groups/{{group_id}}/leaders": "groupLeaders",
+    f"{V}/m/groups/{{group_id}}/members": "groupMembers",
+    f"{V}/m/groups/{{group_id}}/org-chart": "groupOrgChart",
+    f"{V}/m/groups/{{group_id}}/territory": "groupTerritory",
+    f"{V}/m/languages/family-tree": "languageFamilyTree",
+    f"{V}/m/languages/lexicon/{{entry_id}}": "lexiconEntry",
+    f"{V}/m/languages/{{language_id}}/lexicon": "lexicon",
+    f"{V}/m/languages/{{language_id}}/lexicon/export": "lexiconExport",
+    f"{V}/m/locations/tree": "locationTree",
+    f"{V}/m/locations/{{location_id}}/events": "locationEvents",
+    f"{V}/m/locations/{{location_id}}/residents": "locationResidents",
+    f"{V}/m/maps/entities/{{entity_id}}/pins": "entityPins",
+    f"{V}/m/maps/maps": "maps",
+    f"{V}/m/maps/maps/{{map_id}}": "mapDetail",
+    f"{V}/m/media/entities/{{entity_id}}/gallery": "gallery",
+    f"{V}/m/media/items": "mediaItems",
+    f"{V}/m/media/items/{{media_id}}": "mediaItem",
+    f"{V}/m/media/items/{{media_id}}/file": "mediaFile",
+    f"{V}/m/species/descent-tree": "speciesDescentTree",
+    f"{V}/m/species/{{species_id}}/members": "speciesMembers",
+    f"{V}/m/worldlines/entities/{{entity_id}}/personal-timeline": "personalTimeline",
+    f"{V}/m/worldlines/entities/{{entity_id}}/presence": "presence",
+    f"{V}/m/worldlines/entities/{{entity_id}}/segments": "worldline",
+    f"{V}/registry": "registry",
+    f"{V}/search": "search",
+    f"{V}/search/quick": "quickSearch",
+    f"{V}/settings": "settings",
+    f"{V}/tags": "tags",
+    f"{V}/timelines/{{timeline_id}}/causality": "causality",
+    f"{V}/timelines/{{timeline_id}}/event-tree": "eventTree",
+    f"{V}/timelines/{{timeline_id}}/window": "timelineWindow",
+    f"{V}/tree": "tree",
+    # The test modules' routes (``tests/sample_modules.py``): not part of the app.
+    f"{V}/m/addon/ping": "",
+    f"{V}/m/sample/ping": "",
+}
+
+
 def recipe(path: str) -> Callable[[Recipe], Recipe]:
     def register(function: Recipe) -> Recipe:
         assert path not in RECIPES, path
@@ -407,6 +476,7 @@ def lexicon(c: Canary) -> Iterator[Call]:
 
 @recipe(f"{V}/m/languages/lexicon/{{entry_id}}")
 def lexicon_entry(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/languages/lexicon/{c.records['Public word']}")
     for hidden_id in c.hidden_ids:
         yield Call(f"{_v(c)}/m/languages/lexicon/{hidden_id}", status=404)
 
