@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-16
+
+Custom fields and kinds (M11): make the app fit your world. Define kinds of your own (Artifact,
+Spell, Ship) with their icon, color, parents and capabilities, give any kind (or every kind)
+fields of your own, including ones that change over time, and link kinds with relation fields.
+Their entities show in the sidebar, create menus, search, the graph and the timeline like
+built-in ones. New tables for custom fields and kinds are added when a v0.9.0 vault opens.
+
 ### Added
 
 - **Custom fields** (#133, backend): add your own fields to any kind, or to every kind at once,
@@ -626,7 +634,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.6.0...v0.7.0
