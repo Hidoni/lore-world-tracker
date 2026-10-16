@@ -77,12 +77,24 @@
 ## UI
 
 - Settings → **Kinds**: list of built-in (read-only info) and custom kinds. Create/edit with an
-  icon picker (curated lucide set), color, allowed parents, capabilities.
-- Settings → **Fields**: pick a kind, then a sortable list of fields grouped by section, with
-  add/edit/archive dialogs per type (options editor for enums, temporal toggle, default
-  visibility).
+  icon picker (the curated lucide set, `iconMap`), color, allowed parents (the kind itself
+  included), capabilities and the visibility of new entities; archive/unarchive; delete (a kind in
+  use is refused with the reason).
+- Settings → **Fields**: pick a kind (or every kind), then its custom fields grouped by section in
+  their order (move up/down), with built-in fields listed for reference. Add/edit dialogs per type:
+  options editor for enums (label, key, order), several values, required, temporal toggle (turning
+  it off asks whether to keep or trash the facts), searchable, default visibility, section and
+  help text. Editing offers only the safe type conversions; text → enum asks which option each
+  existing value becomes (or clears it). Archive keeps values hidden; deleting a field with values
+  asks to confirm deleting them too.
+- **Relation fields**: on the Fields page of a kind, "New relation field" creates a custom link
+  type from that kind to the kinds chosen. Every user-defined link type whose `source_kinds` lists
+  the entity's kind shows in a **Relations** panel on its pages as label/value rows (the linked
+  entities, as of the time cursor), with a "Link…" button; edit or archive them in Settings →
+  Link types.
 - Entity pages render custom fields through the same generic field renderers. Custom kinds get
-  sidebar sections, create menus, graph colors and search facets automatically.
+  sidebar sections, create menus, graph colors and search facets automatically (they come with
+  `GET /registry`).
 
 ## Consistency rules
 

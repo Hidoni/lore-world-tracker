@@ -19,6 +19,11 @@ All notable changes to this project are documented here. The format follows
   like any other kind's in lists, search, links, the graph and consistency checks. Archive a kind
   to hide it with its entities, delete it once nothing uses it, and convert entities between
   kinds (built-in or custom), mapping their fields, in one undoable step.
+- **Settings for custom fields and kinds** (#135): Settings → Kinds (icon picker, color, parents,
+  capabilities, archive) and Settings → Fields (per kind, by section, reorder, option editor,
+  temporal and visibility settings, safe type changes with a value-mapping step, delete with
+  values). Relation fields ("Wielder → Character") are custom link types from a kind and show as
+  rows in a Relations panel on its entities' pages.
 
 ## [0.9.0] - 2026-10-16
 
