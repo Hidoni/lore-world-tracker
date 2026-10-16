@@ -232,6 +232,19 @@ export {
   type MapRecord,
 } from './maps'
 export {
+  useCreateCustomField,
+  useCreateCustomKind,
+  useCustomFields,
+  useCustomKinds,
+  useDeleteCustomField,
+  useDeleteCustomKind,
+  useReorderCustomFields,
+  useUpdateCustomField,
+  useUpdateCustomKind,
+  type CustomField,
+  type CustomKind,
+} from './custom-fields'
+export {
   IMAGE_TYPES,
   isImage,
   mediaFileUrl,

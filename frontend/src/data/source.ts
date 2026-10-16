@@ -106,6 +106,9 @@ export interface DataSource {
   maps(vault: string, query?: Query<'maps_list'>): Promise<D<'MapList'>>
   mapDetail(vault: string, map: string, query?: Query<'maps_get'>): Promise<D<'MapDetail'>>
   entityPins(vault: string, entity: string): Promise<D<'EntityPins'>>
+  // The custom_fields module (docs/modules/custom_fields.md).
+  customFields(vault: string, query?: Query<'custom_fields_list'>): Promise<D<'CustomFieldList'>>
+  customKinds(vault: string): Promise<D<'CustomKindList'>>
   // The characters module (docs/modules/characters.md).
   characterRelationships(
     vault: string,
@@ -338,6 +341,33 @@ export interface Mutations {
   createPin(vault: string, map: string, body: Schemas['PinCreate']): Promise<D<'PinWriteResult'>>
   updatePin(vault: string, pin: string, body: Schemas['PinUpdate']): Promise<D<'PinWriteResult'>>
   deletePin(vault: string, pin: string): Promise<D<'PinWriteResult'>>
+  // The custom_fields module.
+  createCustomField(
+    vault: string,
+    body: Schemas['CustomFieldCreate'],
+  ): Promise<D<'CustomFieldWriteResult'>>
+  updateCustomField(
+    vault: string,
+    field: string,
+    body: Schemas['CustomFieldUpdate'],
+  ): Promise<D<'CustomFieldWriteResult'>>
+  deleteCustomField(
+    vault: string,
+    field: string,
+    deleteValues: boolean,
+  ): Promise<D<'CustomFieldDeleteResult'>>
+  reorderCustomFields(vault: string, body: Schemas['FieldReorder']): Promise<D<'CustomFieldList'>>
+  createCustomKind(
+    vault: string,
+    body: Schemas['CustomKindCreate'],
+  ): Promise<D<'CustomKindWriteResult'>>
+  updateCustomKind(
+    vault: string,
+    kind: string,
+    body: Schemas['CustomKindUpdate'],
+  ): Promise<D<'CustomKindWriteResult'>>
+  deleteCustomKind(vault: string, kind: string): Promise<D<'CustomKindDeleteResult'>>
+  convertKind(vault: string, body: Schemas['ConvertKind']): Promise<D<'ConvertKindResult'>>
   // The languages module's lexicon.
   createLexiconEntry(
     vault: string,
