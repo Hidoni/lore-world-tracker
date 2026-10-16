@@ -231,6 +231,19 @@ on green, see `workflow.md` §7). A new push cancels the superseded run of the s
 GitHub Actions.
 Use caching for uv, npm and Playwright browsers. Keep the PR pipeline under ~12 minutes.
 
+**Backend suite speed (#307).** `make check-backend` / `make test-backend` run pytest in parallel
+(`pytest-xdist`, `-n auto`: one worker per CPU; plain `uv run pytest` runs serially, for a single
+file or `-k`). Tests must not share state across a process: module-scoped fixtures (the canary
+vault) are built once per worker, and every test gets its own `tmp_path`. Coverage combines across
+workers (`pytest-cov`). The canary leak test runs once per route and reader mode, so workers share
+it. Per-entity routes try every hidden timeline on their first three paths only (a hidden timeline
+is refused before the entity is read); every public entity still gets the visible cursors.
+Measured 2026-10-16 on 4 CPUs: the suite took about 25 minutes serially and 10 m 41 s in
+parallel. The slowest tests then: the author's leak control (`test_the_author_sees_every_canary`,
+replays every recipe, about 2 min), the generator determinism test (two `tiny` sample worlds,
+about 75 s), the canary build (about 22 s per worker), and the leak tests of the per-entity link
+routes (about 20 s each).
+
 ## 6. Differential testing (chronology)
 
 The conformance vectors pin the cases someone thought of. Differential tests look for drift

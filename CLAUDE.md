@@ -92,7 +92,7 @@ tools/backlog.py  issue helper: `uv run tools/backlog.py ready|show|claim|unclai
 | `make help` | list the targets (the default goal) |
 | `make setup` | install backend (uv) + frontend (npm workspaces) deps, Playwright's Chromium |
 | `make dev` | backend on :8000 (reload) + Vite on :5173 (proxies `/api`), data in `./data`; Ctrl-C stops both |
-| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, `lore db check`, pytest) + `check-frontend` (eslint, prettier --check, tsc, vitest, build) + `check-contract` (OpenAPI types drift) + `check-chronology` (chronology JSON Schema and TS type drift) |
+| `make check` | **run before every PR**: `check-backend` (ruff check, ruff format --check, mypy, import-linter, `lore db check`, pytest in parallel: `-n auto`) + `check-frontend` (eslint, prettier --check, tsc, vitest, build) + `check-contract` (OpenAPI types drift) + `check-chronology` (chronology JSON Schema and TS type drift) |
 | `make check-backend` / `make check-frontend` / `make check-contract` / `make check-chronology` | one part of `make check` |
 | `make test` | `test-backend` + `test-frontend` + `test-chronology` |
 | `make test-backend` / `make test-frontend` / `make test-chronology` | focused test runs (`test-chronology`: `backend/tests/chronology` + `@lore/chronology` vitest, incl. both conformance runners) |
@@ -140,6 +140,9 @@ squash-merge after green CI (details in `docs/plan/workflow.md`).
 - SQLite + Alembic: `render_as_batch=True`; FTS5 tables are created with `op.execute` and excluded
   from autogenerate; `PRAGMA foreign_keys=ON` is per connection (set in the connect hook).
 - Run uvicorn with **one worker** (per-vault engines and caches are in-process).
+- The backend suite runs in parallel (`make test-backend`: pytest-xdist, `-n auto`). Tests may
+  not share state through process globals or files outside their `tmp_path`; plain `uv run pytest`
+  runs serially (one file, `-k`).
 - Transactions that may write must start with `BEGIN IMMEDIATE` (`SessionDep` does it for non-GET
   requests; elsewhere use `OpenVault.write_sessions` / `lore.core.db.for_writing`). A deferred
   read-then-write fails instantly with "database is locked" if another write committed meanwhile.
