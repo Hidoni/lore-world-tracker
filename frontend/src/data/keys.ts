@@ -70,6 +70,8 @@ export const keys = {
   mediaItem: (vault: string, media: string) => [vault, 'media', 'item', media] as const,
   gallery: (vault: string, entity: string) => [vault, 'media', 'gallery', entity] as const,
   maps: (vault: string, params?: object) => [vault, 'maps', params ?? {}] as const,
+  customFields: (vault: string, params?: object) => [vault, 'customFields', params ?? {}] as const,
+  customKinds: (vault: string) => [vault, 'customKinds'] as const,
   mapDetail: (vault: string, map: string, params?: object) =>
     [vault, 'mapDetail', map, params ?? {}] as const,
   entityPins: (vault: string, entity: string) => [vault, 'entityPins', entity] as const,

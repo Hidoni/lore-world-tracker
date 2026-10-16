@@ -293,6 +293,18 @@ export function createHttpDataSource(client: ApiClient = defaultClient): DataSou
         ),
         'GalleryOut',
       ),
+    customFields: async (vault, query) =>
+      toDomain(
+        await unwrap(
+          client.GET(`${V}/m/custom_fields/fields`, { params: { ...path(vault), query } }),
+        ),
+        'CustomFieldList',
+      ),
+    customKinds: async (vault) =>
+      toDomain(
+        await unwrap(client.GET(`${V}/m/custom_fields/kinds`, { params: path(vault) })),
+        'CustomKindList',
+      ),
     maps: async (vault, query) =>
       toDomain(
         await unwrap(client.GET(`${V}/m/maps/maps`, { params: { ...path(vault), query } })),
@@ -854,6 +866,71 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
       })
       if (error !== undefined || !response.ok) throw await toApiError(response)
     },
+    createCustomField: async (vault, body) =>
+      toDomain(
+        await unwrap(client.POST(`${V}/m/custom_fields/fields`, { params: path(vault), body })),
+        'CustomFieldWriteResult',
+      ),
+    updateCustomField: async (vault, field, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/custom_fields/fields/{field_id}`, {
+            params: { path: { vault_id: vault, field_id: field } },
+            body,
+          }),
+        ),
+        'CustomFieldWriteResult',
+      ),
+    deleteCustomField: async (vault, field, deleteValues) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/custom_fields/fields/{field_id}`, {
+            params: {
+              path: { vault_id: vault, field_id: field },
+              query: { delete_values: deleteValues },
+            },
+          }),
+        ),
+        'CustomFieldDeleteResult',
+      ),
+    reorderCustomFields: async (vault, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/custom_fields/fields/reorder`, { params: path(vault), body }),
+        ),
+        'CustomFieldList',
+      ),
+    createCustomKind: async (vault, body) =>
+      toDomain(
+        await unwrap(client.POST(`${V}/m/custom_fields/kinds`, { params: path(vault), body })),
+        'CustomKindWriteResult',
+      ),
+    updateCustomKind: async (vault, kind, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/custom_fields/kinds/{kind_key}`, {
+            params: { path: { vault_id: vault, kind_key: kind } },
+            body,
+          }),
+        ),
+        'CustomKindWriteResult',
+      ),
+    deleteCustomKind: async (vault, kind) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/custom_fields/kinds/{kind_key}`, {
+            params: { path: { vault_id: vault, kind_key: kind } },
+          }),
+        ),
+        'CustomKindDeleteResult',
+      ),
+    convertKind: async (vault, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/custom_fields/convert-kind`, { params: path(vault), body }),
+        ),
+        'ConvertKindResult',
+      ),
     createMap: async (vault, body) =>
       toDomain(
         await unwrap(client.POST(`${V}/m/maps/maps`, { params: path(vault), body })),

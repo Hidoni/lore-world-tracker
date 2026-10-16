@@ -3,6 +3,7 @@ import type { ModuleDefinition } from '@/core/modules'
 import branches from './branches'
 import characters from './characters'
 import correspondences from './correspondences'
+import customFields from './custom_fields'
 import graph from './graph'
 import groups from './groups'
 import languages from './languages'
@@ -29,4 +30,5 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   worldlines,
   media,
   maps,
+  customFields,
 ]
