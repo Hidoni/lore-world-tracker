@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 
+from lore.core.time.models import EntityTimeField
 from tests.entity_api import LinkApi, invalid, make_client, problem
 from tests.entity_modules import with_real_modules
 
@@ -230,10 +232,28 @@ def test_delete_needs_delete_values_and_undo_restores(fields: Fields) -> None:
     world = api.make("dimension", "Aetheria")
     api.calendar(world["id"])
     crowned = fields.made(key="crowned", type="time_point")
-    moment = {"anchor": {"kind": "absolute", "t": "500"}, "precision": "base"}
+    coronation = api.make("event", "Coronation", dimension_id=world["id"], ext={
+        "start": {"anchor": {"kind": "absolute", "t": "500"}, "precision": "base"}})  # fmt: skip
+    ref = {"type": "event", "id": coronation["id"], "slot": "start"}
+    moment = {"anchor": {"kind": "relative", "ref": ref, "offset": {"kind": "base", "units": "0"}},
+              "precision": "base"}  # fmt: skip
     ilsa = api.make("character", "Ilsa", dimension_id=world["id"],
                     fields={"custom.crowned": moment},
                     field_visibility={"custom.crowned": "private"})  # fmt: skip
+    vault = api.client.app.state.vaults.open(api.vault)  # type: ignore[attr-defined]
+
+    def rows() -> dict[str, str | None]:
+        with vault.sessions() as session:
+            found = session.scalars(select(EntityTimeField).where(
+                EntityTimeField.entity_id == ilsa["id"]))  # fmt: skip
+            return {row.field_key: None if row.t is None else str(row.t) for row in found}
+
+    # A time-point custom field propagates: it follows the event.
+    assert rows() == {"custom.crowned": "500"}
+    moved = api.patch(coronation, ext={"start": {"anchor": {"kind": "absolute", "t": "700"},
+                                                 "precision": "base"}})  # fmt: skip
+    assert moved.status_code == 200, moved.json()
+    assert rows() == {"custom.crowned": "700"}
     conflict = problem(fields.delete(crowned), 409, "conflict")
     assert conflict["context"] == {"entities": 1}
     response = fields.delete(crowned, delete_values="true")
@@ -242,8 +262,10 @@ def test_delete_needs_delete_values_and_undo_restores(fields: Fields) -> None:
     assert "custom.crowned" not in fields.registry_fields("character")
     entity = api.get(ilsa["id"]).json()
     assert entity["field_visibility"] == {}
+    assert rows() == {}
     fields.undo_last()
-    assert fields.values(ilsa)["custom.crowned"]["anchor"] == moment["anchor"]
+    assert fields.values(ilsa)["custom.crowned"]["anchor"]["ref"]["id"] == coronation["id"]
+    assert rows() == {"custom.crowned": "700"}
     assert api.get(ilsa["id"]).json()["field_visibility"] == {"custom.crowned": "private"}
     # Without values, a plain delete.
     empty = fields.made(key="empty")
