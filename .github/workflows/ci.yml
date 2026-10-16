@@ -24,8 +24,9 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
-    # pytest runs in parallel (one worker per CPU, #307); keep this about twice the job's time.
-    timeout-minutes: 15
+    # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
+    # Keep this about twice the job's time.
+    timeout-minutes: 16
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0

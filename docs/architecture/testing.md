@@ -239,7 +239,8 @@ workers (`pytest-cov`). The canary leak test runs once per route and reader mode
 it. Per-entity routes try every hidden timeline on their first three paths only (a hidden timeline
 is refused before the entity is read); every public entity still gets the visible cursors.
 Measured 2026-10-16 on 4 CPUs: the suite took about 25 minutes serially and 10 m 41 s in
-parallel. The slowest tests then: the author's leak control (`test_the_author_sees_every_canary`,
+parallel; the CI `backend` job went from 18–19 minutes to 7 m 41 s (its timeout is 16 minutes,
+about twice that). The slowest tests then: the author's leak control (`test_the_author_sees_every_canary`,
 replays every recipe, about 2 min), the generator determinism test (two `tiny` sample worlds,
 about 75 s), the canary build (about 22 s per worker), and the leak tests of the per-entity link
 routes (about 20 s each).
