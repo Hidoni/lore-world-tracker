@@ -37,7 +37,7 @@ check-backend: ## Backend: ruff check, ruff format --check, mypy, lint-imports, 
 	$(UV) run mypy
 	$(UV) run lint-imports
 	$(UV) run lore db check
-	$(UV) run pytest
+	$(UV) run pytest -n auto
 
 check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, build
 	npm run lint
@@ -47,8 +47,8 @@ check-frontend: ## Frontend workspaces: eslint + prettier --check, tsc, vitest, 
 
 test: test-backend test-frontend test-chronology ## All unit tests (backend, frontend, chronology conformance)
 
-test-backend: ## pytest
-	$(UV) run pytest
+test-backend: ## pytest, in parallel (pytest-xdist, one worker per CPU)
+	$(UV) run pytest -n auto
 
 test-frontend: ## vitest in every npm workspace
 	npm run test

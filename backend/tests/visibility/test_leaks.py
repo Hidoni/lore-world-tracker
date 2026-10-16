@@ -2,7 +2,7 @@
 recipes against the canary vault, must never return a canary string or a hidden id to readers,
 on a read-only server and with ``?as_reader=true``."""
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +25,10 @@ def canary(tmp_path_factory: pytest.TempPathFactory) -> Canary:
     return build_canary_vault(tmp_path_factory.mktemp("canary"))
 
 
-@pytest.fixture(params=sorted(READER_MODES))
+@pytest.fixture(scope="module", params=sorted(READER_MODES))
 def reader(request: pytest.FixtureRequest, canary: Canary) -> Iterator[TestClient]:
-    """A client seeing the canary vault as a reader (every request gets the mode's params)."""
+    """A client seeing the canary vault as a reader (every request gets the mode's params); one
+    per mode for the module (and per xdist worker), as reads change nothing."""
     settings, params = READER_MODES[request.param]
     with leak_client(canary.data_dir, **settings) as client:
         client.params = params
@@ -67,18 +68,24 @@ def test_a_get_route_without_a_recipe_fails_the_suite(tmp_path: Path) -> None:
 # --- leaks ---------------------------------------------------------------------------------------
 
 
-def _responses(client: TestClient, canary: Canary) -> Iterator[tuple[str, Any, int]]:
-    for path, recipe in sorted(RECIPES.items()):
-        for call in recipe(canary):
+def _responses(
+    client: TestClient, canary: Canary, routes: Iterable[str] = RECIPES
+) -> Iterator[tuple[str, Any, int]]:
+    for path in sorted(routes):
+        for call in RECIPES[path](canary):
             response = client.get(call.path, params=call.params)
             yield f"{path} {call.path} {call.params}", response, call.status
 
 
-def test_readers_never_see_canaries(reader: TestClient, canary: Canary) -> None:
+def test_the_recipes_make_many_calls(canary: Canary) -> None:
+    assert sum(len(list(recipe(canary))) for recipe in RECIPES.values()) > 1000
+
+
+# One test per route (and reader mode), so that parallel workers share the suite (#307).
+@pytest.mark.parametrize("route", sorted(RECIPES))
+def test_readers_never_see_canaries(reader: TestClient, canary: Canary, route: str) -> None:
     problems: list[str] = []
-    calls = 0
-    for where, response, status in _responses(reader, canary):
-        calls += 1
+    for where, response, status in _responses(reader, canary, [route]):
         if response.status_code != status:
             problems.append(f"{where}: status {response.status_code} (expected {status})")
         # An error may echo the requested id ("No entity <id>."): that tells nothing new.
@@ -87,7 +94,6 @@ def test_readers_never_see_canaries(reader: TestClient, canary: Canary) -> None:
         if leaked:
             problems.append(f"{where}: leaked {leaked}")
     assert problems == [], "\n".join(problems)
-    assert calls > 100
 
 
 def test_the_author_sees_every_canary(canary: Canary) -> None:

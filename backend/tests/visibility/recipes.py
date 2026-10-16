@@ -172,18 +172,25 @@ def children(c: Canary) -> Iterator[Call]:
         )
 
 
-def _cursors(c: Canary) -> Iterator[tuple[dict[str, str], int]]:
-    """Time cursors (params, the reader's status): moments in the prime timeline, and a hidden
-    timeline (404)."""
+def _cursors(c: Canary, *, hidden: bool = True) -> Iterator[tuple[dict[str, str], int]]:
+    """Time cursors (params, the reader's status): moments in the prime timeline, and (unless
+    ``hidden`` is false) every hidden id as the timeline (404)."""
     for at in ("0", "15", "500"):
         yield {"timeline": c.public["Prime"], "at": at}, 200
-    for hidden_id in c.hidden_ids:
-        yield {"timeline": hidden_id, "at": "0"}, 404
+    if hidden:
+        for hidden_id in c.hidden_ids:
+            yield {"timeline": hidden_id, "at": "0"}, 404
+
+
+HIDDEN_CURSOR_PATHS = 3
+"""Per-entity routes try every hidden timeline on their first paths only: the timeline is
+refused before anything about the entity is read, and trying every hidden id on every entity was
+two thirds of the suite's requests (#307)."""
 
 
 def _as_of_links(c: Canary, paths: Iterator[str]) -> Iterator[Call]:
-    for path in paths:
-        for params, status in _cursors(c):
+    for index, path in enumerate(paths):
+        for params, status in _cursors(c, hidden=index < HIDDEN_CURSOR_PATHS):
             yield Call(path, params, status=status)
 
 
