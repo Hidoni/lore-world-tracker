@@ -80,6 +80,15 @@ dimension wizard and date typing they share).
 | E12 | Publish snapshot → run reader mode → no edit UI, private canaries absent, spoilers folded                                                   | M12       |
 | E13 | Backup → restore into a new vault → content identical                                                                                       | M12       |
 
+Accessibility (#145, R-NFR-3): `e2e/keyboard.spec.ts` walks the main journeys with the keyboard
+only (the dimension wizard, the palette, renaming, the shortcut sheet, the timeline, the event
+outline); `tabTo` presses Tab until a control has the focus and fails when it can't get there.
+`e2e/a11y.spec.ts` runs axe-core on the main pages in the light and the dark theme (WCAG 2.2
+A/AA rules, contrast and target sizes included) and fails on serious or critical violations. The
+component tests run axe too (`test/axe.ts`, `expectAccessible()`): every page type of the core
+(`app/a11y.test.tsx`) and of each module, as the author and as a reader. jsdom paints nothing, so
+contrast and target sizes are left to the e2e check.
+
 Harness (`frontend/e2e/`, #70): `scripts/e2e.sh` runs the author server (with
 `LORE_PUBLISH_DIR`) and a second, read-only server on its publish directory (`E2E_READER_URL`, for
 E12). Journeys import `test` from `e2e/fixtures.ts`. Its `lore` fixture

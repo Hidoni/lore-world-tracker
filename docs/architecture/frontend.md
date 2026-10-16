@@ -959,6 +959,21 @@ dimension.
 Every visualization has a **list/table alternative** (event outline, link lists). The timeline
 supports keyboard navigation between items (arrow keys) and announces focused items.
 
+The alternatives (#145):
+
+| Visualization | Its list |
+| --- | --- |
+| Timeline | "List view": the event outline (a keyboard tree table, §10); the minimap is a slider (←/→ by a view, Home/End) |
+| Worldline jumps on the timeline | "Jumps" → "Personal timeline" of each chosen entity, whose "List view" is a table of what they lived, jumps included |
+| Personal timeline | "List view" (a table) |
+| Graph page | "As a list": entities by connections |
+| Local graph panel | "As a list": the neighbors, each with how it connects (link type, its inverse for links pointing here, mention, parent) |
+| Maps (page and panel) | "As a list": the pins shown (same layers and time cursor), with their pages, kinds, whether they are there at the cursor, and "Drill into map" |
+| Family tree, species descent, language family, org chart, causality | "As a list" |
+| Group membership history | already a list (the bars are decoration) |
+| Connected dimensions (dimension overview) | the list of connected dimensions under the drawing |
+| Correspondence mapping chart | the sync points and the conversion tester beside it |
+
 ## 10. Other views
 
 - **Event outline:** tree table (name, start, end, duration, importance, participants), lazily
@@ -1010,6 +1025,14 @@ supports keyboard navigation between items (arrow keys) and announces focused it
 - Typography: a UI sans plus an optional serif reading font for rendered bodies (display menu).
 - Accessibility: Radix primitives, visible focus, AA contrast, `?` opens the keyboard shortcut
   sheet.
+  - The sheet (`SHORTCUT_GROUPS`, `core/palette`) lists every shortcut by where it works:
+    anywhere, writing, the timeline, the event outline, the sidebar, graphs and maps. A new
+    shortcut goes there in the same change.
+  - axe-core runs in the component tests (every page type) and in the e2e suite in both themes
+    (testing.md §3). The keyboard-only walkthrough of the main journeys is `e2e/keyboard.spec.ts`.
+  - Rules the checks enforced (#145): a `tablist` holds only tabs; no control inside another (a
+    link in a button); a drawing with links inside is either fully accessible or `aria-hidden`
+    with a list beside it; checkbox lists keep 24 px rows (WCAG 2.2 target size).
 
 ## 12. Performance rules
 

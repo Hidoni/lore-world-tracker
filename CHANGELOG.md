@@ -33,6 +33,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Accessibility pass** (#145): maps and the local graph read as lists too ("As a list"), so
+  every diagram, map and graph has a keyboard- and screen-reader-friendly view; the minimap works
+  with the keyboard; the shortcut sheet (`?`) now lists every shortcut, grouped by where it works.
+  Automated accessibility checks (axe) cover every page in both themes, and a keyboard-only
+  walkthrough of the main journeys runs in CI. Fixed along the way: the calendar editor's rule
+  tabs, a file tile in the media library, the connected-dimensions drawing, and small checkboxes
+  on the graph page.
+
 - **Faster pages** (#144): the app loads less code up front (387 kB instead of 514 kB, the
   editor, timeline and settings now load when first used), entity pages no longer pause while
   their panels arrive, and on large worlds the sidebar's events, the findings badges and the
