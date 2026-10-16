@@ -1,29 +1,19 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
+import type { ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent, type EntityViewProps } from '@/core/modules'
 
-/** A panel loaded with the first page that shows it. */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const MembersPanel = lazyPanel(async () => (await import('./panels/members-panel')).MembersPanel)
-const LeadershipPanel = lazyPanel(
+const MembersPanel = lazyComponent(async () => (await import('./panels/members-panel')).MembersPanel)
+const LeadershipPanel = lazyComponent(
   async () => (await import('./panels/leadership-panel')).LeadershipPanel,
 )
-const StructurePanel = lazyPanel(
+const StructurePanel = lazyComponent(
   async () => (await import('./panels/structure-panel')).StructurePanel,
 )
-const RelationsPanel = lazyPanel(
+const RelationsPanel = lazyComponent(
   async () => (await import('./panels/relations-panel')).GroupRelationsPanel,
 )
-const TerritoryPanel = lazyPanel(
+const TerritoryPanel = lazyComponent(
   async () => (await import('./panels/territory-panel')).TerritoryPanel,
 )
 

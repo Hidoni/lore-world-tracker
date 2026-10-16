@@ -1,20 +1,13 @@
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
-
-import { defineModule } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
 import { useConcurrentlyShown } from './concurrently'
 
-const LazySection = lazy(async () => ({
-  default: (await import('./views/dimension-section')).CorrespondencesSection,
-}))
-const LazyConcurrently = lazy(async () => ({
-  default: (await import('./views/concurrently-panel')).ConcurrentlyPanel,
-}))
-
-const lazyView =
-  <P extends object>(View: ComponentType<P>): ComponentType<P> =>
-  (props) =>
-    createElement(Suspense, { fallback: null }, createElement(View, props))
+const CorrespondencesSection = lazyComponent(
+  async () => (await import('./views/dimension-section')).CorrespondencesSection,
+)
+const ConcurrentlyPanel = lazyComponent(
+  async () => (await import('./views/concurrently-panel')).ConcurrentlyPanel,
+)
 
 /**
  * The correspondences module (docs/modules/correspondences.md): how the times of dimensions
@@ -25,14 +18,14 @@ const lazyView =
 export default defineModule({
   id: 'correspondences',
   dimensionSections: [
-    { id: 'correspondences', title: 'Correspondences', component: lazyView(LazySection) },
+    { id: 'correspondences', title: 'Correspondences', component: CorrespondencesSection },
   ],
   entityPanels: [
     {
       id: 'correspondences.concurrently',
       kinds: ['event'],
       title: 'Concurrently in…',
-      component: lazyView(LazyConcurrently),
+      component: ConcurrentlyPanel,
       placement: 'side',
       order: 30,
       useShown: useConcurrentlyShown,

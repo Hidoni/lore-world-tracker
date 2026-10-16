@@ -1,25 +1,18 @@
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
-
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent, type EntityViewProps } from '@/core/modules'
 import { useBranching } from '@/core/time'
 
-const LazyTimeline = lazy(async () => ({
-  default: (await import('./views/timeline-panel')).TimelinePanel,
-}))
-const LazyNotes = lazy(async () => ({
-  default: (await import('./views/notes-panel')).TimelineNotesPanel,
-}))
+const TimelinePanel = lazyComponent(
+  async () => (await import('./views/timeline-panel')).TimelinePanel,
+)
+const NotesPanel = lazyComponent(
+  async () => (await import('./views/notes-panel')).TimelineNotesPanel,
+)
 
 /** The notes panel shows while a branch is viewed. */
 function useNotesShown({ vault }: EntityViewProps): boolean {
   const branching = useBranching(vault)
   return branching.enabled && branching.inBranch
 }
-
-const lazyPanel =
-  (Panel: ComponentType<EntityViewProps>): ComponentType<EntityViewProps> =>
-  (props) =>
-    createElement(Suspense, { fallback: null }, createElement(Panel, props))
 
 /**
  * The branches module (docs/modules/branches.md): "what if" timelines. Branching itself is core
@@ -34,7 +27,7 @@ export default defineModule({
       id: 'branches.timeline',
       kinds: ['timeline'],
       title: 'Timeline',
-      component: lazyPanel(LazyTimeline),
+      component: TimelinePanel,
       placement: 'main',
       order: 10,
     },
@@ -42,7 +35,7 @@ export default defineModule({
       id: 'branches.notes',
       kinds: '*',
       title: 'Notes in this timeline',
-      component: lazyPanel(LazyNotes),
+      component: NotesPanel,
       placement: 'main',
       order: 20,
       useShown: useNotesShown,

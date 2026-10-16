@@ -1,31 +1,20 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps } from '@/core/modules'
+import { defineModule, lazyComponent } from '@/core/modules'
 
 import { TYPE_ICONS } from './types'
 
-/** A panel loaded with the first page that shows it. */
-function lazyPanel(
-  load: () => Promise<ComponentType<EntityViewProps>>,
-): ComponentType<EntityViewProps> {
-  const Lazy = lazy(async () => ({ default: await load() }))
-  return function Panel(props: EntityViewProps) {
-    return createElement(Suspense, { fallback: null }, createElement(Lazy, props))
-  }
-}
-
-const ContentsPanel = lazyPanel(async () => (await import('./panels/contents-panel')).ContentsPanel)
-const EventsHerePanel = lazyPanel(
+const ContentsPanel = lazyComponent(async () => (await import('./panels/contents-panel')).ContentsPanel)
+const EventsHerePanel = lazyComponent(
   async () => (await import('./panels/events-panel')).EventsHerePanel,
 )
-const ResidentsPanel = lazyPanel(
+const ResidentsPanel = lazyComponent(
   async () => (await import('./panels/residents-panel')).ResidentsPanel,
 )
-const ConnectionsPanel = lazyPanel(
+const ConnectionsPanel = lazyComponent(
   async () => (await import('./panels/connections-panel')).ConnectionsPanel,
 )
-const EventSitePanel = lazyPanel(
+const EventSitePanel = lazyComponent(
   async () => (await import('./panels/event-site-panel')).EventSitePanel,
 )
 

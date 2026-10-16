@@ -1,16 +1,11 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
-
-import { defineModule, type EntityViewProps } from '@/core/modules'
-
-const LazyPanel = lazy(async () => ({
-  default: (await import('./views/local-graph-panel')).LocalGraphPanel,
-}))
+import { defineModule, lazyComponent } from '@/core/modules'
 
 /** The local graph panel, loaded with the first entity page (the renderer loads when drawn). */
-const LocalGraphPanel: ComponentType<EntityViewProps> = (props) =>
-  createElement(Suspense, { fallback: null }, createElement(LazyPanel, props))
+const LocalGraphPanel = lazyComponent(
+  async () => (await import('./views/local-graph-panel')).LocalGraphPanel,
+)
 
 /**
  * The graph module (docs/modules/graph.md): every entity and how they link, explorable and

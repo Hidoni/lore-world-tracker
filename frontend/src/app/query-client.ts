@@ -27,8 +27,12 @@ export function createQueryClient(): QueryClient {
       },
     }),
     defaultOptions: {
-      // A 4xx won't change on retry; network failures and 5xx get the default retries.
       queries: {
+        // Writes invalidate what they change (data/invalidate.ts), so a read just made is still
+        // good: the panels of a page that mount one after another share it instead of each
+        // fetching it again.
+        staleTime: 2_000,
+        // A 4xx won't change on retry; network failures and 5xx get the default retries.
         retry: (failures, error) =>
           !(error instanceof ApiError && error.status < 500) && failures < 3,
       },

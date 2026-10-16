@@ -1,20 +1,12 @@
 import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
-import { createElement, lazy, Suspense, type ComponentType } from 'react'
 
-import { defineModule, type EntityViewProps, type TimelineLayerProps } from '@/core/modules'
+import { defineModule, lazyComponent, type EntityViewProps } from '@/core/modules'
 import { useKind } from '@/core/registry'
 
-const LazyPanel = lazy(async () => ({
-  default: (await import('./views/worldline-panel')).WorldlinePanel,
-}))
-const LazyArcs = lazy(async () => ({
-  default: (await import('./views/jump-arcs')).JumpArcsLayer,
-}))
-
-const lazyView =
-  <P extends object>(View: ComponentType<P>): ComponentType<P> =>
-  (props) =>
-    createElement(Suspense, { fallback: null }, createElement(View, props))
+const WorldlinePanel = lazyComponent(
+  async () => (await import('./views/worldline-panel')).WorldlinePanel,
+)
+const JumpArcsLayer = lazyComponent(async () => (await import('./views/jump-arcs')).JumpArcsLayer)
 
 /** The panel shows on kinds that can have a worldline (characters, by default). */
 function useWorldlineShown({ vault, kind }: EntityViewProps): boolean {
@@ -41,13 +33,13 @@ export default defineModule({
       id: 'worldlines.worldline',
       kinds: '*',
       title: 'Worldline',
-      component: lazyView<EntityViewProps>(LazyPanel),
+      component: WorldlinePanel,
       placement: 'main',
       order: 25,
       useShown: useWorldlineShown,
     },
   ],
   timelineLayers: [
-    { id: 'worldlines.jumps', title: 'Jumps', component: lazyView<TimelineLayerProps>(LazyArcs) },
+    { id: 'worldlines.jumps', title: 'Jumps', component: JumpArcsLayer },
   ],
 })

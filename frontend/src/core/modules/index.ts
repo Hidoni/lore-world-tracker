@@ -7,6 +7,13 @@ export {
   useExtensionRecord,
   useModuleDefinitions,
 } from './context'
+export {
+  isLazyComponent,
+  lazyComponent,
+  loadEditorExtensions,
+  usePreloadModules,
+  type LazyComponent,
+} from './lazy'
 export { ModuleGate } from './module-gate'
 export {
   defineModule,
