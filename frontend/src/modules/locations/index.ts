@@ -4,7 +4,9 @@ import { defineModule, lazyComponent } from '@/core/modules'
 
 import { TYPE_ICONS } from './types'
 
-const ContentsPanel = lazyComponent(async () => (await import('./panels/contents-panel')).ContentsPanel)
+const ContentsPanel = lazyComponent(
+  async () => (await import('./panels/contents-panel')).ContentsPanel,
+)
 const EventsHerePanel = lazyComponent(
   async () => (await import('./panels/events-panel')).EventsHerePanel,
 )

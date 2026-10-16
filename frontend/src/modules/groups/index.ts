@@ -3,7 +3,9 @@ import type { ComponentType } from 'react'
 
 import { defineModule, lazyComponent, type EntityViewProps } from '@/core/modules'
 
-const MembersPanel = lazyComponent(async () => (await import('./panels/members-panel')).MembersPanel)
+const MembersPanel = lazyComponent(
+  async () => (await import('./panels/members-panel')).MembersPanel,
+)
 const LeadershipPanel = lazyComponent(
   async () => (await import('./panels/leadership-panel')).LeadershipPanel,
 )

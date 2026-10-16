@@ -6,7 +6,9 @@ import { ImageFigure } from './editor/image-figure'
 import { MediaFieldEditor, MediaFieldValue } from './panels/media-field'
 import { useGalleryShown } from './panels/gallery-panel'
 
-const GalleryPanel = lazyComponent(async () => (await import('./panels/gallery-panel')).GalleryPanel)
+const GalleryPanel = lazyComponent(
+  async () => (await import('./panels/gallery-panel')).GalleryPanel,
+)
 const CoverImage = lazyComponent(async () => (await import('./panels/cover')).CoverImage)
 
 /**

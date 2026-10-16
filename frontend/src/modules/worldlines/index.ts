@@ -39,7 +39,5 @@ export default defineModule({
       useShown: useWorldlineShown,
     },
   ],
-  timelineLayers: [
-    { id: 'worldlines.jumps', title: 'Jumps', component: JumpArcsLayer },
-  ],
+  timelineLayers: [{ id: 'worldlines.jumps', title: 'Jumps', component: JumpArcsLayer }],
 })

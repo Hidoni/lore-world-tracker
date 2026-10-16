@@ -6,9 +6,15 @@ import { LexiconHit } from './editor/lexicon-hit'
 import { LexiconRefNode } from './editor/lexicon-ref-view'
 
 const FamilyPanel = lazyComponent(async () => (await import('./panels/family-panel')).FamilyPanel)
-const SpeakersPanel = lazyComponent(async () => (await import('./panels/speakers-panel')).SpeakersPanel)
-const ScriptsPanel = lazyComponent(async () => (await import('./panels/scripts-panel')).ScriptsPanel)
-const LexiconPanel = lazyComponent(async () => (await import('./panels/lexicon-panel')).LexiconPanel)
+const SpeakersPanel = lazyComponent(
+  async () => (await import('./panels/speakers-panel')).SpeakersPanel,
+)
+const ScriptsPanel = lazyComponent(
+  async () => (await import('./panels/scripts-panel')).ScriptsPanel,
+)
+const LexiconPanel = lazyComponent(
+  async () => (await import('./panels/lexicon-panel')).LexiconPanel,
+)
 
 /**
  * The languages module (docs/modules/languages.md): languages (dialects as children) and writing

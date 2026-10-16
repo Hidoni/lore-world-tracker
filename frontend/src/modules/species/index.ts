@@ -5,8 +5,12 @@ import { defineModule, lazyComponent } from '@/core/modules'
 const MembersPanel = lazyComponent(
   async () => (await import('./panels/members-panel')).SpeciesMembersPanel,
 )
-const DescentPanel = lazyComponent(async () => (await import('./panels/descent-panel')).DescentPanel)
-const NativeToPanel = lazyComponent(async () => (await import('./panels/native-panel')).NativeToPanel)
+const DescentPanel = lazyComponent(
+  async () => (await import('./panels/descent-panel')).DescentPanel,
+)
+const NativeToPanel = lazyComponent(
+  async () => (await import('./panels/native-panel')).NativeToPanel,
+)
 const SpeciesChip = lazyComponent(async () => (await import('./panels/species-chip')).SpeciesChip)
 
 /**
