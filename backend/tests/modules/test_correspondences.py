@@ -283,6 +283,11 @@ def test_effect_before_cause_across_dimensions(api: LinkApi, worlds: Worlds) -> 
     [finding] = worlds.findings(rule)
     assert [s["id"] for s in finding["subjects"]] == [dream["id"], spell["id"]]
     assert finding["certainty"] == "definite"
+    # A circa start makes it only possible.
+    circa = api.patch(api.get(dream["id"]).json(), ext={"start": {**at(1999), "approximate": True}})
+    assert circa.status_code == 200, circa.json()
+    [finding] = worlds.findings(rule)
+    assert finding["certainty"] == "possible"
     later = api.patch(api.get(dream["id"]).json(), ext={"start": at(2000)})
     assert later.status_code == 200, later.json()
     assert worlds.findings(rule) == []

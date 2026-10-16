@@ -13,6 +13,7 @@ from sqlalchemy.orm import aliased
 
 from lore.core.consistency.engine import FindingDraft, RuleContext
 from lore.core.consistency.existence import chunks
+from lore.core.db import unindexed
 from lore.core.entities.models import Entity
 from lore.core.facts.models import EntityFact
 from lore.core.links.models import Link
@@ -41,12 +42,13 @@ def _findings(ctx: RuleContext, subjects: Iterable[str] | None) -> Iterator[Find
             .join(Entity, Entity.id == row_owner)
             .where(
                 model.overrides_id.is_not(None),
-                Entity.deleted_at.is_(None),
+                # Nearly every entity meets it: as an index it would walk them all (#144).
+                unindexed(Entity.deleted_at).is_(None),
                 _changed(getattr(model, start), getattr(root, start)),
             )
         )
         if hasattr(model, "deleted_at"):
-            statement = statement.where(model.deleted_at.is_(None))
+            statement = statement.where(unindexed(model.deleted_at).is_(None))
         batches: Iterable[list[str] | None] = [None] if subjects is None else chunks(subjects)
         for batch in batches:
             query = statement if batch is None else statement.where(row_owner.in_(batch))
