@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test'
 
-import { expect, test } from './fixtures'
+import { expect, test, revealPanels } from './fixtures'
 import { createGregorianDimension, yearStart } from './time-helpers'
 
 const point = (t: bigint) => ({ anchor: { kind: 'absolute', t: t.toString() }, precision: 'base' })
@@ -31,6 +31,7 @@ test('E8: time traveler with two segments → personal timeline order and age', 
 
   // The worldline panel: a first segment, then the time-travel wizard.
   await page.goto(lore.url(vey))
+  await revealPanels(page)
   await expect(page.getByText(/Lives its lifespan in order/)).toBeVisible()
   await page.getByRole('button', { name: 'Add segment' }).click()
   const add = page.getByRole('dialog', { name: 'New segment' })
@@ -56,6 +57,7 @@ test('E8: time traveler with two segments → personal timeline order and age', 
   await lore.link('core.participant', warning, vey)
   // Written through the API, behind the app's back: reload so the app reads them.
   await page.reload()
+  await revealPanels(page)
 
   // The personal timeline: lived time on the axis, the jump as a break; the list in Vey's order.
   await page.getByRole('link', { name: 'Personal timeline', exact: true }).click()

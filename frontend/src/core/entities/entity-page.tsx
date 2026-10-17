@@ -53,8 +53,60 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 const ALWAYS = () => true
 
-/** A module's entity panel in its section, unless its `useShown` hides it on this page. */
+/** How far outside the viewport a module panel starts rendering (and reading). */
+const NEAR_MARGIN = '200px 0px'
+
+/**
+ * After this long on a page, its panels render wherever they are, so keyboard and screen-reader
+ * users (who don't scroll) reach them all.
+ */
+const IDLE_MS = 1500
+
+/**
+ * A callback ref and whether its element has come within `NEAR_MARGIN` of the viewport or the page
+ * has been open `IDLE_MS` (it stays true once it has). Without `IntersectionObserver` (tests)
+ * everything is near.
+ */
+function useNear(): [(element: HTMLElement | null) => void, boolean] {
+  const [element, setElement] = useState<HTMLElement | null>(null)
+  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    if (near || element === null) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setNear(true)
+      },
+      { rootMargin: NEAR_MARGIN },
+    )
+    observer.observe(element)
+    const timer = setTimeout(() => {
+      setNear(true)
+    }, IDLE_MS)
+    return () => {
+      observer.disconnect()
+      clearTimeout(timer)
+    }
+  }, [near, element])
+  return [setElement, near]
+}
+
+/**
+ * A module's entity panel in its section, unless its `useShown` hides it on this page. Panels
+ * render (and read) once they come near the viewport or the page has been open a moment, so the
+ * page is interactive before the panels below the fold have loaded (frontend.md §12). Until then a panel that always shows holds
+ * its heading, one with `useShown` an empty block.
+ */
 function PanelSection({ panel, props }: { panel: EntityPanel; props: EntityViewProps }) {
+  const [ref, near] = useNear()
+  if (near) return <ShownPanel panel={panel} props={props} />
+  return (
+    <div ref={ref} className="min-h-16">
+      {panel.useShown === undefined && <Section title={panel.title}>{null}</Section>}
+    </div>
+  )
+}
+
+function ShownPanel({ panel, props }: { panel: EntityPanel; props: EntityViewProps }) {
   const shown = (panel.useShown ?? ALWAYS)(props)
   if (!shown) return null
   const Panel = panel.component

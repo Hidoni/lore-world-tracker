@@ -236,7 +236,7 @@ scan takes 1.27 s (0.8 there), and a cold window over 1/10 of the bulk 160 ms (9
 | Calendar proposal over 22,989 dependents: preview / apply                 | 7.1 / 43.9 s                               | 4.4 / 27 s            | < 5 / 30 s  | met                |
 | Full consistency scan                                                     | 18.7 s (22.0 before #144)                  | about 11.7 s          | < 10 s      | missed: #361       |
 | Event tree roots (the sidebar's Events, every full load)                  | 0.13 s (1.3 s before #144)                 |                       | –           |                    |
-| Entity page interactive, in the app: Aetheria / Ilsa the Tidebound        | 167 / 439 ms (Ilsa: 560 before the reads)  | 104 / 274 ms          | < 300 ms    | Ilsa: #363         |
+| Entity page interactive, in the app: Aetheria / Ilsa the Tidebound        | 167 / 439 ms (Ilsa: 560 before the reads)  | 108 / 327 ms measured | < 300 ms    | met after #363: Ilsa 441 → 243 ms here (`small`), about 220 ms on the reference |
 | Entity page, full load (cold cache): Aetheria / Ilsa                      | 956 / 1,381 ms (Ilsa: 3,128 before)        |                       | –           |                    |
 | Timeline pan/zoom, 1,074 items on screen (`large` and `small`)            | 59.8 fps, frames 16.7 ms (p95 16.8)        |                       | 60 fps      | met                |
 | Initial JS of the shell                                                   | 387 kB gzip (514 before #144)              |                       | < 400 kB    | met                |
