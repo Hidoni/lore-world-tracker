@@ -674,7 +674,12 @@ Dimensions (`core/time/`, `core/shell/vault-home.tsx`, #75):
   4. First calendar: a preset from `/calendars/presets`, its name, and "Year 1 begins at" (the
      preset's `origin`). It is previewed live with `/calendars/preview`. The wizard also checks
      that `D` reaches the preset's absolute anchors (`origin + duration_seconds` in base units),
-     which the server would otherwise report as a compile error.
+     which the server would otherwise report as a compile error. Or a **custom calendar**
+     (#379): the calendar editor (`DraftCalendar`, lazy like the editor's routes) opens in the
+     dialog on a draft `DimensionTime` built from steps 2–3, blank or from a preset scaled to the
+     base unit. A draft dimension has no other calendars and no events, so its time points offer
+     neither. **Use this calendar** hands the definition back, previewed and created as
+     `source.definition`.
   5. Review.
 
   Creating sends `POST /dimensions` and opens the new dimension. Server problems are listed with

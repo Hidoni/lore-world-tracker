@@ -27,7 +27,8 @@ between them.
 
 ## 1. Start from a preset
 
-A dimension's first calendar comes from the dimension wizard (`getting-started.md` §3). To add
+A dimension's first calendar comes from the dimension wizard (`getting-started.md` §3), from a
+preset or designed in the calendar editor right there. To add
 another, open the dimension's page (from the vault home or the dimension switcher) and click
 **New calendar** under its calendars. **Start from** a preset or **Blank** (a 360-day year).
 

@@ -9,3 +9,6 @@ export const CalendarEditor = lazy(() =>
 export const NewCalendar = lazy(() =>
   import('./calendar-editor').then((module) => ({ default: module.NewCalendar })),
 )
+export const DraftCalendar = lazy(() =>
+  import('./calendar-editor').then((module) => ({ default: module.DraftCalendar })),
+)

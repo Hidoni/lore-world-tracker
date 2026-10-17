@@ -1,6 +1,6 @@
-import { floorDiv, formatAbsolute, formatInteger } from '@lore/chronology'
+import { type CalendarDefinition, floorDiv, formatAbsolute, formatInteger } from '@lore/chronology'
 import { useNavigate } from '@tanstack/react-router'
-import { useId, useState, type ReactNode } from 'react'
+import { Suspense, useId, useMemo, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +22,8 @@ import {
 } from '@/data'
 
 import { BigNumberInput } from './big-number-input'
+import type { DimensionTime } from './calendars'
+import { DraftCalendar } from './calendar-editor'
 import { SELECT_CLASS } from './select'
 
 type Preset = components['schemas']['PresetOut']
@@ -49,6 +51,12 @@ interface Draft {
   den: bigint | null
   duration: bigint | null
   presetId: string | null
+  /** The first calendar is designed in the calendar editor rather than taken from a preset. */
+  custom: boolean
+  /** Where the custom calendar starts: a preset id, or `''` for blank. */
+  startFrom: string
+  /** The custom calendar as designed so far. */
+  definition: CalendarDefinition | null
   calendarName: string
   /** The moment the preset's alignment unit starts ("Year 1 begins at"). */
   origin: bigint | null
@@ -64,6 +72,9 @@ const INITIAL: Draft = {
   den: 1n,
   duration: null,
   presetId: null,
+  custom: false,
+  startFrom: '',
+  definition: null,
   calendarName: '',
   origin: 0n,
 }
@@ -80,6 +91,47 @@ function toUnits(seconds: bigint, num: bigint, den: bigint): bigint {
 function presetNeeds(preset: Preset, draft: Draft): bigint | null {
   if (draft.num === null || draft.den === null || draft.origin === null) return null
   return draft.origin + toUnits(BigInt(preset.duration_seconds), draft.num, draft.den)
+}
+
+/** The server's verdict on the calendar: its problems, or when its first years begin. */
+function PreviewResult({
+  preview,
+  previewError,
+}: {
+  preview: ReturnType<typeof useCalendarPreview>
+  previewError: string | null
+}) {
+  return (
+    <>
+      {previewError !== null && (
+        <p role="alert" className="text-sm text-destructive">
+          {previewError}
+        </p>
+      )}
+      {preview.data !== undefined && !preview.data.ok && (
+        <ul role="alert" className="text-sm text-destructive">
+          {preview.data.errors.map((problem) => (
+            <li key={`${problem.path}:${problem.code}`}>{problem.message}</li>
+          ))}
+        </ul>
+      )}
+      {preview.data?.ok === true && (
+        <section aria-label="Preview" className="rounded-md border p-2 text-sm">
+          <p className="mb-1 text-xs text-muted-foreground">The first years begin:</p>
+          <ul>
+            {preview.data.samples.map((sample) => (
+              <li key={sample.t} className="flex justify-between gap-2">
+                <span>{sample.display}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  t = {formatInteger(BigInt(sample.t))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )
 }
 
 function Field({
@@ -125,13 +177,15 @@ function createProblems(error: unknown): { step: number; message: string }[] {
 
 /**
  * The dimension wizard (R-DIM-1, R-DIM-5): name and description, the base unit (its names and how
- * many seconds it lasts), the duration `D` (with lifetimes to start from), the first calendar from
- * a preset (live server preview, "Year 1 begins at"), then a review. Creating it makes the
- * dimension, its prime timeline and its default calendar in one change, then opens it.
+ * many seconds it lasts), the duration `D` (with lifetimes to start from), the first calendar
+ * (live server preview) from a preset ("Year 1 begins at") or designed in the calendar editor
+ * (#379), then a review. Creating it makes the dimension, its prime timeline and its default
+ * calendar in one change, then opens it.
  */
 export function DimensionWizard({ vault, onClose }: { vault: string; onClose: () => void }) {
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState(INITIAL)
+  const [designing, setDesigning] = useState(false)
   const id = useId()
   const navigate = useNavigate()
   const presets = useCalendarPresets(vault)
@@ -139,7 +193,9 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
   const set = (patch: Partial<Draft>) => {
     setDraft((current) => ({ ...current, ...patch }))
   }
-  const preset = presets.data?.items.find((item) => item.id === draft.presetId) ?? null
+  const preset = draft.custom
+    ? null
+    : (presets.data?.items.find((item) => item.id === draft.presetId) ?? null)
   const needs = preset === null ? null : presetNeeds(preset, draft)
   const tooShort = needs !== null && draft.duration !== null && draft.duration < needs
   const unit = {
@@ -147,8 +203,11 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
     plural: draft.plural.trim(),
     abbr: draft.abbr.trim(),
   }
-  const source =
-    preset === null || draft.num === null || draft.den === null || draft.origin === null
+  const source = draft.custom
+    ? draft.definition === null
+      ? null
+      : { definition: { ...draft.definition } }
+    : preset === null || draft.num === null || draft.den === null || draft.origin === null
       ? null
       : {
           preset: {
@@ -157,6 +216,26 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
             origin: draft.origin.toString(),
           },
         }
+  // The dimension as the calendar editor sees it, before it exists.
+  const planned = useMemo<DimensionTime | null>(
+    () =>
+      draft.duration === null
+        ? null
+        : {
+            id: '',
+            name: draft.name.trim(),
+            baseUnit: { singular: draft.singular, plural: draft.plural, abbr: draft.abbr },
+            duration: draft.duration,
+            defaultCalendarId: null,
+            primeTimelineId: null,
+            present: null,
+          },
+    [draft.duration, draft.name, draft.singular, draft.plural, draft.abbr],
+  )
+  const secondsPerBaseUnit = useMemo(
+    () => ({ num: draft.num ?? 1n, den: draft.den ?? 1n }),
+    [draft.num, draft.den],
+  )
   const preview = useCalendarPreview(
     vault,
     step >= 3 && source !== null && draft.duration !== null && !tooShort
@@ -216,10 +295,15 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose()
+        // Escape in the calendar editor goes back to the wizard, keeping the draft.
+        if (open) return
+        if (designing) setDesigning(false)
+        else onClose()
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent
+        className={designing ? 'max-h-[95vh] overflow-y-auto sm:max-w-6xl' : 'sm:max-w-xl'}
+      >
         <DialogHeader>
           <DialogTitle>New dimension</DialogTitle>
           <DialogDescription>
@@ -241,7 +325,26 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
             </li>
           ))}
         </ol>
+        {designing && planned !== null && (
+          <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+            <DraftCalendar
+              vault={vault}
+              dimension={planned}
+              secondsPerBaseUnit={secondsPerBaseUnit}
+              initial={draft.definition}
+              startFrom={draft.startFrom}
+              onCancel={() => {
+                setDesigning(false)
+              }}
+              onDone={(definition) => {
+                set({ definition })
+                setDesigning(false)
+              }}
+            />
+          </Suspense>
+        )}
         <form
+          hidden={designing}
           id={`${id}-form`}
           className="flex flex-col gap-4"
           onSubmit={(event) => {
@@ -373,6 +476,98 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
             </>
           )}
           {step === 3 && (
+            <fieldset className="flex flex-wrap gap-4 text-sm">
+              <legend className="sr-only">Start from</legend>
+              {(
+                [
+                  [false, 'From a preset'],
+                  [true, 'Custom calendar'],
+                ] as const
+              ).map(([custom, label]) => (
+                <label key={label} className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name={`${id}-start`}
+                    checked={draft.custom === custom}
+                    onChange={() => {
+                      set({ custom })
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {step === 3 && draft.custom && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Design the calendar in the calendar editor, from scratch or from a preset. It uses
+                the base unit and duration of the previous steps.
+              </p>
+              <Field label="Calendar name" htmlFor={`${id}-custom-name`}>
+                <Input
+                  id={`${id}-custom-name`}
+                  value={draft.calendarName}
+                  onChange={(event) => {
+                    set({ calendarName: event.target.value })
+                  }}
+                />
+              </Field>
+              {draft.definition === null ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label="Begin with" htmlFor={`${id}-start-from`}>
+                    <select
+                      id={`${id}-start-from`}
+                      className={SELECT_CLASS}
+                      value={draft.startFrom}
+                      onChange={(event) => {
+                        set({ startFrom: event.target.value })
+                      }}
+                    >
+                      <option value="">Blank</option>
+                      {(presets.data?.items ?? []).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setDesigning(true)
+                    }}
+                  >
+                    Design calendar…
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setDesigning(true)
+                    }}
+                  >
+                    Edit calendar…
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      set({ definition: null })
+                    }}
+                  >
+                    Start over
+                  </Button>
+                </div>
+              )}
+              {draft.definition !== null && (
+                <PreviewResult preview={preview} previewError={previewError} />
+              )}
+            </>
+          )}
+          {step === 3 && !draft.custom && (
             <>
               <Field label="Preset" htmlFor={`${id}-preset`}>
                 <select
@@ -427,33 +622,7 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
                       {unit.plural}: lengthen the duration or move year 1 earlier.
                     </p>
                   )}
-                  {previewError !== null && (
-                    <p role="alert" className="text-sm text-destructive">
-                      {previewError}
-                    </p>
-                  )}
-                  {preview.data !== undefined && !preview.data.ok && (
-                    <ul role="alert" className="text-sm text-destructive">
-                      {preview.data.errors.map((problem) => (
-                        <li key={`${problem.path}:${problem.code}`}>{problem.message}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {preview.data?.ok === true && (
-                    <section aria-label="Preview" className="rounded-md border p-2 text-sm">
-                      <p className="mb-1 text-xs text-muted-foreground">The first years begin:</p>
-                      <ul>
-                        {preview.data.samples.map((sample) => (
-                          <li key={sample.t} className="flex justify-between gap-2">
-                            <span>{sample.display}</span>
-                            <span className="font-mono text-xs text-muted-foreground">
-                              t = {formatInteger(BigInt(sample.t))}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  )}
+                  <PreviewResult preview={preview} previewError={previewError} />
                 </>
               )}
             </>
@@ -471,8 +640,14 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
               <dd>{durationText}</dd>
               <dt className="text-muted-foreground">First calendar</dt>
               <dd>
-                {draft.calendarName || preset?.name} ({preset?.name}), year 1 at t ={' '}
-                {draft.origin === null ? '—' : formatInteger(draft.origin)}
+                {draft.custom ? (
+                  <>{draft.calendarName.trim() || 'Calendar'} (custom calendar)</>
+                ) : (
+                  <>
+                    {draft.calendarName || preset?.name} ({preset?.name}), year 1 at t ={' '}
+                    {draft.origin === null ? '—' : formatInteger(draft.origin)}
+                  </>
+                )}
               </dd>
             </dl>
           )}
@@ -498,7 +673,7 @@ export function DimensionWizard({ vault, onClose }: { vault: string; onClose: ()
             </ul>
           )}
         </form>
-        <DialogFooter>
+        <DialogFooter className={designing ? 'hidden' : undefined}>
           <Button
             type="button"
             variant="outline"

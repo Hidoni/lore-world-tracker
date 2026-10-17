@@ -15,7 +15,7 @@ export async function createGregorianDimension(page: Page, lore: Lore, name: str
   await wizard.getByRole('button', { name: 'Next' }).click() // seconds
   await wizard.getByRole('button', { name: '10,000 years' }).click()
   await wizard.getByRole('button', { name: 'Next' }).click()
-  await wizard.getByLabel('Preset').selectOption({ label: 'Gregorian' })
+  await wizard.getByLabel('Preset', { exact: true }).selectOption({ label: 'Gregorian' })
   await expect(wizard.getByRole('region', { name: 'Preview' })).toContainText('1 January AD 1')
   await wizard.getByRole('button', { name: 'Next' }).click()
   await wizard.getByRole('button', { name: 'Create dimension' }).click()

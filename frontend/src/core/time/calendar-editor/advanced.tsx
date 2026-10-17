@@ -24,7 +24,8 @@ import { FieldErrors, IconButton, PathInput, type StructureProps } from './struc
 
 /** What the time point editors need to pick moments of the dimension (other calendars, events). */
 export interface TimeScope {
-  vault: string
+  /** `null` while the dimension doesn't exist yet (the wizard): no events to anchor to. */
+  vault: string | null
   dimension: DimensionTime
   /** The dimension's display calendars, without the one being edited. */
   lenses: readonly Lens[]
@@ -230,7 +231,7 @@ export function DefinitionPointField({
       )}
       {kind === 'other' && (
         <TimePointPicker
-          vault={scope.vault}
+          {...(scope.vault === null ? {} : { vault: scope.vault })}
           dimension={scope.dimension}
           lenses={scope.lenses}
           value={value as TimePoint}
