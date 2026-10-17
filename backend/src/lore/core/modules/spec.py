@@ -66,6 +66,35 @@ type KindProvider = Callable[[Session], Sequence[KindDef]]
 type MaintenanceTask = Callable[["VaultContext", datetime], None]
 
 
+type Params = tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
+class StaticRead:
+    """A read of the module that a static export records (``visibility-and-sharing.md`` §8, ADR
+    0016), declared so the builder never imports modules: the route ``path`` under the
+    module's routes (``m/<id>/``), once per id when it holds ``{id}``, for each query in
+    ``variants`` (as the app sends them; ``{id}`` there is filled too).
+
+    Ids are the listed entities of ``kind`` (``"*"``: any kind), or the ``id`` of each item of
+    another recorded read (``ids_from``: its path, items under ``items``). ``dimension`` adds
+    each dimension (``dimension=``); ``timeline`` each timeline the entity can be seen in
+    (``timeline=``); ``as_of`` also each moment as-of answers can change there (``timeline`` and
+    ``at``). A ``paged`` read is recorded whole (every page at the largest ``limit``) for the
+    browser to filter and page. A ``file`` read is a download (a media file, a CSV), copied as
+    it is."""
+
+    path: str
+    kind: str | None = None
+    ids_from: str | None = None
+    variants: tuple[Params, ...] = ((),)
+    dimension: bool = False
+    timeline: bool = False
+    as_of: bool = False
+    paged: int | None = None
+    file: bool = False
+
+
 @dataclass(frozen=True)
 class VaultContext:
     """What ``on_enable``/``on_disable`` hooks get: the vault, the request's session (inside its
@@ -105,6 +134,7 @@ class ModuleSpec:
     backup_contributors: tuple[BackupContributor, ...] = ()
     publish_contributors: tuple[PublishContributor, ...] = ()
     markdown_contributors: tuple[MarkdownContributor, ...] = ()  # Markdown export (media files)
+    static_reads: tuple[StaticRead, ...] = ()  # reads a static export records (ADR 0016)
     kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()  # rebuild derived rows on every changeset

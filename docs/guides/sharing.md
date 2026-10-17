@@ -86,9 +86,10 @@ python -m http.server --directory site
 ```
 
 It is still being built: the export has the landing page, lists and entity pages (with the time
-cursor) and the timeline (any zoom, recurring events, branches, correspondences, worldlines);
-module pages, maps, media and search say "Not in this export" until their data is exported too
-(#376–#378).
+cursor), the timeline (any zoom, recurring events, branches, correspondences, worldlines), and
+the module pages with their maps, images and files. Search, and a few views at settings other
+than their defaults (family trees deeper than 3 generations, graph filters), say "Not in this
+export" until they are exported too (#377–#378).
 
 ## Markdown / Obsidian export
 

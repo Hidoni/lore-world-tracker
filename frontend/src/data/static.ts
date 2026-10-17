@@ -9,6 +9,7 @@ import {
   type ProblemError,
 } from './static-core'
 import { ENTITY_HANDLERS } from './static-entities'
+import { MODULE_HANDLERS } from './static-modules'
 import { TIME_HANDLERS } from './static-time'
 import { WINDOW_HANDLERS } from './static-windows'
 import type { DataSource } from './source'
@@ -78,6 +79,8 @@ const HANDLERS: readonly (readonly [RegExp, Handler])[] = [
       return { items: items.filter((tag) => tagKey(tag.name).startsWith(prefix)).slice(0, limit) }
     },
   ],
+  // Last: any recorded module read (`m/…`).
+  ...MODULE_HANDLERS,
 ]
 
 /**

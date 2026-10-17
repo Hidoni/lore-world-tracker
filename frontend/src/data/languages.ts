@@ -7,6 +7,7 @@ import type { Domain } from './domain'
 import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
 import type { Query } from './source'
+import { staticFileUrl } from './static-modules'
 
 type Schemas = components['schemas']
 
@@ -104,7 +105,10 @@ export function useImportLexicon(vault: string, language: string) {
 
 /** Where a language's lexicon downloads from as CSV (same origin; what the request may see). */
 export function lexiconExportUrl(vault: string, language: string): string {
-  return readerUrl(
-    `/api/v1/vaults/${encodeURIComponent(vault)}/m/languages/${encodeURIComponent(language)}/lexicon/export`,
+  return (
+    staticFileUrl(`m/languages/${language}/lexicon/export`) ??
+    readerUrl(
+      `/api/v1/vaults/${encodeURIComponent(vault)}/m/languages/${encodeURIComponent(language)}/lexicon/export`,
+    )
   )
 }

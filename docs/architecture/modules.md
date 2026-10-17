@@ -95,6 +95,7 @@ class ModuleSpec:
     backup_contributors: tuple[BackupContributor, ...] = ()   # extra files (e.g. media blobs)
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
     markdown_contributors: tuple[MarkdownContributor, ...] = () # files and renderers for the Markdown export
+    static_reads: tuple[StaticRead, ...] = ()            # reads a static export records (ADR 0016)
     kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()                   # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()               # rebuild derived rows on every changeset
@@ -124,7 +125,13 @@ and trashed rows without help, and rows whose references were deleted go with th
 enabled modules' contributors run once per Markdown export, before any note is written, with the
 vault read under the export's policy; they copy files into the export (`claim` a path, then
 `sink.copy`) and register how their rich-text nodes, field types and covers render
-(`markdown-export.md` §5). `derived_hooks` (#126) are
+(`markdown-export.md` §5). `static_reads` (#376) are `lore.core.modules.StaticRead`s: the
+reads of the module's routes a static export records (`visibility-and-sharing.md` §8), for each
+id (entities of a `kind`, or the items of another read: `ids_from`), each query the app sends
+(`variants`), and optionally each dimension, timeline and as-of moment; `paged` lists are
+recorded whole for the browser to filter and page, `file` reads (downloads) are copied. A
+reader-facing read with free parameters the browser can't derive from these needs its own
+handler (`frontend/src/data/static-modules.ts`). `derived_hooks` (#126) are
 `(VaultContext, Sequence[RecordedChange]) -> None`: the enabled modules' hooks run with the
 changes each changeset is about to record, before the consistency check, for every writer and
 undo, to rebuild derived rows (the media module's `media_refs`); raising a typed error refuses the

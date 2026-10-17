@@ -8,7 +8,7 @@ from lore.core.modules.service import (
     enabled_modules,
     set_module_enabled,
 )
-from lore.core.modules.spec import ModuleSpec, VaultContext
+from lore.core.modules.spec import ModuleSpec, StaticRead, VaultContext
 
 __all__ = [
     "ModuleChange",
@@ -18,6 +18,7 @@ __all__ = [
     "ModuleSpec",
     "RegisteredKind",
     "RegistryError",
+    "StaticRead",
     "VaultContext",
     "enabled_modules",
     "set_module_enabled",

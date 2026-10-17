@@ -75,6 +75,7 @@ export {
   staticConfig,
   type StaticConfig,
 } from './static'
+export { loadStaticFiles } from './static-modules'
 export { affectedKeys, invalidateAffected } from './invalidate'
 export { keys } from './keys'
 export {
