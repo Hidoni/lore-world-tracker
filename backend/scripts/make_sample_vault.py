@@ -28,7 +28,9 @@ The world has two parts:
 - **The bulk** (``small`` and up): seeded random events, links, tags and aliases in the volumes
   of ``SIZES``, for realistic lists, search and performance. Their starts are absolute moments,
   dates in three calendars at random precisions, or relative to a recent event; their ends every
-  kind; every 100th event recurs, some with a materialized occurrence.
+  kind; every 100th event recurs, some with a materialized occurrence. Every 50th is an era,
+  the parent of most events in its span; a few percent of its children lie outside it, as in a
+  real world (#361).
 
 **Extending it (every milestone).** When a milestone adds a feature that stores data, add it to
 the core in ``_build_core`` (a new ``_core_<feature>`` step, a few entities with stable names)
@@ -1854,6 +1856,7 @@ IN_DREAMING = 0.15
 PRIVATE_EVENT, SPOILER_EVENT = 0.04, 0.06
 WITH_ALIAS = 0.2
 IN_ERA = 0.6
+OUTSIDE_ERA = 0.03  # of the events in an era: placed in one of the last five instead
 MENTION_PER_PARAGRAPH = 0.6
 PRIVATE_BLOCK, SPOILER_BLOCK = 0.05, 0.05
 PRIVATE_LINK = 0.03
@@ -1891,8 +1894,11 @@ class _Bulk:
         self.dimensions = (core[WORLD_NAME], core["The Dreaming"])
         self.events: list[str] = []
         self.names: dict[str, str] = {}
-        self.eras: dict[str, list[str]] = {dimension: [] for dimension in self.dimensions}
+        self.eras: dict[str, list[_Dated]] = {dimension: [] for dimension in self.dimensions}
         self.recent: dict[str, list[_Dated]] = {dimension: [] for dimension in self.dimensions}
+        # Which events lie outside their era: drawn apart, so the rest of the world (``rng``'s
+        # draws) stays what it was before #361.
+        self.placing = random.Random(rng.getstate()[1][1])
 
     def body(self) -> Doc:
         rng = self.rng
@@ -2026,10 +2032,14 @@ class _Bulk:
             body["aliases"] = [{"alias": f"The {rng.choice(_NOUNS)} of {index}"}]
         eras = self.eras[dimension]
         if not is_era and eras and rng.random() < IN_ERA:
-            body["parent_id"] = rng.choice(eras[-5:])
+            older = rng.choice(eras[-5:])
+            if self.placing.random() < OUTSIDE_ERA:
+                body["parent_id"] = older.id
+            elif eras[-1].end > t:  # the latest era, while its span lasts
+                body["parent_id"] = eras[-1].id
         entity_id = s.entity("event", name, **body)
         if is_era:
-            eras.append(entity_id)
+            eras.append(_Dated(entity_id, t, end))
         if is_series and rng.random() < MATERIALIZED:
             self.occurrence(s, entity_id, name, body)
         recent = self.recent[dimension]
