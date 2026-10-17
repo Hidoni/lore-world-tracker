@@ -161,6 +161,9 @@ squash-merge after green CI (details in `docs/plan/workflow.md`).
 - Consistency rules and other readers of many time points load them in sets
   (`RuleContext.preload`, `Resolver.preload`), never one `slot` at a time.
 - Visibility leaks hide in derived data: search snippets, counts, graph edges, mentions, media.
+- Timeline windows and occurrences have a TypeScript port for the static export
+  (`frontend/src/data/static-windows.ts`, ADR 0016): change it with `core/time/window.py` or
+  `series.occurrences`; the static parity e2e test compares them.
 - Every changeset any vault session writes (API, CLI, scripts, bulk writers) runs the consistency
   engine first and may be refused with `consistency_error`. Repairs that must not be refused call
   `lore.core.consistency.engine.record_only(session)`. Rules are pure readers.

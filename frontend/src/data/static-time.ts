@@ -2,7 +2,13 @@ import { compose, parseRational, validateCorrespondence, type Step } from '@lore
 
 import type { components } from '@/api'
 
-import { NotInExport, StaticProblem, type Handler, type Load } from './static-core'
+import {
+  NotInExport,
+  StaticProblem,
+  type Handler,
+  type Load,
+  type ProblemError,
+} from './static-core'
 import { pick } from './static-entities'
 
 /**
@@ -21,8 +27,14 @@ interface TimelineFile {
 }
 
 /** A read the server refused, recorded as its problem (replayed as the same problem). */
-interface Refused {
-  problem: { status: number; code: string; title: string; detail: string }
+export interface Refused {
+  problem: {
+    status: number
+    code: string
+    title: string
+    detail: string
+    errors?: ProblemError[]
+  }
 }
 
 interface WorldlineFile {
@@ -32,11 +44,11 @@ interface WorldlineFile {
 }
 
 /** The recorded answer, or the recorded problem thrown. */
-function replay<T extends object>(found: T | Refused | undefined, what: string): T {
+export function replay<T extends object>(found: T | Refused | undefined, what: string): T {
   if (found === undefined) throw notFound(what)
   if ('problem' in found) {
-    const { status, code, title, detail } = found.problem
-    throw new StaticProblem(status, code, title, detail)
+    const { status, code, title, detail, errors } = found.problem
+    throw new StaticProblem(status, code, title, detail, errors)
   }
   return found
 }

@@ -39,9 +39,12 @@ async function both(page: Page, request: APIRequestContext, routes: string[]) {
     routes.map((route) => `http://static.invalid${API}${route}`),
   )
   const served: Answer[] = []
-  for (const route of routes) {
-    const response = await request.get(`${STATIC_READER_URL}${API}${route}`)
-    served.push({ status: response.status(), body: (await response.json()) as unknown })
+  for (let i = 0; i < routes.length; i += 8) {
+    const batch = routes.slice(i, i + 8).map(async (route) => {
+      const response = await request.get(`${STATIC_READER_URL}${API}${route}`)
+      return { status: response.status(), body: (await response.json()) as unknown }
+    })
+    served.push(...(await Promise.all(batch)))
   }
   return routes.map((route, i) => ({ route, exported: at(exported, i), served: at(served, i) }))
 }
@@ -296,5 +299,97 @@ test('time reads answer like the read-only server', async ({ page, request }) =>
       }
     }
   }
+  expect(differences(await both(page, request, routes))).toEqual([])
+})
+
+/** A seeded generator (mulberry32): the same windows every run. */
+function seeded(seed: number) {
+  let a = seed
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+test('window reads answer like the read-only server', async ({ page, request }) => {
+  test.setTimeout(600_000)
+  await page.goto(STATIC_URL)
+  const get = async (route: string) =>
+    (await (await request.get(`${STATIC_READER_URL}${API}${route}`)).json()) as Json
+  const vault = at((await get('vaults')).items as Json[], 0).id as string
+  const base = `vaults/${vault}`
+  const entities = (await allPages(page, request, `${base}/entities?limit=500`)).served as Json[]
+  const timelines = entities.filter((e) => e.kind === 'timeline')
+  const characters = entities.filter((e) => e.kind === 'character').map((e) => e.id as string)
+  const tags = ((await get(`${base}/tags?limit=1000`)).items as Json[]).map((t) => t.id as string)
+  const random = seeded(375)
+  const routes: string[] = []
+  const series = new Set<string>()
+  for (const timeline of timelines) {
+    const dimension = (await get(`${base}/entities/${timeline.dimension_id as string}`)).ext as Json
+    const duration = BigInt(dimension.duration as string)
+    const route = `${base}/timelines/${timeline.id as string}/window`
+    // The whole dimension at many budgets, then windows at every zoom (by powers of ten).
+    const windows: [bigint, bigint][] = [[0n, duration + 1n]]
+    for (let zoom = 1n; zoom <= duration; zoom *= 10n) {
+      for (let n = 0; n < 4; n++) {
+        const width = duration / zoom + BigInt(Math.floor(random() * 3))
+        const start = (duration * BigInt(Math.floor(random() * 1_000_000))) / 1_000_000n
+        windows.push([start, start + (width > 0n ? width : 1n)])
+      }
+    }
+    const whole = await get(`${route}?from=0&to=${duration + 1n}&px=2000`)
+    const items = whole.items as Json[]
+    for (const item of items) if (item.series_id) series.add(item.series_id as string)
+    for (const band of whole.series_bands as Json[]) series.add(band.entity_id as string)
+    const categories = [...new Set(items.map((i) => i.category).filter((c) => c !== null))]
+    const parents = items.filter((i) => i.has_children).map((i) => i.entity_id as string)
+    const filters = [
+      'min_importance=3',
+      'min_importance=5',
+      ...categories.slice(0, 3).map((c) => `category=${c as string}`),
+      ...tags.slice(0, 3).map((t) => `tag=${t}`),
+      ...characters.slice(0, 3).map((c) => `participant=${c}`),
+      'participant_kind=character&participant_kind=location',
+      ...parents.slice(0, 3).map((p) => `parent=${p}`),
+      'include_series=false',
+      'include_cancelled=true',
+    ]
+    for (const [i, [from, to]] of windows.entries()) {
+      for (const px of [1, 9, 120, 2400]) routes.push(`${route}?from=${from}&to=${to}&px=${px}`)
+      const filter = filters[i % filters.length] ?? ''
+      routes.push(`${route}?from=${from}&to=${to}&px=640&${filter}`)
+    }
+    for (const filter of filters) routes.push(`${route}?from=0&to=${duration + 1n}&px=40&${filter}`)
+    routes.push(`${route}?from=5&to=5&px=100`, `${route}?from=0&to=10&px=10&parent=${vault}`)
+  }
+
+  // Occurrences of every series seen: as each timeline sees it, at every zoom and limit.
+  for (const id of series) {
+    const route = `${base}/events/${id}/occurrences`
+    const event = (await get(`${base}/entities/${id}`))
+    const dimension = (await get(`${base}/entities/${event.dimension_id as string}`)).ext as Json
+    const duration = BigInt(dimension.duration as string)
+    for (const timeline of ['', ...timelines.map((t) => `&timeline=${t.id as string}`)]) {
+      routes.push(`${route}?from=0&to=${duration + 1n}${timeline}`)
+      routes.push(
+        `${route}?from=0&to=${duration + 1n}&limit=1000&include_cancelled=true${timeline}`,
+      )
+      for (let zoom = 10n; zoom <= duration; zoom *= 100n) {
+        const start = (duration * BigInt(Math.floor(random() * 1_000_000))) / 1_000_000n
+        for (const limit of [1, 5, 100]) {
+          routes.push(
+            `${route}?from=${start}&to=${start + duration / zoom + 1n}&limit=${limit}${timeline}`,
+          )
+        }
+      }
+    }
+    routes.push(`${route}?from=3&to=3`)
+  }
+  const nonSeries = entities.find((e) => e.kind === 'event' && !series.has(e.id as string))
+  if (nonSeries) routes.push(`${base}/events/${nonSeries.id as string}/occurrences?from=0&to=10`)
+  expect(series.size).toBeGreaterThan(0)
   expect(differences(await both(page, request, routes))).toEqual([])
 })

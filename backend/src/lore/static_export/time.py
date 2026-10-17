@@ -10,7 +10,7 @@
   each moment it can change (the bounds of its segments and of its existence facts);
 - correspondences: the list (all, and per dimension) and each one.
 
-Timeline windows and series occurrences (#375's other half) are not recorded here.
+Timeline windows and series occurrences are computed in the browser from `windows.py`'s files.
 """
 
 from typing import Any

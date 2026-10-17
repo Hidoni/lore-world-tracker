@@ -86,8 +86,9 @@ python -m http.server --directory site
 ```
 
 It is still being built: the export has the landing page, lists and entity pages (with the time
-cursor); the timeline, module pages, maps, media and search say "Not in this export" until their
-data is exported too (#375–#378).
+cursor) and the timeline (any zoom, recurring events, branches, correspondences, worldlines);
+module pages, maps, media and search say "Not in this export" until their data is exported too
+(#376–#378).
 
 ## Backups and snapshots are different things
 

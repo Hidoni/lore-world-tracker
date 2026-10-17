@@ -1,9 +1,16 @@
 import { createApiClient, PROBLEM_MEDIA_TYPE } from '@/api'
 
 import { createHttpDataSource } from './http'
-import { NotInExport, StaticProblem, type Handler, type Load } from './static-core'
+import {
+  NotInExport,
+  StaticProblem,
+  type Handler,
+  type Load,
+  type ProblemError,
+} from './static-core'
 import { ENTITY_HANDLERS } from './static-entities'
 import { TIME_HANDLERS } from './static-time'
+import { WINDOW_HANDLERS } from './static-windows'
 import type { DataSource } from './source'
 
 /**
@@ -34,8 +41,15 @@ export function staticConfig(doc: Document = document): StaticConfig | null {
   return { dataUrl: meta.content || 'data/', vault: meta.dataset.vault ?? '' }
 }
 
-function problem(status: number, code: string, title: string, detail: string): Response {
-  return new Response(JSON.stringify({ status, code, title, detail }), {
+function problem(
+  status: number,
+  code: string,
+  title: string,
+  detail: string,
+  errors?: readonly ProblemError[],
+): Response {
+  const body = { type: `urn:lore:problem:${code}`, title, status, detail, code, errors }
+  return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': PROBLEM_MEDIA_TYPE },
   })
@@ -54,6 +68,7 @@ interface TagRow {
 const HANDLERS: readonly (readonly [RegExp, Handler])[] = [
   ...ENTITY_HANDLERS,
   ...TIME_HANDLERS,
+  ...WINDOW_HANDLERS,
   [
     /^vaults\/[^/]+\/tags$/,
     async (load, route, params) => {
@@ -121,7 +136,7 @@ export function createStaticFetch(
       })
     } catch (error) {
       if (error instanceof StaticProblem) {
-        return problem(error.status, error.code, error.title, error.message)
+        return problem(error.status, error.code, error.title, error.message, error.errors)
       }
       if (!(error instanceof NotInExport)) throw error
       return problem(
