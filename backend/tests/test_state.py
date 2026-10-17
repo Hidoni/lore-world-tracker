@@ -4,10 +4,14 @@ filter of lists, the tree and children."""
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
+from fastapi import FastAPI
 
+from lore.core.modules.spec import VaultContext
+from lore.core.time.state import FACT, StateReader, bound_moments, timeline_resolver
+from lore.core.visibility import READER
 from tests.entity_api import Api, make_client, problem
 from tests.test_facts import DAY, World, absolute
 
@@ -118,6 +122,24 @@ def test_precision_boundaries_are_possible(world: World) -> None:
     world.made(field_key="rank", value="5", valid_from=in_year(cal, 2))
     assert state(world, YEAR + 1)["fields"]["rank"]["certainty"] == "possible"
     assert state(world, 2 * YEAR)["fields"]["rank"]["certainty"] == "certain"
+
+
+def test_bound_moments_are_where_as_of_reads_change(world: World) -> None:
+    """The static export records as-of reads once per interval between ``bound_moments`` (#374):
+    each bound's first moment and last moment, and nothing changes in between."""
+    cal = world.calendar
+    world.made(field_key="core.exists", valid_from=in_year(cal, 2), valid_to=in_year(cal, 4))
+    app = cast(FastAPI, world.api.client.app)
+    opened = app.state.vaults.open(world.api.vault)
+    with opened.sessions() as session:
+        context = VaultContext(opened, session, app.state.registry)
+        reader = StateReader(context, READER, world.timeline, 0)
+        facts = reader.facts([world.gadget["id"]])[world.gadget["id"]]
+        moments = bound_moments(timeline_resolver(context, READER, world.timeline), FACT, facts)
+    assert moments == {YEAR, 2 * YEAR - 1, 3 * YEAR, 4 * YEAR - 1}
+    edges = sorted({0, *moments})
+    for start, end in zip(edges, [*edges[1:], 5 * YEAR], strict=True):
+        assert existence(world, start) == existence(world, end - 1), (start, end)
 
 
 def test_present_and_timelines(world: World) -> None:

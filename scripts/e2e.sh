@@ -16,6 +16,8 @@ reader_port="${E2E_READER_PORT:-8766}"
 reader_url="http://127.0.0.1:${reader_port}"
 static_port="${E2E_STATIC_PORT:-8767}"
 static_url="http://127.0.0.1:${static_port}/site/"
+static_reader_port="${E2E_STATIC_READER_PORT:-8768}"
+static_reader_url="http://127.0.0.1:${static_reader_port}"
 
 if [[ "${SKIP_BUILD:-}" != "1" ]]; then
   npm run build --prefix "$root" --workspaces
@@ -27,9 +29,10 @@ reader_log="$data_dir/reader.log"
 server_pid=""
 reader_pid=""
 static_pid=""
+static_reader_pid=""
 
 cleanup() {
-  for pid in "$server_pid" "$reader_pid" "$static_pid"; do
+  for pid in "$server_pid" "$reader_pid" "$static_pid" "$static_reader_pid"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
@@ -88,14 +91,20 @@ lore vault export-static "$folder" --out "$data_dir/static/www/site" \
 python3 -m http.server "$static_port" --bind 127.0.0.1 --directory "$data_dir/static/www" \
   >"$data_dir/static.log" 2>&1 &
 static_pid=$!
-for _ in $(seq 1 20); do
-  curl -fsS "$static_url" >/dev/null 2>&1 && break
+# The same snapshot served read-only: what the export must answer (static-export.spec.ts).
+LORE_DATA_DIR="$data_dir/static/published" LORE_READ_ONLY=true \
+  uv --directory "$root/backend" run lore serve --host 127.0.0.1 --port "$static_reader_port" \
+  >"$data_dir/static-reader.log" 2>&1 &
+static_reader_pid=$!
+for _ in $(seq 1 60); do
+  curl -fsS "$static_url" >/dev/null 2>&1 && curl -fsS "$static_reader_url/api/v1/health" \
+    >/dev/null 2>&1 && break
   sleep 0.5
 done
 
 status=0
 (cd "$root/frontend" && E2E_BASE_URL="$base_url" E2E_READER_URL="$reader_url" \
-  E2E_STATIC_URL="$static_url" npx playwright test -c e2e/playwright.config.ts "$@") ||
+  E2E_STATIC_URL="$static_url" E2E_STATIC_READER_URL="$static_reader_url" npx playwright test -c e2e/playwright.config.ts "$@") ||
   status=$?
 if [[ $status -ne 0 ]]; then
   echo "e2e: server log:" >&2

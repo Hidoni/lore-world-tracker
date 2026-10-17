@@ -222,6 +222,24 @@ class Coverage:
         return "possible" if possible else "certain"
 
 
+def bound_moments(
+    resolver: Resolver | None, record_type: str, records: Iterable[Bounded]
+) -> set[int]:
+    """The moments at which whether these records cover ``t`` can change (``Coverage.of``): each
+    bound's ``lo`` and ``hi - 1`` (one moment for an exact bound). An as-of read built on them is
+    the same between consecutive moments (the static export records it once per interval)."""
+    found = list(records)
+    coverage = Coverage(resolver, record_type, 0)
+    coverage.preload(found)
+    moments: set[int] = set()
+    for record in found:
+        for slot, t in (("valid_from", record.valid_from_t), ("valid_to", record.valid_to_t)):
+            if t is not None:
+                lo, hi = coverage.extents.get((record.id, slot), (t, t + 1))
+                moments.update((lo, hi - 1))
+    return moments
+
+
 class StateReader:
     """As-of state in one timeline at one moment, for one request's policy."""
 

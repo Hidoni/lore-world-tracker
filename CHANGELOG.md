@@ -11,7 +11,8 @@ All notable changes to this project are documented here. The format follows
 
 - **Static export, first part** (#373): `lore vault export-static <snapshot> --out <dir>` turns a
   published snapshot into a static site that any web host serves without a Lore server. So far
-  it holds the vault's landing page; the other pages follow (#374–#378).
+  it holds the vault's landing page, lists and entity pages, with the time cursor (#374); the
+  timeline, module pages and search follow (#375–#378).
 
 ### Fixed
 

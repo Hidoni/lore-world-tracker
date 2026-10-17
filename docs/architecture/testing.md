@@ -94,7 +94,9 @@ Harness (`frontend/e2e/`, #70): `scripts/e2e.sh` runs the author server (with
 E12). It also exports the tiny sample world as a static site (`lore vault export-static`) and
 serves it from a subfolder with `python -m http.server` (`E2E_STATIC_URL`):
 `e2e/static-export.spec.ts` opens it with no Lore server, and each part of the static export
-(#373–#378) checks the pages it adds there. Journeys import `test` from `e2e/fixtures.ts`. Its `lore` fixture
+(#373–#378) checks the pages it adds there. The same snapshot is also served read-only
+(`E2E_STATIC_READER_URL`): `e2e/static-parity.spec.ts` checks the export answers what that server
+answers. Journeys import `test` from `e2e/fixtures.ts`. Its `lore` fixture
 creates a fresh vault per test through the API and offers setup helpers (entities, links,
 backlinks). A failed test keeps its trace (CI artifact `playwright-report`). See
 `frontend/e2e/README.md`.
