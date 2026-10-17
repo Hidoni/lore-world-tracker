@@ -1061,6 +1061,15 @@ Implementation (#144):
 - **Shared reads.** Queries stay fresh for 2 s (`staleTime`, `app/query-client.ts`): the panels
   of a page that mount one after another use one read instead of each fetching it again. Writes
   invalidate what they change, so this never hides an edit.
+- **Panels below the fold** (#363): a module's entity panel renders, and reads, once it comes
+  within 200 px of the viewport (`IntersectionObserver`), or 1.5 s after the page opens, whichever
+  is first; until then a panel that always shows holds its heading, one with `useShown` an empty
+  block. The page is interactive once the header, fields, body and the panels in view are in,
+  instead of waiting while a dozen panel reads queue on the single server worker. The idle
+  fallback lets keyboard and screen-reader users, who don't scroll, reach every panel. A richly
+  linked character (Ilsa the Tidebound, `large`) went from 327 to about 220 ms on the reference
+  machine. End-to-end tests scroll a page (`revealPanels` in `e2e/fixtures.ts`) before using a
+  panel below the fold.
 
 ## 13. Reader mode and static-export readiness
 

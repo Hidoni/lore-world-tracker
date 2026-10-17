@@ -1,4 +1,4 @@
-import { test as base, expect, type APIRequestContext } from '@playwright/test'
+import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test'
 
 /** Mutating requests from the SPA carry this header (security.md §2); the helpers do too. */
 const HEADERS = { 'X-Lore-Client': 'web' }
@@ -141,6 +141,23 @@ test.skip(!process.env.E2E_BASE_URL, 'E2E_BASE_URL is not set')
 
 /** The read-only server serving the author's publish directory (`scripts/e2e.sh`). */
 export const READER_URL = process.env.E2E_READER_URL ?? ''
+
+/**
+ * Scrolls an entity page to its end, as a reader would, so its module panels render: they read
+ * only once they come near the viewport (frontend.md §12).
+ */
+export async function revealPanels(page: Page): Promise<void> {
+  const main = page.getByRole('main')
+  await expect(main.getByRole('heading', { level: 1 })).toBeVisible()
+  await main.hover({ position: { x: 10, y: 10 } })
+  for (let step = 0; step < 20; step++) {
+    const before = await main.evaluate((element) => element.scrollTop + window.scrollY)
+    await page.mouse.wheel(0, 600)
+    await page.waitForTimeout(50)
+    const after = await main.evaluate((element) => element.scrollTop + window.scrollY)
+    if (after === before) break
+  }
+}
 
 export { HEADERS }
 

@@ -47,6 +47,10 @@ All notable changes to this project are documented here. The format follows
   consistency scan are much quicker. `make bench-pages` measures the entity page and the
   timeline in a browser.
 
+- **Entity pages with many panels open faster** (#363): panels below the fold load as you scroll
+  to them (or a moment after the page opens), so a richly linked character's page is ready in
+  about 220 ms instead of 330.
+
 ### Fixed
 
 - A private map sharing a public map's image no longer hides that image from readers (#140).

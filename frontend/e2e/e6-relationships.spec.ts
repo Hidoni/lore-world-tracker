@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { expect, test, revealPanels } from './fixtures'
 import {
   absolute,
   atStartOf,
@@ -45,6 +45,7 @@ test('E6: relationships with validity → family tree → the time cursor change
   // The family tree, as a list.
   await page.goto(lore.url(aria.id))
   await expect(page.getByRole('heading', { name: 'Aria', level: 1 })).toBeVisible()
+  await revealPanels(page)
   await page.getByRole('link', { name: 'Open the family tree view' }).click()
   // The entity page's own family tree has the same controls: wait for the view first.
   await expect(page.getByRole('heading', { name: 'Family tree of Aria', level: 1 })).toBeVisible()
@@ -59,6 +60,7 @@ test('E6: relationships with validity → family tree → the time cursor change
 
   // Before the wedding: Aria's daughter, no husband.
   await page.goto(lore.url(aria.id))
+  await revealPanels(page)
   const family = page.getByRole('region', { name: 'Relationships' }).getByRole('list', {
     name: 'Family',
   })

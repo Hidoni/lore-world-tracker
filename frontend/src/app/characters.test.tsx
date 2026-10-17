@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { act } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { dimensionRow } from '@/test/calendars'
@@ -116,6 +117,69 @@ describe('characters module', () => {
     expect(
       within(within(panel).getByRole('list', { name: 'Other' })).getByRole('listitem'),
     ).toHaveTextContent('related toTam(godmother)')
+  })
+
+  describe('below the fold', () => {
+    /** An IntersectionObserver the test drives: `reveal()` brings every observed element near. */
+    function observeByHand() {
+      const observers: { callback: IntersectionObserverCallback; elements: Element[] }[] = []
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          elements: Element[] = []
+          constructor(callback: IntersectionObserverCallback) {
+            observers.push({ callback, elements: this.elements })
+          }
+          observe(element: Element) {
+            this.elements.push(element)
+          }
+          disconnect() {
+            this.elements.length = 0
+          }
+        },
+      )
+      return () => {
+        for (const { callback, elements } of observers) {
+          const entries = elements.map((target) => ({ target, isIntersecting: true }))
+          if (entries.length > 0)
+            callback(entries as unknown as IntersectionObserverEntry[], {} as IntersectionObserver)
+        }
+      }
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('renders a module panel once it comes near the viewport', async () => {
+      const reveal = observeByHand()
+      world()
+      await renderApp('/v/v1/e/ilsa')
+      const panel = await screen.findByRole('region', { name: 'Relationships' }, WAIT)
+      expect(within(panel).queryByRole('list', { name: 'Family' })).not.toBeInTheDocument()
+      act(reveal)
+      expect(
+        await within(await screen.findByRole('region', { name: 'Relationships' })).findByRole(
+          'list',
+          { name: 'Family' },
+          WAIT,
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('renders the panels anyway after a moment, for keyboard and screen-reader users', async () => {
+      observeByHand()
+      world()
+      await renderApp('/v/v1/e/ilsa')
+      await screen.findByRole('region', { name: 'Relationships' }, WAIT)
+      await waitFor(
+        () => {
+          const panel = screen.getByRole('region', { name: 'Relationships' })
+          expect(within(panel).getByRole('list', { name: 'Family' })).toBeInTheDocument()
+        },
+        { timeout: 4000 },
+      )
+    })
   })
 
   it('adds a relationship through the link dialog', async () => {

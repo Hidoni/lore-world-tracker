@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-import { expect, test } from './fixtures'
+import { expect, test, revealPanels } from './fixtures'
 import { png } from './images'
 
 const HEADERS = { 'X-Lore-Client': 'web' }
@@ -40,6 +40,7 @@ test('E10: map with pins, drill-down and the time cursor', async ({ page, lore, 
 
   // Varn's map: uploaded in the "New map" dialog.
   await page.goto(lore.url(varn.id))
+  await revealPanels(page)
   const panel = page.getByRole('region', { name: 'Map' })
   await panel.getByRole('button', { name: 'New map' }).click()
   const dialog = page.getByRole('dialog', { name: 'New map' })
