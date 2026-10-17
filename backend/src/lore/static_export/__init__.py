@@ -37,6 +37,7 @@ from lore.core.modules import ModuleSpec
 from lore.core.modules.spec import VaultContext
 from lore.static_export.asgi import Recorder
 from lore.static_export.entities import EntityExport
+from lore.static_export.modules import ModuleExport
 from lore.static_export.time import TimeExport
 from lore.static_export.windows import WindowExport
 
@@ -83,8 +84,9 @@ def data_path(route: str) -> str:
     return f"{DATA_DIR}/{route}.json"
 
 
-async def _record(app: FastAPI, vault_id: str) -> dict[str, Any]:
-    """Every file under ``data/`` (by path without ``.json``) and its JSON."""
+async def _record(app: FastAPI, vault_id: str) -> tuple[dict[str, Any], dict[str, bytes]]:
+    """Every file under ``data/``: the JSON ones (by path without ``.json``) and the copied
+    downloads (by path)."""
     recorder = Recorder(app)
     async with app.router.lifespan_context(app):
         files = {route.partition("?")[0]: await recorder.get(route) for route in _routes(vault_id)}
@@ -98,8 +100,17 @@ async def _record(app: FastAPI, vault_id: str) -> dict[str, Any]:
         opened = app.state.vaults.open(vault_id)
         with opened.sessions() as session:
             context = VaultContext(opened, session, app.state.registry)
-            files.update(await WindowExport(recorder, vault_id).files(context, entities.timelines))
-    return files
+            windows = WindowExport(recorder, vault_id)
+            files.update(await windows.files(context, entities.timelines))
+        module_files, binaries = await ModuleExport(recorder, vault_id).record(
+            app.state.registry.modules,
+            entities.summaries,
+            entities.timelines,
+            entities.moments,
+            windows.event_moments,
+        )
+        files.update(module_files)
+    return files, binaries
 
 
 def _mark_index(index: Path, vault_id: str) -> None:
@@ -138,7 +149,7 @@ def export_static(
                 f"{info.name} is not a published snapshot: publish it first (lore vault "
                 "publish) and export the snapshot"
             )
-        files = asyncio.run(_record(app, info.id))
+        files, binaries = asyncio.run(_record(app, info.id))
     finally:
         app.state.vaults.close()
 
@@ -148,6 +159,10 @@ def export_static(
         target = out / data_path(route)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(response, ensure_ascii=False, separators=(",", ":")))
+    for path, body in binaries.items():
+        target = out / DATA_DIR / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(body)
     manifest = {
         "format": FORMAT_VERSION,
         "vault_id": info.id,
@@ -159,4 +174,4 @@ def export_static(
         "exported_at": (now or datetime.now(UTC)).isoformat(),
     }
     (out / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
-    return StaticExportInfo(path=out, vault_id=info.id, files=len(files))
+    return StaticExportInfo(path=out, vault_id=info.id, files=len(files) + len(binaries))

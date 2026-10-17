@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from lore.core.entities.models import Entity
 from lore.core.history.tables import HistoryTable, columns_owner
-from lore.core.modules import ModuleSpec, VaultContext
+from lore.core.modules import ModuleSpec, StaticRead, VaultContext
 from lore.modules.media.checks import MEDIA_CHECK
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect_task
@@ -53,4 +53,15 @@ MODULE = ModuleSpec(
     publish_contributors=(publish_media,),
     markdown_contributors=(export_media,),
     on_enable=rebuild_on_enable,
+    static_reads=(
+        StaticRead("items", paged=500),
+        StaticRead("items/{id}", ids_from="items"),
+        StaticRead(
+            "items/{id}/file",
+            ids_from="items",
+            variants=tuple((("size", size),) for size in ("original", "160", "480", "1280")),
+            file=True,
+        ),
+        StaticRead("entities/{id}/gallery", kind="*"),
+    ),
 )

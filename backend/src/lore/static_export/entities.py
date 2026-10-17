@@ -65,7 +65,7 @@ def _same(a: Any, b: Any) -> bool:
     return bool(a == b)
 
 
-def _intervals(answers: list[tuple[int, Any]]) -> list[list[Any]]:
+def intervals(answers: list[tuple[int, Any]]) -> list[list[Any]]:
     """``[[moment, answer], …]`` keeping an answer only where it changes."""
     kept: list[list[Any]] = []
     for moment, answer in answers:
@@ -232,10 +232,10 @@ class EntityExport:
                 for read, path in (("state", "/state"), ("links", "/links"),
                                    ("backlinks", "/backlinks")):  # fmt: skip
                     answers[read].append((moment, await get(route_with(route + path, params))))
-            shard["as_of"][timeline.id] = {read: _intervals(a) for read, a in answers.items()}
+            shard["as_of"][timeline.id] = {read: intervals(a) for read, a in answers.items()}
             states = shard["as_of"][timeline.id]["state"]
             if any(state["existence"] != "unknown" for _, state in states):
-                existence[timeline.id] = _intervals(
+                existence[timeline.id] = intervals(
                     [(int(m), state["existence"]) for m, state in states]
                 )
         return shard, existence

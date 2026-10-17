@@ -110,7 +110,8 @@ export function pick<T>(intervals: Intervals<T>, at: string): T | undefined {
   return found
 }
 
-function lowerAscii(text: string): string {
+/** SQLite's `lower()`: ASCII letters only. */
+export function lowerAscii(text: string): string {
   return text.replace(/[A-Z]/g, (c) => c.toLowerCase())
 }
 

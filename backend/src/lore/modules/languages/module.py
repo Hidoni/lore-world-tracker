@@ -7,7 +7,7 @@ from lore.core.entities.models import Entity
 from lore.core.errors import InvalidInputError
 from lore.core.history.service import REVERT_HOOKS
 from lore.core.history.tables import HistoryTable, columns_owner
-from lore.core.modules import ModuleSpec, VaultContext
+from lore.core.modules import ModuleSpec, StaticRead, VaultContext
 from lore.core.visibility import VisibilityPolicy
 from lore.modules.languages.consistency import CONSISTENCY_RULES
 from lore.modules.languages.kinds import LANGUAGE, LANGUAGE_KIND, WRITING_SYSTEM_KIND
@@ -70,6 +70,17 @@ MODULE = ModuleSpec(
     purge_hooks=(purge_entries,),
     richtext_nodes=(LEXICON_REF,),
     markdown_contributors=(export_lexicon_refs,),
+    static_reads=(
+        StaticRead("family-tree", dimension=True),
+        StaticRead(
+            "{id}/lexicon",
+            kind="language",
+            variants=tuple((("sort", sort),) for sort in ("collation", "headword", "recent")),
+            paged=500,
+        ),
+        StaticRead("lexicon/{id}", ids_from="{id}/lexicon"),
+        StaticRead("{id}/lexicon/export", kind="language", file=True),
+    ),
 )
 
 __all__ = ["ALPHABET_FIELD", "MODULE"]

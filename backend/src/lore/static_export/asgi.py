@@ -38,6 +38,11 @@ class Recorder:
 
     async def answer(self, route: str) -> tuple[int, Any]:
         """The status and JSON body of ``GET /api/v1/<route>``."""
+        status, body, _type = await self.raw(route)
+        return status, json.loads(body) if body else None
+
+    async def raw(self, route: str) -> tuple[int, bytes, str]:
+        """The status, body and content type of ``GET /api/v1/<route>`` (files)."""
         path, _, query = route.partition("?")
         scope = {
             "type": "http",
@@ -54,22 +59,26 @@ class Recorder:
             "server": ("localhost", 80),
         }
         status = 0
+        content_type = ""
         body = bytearray()
 
         async def receive() -> Message:
             return {"type": "http.request", "body": b"", "more_body": False}
 
         async def send(message: Message) -> None:
-            nonlocal status
+            nonlocal status, content_type
             if message["type"] == "http.response.start":
                 status = message["status"]
+                for name, value in message.get("headers", []):
+                    if name.lower() == b"content-type":
+                        content_type = value.decode("latin-1")
             elif message["type"] == "http.response.body":
                 body.extend(message.get("body", b""))
 
         async with self.limit:
             await self.app(scope, receive, send)
         self.requests += 1
-        return status, json.loads(body) if body else None
+        return status, bytes(body), content_type
 
     async def get(self, route: str) -> Any:
         """The answer of a read readers must get (anything but ``200`` fails the export)."""

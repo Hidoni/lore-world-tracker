@@ -224,14 +224,29 @@ Implementation (ADR 0016; #147, split into #373–#378):
   filters' inputs (tags, visible participants and their kinds, the events above each event), and
   the series rules with their calendars, expanded with `@lore/chronology`. Any range, zoom,
   budget and filter answers like the server.
+- **Module reads and media** (#376, `lore/static_export/modules.py`,
+  `frontend/src/data/static-modules.ts`): each module declares the reads a static export records
+  (`ModuleSpec.static_reads`, `modules.md`), so the builder never imports modules. Each read is
+  recorded per route into `static/reads/<route>`: the answer for each query the app sends, and
+  as-of answers at each moment they can change in each timeline (the bounds of the facts and links
+  of every entity the read names, and the moments it names itself), kept where they change. The
+  lexicon and the media library are recorded whole and filtered and paged in the browser like
+  the server does (ASCII-lowercase prefix and substring matching). Downloads (media files and
+  their thumbnails, lexicon CSVs) are copied under `static/files/`, listed in `static/files`, and
+  `mediaFileUrl`/`lexiconExportUrl` point at the copies. Recorded so far: the parameters the app
+  uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
+  it opens and each entity's local graph at 1 and 2 steps); other choices answer
+  `not_in_export` until #386 computes them.
 - **Parity** (`e2e/static-parity.spec.ts`): the tiny sample world's export answers what the
   read-only server answers for the same snapshot: every entity's reads, as-of reads around every
   bound in every timeline, lists with each filter and sort, trees, paging; the time reads; windows
   over the whole dimension and at every zoom (by powers of ten), at several budgets and with each
-  filter, and every series' occurrences as each timeline sees them, at several windows and limits.
+  filter, and every series' occurrences as each timeline sees them, at several windows and limits;
+  every declared module read at every moment around every bound, the lexicon and media lists
+  filtered and paged, and the copied files byte for byte.
 - **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
   `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
-  occurrences (#375). Module reads and media (#376), search (#377), budgets and lazy loading
+  occurrences (#375), module reads and media (#376). Search (#377), budgets and lazy loading
   (#378) follow. The tiny world
   exports in about 50 s (one recorded read at a time; threads only add contention).
 

@@ -1,4 +1,4 @@
-import { expect, STATIC_URL, test } from './fixtures'
+import { expect, revealPanels, STATIC_URL, test } from './fixtures'
 
 // The static export (visibility-and-sharing.md §8, ADR 0016): `scripts/e2e.sh` exports the tiny
 // sample world with `lore vault export-static` and serves it from a subfolder with
@@ -111,5 +111,40 @@ test('the timeline of a static export, zoomed out and in', async ({ page }) => {
   await expect(timeline.getByRole('button', { name: "Wren's Warning" })).toBeVisible()
   await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
   await timeline.getByRole('button', { name: "Wren's Warning" }).click()
+  expect(errors).toEqual([])
+})
+
+test('module pages, a map and its image in a static export', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(String(error)))
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  const vault = /^#\/v\/([^/?]+)/.exec(new URL(page.url()).hash)?.[1] ?? ''
+
+  // A character's module panels: relationships come from the export's recorded reads.
+  await page.getByRole('link', { name: 'Characters', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Ilsa the Tidebound' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+  await revealPanels(page)
+  await expect(page.getByRole('region', { name: 'Relationships' }).first()).toBeVisible()
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+
+  // The location of a map: its image is the export's copy, and it loads.
+  const location = await page.evaluate(async (base) => {
+    const fetch = (window as unknown as { loreStaticFetch: (r: Request) => Promise<Response> })
+      .loreStaticFetch
+    const response = await fetch(new Request(`http://static.invalid/api/v1/${base}/m/maps/maps`))
+    const { items } = (await response.json()) as { items: { location_id: string }[] }
+    return items[0]?.location_id ?? ''
+  }, `vaults/${vault}`)
+  await page.goto(`${STATIC_URL}#/v/${vault}/e/${location}`)
+  await revealPanels(page)
+  const image = page.getByRole('region', { name: 'Map' }).locator('img.leaflet-image-layer')
+  await expect(image).toBeVisible()
+  await expect(image).toHaveAttribute('src', /\/site\/data\/vaults\/.+\/static\/files\//)
+  await expect
+    .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0)
   expect(errors).toEqual([])
 })

@@ -393,3 +393,155 @@ test('window reads answer like the read-only server', async ({ page, request }) 
   expect(series.size).toBeGreaterThan(0)
   expect(differences(await both(page, request, routes))).toEqual([])
 })
+
+test('module reads and files answer like the read-only server', async ({ page, request }) => {
+  test.setTimeout(900_000)
+  await page.goto(STATIC_URL)
+  const get = async (route: string) =>
+    (await (await request.get(`${STATIC_READER_URL}${API}${route}`)).json()) as Json
+  const vault = at((await get('vaults')).items as Json[], 0).id as string
+  const base = `vaults/${vault}`
+  const entities = (await allPages(page, request, `${base}/entities?limit=500`)).served as Json[]
+  const timelines = entities.filter((e) => e.kind === 'timeline')
+  const dimensions = entities.filter((e) => e.kind === 'dimension').map((e) => e.id as string)
+  const of = (kind: string) => entities.filter((e) => e.kind === kind).map((e) => e.id as string)
+  // Every moment answers can change at (and around it), from every entity's facts and links.
+  const moments = new Set<string>(['0'])
+  for (const { id } of entities) {
+    const facts = (await get(`${base}/entities/${id as string}/facts`)).items as Json[]
+    const links = (await get(`${base}/entities/${id as string}/links`)).items as Json[]
+    for (const t of momentsOf(facts, links)) moments.add(t)
+  }
+  const seenIn = (id: string) => {
+    const dimension = entities.find((e) => e.id === id)?.dimension_id ?? null
+    return timelines
+      .filter((t) => dimension === null || t.dimension_id === dimension)
+      .map((t) => t.id as string)
+  }
+  const routes: string[] = []
+  /** The read without a timeline, in each timeline, and at every moment there. */
+  const asOf = (route: string, id: string | null, timelineOnly = false) => {
+    const join = route.includes('?') ? '&' : '?'
+    routes.push(route)
+    for (const timeline of id === null ? timelines.map((t) => t.id as string) : seenIn(id)) {
+      routes.push(`${route}${join}timeline=${timeline}`)
+      if (timelineOnly) continue
+      for (const t of moments) routes.push(`${route}${join}timeline=${timeline}&at=${t}`)
+    }
+  }
+  const m = `${base}/m`
+  for (const id of of('character')) {
+    asOf(`${m}/characters/${id}/relationships`, id)
+    asOf(`${m}/characters/${id}/life`, id, true)
+    // The page (3 generations) at every moment; the panel (2) in each timeline.
+    for (const n of ['2', '3']) {
+      const q = `up=${n}&down=${n}&include_spouses=true&include_siblings=true`
+      asOf(`${m}/characters/${id}/family-tree?${q}`, id, n === '2')
+    }
+  }
+  for (const id of of('group')) {
+    asOf(`${m}/groups/${id}/members?include_subgroups=false`, id)
+    asOf(`${m}/groups/${id}/members?include_subgroups=true`, id)
+    asOf(`${m}/groups/${id}/leaders`, id)
+    asOf(`${m}/groups/${id}/territory`, id)
+    asOf(`${m}/groups/${id}/org-chart?depth=3`, id)
+  }
+  routes.push(`${m}/locations/tree?depth=6&limit=500`)
+  for (const id of of('location')) {
+    routes.push(
+      `${m}/locations/tree?root=${id}`,
+      `${m}/locations/tree?root=${id}&depth=6&limit=500`,
+    )
+    asOf(`${m}/locations/${id}/events?include_descendants=true`, id, true)
+    asOf(`${m}/locations/${id}/events?include_descendants=false`, id, true)
+    asOf(`${m}/locations/${id}/residents`, id)
+    routes.push(`${m}/maps/maps?location=${id}`)
+  }
+  for (const id of of('species')) asOf(`${m}/species/${id}/members`, id)
+  for (const dimension of ['', ...dimensions]) {
+    const q = dimension ? `?dimension=${dimension}` : ''
+    routes.push(`${m}/species/descent-tree${q}`, `${m}/languages/family-tree${q}`)
+  }
+  // The graph page, and the local graph of a sample of entities.
+  routes.push(`${m}/graph/graph`)
+  for (const dimension of dimensions) {
+    const route = `${m}/graph/graph?dimension=${dimension}`
+    routes.push(route)
+    for (const t of timelines.filter((t) => t.dimension_id === dimension)) {
+      routes.push(`${route}&timeline=${t.id as string}`)
+      for (const moment of moments) routes.push(`${route}&timeline=${t.id as string}&at=${moment}`)
+    }
+  }
+  for (const { id } of entities.slice(0, 6)) {
+    for (const depth of ['1', '2'])
+      asOf(`${m}/graph/graph?center=${id as string}&depth=${depth}`, id as string)
+  }
+  // Maps, pins and galleries.
+  routes.push(`${m}/maps/maps`)
+  const maps = (await get(`${m}/maps/maps`)).items as Json[]
+  // Pins have validities of their own: their bounds too.
+  // Pins of events show while the event happens: around its start and end too.
+  const happens = new Map<string, Json>()
+  for (const t of timelines) {
+    const dimension = (await get(`${base}/entities/${t.dimension_id as string}`)).ext as Json
+    const to = BigInt(dimension.duration as string) + 1n
+    const route = `${base}/timelines/${t.id as string}/window?from=0&to=${to}&px=2000`
+    for (const item of (await get(route)).items as Json[])
+      happens.set(item.entity_id as string, item)
+  }
+  for (const map of maps) {
+    const pins = (await get(`${m}/maps/maps/${map.id as string}`)).pins as Json[]
+    for (const t of momentsOf(pins, [])) moments.add(t)
+    for (const pin of pins) {
+      const event = happens.get(((pin.target as Json | null)?.id as string | undefined) ?? '')
+      if (event) {
+        const bounds = [{ valid_from_t: event.start_t, valid_to_t: event.end_t }]
+        for (const t of momentsOf(bounds, [])) moments.add(t)
+      }
+    }
+  }
+  for (const map of maps) asOf(`${m}/maps/maps/${map.id as string}`, null)
+  for (const { id } of entities) {
+    routes.push(
+      `${m}/maps/entities/${id as string}/pins`,
+      `${m}/media/entities/${id as string}/gallery`,
+    )
+  }
+  // The lexicon of each language, in each order and filtered; its entries.
+  for (const language of of('language')) {
+    const route = `${m}/languages/${language}/lexicon`
+    for (const sort of ['collation', 'headword', 'recent']) {
+      const list = await allPages(page, request, `${route}?sort=${sort}&limit=7`)
+      expect(list.exported, `${route} ${sort}`).toEqual(list.served)
+      for (const entry of list.served as Json[])
+        routes.push(`${m}/languages/lexicon/${entry.id as string}`)
+    }
+    for (const q of ['a', 'Th', 'e', 'water', 'zz']) routes.push(`${route}?q=${q}&limit=50`)
+    routes.push(`${route}?pos=noun`, `${route}?tag=core`, `${route}?sort=headword&q=a&limit=3`)
+  }
+  // The media library, filtered; each item.
+  const library = await allPages(page, request, `${m}/media/items?limit=2`)
+  expect(library.exported).toEqual(library.served)
+  for (const item of library.served as Json[]) routes.push(`${m}/media/items/${item.id as string}`)
+  for (const q of ['q=png', 'mime=image/', 'mime=image/png', 'unused=true', 'trashed=true']) {
+    routes.push(`${m}/media/items?${q}`)
+  }
+  for (const { id } of entities.slice(0, 30)) routes.push(`${m}/media/items?entity=${id as string}`)
+  expect(differences(await both(page, request, routes))).toEqual([])
+
+  // The copied files are the server's bytes.
+  const files = (await (
+    await request.get(`${STATIC_URL}data/${base}/static/files.json`)
+  ).json()) as Record<string, string>
+  expect(Object.keys(files).length).toBeGreaterThan(0)
+  for (const [key, path] of Object.entries(files)) {
+    const [route = '', query = '[]'] = key.split('?')
+    const params = new URLSearchParams(JSON.parse(query) as [string, string][])
+    const served = await request.get(
+      `${STATIC_READER_URL}${API}${base}/${route}?${params.toString()}`,
+    )
+    const copied = await request.get(`${STATIC_URL}data/${path}`)
+    expect(copied.status(), path).toBe(200)
+    expect(Buffer.compare(await copied.body(), await served.body()), path).toBe(0)
+  }
+})

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { readerUrl, type components } from '@/api'
 
 import { useDataSource, useRequiredMutations } from './context'
+import { staticFileUrl } from './static-modules'
 import type { Domain } from './domain'
 import { keys } from './keys'
 import type { Query } from './source'
@@ -37,6 +38,8 @@ export function mediaFileUrl(
   size: MediaSize = 'original',
   version?: string,
 ): string {
+  const copied = staticFileUrl(`m/media/items/${media}/file`, { size })
+  if (copied !== null) return copied
   const v = version === undefined ? '' : `&v=${encodeURIComponent(version.slice(0, 16))}`
   return readerUrl(
     `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/file?size=${size}${v}`,

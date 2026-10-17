@@ -1,7 +1,7 @@
 """The maps module's spec (``docs/modules/maps.md``)."""
 
 from lore.core.history.tables import HistoryTable, columns_owner
-from lore.core.modules import ModuleSpec
+from lore.core.modules import ModuleSpec, StaticRead
 from lore.modules.maps.consistency import CONSISTENCY_RULES
 from lore.modules.maps.models import Map, MapPin
 from lore.modules.maps.publish import publish_maps
@@ -25,4 +25,10 @@ MODULE = ModuleSpec(
     consistency_rules=CONSISTENCY_RULES,
     purge_hooks=(purge_maps,),
     publish_contributors=(publish_maps,),
+    static_reads=(
+        StaticRead("maps"),
+        StaticRead("maps", kind="location", variants=((("location", "{id}"),),)),
+        StaticRead("maps/{id}", ids_from="maps", timeline=True, as_of=True),
+        StaticRead("entities/{id}/pins", kind="*"),
+    ),
 )
