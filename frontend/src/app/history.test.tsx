@@ -166,6 +166,23 @@ describe('entity history', () => {
     expect(screen.queryByRole('button', { name: 'Undo “Edited “Diadem””' })).not.toBeInTheDocument()
   })
 
+  it('shows compacted history without an undo', async () => {
+    vault([
+      EDIT,
+      {
+        ...CREATED,
+        id: 'c0',
+        origin: 'compaction',
+        summary: 'Changes of “Crown” before 2026-09-01 (compacted)',
+      },
+    ])
+    await renderApp('/v/v1/e/a1')
+    const list = await openHistory()
+    expect(within(list).getByText('Compacted')).toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: 'Undo “Edited “Diadem””' })).toBeInTheDocument()
+    expect(within(list).getAllByRole('button', { name: /^Undo/ })).toHaveLength(1)
+  })
+
   it('explains undo conflicts', async () => {
     vault([
       { ...EDIT, conflict: { rows: [{ table_name: 'entities', row_id: 'a1', op: 'update' }] } },
@@ -215,6 +232,22 @@ describe('recent changes', () => {
 })
 
 describe('undo the last change', () => {
+  it('skips compacted history', async () => {
+    const writes = vault([
+      { ...EDIT, reverted_by_changeset_id: 'x' },
+      { ...LINKED, origin: 'compaction' },
+      CREATED,
+    ])
+    const user = userEvent.setup()
+    await renderApp('/v/v1')
+    await user.keyboard('{Control>}k{/Control}')
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+    await user.type(within(dialog).getByRole('combobox'), 'undo')
+    await user.click(within(dialog).getByRole('option', { name: 'Undo the last change' }))
+    expect(await screen.findByText('Undone: Created artifact “Crown”')).toBeInTheDocument()
+    expect(writes.at(-1)).toMatchObject({ path: '/changes/c1/revert' })
+  })
+
   it('reverts the newest changeset from the palette', async () => {
     const writes = vault([{ ...EDIT, reverted_by_changeset_id: 'x' }, LINKED, CREATED])
     const user = userEvent.setup()

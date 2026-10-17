@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 import { ChangesetList, ORIGIN_LABEL } from './changeset-list'
 
-type Origin = 'ui' | 'api' | 'cli' | 'import' | 'migration' | 'system' | 'undo'
+type Origin = 'ui' | 'api' | 'cli' | 'import' | 'migration' | 'system' | 'undo' | 'compaction'
 const ORIGINS = Object.keys(ORIGIN_LABEL) as Origin[]
 
 /** An entity's history tab: the changesets touching it, newest first, with diffs and undo. */

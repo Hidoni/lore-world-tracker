@@ -25,7 +25,7 @@ entity_router = APIRouter(prefix="/vaults/{vault_id}/entities", tags=["entities"
 
 ChangesetIdPath = Annotated[str, Path(pattern=ID_PATTERN, description="Changeset id.")]
 CursorQuery = Annotated[str | None, Query(pattern=ID_PATTERN)]
-ChangesetOrigin = Literal["ui", "api", "cli", "import", "migration", "system", "undo"]
+ChangesetOrigin = Literal["ui", "api", "cli", "import", "migration", "system", "undo", "compaction"]
 LimitQuery = Annotated[int, Query(ge=1, le=500)]
 
 

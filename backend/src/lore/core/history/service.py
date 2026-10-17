@@ -29,6 +29,7 @@ from lore.core.entities.models import Entity
 from lore.core.entities.service import EntityService
 from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
 from lore.core.history import recorder
+from lore.core.history.compaction import COMPACTION
 from lore.core.history.models import Change, ChangeEntity, Changeset
 from lore.core.history.recorder import record_bulk, recorded_tables, stored_row
 from lore.core.history.schemas import (
@@ -340,10 +341,16 @@ class HistoryService:
             CustomLinkType(**{k: v for k, v in decoded.items() if k in columns})
         )
 
-    def revert(self, changeset_id: str) -> RevertResult:
+    def _revertible(self, changeset_id: str) -> Changeset:
         changeset = self._load(changeset_id)
         if changeset.reverted_by_changeset_id is not None:
             raise ConflictError("This changeset was already undone.")
+        if changeset.origin == COMPACTION:
+            raise ConflictError("Compacted history can't be undone.")
+        return changeset
+
+    def revert(self, changeset_id: str) -> RevertResult:
+        changeset = self._revertible(changeset_id)
         tables = recorded_tables(self.session)
         changes = list(
             self.session.scalars(

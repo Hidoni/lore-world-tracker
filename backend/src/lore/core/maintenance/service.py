@@ -1,11 +1,13 @@
 """Vault maintenance (``persistence-and-migrations.md`` §2, §3.4): ``check`` (schema state, SQLite
 integrity, foreign keys and the derived-data checkers, on a copy of the database), ``reindex``
-(rebuild all derived data) and ``optimize`` (``PRAGMA optimize``, optionally ``VACUUM``)."""
+(rebuild all derived data), ``compact-history`` (history older than N days into per-entity
+snapshots) and ``optimize`` (``PRAGMA optimize``, optionally ``VACUUM``)."""
 
 import sqlite3
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 
 from sqlalchemy.exc import DatabaseError
@@ -14,6 +16,8 @@ from sqlalchemy.pool import NullPool
 
 from lore.core.db import create_vault_engine, optimize, snapshot, vacuum
 from lore.core.db.migrate import SchemaState, SchemaStatus
+from lore.core.db.types import utc_now
+from lore.core.history.compaction import CompactionReport, compact_history
 from lore.core.maintenance.checks import DERIVED_DATA, DerivedDataCheck, Problem
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
@@ -159,6 +163,24 @@ def reindex_vault(
             counts[check.id] = check.rebuild(context)
         counts["consistency"] = sum(scan(context).values())
     return counts
+
+
+def compact_vault_history(
+    vault: OpenVault, older_than: timedelta, *, dry_run: bool = False
+) -> CompactionReport:
+    """Replace the vault's history older than ``older_than`` with per-entity snapshots
+    (``lore.core.history.compaction``), in one write transaction; ``dry_run`` rolls it back and
+    only reports. The freed pages are reused; ``optimize_vault(vacuum_database=True)`` shrinks
+    the file."""
+    if older_than <= timedelta(0):
+        raise ValueError("older_than must be positive")
+    with vault.write_sessions() as session:
+        report = compact_history(session, utc_now() - older_than)
+        if dry_run:
+            session.rollback()
+        else:
+            session.commit()
+    return report
 
 
 def optimize_vault(vault: OpenVault, *, vacuum_database: bool = False) -> None:
