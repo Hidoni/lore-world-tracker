@@ -1,7 +1,7 @@
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { useMutations, usePublish, usePublishStatus } from '@/data'
+import { markdownExportUrl, useMutations, usePublish, usePublishStatus } from '@/data'
 
 import { Section } from './shared'
 
@@ -10,6 +10,15 @@ import { Section } from './shared'
  * removed, written into the server's publish directory for a read-only server to share.
  */
 export function PublishSettings({ vault }: { vault: string }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <PublishSnapshot vault={vault} />
+      <MarkdownExport vault={vault} />
+    </div>
+  )
+}
+
+function PublishSnapshot({ vault }: { vault: string }) {
   const editable = useMutations() !== null
   const status = usePublishStatus(vault)
   const publish = usePublish(vault)
@@ -54,6 +63,38 @@ export function PublishSettings({ vault }: { vault: string }) {
           </p>
         </div>
       )}
+    </Section>
+  )
+}
+
+/**
+ * The Markdown export (markdown-export.md): the vault as a zip of notes for Obsidian and other
+ * Markdown tools, as readers see it or (author only) with everything.
+ */
+function MarkdownExport({ vault }: { vault: string }) {
+  const editable = useMutations() !== null
+  if (!editable) return null
+  return (
+    <Section
+      title="Export as Markdown"
+      description="A zip of Markdown notes for Obsidian or other Markdown tools: one note per entity with wikilinks, properties (fields, aliases, tags, dates in every calendar), facts, links and media. Nothing is read back from it."
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <Button asChild>
+          <a href={markdownExportUrl(vault, 'readers')} download>
+            Download readers’ view
+          </a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href={markdownExportUrl(vault, 'author')} download>
+            Download everything
+          </a>
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        “Everything” includes private entities, fields and blocks: keep it to yourself, like a
+        backup.
+      </p>
     </Section>
   )
 }

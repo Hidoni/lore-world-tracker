@@ -30,6 +30,7 @@
 - [`architecture/frontend.md`](architecture/frontend.md): SPA architecture, editor, timeline view
 - [`architecture/consistency.md`](architecture/consistency.md): rule engine and catalog
 - [`architecture/visibility-and-sharing.md`](architecture/visibility-and-sharing.md): visibility, read-only mode, publishing, leak tests
+- [`architecture/markdown-export.md`](architecture/markdown-export.md): the Markdown / Obsidian export
 - [`architecture/security.md`](architecture/security.md): threat model and mitigations
 - [`architecture/testing.md`](architecture/testing.md): test strategy, CI, performance budgets
 - [`architecture/deployment.md`](architecture/deployment.md): configuration, Docker, compose, dev environment

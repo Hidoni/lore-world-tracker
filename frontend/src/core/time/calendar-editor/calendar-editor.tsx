@@ -7,7 +7,7 @@ import {
   unitBounds,
   validateCalendar,
 } from '@lore/chronology'
-import { absoluteMoments, instantiatePreset, PRESETS } from '@lore/chronology/presets'
+import { absoluteMoments, instantiatePreset, PresetError, PRESETS } from '@lore/chronology/presets'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -99,12 +99,24 @@ function saveProblem(error: unknown): { message: string; errors: ValidationError
   }
 }
 
-/** The other display calendars of the calendar's dimension, for time points in its definition. */
-function useScope(vault: string, dimension: DimensionTime, calendarId: string | null): TimeScope {
-  const { lenses } = useDimensionLenses(vault, dimension.id)
+/**
+ * The other display calendars of the calendar's dimension, for time points in its definition. A
+ * draft dimension (the wizard's) has none, and no events to anchor to.
+ */
+function useScope(
+  vault: string,
+  dimension: DimensionTime,
+  calendarId: string | null,
+  draft: boolean,
+): TimeScope {
+  const { lenses } = useDimensionLenses(vault, draft ? null : dimension.id)
   return useMemo(
-    () => ({ vault, dimension, lenses: lenses.filter((lens) => lens.id !== calendarId) }),
-    [vault, dimension, lenses, calendarId],
+    () => ({
+      vault: draft ? null : vault,
+      dimension,
+      lenses: lenses.filter((lens) => lens.id !== calendarId),
+    }),
+    [vault, dimension, lenses, calendarId, draft],
   )
 }
 
@@ -119,6 +131,8 @@ function Editor({
   saving,
   onSave,
   problem,
+  draft = false,
+  saveLabel,
 }: {
   vault: string
   dimension: DimensionTime
@@ -129,6 +143,9 @@ function Editor({
   saving: boolean
   onSave: (definition: Definition) => void
   problem: { message: string; errors: ValidationError[] } | null
+  /** The dimension doesn't exist yet (the wizard's first calendar). */
+  draft?: boolean
+  saveLabel?: string
 }) {
   const [definition, setDefinition] = useState(initial)
   const [json, setJson] = useState<string | null>(null)
@@ -143,7 +160,7 @@ function Editor({
   const change = (next: Definition) => {
     setDefinition(next)
   }
-  const scope = useScope(vault, dimension, calendarId)
+  const scope = useScope(vault, dimension, calendarId, draft)
   const [regimeIndex, setRegimeIndex] = useState(0)
   const regime = Math.min(regimeIndex, definition.regimes.length - 1)
   const atPath = `${regimePath(regime)}/alignment/at`
@@ -181,7 +198,7 @@ function Editor({
               onSave(definition)
             }}
           >
-            {saving ? 'Saving…' : calendarId === null ? 'Create calendar' : 'Save'}
+            {saving ? 'Saving…' : (saveLabel ?? (calendarId === null ? 'Create calendar' : 'Save'))}
           </Button>
         )}
       </div>
@@ -246,13 +263,15 @@ function Editor({
           <p className="text-xs text-muted-foreground">
             Checked by the same engine as the server, in your browser, on every change.
           </p>
-          <Link
-            to="/v/$vault/d/$dimension"
-            params={{ vault, dimension: dimension.id }}
-            className="text-sm underline"
-          >
-            Back to {dimension.name}
-          </Link>
+          {!draft && (
+            <Link
+              to="/v/$vault/d/$dimension"
+              params={{ vault, dimension: dimension.id }}
+              className="text-sm underline"
+            >
+              Back to {dimension.name}
+            </Link>
+          )}
         </aside>
       </div>
     </div>
@@ -535,6 +554,79 @@ export function NewCalendar({ vault, dimensionId }: { vault: string; dimensionId
           },
         )
       }}
+    />
+  )
+}
+
+/**
+ * The first calendar of a dimension the wizard hasn't created yet (#379): the editor on the
+ * wizard's base unit and duration, blank or from a preset scaled to that base unit. Nothing is
+ * saved here: **Use this calendar** hands the definition back to the wizard, which creates the
+ * dimension with it.
+ */
+export function DraftCalendar({
+  vault,
+  dimension,
+  secondsPerBaseUnit,
+  initial,
+  startFrom,
+  onDone,
+  onCancel,
+}: {
+  vault: string
+  dimension: DimensionTime
+  secondsPerBaseUnit: { num: bigint; den: bigint }
+  /** The definition designed so far (`null`: start from `startFrom`). */
+  initial: Definition | null
+  /** A preset id, or `''` for a blank calendar. */
+  startFrom: string
+  onDone: (definition: Definition) => void
+  onCancel: () => void
+}) {
+  const start = useMemo(() => {
+    if (initial !== null) return { definition: initial, problem: null }
+    const found = PRESETS.get(startFrom)
+    if (found === undefined) return { definition: blankDefinition(), problem: null }
+    try {
+      return { definition: instantiatePreset(found, secondsPerBaseUnit), problem: null }
+    } catch (error) {
+      if (!(error instanceof PresetError)) throw error
+      return { definition: null, problem: `${found.name} doesn’t fit this base unit.` }
+    }
+  }, [initial, startFrom, secondsPerBaseUnit])
+  const cancel = (
+    <Button type="button" variant="outline" onClick={onCancel}>
+      Cancel
+    </Button>
+  )
+  if (start.definition === null) {
+    return (
+      <div className="flex flex-col items-start gap-3 p-6">
+        <p role="alert" className="text-sm text-destructive">
+          {start.problem}
+        </p>
+        {cancel}
+      </div>
+    )
+  }
+  return (
+    <Editor
+      vault={vault}
+      dimension={dimension}
+      calendarId={null}
+      initial={start.definition}
+      stored={{}}
+      header={
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-xl font-semibold">Design the first calendar</h2>
+          {cancel}
+        </div>
+      }
+      saving={false}
+      problem={null}
+      draft
+      saveLabel="Use this calendar"
+      onSave={onDone}
     />
   )
 }

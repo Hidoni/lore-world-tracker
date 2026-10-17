@@ -28,7 +28,7 @@ product owner's request.
 | M10 Media & maps | Uploads, galleries, image nodes; interactive time-aware maps | E10 green | #126–#132 | v0.9.0 |
 | M11 Custom fields & kinds | Custom fields (incl. temporal), custom kinds, relation fields | E11 green | #133–#137 | v0.10.0 |
 | M12 Sharing, backup & hardening | Read-only mode, leak audit, published snapshots, reader UI, perf + a11y passes | E12–E13 green; all budgets met | #138–#146, #241, #307, #361–#363 | **v1.0.0** |
-| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162, #373–#378 | – |
+| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162, #373–#379 | – |
 
 ## Milestone dependencies and parallel tracks
 
@@ -348,6 +348,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #160 | M13-14 | Multi-pane / tabbed workspace (Obsidian-style) | L | P2 | #146 |
 | #161 | M13-15 | SVG sanitization for inline rendering of uploaded SVGs | S | P2 | #146 |
 | #162 | M13-16 | Deep-zoom tiling for very large map images | M | P2 | #146 |
+| #379 | M13-17 | Dimension wizard: design a custom first calendar instead of picking a preset | M | P2 | – |
 
 ## Requirement traceability
 
@@ -359,11 +360,11 @@ Requirement ids (`docs/product/requirements.md`) mapped to the issues whose bodi
 | R-VLT-2 | #30 |
 | R-VLT-3 | #41, #69 |
 | R-VLT-4 | #69 |
-| R-DIM-1 | #45, #75 |
+| R-DIM-1 | #45, #75, #379 |
 | R-DIM-2 | #45, #75 |
 | R-DIM-3 | #45, #75 |
 | R-DIM-4 | #45, #75, #103 |
-| R-DIM-5 | #46, #50, #75 |
+| R-DIM-5 | #46, #50, #75, #379 |
 | R-TIME-1 | #72 |
 | R-TIME-2 | #47, #73, #74 |
 | R-TIME-3 | #47, #73 |
@@ -371,7 +372,7 @@ Requirement ids (`docs/product/requirements.md`) mapped to the issues whose bodi
 | R-TIME-5 | #54, #77 |
 | R-TIME-6 | #16, #47 |
 | R-TIME-7 | #48 |
-| R-CAL-1 | #8, #46 |
+| R-CAL-1 | #8, #46, #379 |
 | R-CAL-2 | #76 |
 | R-CAL-3 | #76 |
 | R-CAL-4 | #13, #76 |
@@ -382,8 +383,8 @@ Requirement ids (`docs/product/requirements.md`) mapped to the issues whose bodi
 | R-CAL-9 | #14, #46, #76, #77 |
 | R-CAL-10 | #17, #77 |
 | R-CAL-11 | #8 |
-| R-CAL-12 | #18, #46, #75 |
-| R-CAL-13 | #76 |
+| R-CAL-12 | #18, #46, #75, #379 |
+| R-CAL-13 | #76, #379 |
 | R-CAL-14 | #17, #72 |
 | R-EVT-1 | #50, #74, #78 |
 | R-EVT-2 | #50, #53, #78, #83 |

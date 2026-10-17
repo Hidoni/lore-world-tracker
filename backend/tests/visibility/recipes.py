@@ -168,6 +168,13 @@ def publish_status(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/publish", status=404)  # author-only
 
 
+@recipe(f"{V}/export/markdown")
+def markdown_export(c: Canary) -> Iterator[Call]:
+    # Author-only, whatever the audience asked for (readers' exports are made by the author).
+    yield Call(f"{_v(c)}/export/markdown", status=404)
+    yield Call(f"{_v(c)}/export/markdown", {"audience": "readers"}, status=404)
+
+
 @recipe(f"{V}/backups/{{backup_id}}/download")
 def backup_download(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/backups/{c.backup}/download", status=404)

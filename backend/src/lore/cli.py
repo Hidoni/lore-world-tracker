@@ -15,6 +15,7 @@ from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
 from lore.core.maintenance import DERIVED_DATA, check_vault, optimize_vault, reindex_vault
+from lore.core.markdown.export import Audience, FolderSink, export_vault_markdown
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleRegistry
 from lore.core.vaults import VaultManager
@@ -239,6 +240,49 @@ def vault_export_static(
     except LoreError as exc:
         _fail(exc)
     typer.echo(f"exported: {info.path} ({info.files} data files)")
+
+
+@vault_app.command("export-markdown")
+def vault_export_markdown(
+    vault: VaultArgument,
+    out: Annotated[Path, typer.Option(help="Folder to write (created; must be empty).")],
+    audience: Annotated[
+        str,
+        typer.Option(
+            help="readers: what readers see (no private data); author: everything, private "
+            "content included."
+        ),
+    ] = "readers",
+    calendar: Annotated[
+        list[str] | None,
+        typer.Option(help="A calendar id to show dates in first (repeat for several dimensions)."),
+    ] = None,
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Data directory holding the vault (default: LORE_DATA_DIR)."),
+    ] = None,
+) -> None:
+    """Export a vault as Markdown notes for Obsidian and other Markdown tools: one note per
+    entity with wikilinks, properties, dates in every calendar, facts, links and media
+    (markdown-export.md). Reads the vault without locking it, also a published snapshot."""
+    if audience not in ("readers", "author"):
+        _fail(ValueError("--audience must be readers or author"))
+    manager = VaultManager(
+        data_dir or Settings().data_dir,
+        read_only=True,
+        module_registry=ModuleRegistry(ALL_MODULES, core_metadata=load_core_metadata()),
+    )
+    try:
+        sink = FolderSink(out)
+        chosen: Audience = "readers" if audience == "readers" else "author"
+        info = export_vault_markdown(
+            manager, manager.resolve(vault).id, sink, audience=chosen, calendars=calendar or ()
+        )
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(f"exported: {out} ({info.notes} notes, {info.files} files)")
 
 
 @vault_app.command("check")

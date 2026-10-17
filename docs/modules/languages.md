@@ -168,6 +168,8 @@ language's existence.
 - Lexicon entries have their own visibility. They are hidden when the language is hidden. Publish
   sanitizer drops private entries.
 - Graph: languages and writing systems are nodes. Lexicon entries are **not** graph nodes.
+- Markdown export (`markdown_contributors`): a `lexiconRef` shows its entry's headword in italics,
+  nothing when the export's audience may not see the entry (`markdown-export.md` §5).
 
 ## Disabling / removal notes
 

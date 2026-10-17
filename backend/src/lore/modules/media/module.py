@@ -8,6 +8,7 @@ from lore.core.modules import ModuleSpec, VaultContext
 from lore.modules.media.checks import MEDIA_CHECK
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect_task
+from lore.modules.media.markdown import export_media
 from lore.modules.media.models import MediaGalleryItem, MediaItem, MediaRef
 from lore.modules.media.publish import publish_media
 from lore.modules.media.refs import Refs, rebuild_refs
@@ -50,5 +51,6 @@ MODULE = ModuleSpec(
     maintenance_tasks=(collect_task,),
     derived_checks=(MEDIA_CHECK,),
     publish_contributors=(publish_media,),
+    markdown_contributors=(export_media,),
     on_enable=rebuild_on_enable,
 )
