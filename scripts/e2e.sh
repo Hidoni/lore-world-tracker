@@ -5,6 +5,8 @@
 # E2E_PORT picks the port (default 8765); SKIP_BUILD=1 reuses an existing frontend/dist.
 # A second, read-only server (E2E_READER_PORT, default 8766) serves the author's publish directory,
 # like the `reader` profile of docker-compose.yml (E12: publish → read).
+# A static export of the tiny sample world (lore vault export-static) is served from a subfolder by
+# `python -m http.server` (E2E_STATIC_PORT, default 8767): static-export.spec.ts.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,6 +14,8 @@ port="${E2E_PORT:-8765}"
 base_url="http://127.0.0.1:${port}"
 reader_port="${E2E_READER_PORT:-8766}"
 reader_url="http://127.0.0.1:${reader_port}"
+static_port="${E2E_STATIC_PORT:-8767}"
+static_url="http://127.0.0.1:${static_port}/site/"
 
 if [[ "${SKIP_BUILD:-}" != "1" ]]; then
   npm run build --prefix "$root" --workspaces
@@ -22,9 +26,10 @@ log_file="$data_dir/server.log"
 reader_log="$data_dir/reader.log"
 server_pid=""
 reader_pid=""
+static_pid=""
 
 cleanup() {
-  for pid in "$server_pid" "$reader_pid"; do
+  for pid in "$server_pid" "$reader_pid" "$static_pid"; do
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
@@ -71,8 +76,26 @@ if ! curl -fsS "$reader_url/api/v1/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "e2e: exporting the tiny sample world as a static site"
+lore() { uv --directory "$root/backend" run lore "$@"; }
+uv --directory "$root/backend" run scripts/make_sample_vault.py --size tiny \
+  --out "$data_dir/static/data" >/dev/null
+folder="$(ls "$data_dir/static/data/vaults")"
+LORE_DATA_DIR="$data_dir/static/data" lore vault publish "$folder" --out "$data_dir/static/published" \
+  >/dev/null
+lore vault export-static "$folder" --out "$data_dir/static/www/site" \
+  --data-dir "$data_dir/static/published" --spa "$root/frontend/dist" >/dev/null
+python3 -m http.server "$static_port" --bind 127.0.0.1 --directory "$data_dir/static/www" \
+  >"$data_dir/static.log" 2>&1 &
+static_pid=$!
+for _ in $(seq 1 20); do
+  curl -fsS "$static_url" >/dev/null 2>&1 && break
+  sleep 0.5
+done
+
 status=0
-(cd "$root/frontend" && E2E_BASE_URL="$base_url" E2E_READER_URL="$reader_url" npx playwright test -c e2e/playwright.config.ts "$@") ||
+(cd "$root/frontend" && E2E_BASE_URL="$base_url" E2E_READER_URL="$reader_url" \
+  E2E_STATIC_URL="$static_url" npx playwright test -c e2e/playwright.config.ts "$@") ||
   status=$?
 if [[ $status -ne 0 ]]; then
   echo "e2e: server log:" >&2

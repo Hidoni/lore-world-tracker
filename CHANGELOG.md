@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Static export, first part** (#373): `lore vault export-static <snapshot> --out <dir>` turns a
+  published snapshot into a static site that any web host serves without a Lore server. So far
+  it holds the vault's landing page; the other pages follow (#374–#378).
+
+### Fixed
+
+- **Vault picker for readers** (#373): a read-only server no longer shows the create, rename,
+  trash and migrate buttons.
+
 ## [1.0.0] - 2026-10-17
 
 The MVP (M12: sharing, backup and hardening). Share your world safely: a hardened read-only

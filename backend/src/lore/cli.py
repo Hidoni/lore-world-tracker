@@ -20,6 +20,7 @@ from lore.core.modules import ModuleRegistry
 from lore.core.vaults import VaultManager
 from lore.core.vaults.publish import publish_vault
 from lore.modules import ALL_MODULES, load_metadata
+from lore.static_export import export_static
 
 app = typer.Typer(name="lore", no_args_is_help=True, add_completion=False)
 chronology_app = typer.Typer(no_args_is_help=True, help="Chronology engine assets.")
@@ -210,6 +211,34 @@ def vault_publish(
     finally:
         manager.close()
     typer.echo(f"published: {info.path}")
+
+
+@vault_app.command("export-static")
+def vault_export_static(
+    vault: Annotated[str, typer.Argument(help="Published snapshot: vault id or folder name.")],
+    out: Annotated[Path, typer.Option(help="Folder to write (created; must be empty).")],
+    data_dir: Annotated[
+        Path | None,
+        typer.Option(help="Data directory holding the snapshot (default: LORE_PUBLISH_DIR)."),
+    ] = None,
+    spa: Annotated[
+        Path | None, typer.Option(help="The built SPA (default: LORE_STATIC_DIR).")
+    ] = None,
+) -> None:
+    """Export a published snapshot as a static site: the SPA and the data readers see, as plain
+    files any static HTTP server can host (visibility-and-sharing.md §8)."""
+    settings = Settings()
+    source = data_dir or settings.publish_dir
+    spa_dir = spa or settings.static_dir
+    if source is None:
+        _fail(ValueError("give --data-dir or set LORE_PUBLISH_DIR"))
+    if spa_dir is None:
+        _fail(ValueError("give --spa or set LORE_STATIC_DIR"))
+    try:
+        info = export_static(source, vault, out, spa_dir)
+    except LoreError as exc:
+        _fail(exc)
+    typer.echo(f"exported: {info.path} ({info.files} data files)")
 
 
 @vault_app.command("check")

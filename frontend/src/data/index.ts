@@ -69,6 +69,12 @@ export {
   useRevertChange,
 } from './history'
 export { createHttpDataSource, createHttpMutations } from './http'
+export {
+  createStaticDataSource,
+  createStaticFetch,
+  staticConfig,
+  type StaticConfig,
+} from './static'
 export { affectedKeys, invalidateAffected } from './invalidate'
 export { keys } from './keys'
 export {

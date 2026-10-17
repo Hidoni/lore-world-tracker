@@ -142,6 +142,9 @@ test.skip(!process.env.E2E_BASE_URL, 'E2E_BASE_URL is not set')
 /** The read-only server serving the author's publish directory (`scripts/e2e.sh`). */
 export const READER_URL = process.env.E2E_READER_URL ?? ''
 
+/** The static export of the tiny sample world, served from a subfolder (`scripts/e2e.sh`). */
+export const STATIC_URL = process.env.E2E_STATIC_URL ?? ''
+
 /**
  * Scrolls an entity page to its end, as a reader would, so its module panels render: they read
  * only once they come near the viewport (frontend.md §12).
