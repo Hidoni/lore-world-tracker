@@ -65,8 +65,7 @@ made: back up by hand before anything risky.
 Lore also backs a vault up, without media, before:
 
 - **upgrading its database** to a new app version (§6),
-- applying a calendar change that affects more than 100 records (`calendars.md` §6),
-- removing a module's data.
+- applying a calendar change that affects more than 100 records (`calendars.md` §6).
 
 These appear in the list as **Before a change**, except the pre-upgrade copy, which is a plain
 database file (`backups/auto/pre-migrate-….db`) rather than a zip.
