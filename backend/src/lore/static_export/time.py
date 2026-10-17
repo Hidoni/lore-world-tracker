@@ -89,7 +89,25 @@ class TimeExport:
             by_dimension[dimension] = await self.recorder.get(
                 route_with(route, {"dimension": dimension})
             )
-        files[f"{self.base}/static/correspondences"] = {"by_dimension": by_dimension}
+        # Mapping (``correspondences/map``) is computed in the browser with the TS engine, along
+        # the path the server takes for each pair (it doesn't depend on the moment).
+        dimensions = sorted(by_dimension)
+        paths = {}
+        for a in dimensions:
+            for b in dimensions:
+                query = {"from_dimension": a, "to_dimension": b, "t": "0"}
+                paths[f"{a}>{b}"] = (await self.recorder.get(route_with(f"{route}/map", query)))[
+                    "path"
+                ]
+        durations = {
+            d: (await self.recorder.get(f"{self.base}/entities/{d}"))["ext"]["duration"]
+            for d in dimensions
+        }
+        files[f"{self.base}/static/correspondences"] = {
+            "by_dimension": by_dimension,
+            "paths": paths,
+            "durations": durations,
+        }
         for item in listed["items"]:
             one = f"{route}/{item['id']}"
             files[one] = await self.recorder.get(one)

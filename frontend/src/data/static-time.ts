@@ -1,3 +1,5 @@
+import { compose, parseRational, validateCorrespondence, type Step } from '@lore/chronology'
+
 import type { components } from '@/api'
 
 import { NotInExport, StaticProblem, type Handler, type Load } from './static-core'
@@ -153,6 +155,75 @@ const correspondences: Handler = async (load, route, params, [vault = '']) => {
   return recorded.by_dimension[dimension] ?? { items: [] }
 }
 
+interface CorrespondenceFile {
+  by_dimension: Record<string, unknown>
+  paths: Record<string, string[]>
+  durations: Record<string, string>
+}
+
+/** A stored correspondence compiled with the TS engine (`null`: unresolved or invalid). */
+function compiled(row: Schemas['CorrespondenceOut']) {
+  const points: (readonly [bigint, bigint])[] = []
+  for (const point of row.points) {
+    if (point.a_t === null || point.b_t === null) return null
+    points.push([BigInt(point.a_t), BigInt(point.b_t)])
+  }
+  if (points.length === 0) return null
+  const rate = (value: Schemas['CorrespondenceOut']['rate_before']) =>
+    value === null ? null : parseRational(value.num, value.den)
+  try {
+    return validateCorrespondence(points, {
+      extrapolation: row.extrapolation,
+      rateBefore: rate(row.rate_before),
+      rateAfter: rate(row.rate_after),
+    })
+  } catch {
+    return null
+  }
+}
+
+/** `correspondences/map`: along the server's path for the pair, flooring at every step. */
+const mapMoment: Handler = async (load, _route, params, [vault = '']) => {
+  const from = params.get('from_dimension') ?? ''
+  const to = params.get('to_dimension') ?? ''
+  const at = params.get('t')
+  if (at === null) throw invalid('`t` is required.')
+  const file = (await load(`vaults/${vault}/static/correspondences`)) as CorrespondenceFile
+  const path = file.paths[`${from}>${to}`]
+  const source = file.durations[from]
+  if (path === undefined || source === undefined) throw notFound(`dimension ${from} or ${to}`)
+  const t = BigInt(at)
+  const answer = (result: bigint | null) => ({
+    from_dimension: from,
+    to_dimension: to,
+    t: at,
+    result_t: result === null ? null : String(result),
+    defined: result !== null,
+    path,
+  })
+  // Unconnected dimensions map to nothing (a dimension to itself maps to the same moment).
+  if (t < 0n || t > BigInt(source) || (path.length === 0 && from !== to)) return answer(null)
+  const steps: Step[] = []
+  let current = from
+  for (const id of path) {
+    const row = (await load(
+      `vaults/${vault}/m/correspondences/${id}`,
+    )) as Schemas['CorrespondenceOut']
+    const correspondence = compiled(row)
+    const forward = row.dimension_a_id === current
+    const next = forward ? row.dimension_b_id : row.dimension_a_id
+    const duration = file.durations[next]
+    if (correspondence === null || duration === undefined) return answer(null)
+    steps.push({
+      correspondence,
+      direction: forward ? 'ab' : 'ba',
+      targetDuration: BigInt(duration),
+    })
+    current = next
+  }
+  return answer(compose(steps, t))
+}
+
 async function worldline(load: Load, vault: string, entity: string): Promise<WorldlineFile> {
   return loadOr404<WorldlineFile>(
     load,
@@ -211,6 +282,7 @@ export const TIME_HANDLERS: readonly (readonly [RegExp, Handler])[] = [
   [new RegExp(`${V}/timelines/([^/]+)/causality$`), causality],
   [new RegExp(`${V}/m/branches/timelines/([^/]+)/diff$`), diff],
   [new RegExp(`${V}/m/branches/notes/([^/]+)/([^/]+)$`), note],
+  [new RegExp(`${V}/m/correspondences/map$`), mapMoment],
   [new RegExp(`${V}/m/correspondences$`), correspondences],
   [new RegExp(`${W}/segments$`), segments],
   [new RegExp(`${W}/personal-timeline$`), personalTimeline],

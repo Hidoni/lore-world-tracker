@@ -225,8 +225,26 @@ test('time reads answer like the read-only server', async ({ page, request }) =>
     }
   }
   routes.push(`${base}/m/correspondences`)
+  const syncMoments = new Set<bigint>([0n, 1n, 1_000_000n, 10n ** 12n])
   for (const c of (await get(`${base}/m/correspondences`)).items as Json[]) {
     routes.push(`${base}/m/correspondences/${c.id as string}`)
+    for (const point of c.points as Json[]) {
+      for (const key of ['a_t', 'b_t']) {
+        const t = point[key]
+        if (typeof t === 'string') for (const d of [-1n, 0n, 1n]) syncMoments.add(BigInt(t) + d)
+      }
+    }
+  }
+  // Mapping between every pair of dimensions, at the sync points and around them, past the end.
+  for (const from of dimensions) {
+    const ext = (await get(`${base}/entities/${from}`)).ext as Json
+    const duration = BigInt(ext.duration as string)
+    for (const to of dimensions) {
+      for (const t of [...syncMoments, duration, duration + 1n]) {
+        const query = `from_dimension=${from}&to_dimension=${to}&t=${t}`
+        if (t >= 0n) routes.push(`${base}/m/correspondences/map?${query}`)
+      }
+    }
   }
 
   // Event trees (every level, paged small), and the graph around each event at a few sizes.
