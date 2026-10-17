@@ -119,7 +119,7 @@ export function GeneralSettings({ vault }: { vault: string }) {
           </select>
         </div>
         <p className="text-xs text-muted-foreground">
-          The display calendar and time preferences arrive with the time UI (M5).
+          The display calendar is chosen in the top bar, with the dimension and the time cursor.
         </p>
       </Section>
     </div>

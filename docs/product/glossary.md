@@ -71,7 +71,7 @@ term, add it here in the same PR.
 | **Event** | Core entity occupying a span on one timeline. Has optional sub-events, causes/effects, participants and recurrence. |
 | **Sub-event** | An event whose parent is another event (or a materialized occurrence). |
 | **Causal link** | Directed `core.causes` link from a cause event to an effect event. |
-| **Importance** | Event level-of-detail priority 1 (minor) … 5 (epochal) used for timeline culling. |
+| **Importance** | Event level-of-detail priority 1 (minor) … 5 (major) used for timeline culling. |
 | **Recurrence rule / series** | A rule describing repeated occurrences of an event (calendar rule or fixed interval). The event carrying it is the **series**. |
 | **Occurrence** | One instance of a series, computed on demand; never stored in bulk. |
 | **Occurrence key** | Stable identifier of an occurrence: period index `k` (and sub-index `j` when a period has several), written `"k"` or `"k.j"`. |

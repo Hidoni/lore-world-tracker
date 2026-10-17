@@ -44,12 +44,20 @@
 [`worldlines`](modules/worldlines.md)
 
 ### Guides
+- [`guides/getting-started.md`](guides/getting-started.md): install, the first vault and dimension, finding your way around
+- [`guides/calendars.md`](guides/calendars.md): calendars as lenses, the calendar editor, editing safely with impact previews
+- [`guides/events-and-recurrence.md`](guides/events-and-recurrence.md): events, dates, anchors, sub-events, causes, recurrence, the timeline
+- [`guides/temporal-state.md`](guides/temporal-state.md): the time cursor, existence, validity periods, consistency findings
+- [`guides/advanced-time.md`](guides/advanced-time.md): alternate timelines, correspondences between dimensions, time travelers
+- [`guides/modules.md`](guides/modules.md): what each module adds, graphs, maps, custom kinds and fields
 - [`guides/sharing.md`](guides/sharing.md): share a world with readers: visibility, preview, publish, the reader instance
+- [`guides/backups.md`](guides/backups.md): back up, restore, upgrade, keep a vault healthy
 
 ### Decisions
 - [`adr/README.md`](adr/README.md): architecture decision records
 
 ### Plan
 - [`plan/roadmap.md`](plan/roadmap.md): milestones, dependency graph, issue index
+- [`plan/mvp-traceability.md`](plan/mvp-traceability.md): the MVP definition and every requirement, traced to their issues
 - [`plan/workflow.md`](plan/workflow.md): agent workflow and definition of done
 - [`plan/planning-log.md`](plan/planning-log.md): how the plan was made, product-owner decisions

@@ -21,6 +21,7 @@ import {
   useCreateVault,
   useDeleteVault,
   useMeta,
+  useMigrateVault,
   useRenameVault,
   useVaults,
   type Vault,
@@ -33,6 +34,27 @@ const STATE_LABELS: Partial<Record<Vault['schema_status']['state'], string>> = {
   newer_than_app: 'Newer than this app',
   migration_failed: 'Migration failed',
   database_unreadable: 'Unreadable',
+}
+
+/** Upgrades a vault that waits for it (`LORE_AUTO_MIGRATE=false`); a backup is taken first. */
+function MigrateButton({ vault }: { vault: Vault }) {
+  const migrate = useMigrateVault()
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={migrate.isPending}
+      onClick={() => {
+        migrate.mutate(vault.id, {
+          onSuccess: () => {
+            toast.success(`${vault.name} is up to date`)
+          },
+        })
+      }}
+    >
+      {migrate.isPending ? 'Migrating…' : 'Migrate'}
+    </Button>
+  )
 }
 
 type FormSubmit = NonNullable<ComponentProps<'form'>['onSubmit']>
@@ -252,6 +274,7 @@ export function VaultPicker({ pick }: { pick: boolean }) {
                   </span>
                 </div>
                 {state !== undefined && <Badge variant="secondary">{state}</Badge>}
+                {vault.schema_status.state === 'needs_migration' && <MigrateButton vault={vault} />}
                 <Button
                   variant="ghost"
                   size="icon"

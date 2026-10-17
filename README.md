@@ -5,11 +5,12 @@ tracked time**. Define dimensions with their own time flow (from inception to he
 interpret it through any number of calendars (as strange as your world needs), place events with
 causes, effects, sub-events and recurrences, and connect characters, locations, species, groups,
 languages and anything else into an explorable compendium. Timeline, graph, maps, alternate
-timelines, time travelers and read-only sharing are all part of the plan.
+timelines, time travelers and read-only sharing are all there.
 
-> **Status:** planning complete (October 2026), implementation in progress via the
-> [issue backlog](https://github.com/Hidoni/lore-world-tracker/issues) and
-> [milestones](https://github.com/Hidoni/lore-world-tracker/milestones).
+> **Status:** the MVP (milestones M0–M12) is implemented; see the
+> [changelog](CHANGELOG.md) and the [traceability](docs/plan/mvp-traceability.md) of every
+> requirement. Post-MVP work lives in the
+> [M13 backlog](https://github.com/Hidoni/lore-world-tracker/milestones).
 
 ## Highlights (MVP scope)
 
@@ -43,4 +44,5 @@ make setup && make dev          # backend :8000, frontend :5173
 
 ## Documentation
 
-Start at [`docs/README.md`](docs/README.md). AI agents: read [`CLAUDE.md`](CLAUDE.md) first.
+New here? Read the [user guide](docs/guides/getting-started.md). Everything else starts at
+[`docs/README.md`](docs/README.md). AI agents: read [`CLAUDE.md`](CLAUDE.md) first.

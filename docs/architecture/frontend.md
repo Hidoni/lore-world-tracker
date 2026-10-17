@@ -918,8 +918,7 @@ Authoring, hierarchy, filters (`core/timeline/`, #83):
 
 ### 9.4 Interaction
 
-Wheel zoom at the cursor, drag to pan, `+`/`-` zoom, `Home` fits the whole dimension, `F` fits
-the selection, `G` goes to a date (TimePointPicker). Click selects (preview in the right panel),
+Wheel zoom at the cursor, drag to pan, `+`/`-` zoom, `Home` fits the whole dimension, `G` goes to a date (TimePointPicker). Click selects (preview in the right panel),
 double-click opens the page. Double-click on empty space creates an event there, with precision
 chosen from the zoom level. Dragging an event's body or edges edits absolute/calendar anchors
 (snapping to tick units). Relative-anchored items show a lock and offer to edit the offset
