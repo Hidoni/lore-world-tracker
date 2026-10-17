@@ -62,7 +62,7 @@ test('keyboard only: create a dimension, find and rename an entity, timeline, ou
   await tabTo(page, wizard.getByRole('button', { name: '10,000 years' }))
   await page.keyboard.press('Enter')
   await next()
-  const preset = wizard.getByLabel('Preset')
+  const preset = wizard.getByLabel('Preset', { exact: true })
   await tabTo(page, preset)
   await preset.press('G') // a native select picks the option starting with the letter
   await expect(wizard.getByRole('region', { name: 'Preview' })).toContainText('1 January AD 1')
