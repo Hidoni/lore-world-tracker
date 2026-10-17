@@ -208,19 +208,24 @@ def test_open_vaults_are_optimized_daily(client: TestClient, world: Any) -> None
 
 
 def test_the_daily_optimize_skips_read_only_servers_and_logs_failures(
-    tmp_path: Path, client: TestClient, world: Any, caplog: pytest.LogCaptureFixture
+    tmp_path: Path,
+    client: TestClient,
+    world: Any,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     api, _anvil, _forge = world
     assert VaultManager(tmp_path, read_only=True).run_scheduled_optimize() == []
     manager = manager_of(client)
-    opened = manager.open(api.vault)
-    opened.engine.dispose()
-    opened.info.database_path.chmod(0o000)
-    try:
-        later = datetime.now(UTC) + timedelta(days=2)
-        assert manager.run_scheduled_optimize(later) == []
-    finally:
-        opened.info.database_path.chmod(0o644)
+    manager.open(api.vault)
+
+    def fail(*_args: object) -> None:
+        raise sqlite3.OperationalError("unable to open database file")
+
+    # Raise rather than chmod the file: root ignores file permissions.
+    monkeypatch.setattr("lore.core.vaults.manager.optimize", fail)
+    later = datetime.now(UTC) + timedelta(days=2)
+    assert manager.run_scheduled_optimize(later) == []
     assert "PRAGMA optimize failed" in caplog.text
 
 
