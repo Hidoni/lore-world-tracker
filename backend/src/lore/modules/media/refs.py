@@ -114,11 +114,15 @@ class Refs:
         if entity.cover_media_id:
             add([(entity.cover_media_id, "public")], "cover")
         if gallery is None:
-            gallery = self.session.execute(
-                select(MediaGalleryItem.media_id, MediaGalleryItem.visibility).where(
-                    MediaGalleryItem.entity_id == entity.id, MediaGalleryItem.deleted_at.is_(None)
+            gallery = [
+                (media_id, level)
+                for media_id, level in self.session.execute(
+                    select(MediaGalleryItem.media_id, MediaGalleryItem.visibility).where(
+                        MediaGalleryItem.entity_id == entity.id,
+                        MediaGalleryItem.deleted_at.is_(None),
+                    )
                 )
-            ).tuples()
+            ]
         add(gallery, "gallery")
         return found
 
