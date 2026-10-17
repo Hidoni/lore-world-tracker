@@ -15,6 +15,7 @@ Downloads (``file``) are copied under ``static/files/`` and listed in ``static/f
 route and query), so the app links to the copies.
 """
 
+import asyncio
 import json
 import mimetypes
 from collections.abc import Iterable, Sequence
@@ -87,11 +88,10 @@ class ModuleExport:
         timeline), ``events`` the moments around each event's start and end."""
         self.summaries = summaries
         self.timelines = timelines
-        # An entity's reads change where its facts and links do, and where it happens (an
-        # event: a map pin of an event is shown while it happens).
-        self.by_entity: dict[tuple[str, str], set[int]] = {}
-        for key, found in [*moments.items(), *events.items()]:
-            self.by_entity.setdefault(key, set()).update(found)
+        # An entity's reads change where its facts and links do; reads showing events while
+        # they happen (``event_moments``: map pins) also around each event's start and end.
+        self.by_entity = moments
+        self.events = events
         self.moments: dict[str, list[int]] = {}
         for (_entity, timeline), found in moments.items():
             self.moments.setdefault(timeline, []).extend(found)
@@ -128,17 +128,25 @@ class ModuleExport:
         ]
 
     async def _read(self, module: str, read: StaticRead) -> None:
-        for entity_id in self._entity_ids(module, read):
-            path = read.path.replace("{id}", entity_id or "")
-            route = f"m/{module}/{path}"
-            for variant in read.variants:
-                dimensions = [None, *self.dimensions] if read.dimension else [None]
-                for dimension in dimensions:
-                    pairs = _fill(variant, entity_id)
-                    if dimension is not None:
-                        pairs += (("dimension", dimension),)
-                    if not await self._one(module, read, route, pairs, entity_id):
-                        return  # the module is off in this vault
+        ids = self._entity_ids(module, read)
+        if not read.file:  # reads files in the declared order, whatever finishes first
+            for entity_id in ids:
+                self.reads.setdefault(
+                    f"m/{module}/{read.path.replace('{id}', entity_id or '')}", _File()
+                )
+        await asyncio.gather(*(self._read_one(module, read, entity_id) for entity_id in ids))
+
+    async def _read_one(self, module: str, read: StaticRead, entity_id: str | None) -> None:
+        path = read.path.replace("{id}", entity_id or "")
+        route = f"m/{module}/{path}"
+        for variant in read.variants:
+            dimensions = [None, *self.dimensions] if read.dimension else [None]
+            for dimension in dimensions:
+                pairs = _fill(variant, entity_id)
+                if dimension is not None:
+                    pairs += (("dimension", dimension),)
+                if not await self._one(module, read, route, pairs, entity_id):
+                    return  # the module is off in this vault
 
     async def _get(self, route: str, pairs: Pairs) -> tuple[int, Any]:
         return await self.recorder.answer(self._route(route, pairs))
@@ -184,16 +192,21 @@ class ModuleExport:
             if not read.as_of or status != OK:
                 continue
             answers = []
-            for moment in self._moments_of(timeline.id, entity_id, answer):
+            for moment in self._moments_of(read, timeline.id, entity_id, answer):
                 status, answer = await self._get(route, (*in_timeline, ("at", str(moment))))
                 answers.append((moment, answer if status == OK else {PROBLEM: answer}))
             recorded.as_of[query_key(in_timeline)] = intervals(answers)
         return True
 
-    def _moments_of(self, timeline_id: str, entity_id: str | None, answer: Any) -> list[int]:
+    def _moments_of(
+        self, read: StaticRead, timeline_id: str, entity_id: str | None, answer: Any
+    ) -> list[int]:
         """Where an as-of read can change: the bounds of the facts and links of the entities it
         names in the timeline (its answer without ``at`` names every one it can show), or of
-        all of them for a read about no entity, and the moments it names itself."""
+        all of them for a read about no entity, and the moments it names itself. Only reads
+        declaring ``event_moments`` add the moments around named events' starts and ends: on a
+        world of many events, a read naming a hundred of them would otherwise be recorded at
+        hundreds of moments."""
         # The moments the answer names (a pin's validity: module rows have their own).
         found = {0, *(m for t in _moments(answer) for m in (t - 1, t, t + 1) if m >= 0)}
         if entity_id is None:
@@ -201,6 +214,8 @@ class ModuleExport:
         named = {entity_id, *(i for i in _strings(answer) if i in self.summaries)}
         for named_id in named:
             found.update(self.by_entity.get((named_id, timeline_id), []))
+            if read.event_moments:
+                found.update(self.events.get((named_id, timeline_id), set()))
         return sorted(found)
 
     def _collect(self, module: str, path: str, items: list[Any]) -> None:

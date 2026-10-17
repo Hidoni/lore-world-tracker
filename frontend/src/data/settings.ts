@@ -55,6 +55,18 @@ export function usePublish(vault: string) {
   })
 }
 
+/** Exports the latest snapshot as a static site into the publish directory (§8). */
+export function useExportStaticSite(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => mutations.exportStaticSite(vault),
+    onSuccess: (status) => {
+      client.setQueryData(keys.publish(vault), status)
+    },
+  })
+}
+
 /** Where a backup's zip downloads from (same origin; author-only). */
 export function backupDownloadUrl(vault: string, id: string): string {
   return `/api/v1/vaults/${encodeURIComponent(vault)}/backups/${encodeURIComponent(id)}/download`

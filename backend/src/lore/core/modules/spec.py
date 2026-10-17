@@ -80,9 +80,10 @@ class StaticRead:
     another recorded read (``ids_from``: its path, items under ``items``). ``dimension`` adds
     each dimension (``dimension=``); ``timeline`` each timeline the entity can be seen in
     (``timeline=``); ``as_of`` also each moment as-of answers can change there (``timeline`` and
-    ``at``). A ``paged`` read is recorded whole (every page at the largest ``limit``) for the
-    browser to filter and page. A ``file`` read is a download (a media file, a CSV), copied as
-    it is."""
+    ``at``); ``event_moments``: it shows events only while they happen (a map's pins of
+    events), so it changes around their starts and ends too. A ``paged`` read is recorded whole
+    (every page at the largest ``limit``) for the browser to filter and page. A ``file`` read
+    is a download (a media file, a CSV), copied as it is."""
 
     path: str
     kind: str | None = None
@@ -93,6 +94,7 @@ class StaticRead:
     as_of: bool = False
     paged: int | None = None
     file: bool = False
+    event_moments: bool = False
 
 
 @dataclass(frozen=True)

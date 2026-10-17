@@ -13,6 +13,7 @@
 Timeline windows and series occurrences are computed in the browser from `windows.py`'s files.
 """
 
+import asyncio
 from typing import Any
 
 from lore.static_export.asgi import Recorder, route_with
@@ -51,13 +52,14 @@ class TimeExport:
                 route = f"{self.base}/m/branches/timelines/{timeline.id}/diff"
                 files[route] = await get(route_with(route, {"limit": DIFF_LIMIT}))
         files.update(await self._correspondences(timelines))
-        for entity_id in entities:
-            worldline = await self._worldline(entity_id, timelines, moments)
+        ids = list(entities)
+        worldlines = await asyncio.gather(*(self._worldline(e, timelines, moments) for e in ids))
+        notes = await asyncio.gather(*(self._notes(e, timelines) for e in ids))
+        for entity_id, worldline, note in zip(ids, worldlines, notes, strict=True):
             if worldline:
                 files[f"{self.base}/static/worldlines/{entity_id}"] = worldline
-            notes = await self._notes(entity_id, timelines)
-            if notes:
-                files[f"{self.base}/static/notes/{entity_id}"] = notes
+            if note:
+                files[f"{self.base}/static/notes/{entity_id}"] = note
         return files
 
     async def _timeline(self, timeline: TimelineInfo) -> dict[str, Any]:
@@ -72,11 +74,18 @@ class TimeExport:
             tree[parent or ""] = items
             pending += [item["id"] for item in items if item["has_children"]]
         events = [item["id"] for items in tree.values() for item in items]
-        causality = {}
-        for event in events:
-            params = {"event": event, "depth": CAUSALITY_DEPTH, "limit": CAUSALITY_LIMIT}
-            causality[event] = await self.recorder.get(route_with(f"{route}/causality", params))
-        return {"event_tree": tree, "causality": causality}
+        graphs = await asyncio.gather(
+            *(
+                self.recorder.get(
+                    route_with(
+                        f"{route}/causality",
+                        {"event": event, "depth": CAUSALITY_DEPTH, "limit": CAUSALITY_LIMIT},
+                    )
+                )
+                for event in events
+            )
+        )
+        return {"event_tree": tree, "causality": dict(zip(events, graphs, strict=True))}
 
     async def _correspondences(self, timelines: dict[str, TimelineInfo]) -> dict[str, Any]:
         route = f"{self.base}/m/correspondences"

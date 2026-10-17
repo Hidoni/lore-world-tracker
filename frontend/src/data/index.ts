@@ -120,6 +120,7 @@ export {
   useCreateBackup,
   useCreateLinkType,
   useDeleteLinkType,
+  useExportStaticSite,
   usePublish,
   usePublishStatus,
   useRestoreBackup,

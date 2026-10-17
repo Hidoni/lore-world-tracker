@@ -89,7 +89,13 @@ def test_publishing_from_the_settings(tmp_path: Path) -> None:
         api = Api(client)
         shown, hidden = _world(api)
         status = client.get(f"{api.base}/publish").json()
-        assert status == {"available": True, "published_at": None}
+        assert status == {
+            "available": True,
+            "published_at": None,
+            "static_available": False,
+            "static_exported_at": None,
+            "static_path": None,
+        }
         assert client.get(f"{api.base}/publish", params={"as_reader": True}).status_code == 404
         made = client.post(f"{api.base}/publish", headers=HEADERS)
         assert made.status_code == 200, made.json()
@@ -115,9 +121,62 @@ def test_publishing_needs_a_publish_directory(tmp_path: Path) -> None:
         assert client.get(f"{api.base}/publish").json() == {
             "available": False,
             "published_at": None,
+            "static_available": False,
+            "static_exported_at": None,
+            "static_path": None,
         }
         refused = client.post(f"{api.base}/publish", headers=HEADERS)
         assert (refused.status_code, refused.json()["code"]) == (409, "publish_not_configured")
+        refused = client.post(f"{api.base}/publish/static", headers=HEADERS)
+        assert refused.status_code == 409
+        assert refused.json()["code"] == "static_export_not_configured"
+
+
+SPA = """<!doctype html>
+<html lang="en">
+  <head><base href="/" /><title>Lore World Tracker</title></head>
+  <body><div id="root"></div><script type="module" src="./assets/index.js"></script></body>
+</html>
+"""
+
+
+def test_exporting_the_static_site_from_the_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LORE_EXPORT_WORKERS", "1")  # (in-process: no pool for three entities)
+    spa = tmp_path / "spa"
+    (spa / "assets").mkdir(parents=True)
+    (spa / "index.html").write_text(SPA)
+    (spa / "assets" / "index.js").write_text("console.log('app')\n")
+    out = tmp_path / "share"
+    settings = {"publish_dir": out, "static_dir": spa}
+    with make_client(tmp_path / "data", with_real_modules(), **settings) as client:
+        api = Api(client)
+        _world(api)
+        status = client.get(f"{api.base}/publish").json()
+        assert (status["static_available"], status["static_exported_at"]) == (True, None)
+        refused = client.post(f"{api.base}/publish/static", headers=HEADERS)
+        assert (refused.status_code, refused.json()["code"]) == (409, "static_export_failed")
+        assert client.post(f"{api.base}/publish", headers=HEADERS).status_code == 200
+        reader = client.post(f"{api.base}/publish/static", params={"as_reader": True})
+        assert reader.status_code == 404
+        made = client.post(f"{api.base}/publish/static", headers=HEADERS)
+        assert made.status_code == 200, made.json()
+        site = Path(made.json()["static_path"])
+        assert made.json()["static_exported_at"] is not None
+        assert site.parent == out / "static"
+        assert (site / "index.html").is_file()
+        text = "".join(p.read_text(errors="replace") for p in _files(site) if p.is_file())
+        assert "Shown" in text
+        assert "Hidden secret" not in text
+        # Exporting again replaces the site, with nothing left over beside it.
+        api.make("misc", "Later")
+        client.post(f"{api.base}/publish", headers=HEADERS)
+        again = client.post(f"{api.base}/publish/static", headers=HEADERS)
+        assert again.status_code == 200, again.json()
+        assert [p.name for p in (out / "static").iterdir()] == [site.name]
+        assert "Later" in "".join(p.read_text(errors="replace") for p in _files(site))
+        assert client.get(f"{api.base}/publish").json()["static_path"] == str(site)
 
 
 def test_the_leak_gate_refuses_a_snapshot_with_private_data(
