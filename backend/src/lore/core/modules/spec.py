@@ -34,6 +34,7 @@ from lore.core.visibility.filters import VisibilityFilter
 if TYPE_CHECKING:
     from lore.core.history.recorder import RecordedChange
     from lore.core.maintenance.checks import DerivedDataCheck
+    from lore.core.markdown.export import MarkdownExport
     from lore.core.modules.registry import ModuleRegistry
     from lore.core.search.documents import SearchContributor
     from lore.core.time.slots import SlotProvider
@@ -46,6 +47,9 @@ type BackupContributor = object
 # Sanitizes a module's part of a published snapshot and copies its files (media), given the
 # snapshot's session and the source and target vault folders (``lore.core.vaults.publish``).
 type PublishContributor = Callable[["PublishContext"], None]
+# Adds a module's part to a Markdown export (``lore.core.markdown.export``): files (media) and how
+# its rich-text nodes, field types and covers render. Runs before any note is written.
+type MarkdownContributor = Callable[["MarkdownExport"], None]
 # Rebuilds a module's derived rows from the changes a changeset is about to record (``media_refs``
 # from bodies, fields and covers); runs before the consistency check, undo included. Raising a
 # typed error refuses the write.
@@ -100,6 +104,7 @@ class ModuleSpec:
     richtext_nodes: tuple[RichTextNodeHandler, ...] = ()
     backup_contributors: tuple[BackupContributor, ...] = ()
     publish_contributors: tuple[PublishContributor, ...] = ()
+    markdown_contributors: tuple[MarkdownContributor, ...] = ()  # Markdown export (media files)
     kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()  # rebuild derived rows on every changeset

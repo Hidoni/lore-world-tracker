@@ -213,6 +213,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/export/markdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Markdown Export
+         * @description The vault as a zip of Markdown notes for Obsidian and other Markdown tools: one note per
+         *     entity with wikilinks, properties (fields, aliases, tags, dates in every calendar), facts,
+         *     links and media files.
+         */
+        get: operations["export_markdown_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/registry": {
         parameters: {
             query?: never;
@@ -2472,6 +2494,8 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
         };
         Anchor: components["schemas"]["AbsoluteAnchor"] | components["schemas"]["CalendarAnchor"] | components["schemas"]["RelativeAnchor"];
+        /** @enum {string} */
+        Audience: "readers" | "author";
         /**
          * Backlink
          * @description One entity pointing at this one: its incoming links and its mentions.
@@ -8177,6 +8201,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublishStatus"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_markdown_export: {
+        parameters: {
+            query?: {
+                /** @description `readers`: what readers see (no private data); `author`: everything. */
+                audience?: components["schemas"]["Audience"];
+                /** @description Calendars to show dates in first (per dimension, the first of its calendars listed; by default its default calendar). */
+                calendar?: string[] | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
             /** @description Problem */

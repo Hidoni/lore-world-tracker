@@ -16,6 +16,13 @@ All notable changes to this project are documented here. The format follows
 - The dimension wizard's first calendar can be a **Custom calendar**, designed in the calendar
   editor inside the wizard, blank or from a preset, instead of a preset as is (#379).
 
+- **Markdown / Obsidian export** (#148): Settings → Publishing → Export as Markdown, or
+  `lore vault export-markdown <vault> --out <dir>`, writes the vault as Markdown notes for
+  Obsidian and other Markdown tools: one note per entity with `[[wikilinks]]`, its fields,
+  aliases, tags and dates in every calendar as properties, its text, facts and links, and the
+  media files. The readers' export holds only what readers see; "everything" includes private
+  content.
+
 ### Fixed
 
 - **Vault picker for readers** (#373): a read-only server no longer shows the create, rename,

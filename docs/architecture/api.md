@@ -52,6 +52,7 @@
 | GET | `/vaults/{v}/backups/{id}/download` | download the zip (author-only; `404 backup_not_found`) |
 | POST | `/vaults/restore` | restore a backup zip (multipart `file`) into a new vault → `201 Vault`; `422 invalid_backup`, `409 vault_newer_than_app` |
 | GET | `/vaults/{v}/publish` | `{available, published_at}`: whether `LORE_PUBLISH_DIR` is set, and when the vault's snapshot there was published (null: none). Author-only: readers get `404` |
+| GET | `/vaults/{v}/export/markdown` | the vault as a zip of Markdown notes (`markdown-export.md`): `audience=readers` (default; what readers see) or `author` (everything), `calendar` (repeatable: calendars to show dates in first). Author-only: readers get `404` |
 | POST | `/vaults/{v}/publish` | write a published snapshot into `LORE_PUBLISH_DIR`, replacing the previous one (author mode; `visibility-and-sharing.md` §4) → `200 {available, published_at}`; `409 publish_not_configured` without a publish directory, `409 publish_failed` when the leak gate finds private data (`context.problems`; nothing is written). Opening a published snapshot on an author server → `409 vault_published` |
 
 ### Entities (generic, all kinds)

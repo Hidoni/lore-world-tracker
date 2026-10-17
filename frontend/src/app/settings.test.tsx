@@ -243,6 +243,19 @@ describe('publishing settings', () => {
     expect(await screen.findByText(/Publishing isn’t set up/)).toHaveTextContent('LORE_PUBLISH_DIR')
     expect(screen.queryByRole('button', { name: 'Publish snapshot' })).not.toBeInTheDocument()
   })
+
+  it('links the Markdown exports', async () => {
+    serveVault()
+    await renderApp('/v/v1/settings/publishing')
+    expect(await screen.findByRole('link', { name: 'Download readers’ view' })).toHaveAttribute(
+      'href',
+      '/api/v1/vaults/v1/export/markdown?audience=readers',
+    )
+    expect(screen.getByRole('link', { name: 'Download everything' })).toHaveAttribute(
+      'href',
+      '/api/v1/vaults/v1/export/markdown?audience=author',
+    )
+  })
 })
 
 describe('module settings pages', () => {

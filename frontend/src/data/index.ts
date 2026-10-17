@@ -114,6 +114,7 @@ export type {
 } from './source'
 export {
   backupDownloadUrl,
+  markdownExportUrl,
   useBackups,
   useCreateBackup,
   useCreateLinkType,

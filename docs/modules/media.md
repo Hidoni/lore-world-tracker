@@ -49,6 +49,10 @@ regenerable.
 - **Entity header:** cover/portrait image (frontend extension `entityHeaderMedia`).
 - **Maps** module uses `media.api.reference(media_id, entity_id, "map")`.
 - `media_refs` is rebuilt whenever an owning context is saved.
+- **Markdown export** (`markdown_contributors`, `lore.modules.media.markdown`): the files of the
+  items the export's audience may see are copied to `_media/<uploaded name>`; images, `media`
+  fields and covers embed them (`![[_media/<file>]]`), an image of an item not exported shows its
+  alt text (`markdown-export.md` §5).
 - **GC:** media without refs and not in any gallery for 30 days are moved to trash by a daily
   job, and purged from trash after another 30 days (configurable). Never purge without trash.
 

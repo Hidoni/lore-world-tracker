@@ -37,6 +37,7 @@ from lore.core.facts import router as facts_router
 from lore.core.history import router as history_router
 from lore.core.links import router as links_router
 from lore.core.logging import configure_logging
+from lore.core.markdown import router as markdown_router
 from lore.core.models import load_metadata
 from lore.core.modules import ModuleRegistry, ModuleSpec
 from lore.core.modules import router as modules_router
@@ -111,6 +112,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(vaults_router.router)
     api.include_router(backups_router.settings_router)
     api.include_router(publish_router.router)
+    api.include_router(markdown_router.router)
     api.include_router(modules_router.router)
     api.include_router(entities_router.router)
     api.include_router(entities_router.tree_router)
