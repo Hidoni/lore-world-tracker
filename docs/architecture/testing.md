@@ -165,7 +165,7 @@ machine.
 | Full consistency scan (50,358 findings)                                   | > 15 min (stopped)                       | 7.9 s (9–10.7 s on a busy machine)                                     | < 10 s                 | met                              |
 | Enabling `core.event.duplicate_name_same_time`                            | about 28 min                             | 0.6–0.9 s                                                              | –                      |                                  |
 | Writing an event / a link (the generator, per write)                      | 18 / 9.6 ms                              | 14–27 / 1.2 ms                                                         | –                      |                                  |
-| Building `large` (`make_sample_vault.py`)                                 | 2 h 05 min (45 min events, 80 min links) | 46 min (35.5 min events, 10.3 min links; the test suite ran beside it) | about 20 min before M3 | missed: the event service (#241) |
+| Building `large` (`make_sample_vault.py`)                                 | 2 h 05 min (45 min events, 80 min links) | 46 min (35.5 min events, 10.3 min links; the test suite ran beside it) | about 40 min (decided 2026-10-17, #241; was about 20 min) | met after #367 (about 35–40 min) |
 | Starting the app on `large`, to its first window                          | "10 min"                                 | 1.5 s                                                                  | < 10 s                 | met (it always was, see below)   |
 
 What the numbers rest on, and what is left:
@@ -214,7 +214,9 @@ What the numbers rest on, and what is left:
   100k events as in an empty vault (`test_writes_cost_the_same_in_a_large_vault`). #241 (a first pass, 2026-10-17): media refs are rebuilt in sets of entities, and bulk writers
   create through `EntityService.insert` (no response read back): 19 → 15 ms per event in a
   500-event transaction on this pass's machine. The rest is about 40 statements per event across
-  propagation, indexing, mentions and history; how far to go is #241's decision.
+  propagation, indexing, mentions and history; decided 2026-10-17 (#241): the target for building `large` is about 40 minutes on the reference
+  machine (`large` is built once and cached; API writes are unaffected). A bulk write mode for the
+  event service is left for post-MVP, should bulk imports become a feature.
 
 #### The final pass (#144, 2026-10-16)
 
