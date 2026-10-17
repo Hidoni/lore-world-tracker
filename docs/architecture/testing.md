@@ -106,6 +106,7 @@ Measured on the `large` sample vault on a typical dev laptop:
 | `GET /timelines/{id}/window`: cold whole-dimension zoom-out over 100k events (decided 2026-10-07; repeats are served from the window cache)                                 | < 500 ms                                        |
 | Entity page API calls (entity + links + backlinks; `test_entity_pages_and_search`)                                                                                         | < 300 ms total                                  |
 | Search (`/search`, `/search/quick`; `test_entity_pages_and_search`)                                                                                                         | < 100 ms                                        |
+| Search for a term in most of the vault ("the"; ranking scores every match. Decided 2026-10-17, #362; `test_search_perf.py`, `test_entity_pages_and_search`) | < 300 ms |
 | Calendar proposal over 10k dependent records (preview, and apply; `tests/time/test_proposals_perf.py`)                                                                      | < 5 s each                                      |
 | Calendar proposal apply on a large vault (the `large` sample world: 23k dependents, 1.6 GB; it backs the whole vault up first. Decided 2026-10-10; the preview stays < 5 s) | < 30 s                                          |
 | Full consistency scan (100k events; `tests/consistency/test_consistency_perf.py`)                                                                                           | < 10 s                                          |
@@ -232,7 +233,7 @@ scan takes 1.27 s (0.8 there), and a cold window over 1/10 of the bulk 160 ms (9
 | Window, cached                                                            | 10–43 ms                                   |                       | < 150 ms    | met                |
 | Entity page API calls (entity + links + backlinks), author / reader       | 115–137 / 241–304 ms                       | 72–86 / 150–190 ms    | < 300 ms    | met                |
 | Search, rarer words / quick switcher (author and reader)                  | 19–22 / 12–27 ms                           |                       | < 100 ms    | met                |
-| Search, a word in nearly every document ("the"), author / reader          | 215 / 306 ms                               | 134 / 191 ms          | < 100 ms    | missed: #362       |
+| Search, a word in nearly every document ("the"), author / reader          | 215 / 306 ms                               | 134 / 191 ms          | < 300 ms    | met (budget decided in #362) |
 | Calendar proposal over 22,989 dependents: preview / apply                 | 7.1 / 43.9 s                               | 4.4 / 27 s            | < 5 / 30 s  | met                |
 | Full consistency scan                                                     | 18.7 s (22.0 before #144)                  | about 11.7 s          | < 10 s      | missed: #361       |
 | Event tree roots (the sidebar's Events, every full load)                  | 0.13 s (1.3 s before #144)                 |                       | –           |                    |

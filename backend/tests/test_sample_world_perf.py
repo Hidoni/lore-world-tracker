@@ -121,6 +121,8 @@ def test_windows(world: World) -> None:
 
 ENTITY_PAGE_BUDGET_MS = 300.0
 SEARCH_BUDGET_MS = 100.0
+# A word in nearly every document: ranking scores every match (#362).
+BROAD_SEARCH_BUDGET_MS = 300.0
 
 
 def test_entity_pages_and_search(world: World) -> None:
@@ -150,10 +152,11 @@ def test_entity_pages_and_search(world: World) -> None:
            ENTITY_PAGE_BUDGET_MS)
           for name, e in (("character", character), ("dimension", dimension), ("bulk event", bulk))
           for reader in ({}, {"as_reader": True})),
-        *((f"{label}{' (reader)' if reader else ''}", search(path, q, **reader), SEARCH_BUDGET_MS)
-          for label, path, q in (("search", "/search", "ley lines"),
-                                 ("search, common word", "/search", "the"),
-                                 ("quick", "/search/quick", "Ils"))
+        *((f"{label}{' (reader)' if reader else ''}", search(path, q, **reader), limit)
+          for label, path, q, limit in (
+              ("search", "/search", "ley lines", SEARCH_BUDGET_MS),
+              ("search, common word", "/search", "the", BROAD_SEARCH_BUDGET_MS),
+              ("quick", "/search/quick", "Ils", SEARCH_BUDGET_MS))
           for reader in ({}, {"as_reader": True})),
     ]  # fmt: skip
     results = {label: (_p95_ms(call), limit) for label, call, limit in budgets}
