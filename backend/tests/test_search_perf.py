@@ -1,5 +1,7 @@
-"""Search performance budget (``testing.md`` §4): ``/search`` and ``/search/quick`` < 100 ms (p95)
-over 100k entities. Marked ``perf`` (nightly, or ``pytest -m perf``)."""
+"""Search performance budgets (``testing.md`` §4) over 100k entities: ``/search`` and
+``/search/quick`` < 100 ms (p95), and < 300 ms for terms in most of the documents (#362: ranking
+scores every match). Each word of ``WORDS`` is in about 80% of the bodies here; ``RARE`` is in 1%.
+Marked ``perf`` (nightly, or ``pytest -m perf``)."""
 
 import random
 import time
@@ -20,6 +22,8 @@ from tests.entity_api import HEADERS, Api, new_app
 
 ENTITIES = 100_000
 BUDGET_MS = 100.0
+BROAD_BUDGET_MS = 300.0
+RARE, RARE_SHARE = "lantern", 0.01
 RUNS = 20
 SYLLABLES = [
     "ar",
@@ -102,12 +106,15 @@ def test_search_over_100k_entities(tmp_path: Path) -> None:
                 rows = []
                 for _ in range(min(5000, ENTITIES - start)):
                     name = _name(rng)
+                    text = _text(rng, 60)
+                    if rng.random() < RARE_SHARE:
+                        text = f"{text} {RARE}"
                     body = {
                         "type": "doc",
                         "content": [
                             {
                                 "type": "paragraph",
-                                "content": [{"type": "text", "text": _text(rng, 60)}],
+                                "content": [{"type": "text", "text": text}],
                             }
                         ],
                     }
@@ -143,18 +150,21 @@ def test_search_over_100k_entities(tmp_path: Path) -> None:
 
             return call
 
+        broad, rare = BROAD_BUDGET_MS, BUDGET_MS
         cases = {
-            "common word": get("/search", q="river"),
-            "two words": get("/search", q="storm king"),
-            "short prefix": get("/search", q="ar"),
-            "phrase": get("/search", q='"shadow forest"'),
-            "or + exclusion": get("/search", q="(wolf OR frost) -sea"),
-            "page 3": get("/search", q="ember", cursor="eyJvZmZzZXQiOiAxMDB9"),
-            "quick prefix": get("/search/quick", q="kar"),
-            "quick substring": get("/search/quick", q="hall"),
+            "rare word": (get("/search", q=RARE), rare),
+            "rare word + common word": (get("/search", q=f"{RARE} river"), rare),
+            "common word": (get("/search", q="river"), broad),
+            "two words": (get("/search", q="storm king"), broad),
+            "short prefix": (get("/search", q="ar"), broad),
+            "phrase": (get("/search", q='"shadow forest"'), broad),
+            "or + exclusion": (get("/search", q="(wolf OR frost) -sea"), broad),
+            "page 3": (get("/search", q="ember", cursor="eyJvZmZzZXQiOiAxMDB9"), broad),
+            "quick prefix": (get("/search/quick", q="kar"), rare),
+            "quick substring": (get("/search/quick", q="hall"), rare),
         }
-        results = {label: _p95_ms(call) for label, call in cases.items()}
-        report = ", ".join(f"{label}: {ms:.1f} ms" for label, ms in results.items())
+        results = {label: (_p95_ms(call), limit) for label, (call, limit) in cases.items()}
+        report = ", ".join(f"{label}: {ms:.1f} ms" for label, (ms, _) in results.items())
         print(f"\nreindex {ENTITIES}: {reindex_s:.1f} s; p95 {report}")
-        slow = {label: ms for label, ms in results.items() if ms > BUDGET_MS}
-        assert not slow, f"over the {BUDGET_MS:.0f} ms budget: {slow}"
+        slow = {label: ms for label, (ms, limit) in results.items() if ms > limit}
+        assert not slow, f"over budget: {slow}"
