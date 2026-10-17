@@ -545,3 +545,79 @@ test('module reads and files answer like the read-only server', async ({ page, r
     expect(Buffer.compare(await copied.body(), await served.body()), path).toBe(0)
   }
 })
+
+test('search answers like the read-only server (the same hits and snippets)', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(300_000)
+  await page.goto(STATIC_URL)
+  const get = async (route: string) =>
+    (await (await request.get(`${STATIC_READER_URL}${API}${route}`)).json()) as Json
+  const vault = at((await get('vaults')).items as Json[], 0).id as string
+  const base = `vaults/${vault}`
+  const entities = (await allPages(page, request, `${base}/entities?limit=500`)).served as Json[]
+  const dimensions = entities.filter((e) => e.kind === 'dimension').map((e) => e.id as string)
+  const timelines = entities.filter((e) => e.kind === 'timeline').map((e) => e.id as string)
+  // Words of the world: the first word of names, prefixes of them, and of summaries.
+  const words = new Set<string>()
+  for (const entity of entities) {
+    for (const text of [entity.name, entity.summary]) {
+      for (const word of (typeof text === 'string' ? text : '').match(/[\p{L}\p{N}]{3,}/gu) ?? [])
+        words.add(word)
+    }
+  }
+  const sample = [...words].filter((_, i) => i % 7 === 0).slice(0, 40)
+  const queries = [
+    ...sample,
+    ...sample.slice(0, 15).map((w) => w.slice(0, 3)),
+    ...sample.slice(0, 10).map((w) => w.toUpperCase()),
+    '"Ilsa the"',
+    '"the Tidebound"*',
+    'Ilsa OR Varn',
+    '(Ilsa OR Varn) -Tidebound',
+    'the NOT Ilsa',
+    'the AND sea',
+    'Ilsa*',
+    'zzzz',
+  ]
+  const errors = ['"unclosed', '-Ilsa', '(Ilsa', 'Ilsa OR', ')', 'NOT']
+  const filters = [
+    '',
+    ...['character', 'event', 'location'].map((k) => `&kind=${k}`),
+    ...dimensions.map((d) => `&dimension=${d}`),
+    ...dimensions.map((d) => `&dimension=${d}&include_multiversal=false`),
+    ...timelines.map((t) => `&timeline=${t}`),
+  ]
+  const key = (hit: Json) => `${hit.doc_type as string}:${hit.doc_id as string}`
+  const bySet = (body: unknown) => {
+    const { items } = body as { items?: Json[] }
+    return items === undefined
+      ? body
+      : [...items].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
+  }
+  const routes: string[] = []
+  for (const [i, q] of queries.entries()) {
+    const filter = filters[i % filters.length] ?? ''
+    routes.push(`${base}/search?q=${encodeURIComponent(q)}&limit=500${filter}`)
+    routes.push(`${base}/search/quick?q=${encodeURIComponent(q)}${filter}`)
+  }
+  for (const q of errors) routes.push(`${base}/search?q=${encodeURIComponent(q)}`)
+  routes.push(`${base}/search?q=Ilsa&kind=nope`, `${base}/search?q=Ilsa&cursor=%21%21`)
+  for (const q of ['Ils', 'ide', 'har', 'xx', 'Old Har', 'ilsa tide']) {
+    routes.push(`${base}/search/quick?q=${encodeURIComponent(q)}`)
+  }
+  const found = (await both(page, request, routes)).flatMap(({ route, exported, served }) => {
+    const difference = firstDifference(
+      { status: exported.status, body: bySet(exported.body) },
+      { status: served.status, body: bySet(served.body) },
+    )
+    return difference ? [`${route} ${difference}`] : []
+  })
+  expect(found).toEqual([])
+  // Paged: the same hits over all pages (an export's cursors are its own).
+  for (const q of ['the', 'a', 'of']) {
+    const paged = await allPages(page, request, `${base}/search?q=${q}&limit=3`)
+    expect(bySet({ items: paged.exported }), q).toEqual(bySet({ items: paged.served }))
+  }
+})

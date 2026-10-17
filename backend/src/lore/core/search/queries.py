@@ -279,6 +279,26 @@ class SearchQueries:
             )
         return hits
 
+    def documents(self) -> list[tuple[SearchDoc, dict[str, Any]]]:
+        """Every document the request can search (no query), by rowid, with its hit members:
+        what a static export indexes for searching in the browser (ADR 0016)."""
+        params: dict[str, Any] = {}
+        where = self._conditions(params, None, None, True)
+        rowids = [
+            row[0]
+            for row in self._execute(
+                f"SELECT d.rowid FROM search_docs d WHERE {where} ORDER BY d.rowid", params
+            )
+        ]
+        docs = self._docs(rowids)
+        return list(zip((docs[r] for r in rowids), self._hits(docs, rowids), strict=True))
+
+    def known_kinds(self) -> list[str]:
+        """The kinds and document types a ``kind`` filter accepts."""
+        return sorted(
+            self.registry.all_kind_keys() | set(self.kinds) | set(contributors(self.registry))
+        )
+
     # --- quick switcher -------------------------------------------------------------------------
 
     def quick(

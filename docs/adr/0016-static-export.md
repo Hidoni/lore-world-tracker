@@ -22,8 +22,7 @@ would have to be made twice.
 - **The static data source is the HTTP data source** over a `fetch` that reads those files
   (`createStaticFetch`): the generated client, `toDomain` and every hook stay as they are.
 - **Free parameters are answered in the browser** from a recorded answer: a full list filtered by
-  a prefix (tags), the change points of an entity for an as-of cursor, a MiniSearch index for
-  search. Each such read has a handler keyed by its route; a read the export doesn't hold answers
+  a prefix (tags), the change points of an entity for an as-of cursor. Each such read has a handler keyed by its route; a read the export doesn't hold answers
   `404 not_in_export`, shown like any failed read.
 - **Timeline windows and series occurrences are the exception: computed in the browser** (#375).
   A window has a free range and pixel budget: tiles recorded at a few zoom levels can't give the
@@ -49,5 +48,8 @@ would have to be made twice.
   route to the builder (and a handler if it takes free parameters).
 - Reads with unbounded parameters need a handler and a recorded full answer; their cost (export
   size, browser work) is budgeted in #378.
-- Ranking of client-side search may differ from FTS5's bm25 (documented in #377).
+- Search is the second computed read (#377): the server's expression grammar, FTS5 matching,
+  snippets and quick switcher ported over the exported documents (not MiniSearch, whose fuzzy
+  matching would find other documents). The same documents are found; ranking uses the same
+  bm25 formula over the exported documents' statistics, so near ties can be ordered differently.
 - The window logic exists twice (Python and TypeScript); the parity tests keep them together.

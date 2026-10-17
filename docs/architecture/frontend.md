@@ -1126,4 +1126,4 @@ under the time cursor); the second row fixed it. The spec runs in `make e2e` and
 regression.
 - Reader screens may only use `DataSource` methods. Post-MVP, `StaticDataSource` implements them
   from JSON chunks of a published snapshot, using `@lore/chronology` for occurrence expansion and
-  MiniSearch for search, with hash-based routing (`visibility-and-sharing.md` §6).
+  a port of the server's search, with hash-based routing (`visibility-and-sharing.md` §8).
