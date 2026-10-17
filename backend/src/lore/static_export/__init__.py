@@ -100,9 +100,14 @@ async def _record(app: FastAPI, vault_id: str) -> tuple[dict[str, Any], dict[str
         opened = app.state.vaults.open(vault_id)
         with opened.sessions() as session:
             context = VaultContext(opened, session, app.state.registry)
-            files.update(await WindowExport(recorder, vault_id).files(context, entities.timelines))
+            windows = WindowExport(recorder, vault_id)
+            files.update(await windows.files(context, entities.timelines))
         module_files, binaries = await ModuleExport(recorder, vault_id).record(
-            app.state.registry.modules, entities.summaries, entities.timelines, entities.moments
+            app.state.registry.modules,
+            entities.summaries,
+            entities.timelines,
+            entities.moments,
+            windows.event_moments,
         )
         files.update(module_files)
     return files, binaries

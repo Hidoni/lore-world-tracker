@@ -236,7 +236,7 @@ Implementation (ADR 0016; #147, split into #373–#378):
   `mediaFileUrl`/`lexiconExportUrl` point at the copies. Recorded so far: the parameters the app
   uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
   it opens and each entity's local graph at 1 and 2 steps); other choices answer
-  `not_in_export` until the follow-up computes them.
+  `not_in_export` until #386 computes them.
 - **Parity** (`e2e/static-parity.spec.ts`): the tiny sample world's export answers what the
   read-only server answers for the same snapshot: every entity's reads, as-of reads around every
   bound in every timeline, lists with each filter and sort, trees, paging; the time reads; windows

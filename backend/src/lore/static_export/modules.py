@@ -80,13 +80,18 @@ class ModuleExport:
         summaries: dict[str, dict[str, Any]],
         timelines: dict[str, TimelineInfo],
         moments: dict[tuple[str, str], list[int]],
+        events: dict[tuple[str, str], set[int]],
     ) -> tuple[dict[str, Any], dict[str, bytes]]:
         """The JSON files and the copied downloads, by path under ``data/``. ``summaries`` are
         the listed entities, ``moments`` the entity export's change moments per (entity,
-        timeline)."""
+        timeline), ``events`` the moments around each event's start and end."""
         self.summaries = summaries
         self.timelines = timelines
-        self.by_entity = moments
+        # An entity's reads change where its facts and links do, and where it happens (an
+        # event: a map pin of an event is shown while it happens).
+        self.by_entity: dict[tuple[str, str], set[int]] = {}
+        for key, found in [*moments.items(), *events.items()]:
+            self.by_entity.setdefault(key, set()).update(found)
         self.moments: dict[str, list[int]] = {}
         for (_entity, timeline), found in moments.items():
             self.moments.setdefault(timeline, []).extend(found)

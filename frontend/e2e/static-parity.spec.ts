@@ -479,9 +479,25 @@ test('module reads and files answer like the read-only server', async ({ page, r
   routes.push(`${m}/maps/maps`)
   const maps = (await get(`${m}/maps/maps`)).items as Json[]
   // Pins have validities of their own: their bounds too.
+  // Pins of events show while the event happens: around its start and end too.
+  const happens = new Map<string, Json>()
+  for (const t of timelines) {
+    const dimension = (await get(`${base}/entities/${t.dimension_id as string}`)).ext as Json
+    const to = BigInt(dimension.duration as string) + 1n
+    const route = `${base}/timelines/${t.id as string}/window?from=0&to=${to}&px=2000`
+    for (const item of (await get(route)).items as Json[])
+      happens.set(item.entity_id as string, item)
+  }
   for (const map of maps) {
     const pins = (await get(`${m}/maps/maps/${map.id as string}`)).pins as Json[]
     for (const t of momentsOf(pins, [])) moments.add(t)
+    for (const pin of pins) {
+      const event = happens.get(((pin.target as Json | null)?.id as string | undefined) ?? '')
+      if (event) {
+        const bounds = [{ valid_from_t: event.start_t, valid_to_t: event.end_t }]
+        for (const t of momentsOf(bounds, [])) moments.add(t)
+      }
+    }
   }
   for (const map of maps) asOf(`${m}/maps/maps/${map.id as string}`, null)
   for (const { id } of entities) {

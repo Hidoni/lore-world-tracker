@@ -73,6 +73,9 @@ class WindowExport:
         self.recorder = recorder
         self.base = f"vaults/{vault_id}"
         self.calendars: set[str] = set()
+        # Around the start and end of each event, per timeline (module reads showing an event
+        # while it happens change there: a map pin of an event).
+        self.event_moments: dict[tuple[str, str], set[int]] = {}
 
     async def files(
         self, context: VaultContext, timelines: dict[str, TimelineInfo]
@@ -107,6 +110,11 @@ class WindowExport:
             is not None
         )
         rows = [row for found in roots for row in found]
+        for row in rows:
+            moments = self.event_moments.setdefault((row.entity_id, timeline.id), set())
+            for t in (row.start_t, row.end_t):
+                if t is not None:
+                    moments.update(m for m in (t - 1, t, t + 1) if m >= 0)
         items = {
             item.row_id: _item(item)
             for item in window_items(context, READER, view, [row.id for row in rows])
