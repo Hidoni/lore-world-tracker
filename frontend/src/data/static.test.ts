@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/api'
 
 import { createStaticDataSource, createStaticFetch, staticConfig } from './static'
+import { pick } from './static-entities'
 
 const VAULT = 'v-atlas'
 
@@ -84,5 +85,38 @@ describe('static export data source', () => {
     const failure = await source.entities(VAULT, {}).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(ApiError)
     expect(failure).toMatchObject({ status: 404, code: 'not_in_export' })
+  })
+})
+
+describe('as-of answers of a static export', () => {
+  it('takes the answer recorded at the last moment at or before the cursor', () => {
+    const recorded: [string, string][] = [
+      ['0', 'unknown'],
+      ['31536000', 'possible'],
+      ['63071999', 'exists'],
+    ]
+    expect(pick(recorded, '0')).toBe('unknown')
+    expect(pick(recorded, '31535999')).toBe('unknown')
+    expect(pick(recorded, '31536000')).toBe('possible')
+    expect(pick(recorded, '63071999')).toBe('exists')
+    // Moments are exact integers past 2^53.
+    expect(
+      pick(
+        [
+          ['0', 'a'],
+          ['9007199254740993', 'b'],
+        ],
+        '9007199254740992',
+      ),
+    ).toBe('a')
+    expect(
+      pick(
+        [
+          ['0', 'a'],
+          ['9007199254740993', 'b'],
+        ],
+        '9007199254740993',
+      ),
+    ).toBe('b')
   })
 })

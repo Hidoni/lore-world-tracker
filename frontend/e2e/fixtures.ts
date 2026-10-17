@@ -145,6 +145,9 @@ export const READER_URL = process.env.E2E_READER_URL ?? ''
 /** The static export of the tiny sample world, served from a subfolder (`scripts/e2e.sh`). */
 export const STATIC_URL = process.env.E2E_STATIC_URL ?? ''
 
+/** The same snapshot served read-only: what the static export must answer. */
+export const STATIC_READER_URL = process.env.E2E_STATIC_READER_URL ?? ''
+
 /**
  * Scrolls an entity page to its end, as a reader would, so its module panels render: they read
  * only once they come near the viewport (frontend.md §12).

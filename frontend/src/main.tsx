@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 
 import { AppProviders } from '@/app/providers'
 import { createAppRouter } from '@/app/router'
-import { createStaticDataSource, staticConfig } from '@/data'
+import { createStaticDataSource, createStaticFetch, staticConfig } from '@/data'
 import { initTheme } from '@/lib/theme'
 
 import '@/styles/globals.css'
@@ -17,6 +17,10 @@ if (!root) throw new Error('#root element missing from index.html')
 // A static export (`lore vault export-static`) reads its files and routes by the URL's hash, so
 // any static host serves it from any folder (ADR 0016).
 const exported = staticConfig()
+if (exported) {
+  // The export's answers by API URL, for checking an export against the server (e2e).
+  Object.assign(window, { loreStaticFetch: createStaticFetch(exported.dataUrl) })
+}
 
 createRoot(root).render(
   <StrictMode>

@@ -85,8 +85,9 @@ lore vault export-static <snapshot> --out site/ --data-dir ./published --spa fro
 python -m http.server --directory site
 ```
 
-It is still being built: the export opens the vault's landing page, and the other pages say
-"Not in this export" until their data is exported too (#374–#378).
+It is still being built: the export has the landing page, lists and entity pages (with the time
+cursor); the timeline, module pages, maps, media and search say "Not in this export" until their
+data is exported too (#375–#378).
 
 ## Backups and snapshots are different things
 

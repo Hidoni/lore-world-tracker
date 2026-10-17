@@ -1,6 +1,8 @@
 import { createApiClient, PROBLEM_MEDIA_TYPE } from '@/api'
 
 import { createHttpDataSource } from './http'
+import { NotInExport, StaticProblem, type Handler, type Load } from './static-core'
+import { ENTITY_HANDLERS } from './static-entities'
 import type { DataSource } from './source'
 
 /**
@@ -31,17 +33,12 @@ export function staticConfig(doc: Document = document): StaticConfig | null {
   return { dataUrl: meta.content || 'data/', vault: meta.dataset.vault ?? '' }
 }
 
-type Load = (route: string) => Promise<unknown>
-type Handler = (load: Load, route: string, params: URLSearchParams) => Promise<unknown>
-
 function problem(status: number, code: string, title: string, detail: string): Response {
   return new Response(JSON.stringify({ status, code, title, detail }), {
     status,
     headers: { 'Content-Type': PROBLEM_MEDIA_TYPE },
   })
 }
-
-class NotInExport extends Error {}
 
 /** The key tag names are compared by (the server's `tag_name_key`: NFKC, case-folded). */
 function tagKey(name: string): string {
@@ -54,6 +51,7 @@ interface TagRow {
 
 /** Reads with free parameters, by route pattern: answered from the recorded full answer. */
 const HANDLERS: readonly (readonly [RegExp, Handler])[] = [
+  ...ENTITY_HANDLERS,
   [
     /^vaults\/[^/]+\/tags$/,
     async (load, route, params) => {
@@ -101,14 +99,28 @@ export function createStaticFetch(
       [...url.searchParams].filter(([name]) => !IGNORED_PARAMS.has(name)),
     )
     try {
-      const handler = HANDLERS.find(([pattern]) => pattern.test(route))?.[1]
-      if (!handler && params.size > 0) throw new NotInExport(route)
-      const body = handler ? await handler(load, route, params) : await load(route)
+      let body: unknown = undefined
+      let handled = false
+      for (const [pattern, handle] of HANDLERS) {
+        const match = pattern.exec(route)
+        if (match) {
+          body = await handle(load, route, params, match.slice(1))
+          handled = true
+          break
+        }
+      }
+      if (!handled) {
+        if (params.size > 0) throw new NotInExport(route)
+        body = await load(route)
+      }
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     } catch (error) {
+      if (error instanceof StaticProblem) {
+        return problem(error.status, error.code, error.title, error.message)
+      }
       if (!(error instanceof NotInExport)) throw error
       return problem(
         404,

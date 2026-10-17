@@ -199,9 +199,25 @@ Implementation (ADR 0016; #147, split into #373–#378):
   reads the files, with hash routing. Reads with free parameters have a handler answering from a
   recorded full answer (tags: the full list, filtered by prefix and limit); anything else not in
   the export answers `404 not_in_export`.
-- **Exported so far** (#373): `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
-  `calendarPresets`, `tags`. Entity reads (#374), time reads (#375), module reads and media
-  (#376), search (#377), budgets and the end-to-end check (#378) follow.
+- **Entity reads** (#374, `lore/static_export/entities.py`, `frontend/src/data/static-entities.ts`):
+  - an **index** (`data/vaults/<v>/static/index.json`): every listed entity's summary as the
+    server lists it, the server's own order for each sort (read with its keyset columns, so the
+    browser never compares names), tags, aliases, branch origin, existence over time per
+    timeline, and each timeline's lineage. `entities` (filters, sorts, paging, the cursor),
+    `tree` and `children` are answered from it; the export's paging cursors are its own;
+  - a **shard** per entity (`static/entities/<id>.json`): the entity, its facts (per
+    timeline), links, backlinks, unlinked mentions, the facts it caused, and per timeline its
+    state, links and backlinks **at each moment they can change** (`bound_moments`: each
+    bound's first and last moment, from the resolver's extents). An as-of read is the same
+    between two such moments, so the browser takes the last one at or before the cursor;
+  - `fieldValues` is not exported: only editors call it.
+- **Parity** (`e2e/static-parity.spec.ts`): the tiny sample world's export answers what the
+  read-only server answers for the same snapshot: every entity's reads, as-of reads around every
+  bound in every timeline, lists with each filter and sort, trees, paging.
+- **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
+  `calendarPresets`, `tags` (#373), the entity reads (#374). Time reads (#375), module reads
+  and media (#376), search (#377), budgets and lazy loading (#378) follow. The tiny world
+  exports in about 50 s (one recorded read at a time; threads only add contention).
 
 ## 9. Backups vs sharing
 

@@ -39,6 +39,20 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   expect(errors).toEqual([])
 })
 
+test('an entity page of a static export', async ({ page }) => {
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  await page.getByRole('link', { name: 'Characters', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Ilsa the Tidebound' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Fields' })).toContainText('Ilsa Maren-Varn')
+  await expect(page.getByRole('region', { name: 'Relations' }).first()).toBeVisible()
+  // A deep link to an entity reloads from the export's files.
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+})
+
 test('pages a static export does not hold yet say so', async ({ page }) => {
   await page.goto(STATIC_URL)
   await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()

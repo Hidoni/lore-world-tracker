@@ -8,6 +8,9 @@ policy, the same shapes). A response for path ``/api/v1/<route>`` is written to
 ``data/<route>.json``; reads with free parameters (a prefix, a cursor moment, a window) are
 recorded once in full and answered in the browser from that file.
 
+Entity reads (#374) are an index the browser lists from and a shard of recorded answers per
+entity (``entities.py``).
+
 The output folder holds the SPA build (its ``index.html`` marked for static mode: hash routing,
 the static data source), ``static.json`` (the manifest: chunk format, vault, app version) and
 ``data/``. Building from anything but a published snapshot is refused: private data must not
@@ -25,18 +28,18 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from starlette.types import Message
 
 from lore import __version__
 from lore.app import create_app
 from lore.config import Settings
 from lore.core.errors import LoreError
 from lore.core.modules import ModuleSpec
+from lore.static_export.asgi import Recorder
+from lore.static_export.entities import EntityExport
 
 FORMAT_VERSION = 1
 MANIFEST_NAME = "static.json"
 DATA_DIR = "data"
-API_PREFIX = "/api/v1/"
 # The tag `index.html` carries in a static export (read by the SPA before it starts).
 STATIC_MARKER = '<meta name="lore-static" content="data/" />'
 BASE_TAG = re.compile(r'<base href="/"\s*/?>')
@@ -77,44 +80,13 @@ def data_path(route: str) -> str:
     return f"{DATA_DIR}/{route}.json"
 
 
-async def _get(app: FastAPI, route: str) -> Any:
-    path, _, query = route.partition("?")
-    scope = {
-        "type": "http",
-        "asgi": {"version": "3.0"},
-        "http_version": "1.1",
-        "method": "GET",
-        "scheme": "http",
-        "path": API_PREFIX + path,
-        "raw_path": (API_PREFIX + path).encode(),
-        "query_string": query.encode(),
-        "root_path": "",
-        "headers": [(b"host", b"localhost")],
-        "client": ("127.0.0.1", 0),
-        "server": ("localhost", 80),
-    }
-    status = 0
-    body = bytearray()
-
-    async def receive() -> Message:
-        return {"type": "http.request", "body": b"", "more_body": False}
-
-    async def send(message: Message) -> None:
-        nonlocal status
-        if message["type"] == "http.response.start":
-            status = message["status"]
-        elif message["type"] == "http.response.body":
-            body.extend(message.get("body", b""))
-
-    await app(scope, receive, send)
-    if status != 200:  # noqa: PLR2004
-        raise StaticExportError(f"GET {API_PREFIX}{route} answered {status}: {body.decode()}")
-    return json.loads(body)
-
-
-async def _record(app: FastAPI, routes: Sequence[str]) -> dict[str, Any]:
+async def _record(app: FastAPI, vault_id: str) -> dict[str, Any]:
+    """Every file under ``data/`` (by path without ``.json``) and its JSON."""
+    recorder = Recorder(app)
     async with app.router.lifespan_context(app):
-        return {route: await _get(app, route) for route in routes}
+        files = {route.partition("?")[0]: await recorder.get(route) for route in _routes(vault_id)}
+        files.update(await EntityExport(app, recorder, vault_id).files())
+    return files
 
 
 def _mark_index(index: Path, vault_id: str) -> None:
@@ -153,14 +125,14 @@ def export_static(
                 f"{info.name} is not a published snapshot: publish it first (lore vault "
                 "publish) and export the snapshot"
             )
-        responses = asyncio.run(_record(app, _routes(info.id)))
+        files = asyncio.run(_record(app, info.id))
     finally:
         app.state.vaults.close()
 
     shutil.copytree(spa_dir, out, dirs_exist_ok=True)
     _mark_index(out / "index.html", info.id)
-    for route, response in responses.items():
-        target = out / data_path(route.partition("?")[0])
+    for route, response in files.items():
+        target = out / data_path(route)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(response, ensure_ascii=False, separators=(",", ":")))
     manifest = {
@@ -174,4 +146,4 @@ def export_static(
         "exported_at": (now or datetime.now(UTC)).isoformat(),
     }
     (out / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
-    return StaticExportInfo(path=out, vault_id=info.id, files=len(responses))
+    return StaticExportInfo(path=out, vault_id=info.id, files=len(files))
