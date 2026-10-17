@@ -235,7 +235,7 @@ scan takes 1.27 s (0.8 there), and a cold window over 1/10 of the bulk 160 ms (9
 | Search, rarer words / quick switcher (author and reader)                  | 19–22 / 12–27 ms                           |                       | < 100 ms    | met                |
 | Search, a word in nearly every document ("the"), author / reader          | 215 / 306 ms                               | 134 / 191 ms          | < 300 ms    | met (budget decided in #362) |
 | Calendar proposal over 22,989 dependents: preview / apply                 | 7.1 / 43.9 s                               | 4.4 / 27 s            | < 5 / 30 s  | met                |
-| Full consistency scan                                                     | 18.7 s (22.0 before #144)                  | about 11.7 s          | < 10 s      | missed: #361       |
+| Full consistency scan                                                     | 6.8 s after #361 (18.7 before; 22.0 before #144) | about 4.2 s     | < 10 s      | met after #361: a realistic world (18,185 findings, was 66,280) |
 | Event tree roots (the sidebar's Events, every full load)                  | 0.13 s (1.3 s before #144)                 |                       | –           |                    |
 | Entity page interactive, in the app: Aetheria / Ilsa the Tidebound        | 167 / 439 ms (Ilsa: 560 before the reads)  | 108 / 327 ms measured | < 300 ms    | met after #363: Ilsa 441 → 243 ms here (`small`), about 220 ms on the reference |
 | Entity page, full load (cold cache): Aetheria / Ilsa                      | 956 / 1,381 ms (Ilsa: 3,128 before)        |                       | –           |                    |
@@ -263,8 +263,11 @@ What changed in #144:
   model the documents never looked circa, so such findings were always "definite"; now a circa
   or coarse start makes them "possible", as the rule says. `branches.override_start_changed`
   walked every live entity's links (the trash check picked the index, see the gotcha in
-  `CLAUDE.md`). The rest of the scan is the sub-event rule over this world's 50,032 out-of-parent
-  sub-events (#361).
+  `CLAUDE.md`). The rest of the scan was the sub-event rule over this world's 50,032 out-of-parent
+  sub-events. Decided 2026-10-17 (#361): the generator makes the world realistic instead, a child
+  joining the latest era while its span lasts and 3% an older one (drawn apart from the rest of
+  the world, which stays the same). The scan then takes 6.8 s here (about 4.2 s on the
+  reference), with 18,185 findings.
 
 ### 4.1 Chronology engine budgets
 
