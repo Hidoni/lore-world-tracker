@@ -132,11 +132,12 @@ at once. Otherwise **Review the calendar change** opens with:
 
 The choices are:
 
-| Choice | What happens |
-|--------|--------------|
-| **Keep the date** (the default) | The record keeps the date you typed; its moment moves to wherever that date now falls. |
-| **Keep the moment** | The record stays at the same moment; its date is rewritten as an absolute moment, so it won't follow later calendar edits either. |
-| **Nearest valid date** | Only for dates that no longer exist (day 31 of a month cut to 30): move to the nearest one that does. |
+- **Keep the date** (the default): the record keeps the date you typed, and its moment moves to
+  wherever that date now falls.
+- **Keep the moment**: the record stays at the same moment. Its date is rewritten as an absolute
+  moment, so it won't follow later calendar edits either.
+- **Nearest valid date**: only for dates that no longer exist (day 31 of a month cut to 30). The
+  record moves to the nearest date that does.
 
 **Keep all dates** and **Keep all moments** set every row at once. A broken date (one that no
 longer exists, or now falls outside the dimension) must get a choice before you can **Apply the
