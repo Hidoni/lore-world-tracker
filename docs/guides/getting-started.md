@@ -65,10 +65,15 @@ The wizard has five steps:
 3. **Duration**: how long the dimension lasts, in base units. Start from one of the lifetimes
    offered (10,000 years, 13.8 billion years, 10^100 years) or type a number; `1e100` and
    `10^100 years × 31,557,600 s` work too. You can lengthen it later.
-4. **First calendar**: a **Preset** (Gregorian, Julian, Shire Reckoning, Maya Long Count, …), its
-   **Calendar name**, and where year 1 begins (**Year 1 begins at**, in base units since the
-   inception). A preview shows when the first years begin. Events need a calendar, so every
-   dimension starts with one. You can add more and change them later (`calendars.md`).
+4. **First calendar**: **From a preset**, pick a **Preset** (Gregorian, Julian, Shire Reckoning,
+   Maya Long Count, …), its **Calendar name**, and where year 1 begins (**Year 1 begins at**, in
+   base units since the inception). Or pick **Custom calendar** to design your world's own: give
+   it a **Calendar name**, choose what to **Begin with** (**Blank** or a preset), and click
+   **Design calendar…**. The calendar editor (`calendars.md` §3) opens on the base unit and
+   duration you chose. **Use this calendar** brings you back to the wizard, and **Edit
+   calendar…** reopens it. Either way, a preview shows when the first years begin. Events need a
+   calendar, so every dimension starts with one. You can add more and change them later
+   (`calendars.md`).
 5. **Review**, then **Create dimension**.
 
 The dimension's page shows its time spec, its calendars, its timelines and recent events. Set

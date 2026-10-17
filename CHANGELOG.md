@@ -13,6 +13,8 @@ All notable changes to this project are documented here. The format follows
   published snapshot into a static site that any web host serves without a Lore server. So far
   it holds the vault's landing page, lists and entity pages, with the time cursor (#374); the
   timeline, module pages and search follow (#375–#378).
+- The dimension wizard's first calendar can be a **Custom calendar**, designed in the calendar
+  editor inside the wizard, blank or from a preset, instead of a preset as is (#379).
 
 ### Fixed
 

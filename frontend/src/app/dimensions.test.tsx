@@ -1,9 +1,10 @@
-import { PRESETS } from '@lore/chronology/presets'
+import { instantiatePreset, PRESETS } from '@lore/chronology/presets'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
+import { blankDefinition } from '@/core/time/calendar-editor'
 import { AXE_TIMEOUT, expectAccessible } from '@/test/axe'
 import { calendarRow, dimensionRow } from '@/test/calendars'
 import { defaultRows, kind, KINDS, row, serveVault } from '@/test/fake-vault'
@@ -189,6 +190,86 @@ describe('dimension wizard', () => {
     await userEvent.selectOptions(within(dialog()).getByLabelText('Preset'), '360-day')
     await within(dialog()).findByRole('region', { name: 'Preview' })
     expect(within(dialog()).getByRole('button', { name: 'Next' })).toBeEnabled()
+  })
+
+  it('designs a custom first calendar from scratch and creates the dimension with it', async () => {
+    serveVault({ rows: defaultRows().filter((entity) => entity.kind !== 'dimension') })
+    const seen = serveWizard()
+    const { router } = await renderApp('/v/v1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Create dimension' }))
+    await throughDuration('1e12')
+
+    await userEvent.click(within(dialog()).getByLabelText('Custom calendar'))
+    expect(within(dialog()).queryByLabelText('Preset')).not.toBeInTheDocument()
+    expect(within(dialog()).getByRole('button', { name: 'Next' })).toBeDisabled()
+    await userEvent.type(within(dialog()).getByLabelText('Calendar name'), 'Moonfall Reckoning')
+    expect(within(dialog()).getByLabelText('Begin with')).toHaveValue('')
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Design calendar…' }))
+
+    // The calendar editor, on the wizard's base unit; Cancel keeps nothing.
+    await within(dialog()).findByRole('heading', { name: 'Design the first calendar' })
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
+    expect(within(dialog()).getByRole('button', { name: 'Design calendar…' })).toBeInTheDocument()
+    expect(seen.previews).toEqual([])
+
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Design calendar…' }))
+    await userEvent.click(
+      await within(dialog()).findByRole('button', { name: 'Use this calendar' }),
+    )
+    expect(within(dialog()).getByRole('button', { name: 'Edit calendar…' })).toBeInTheDocument()
+    await within(dialog()).findByRole('region', { name: 'Preview' })
+    expect(seen.previews.at(-1)).toEqual({
+      time_spec: {
+        base_unit: { singular: 'second', plural: 'seconds', abbr: 's' },
+        duration: '1000000000000',
+      },
+      source: { definition: blankDefinition() },
+    })
+    await next()
+
+    expect(within(dialog()).getByText('Moonfall Reckoning (custom calendar)')).toBeInTheDocument()
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Create dimension' }))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/v/v1/d/new-d')
+    })
+    expect(seen.created).toEqual([
+      expect.objectContaining({
+        calendar: { name: 'Moonfall Reckoning', source: { definition: blankDefinition() } },
+      }),
+    ])
+  })
+
+  it('starts a custom calendar from a preset scaled to the base unit', async () => {
+    serveVault()
+    const seen = serveWizard()
+    await renderApp('/v/v1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Create dimension' }))
+    await userEvent.type(within(dialog()).getByLabelText('Name'), 'Midgard')
+    await next()
+    await userEvent.clear(within(dialog()).getByLabelText('Divided by'))
+    await userEvent.type(within(dialog()).getByLabelText('Divided by'), '1000')
+    await next()
+    await userEvent.type(within(dialog()).getByLabelText('Duration (seconds)'), '1e20')
+    await next()
+
+    await userEvent.click(within(dialog()).getByLabelText('Custom calendar'))
+    await userEvent.selectOptions(within(dialog()).getByLabelText('Begin with'), 'Shire Reckoning')
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Design calendar…' }))
+    await userEvent.click(
+      await within(dialog()).findByRole('button', { name: 'Use this calendar' }),
+    )
+    await within(dialog()).findByRole('region', { name: 'Preview' })
+    const shire = PRESETS.get('shire-reckoning')
+    expect(shire).toBeDefined()
+    if (shire === undefined) return
+    expect(seen.previews.at(-1)).toMatchObject({
+      source: { definition: instantiatePreset(shire, { num: 1n, den: 1000n }) },
+    })
+
+    // Start over goes back to choosing where to begin.
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Start over' }))
+    expect(within(dialog()).getByRole('button', { name: 'Design calendar…' })).toBeInTheDocument()
+    expect(within(dialog()).getByRole('button', { name: 'Next' })).toBeDisabled()
   })
 
   it('shows the server’s problems with a way back to their step', async () => {
