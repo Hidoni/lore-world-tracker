@@ -36,7 +36,14 @@ async function readsOf(load: Load, vault: string, route: string): Promise<ReadsF
 
 /** A recorded module read: its answer for the query, at the cursor for as-of reads. */
 export const moduleRead: Handler = async (load, _route, params, [vault = '', route = '']) => {
-  const file = await readsOf(load, vault, route)
+  let file: ReadsFile
+  try {
+    file = await readsOf(load, vault, route)
+  } catch (error) {
+    // Not a declared read: a read recorded as a plain file (`m/correspondences/<id>`).
+    if (!(error instanceof NotInExport) || queryKey(params) !== '[]') throw error
+    return load(`vaults/${vault}/${route}`)
+  }
   const key = queryKey(params)
   const at = params.get('at')
   if (at !== null) {
