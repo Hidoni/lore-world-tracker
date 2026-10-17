@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-17
+
+The MVP (M12: sharing, backup and hardening). Share your world safely: a hardened read-only
+server, published snapshots with every secret physically removed, and a reader mode made for
+reading, on phones too. Upgrade with confidence: backups and restores you can trust, every
+release's vault tested on upgrade. Faster, lighter pages, every page checked for accessibility,
+and a user guide (`docs/guides/`). Every MVP requirement is traced to the issues that built it
+(`docs/plan/mvp-traceability.md`). Vaults from v0.10.0 open without a migration.
+
 ### Added
 
 - **Read-only server mode, hardened** (#138): on a read-only server (`LORE_READ_ONLY=true`) every
@@ -30,6 +39,12 @@ All notable changes to this project are documented here. The format follows
   visibility, previewing as a reader, publishing, running the read-only `reader` profile of
   `docker-compose.yml` (now functional) and updating it; `deploy/Caddyfile` puts it behind HTTPS
   with an optional password. The container smoke test now runs the whole workflow.
+
+- **User guide** (#146): `docs/guides/` explains the app task by task: getting started,
+  calendars, events and recurrence, temporal state, advanced time (branches, correspondences,
+  time travelers), modules, sharing and backups.
+- **Migrate from the vault picker** (#146): a vault whose schema is behind the app gets a
+  **Migrate** button (a backup is taken first).
 
 ### Changed
 
@@ -684,7 +699,8 @@ the chronology engine (M1). It has no UI for worlds yet (M4); everything is reac
   - The sample world generator (`make sample-vault SIZE=tiny|small|medium|large`) and the first
     golden fixture vault, which every later migration is tested against.
 
-[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/Hidoni/lore-world-tracker/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.10.0...v1.0.0
 [0.10.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Hidoni/lore-world-tracker/compare/v0.7.0...v0.8.0
