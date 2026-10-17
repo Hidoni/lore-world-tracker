@@ -27,7 +27,7 @@ product owner's request.
 | M9 Advanced time | Branches, correspondences, worldlines, advanced rules | E7–E9 green | #114–#125 | v0.8.0 |
 | M10 Media & maps | Uploads, galleries, image nodes; interactive time-aware maps | E10 green | #126–#132 | v0.9.0 |
 | M11 Custom fields & kinds | Custom fields (incl. temporal), custom kinds, relation fields | E11 green | #133–#137 | v0.10.0 |
-| M12 Sharing, backup & hardening | Read-only mode, leak audit, published snapshots, reader UI, perf + a11y passes | E12–E13 green; all budgets met | #138–#146 | **v1.0.0** |
+| M12 Sharing, backup & hardening | Read-only mode, leak audit, published snapshots, reader UI, perf + a11y passes | E12–E13 green; all budgets met | #138–#146, #241, #307, #361–#363 | **v1.0.0** |
 | M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162 | – |
 
 ## Milestone dependencies and parallel tracks
