@@ -7,6 +7,7 @@ follow their own visibility and their entity's (``GALLERY_VISIBILITY``).
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,7 @@ from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
 from lore.core.history import recorder
 from lore.core.modules.spec import VaultContext
 from lore.core.visibility import AUTHOR, VisibilityFilter, VisibilityPolicy
-from lore.modules.media import storage
+from lore.modules.media import storage, svg
 from lore.modules.media.models import MediaGalleryItem, MediaItem, MediaRef
 from lore.modules.media.refs import Refs
 from lore.modules.media.schemas import (
@@ -39,6 +40,18 @@ REF_VISIBILITY = VisibilityFilter(MediaRef, entity_columns=("entity_id",))
 GALLERY_VISIBILITY = VisibilityFilter(MediaGalleryItem, entity_columns=("entity_id",))
 MAX_FILENAME = 255
 PAGE = 100
+
+
+@dataclass(frozen=True)
+class ServedFile:
+    """What the file endpoint sends: a file on disk (``path``) or bytes made now (``data``), its
+    type, and whether pages may show it (``inline``) or it downloads (an attachment)."""
+
+    item: MediaItem
+    path: Path | None
+    data: bytes | None
+    mime: str
+    inline: bool
 
 
 def _invalid(path: str, message: str) -> InvalidInputError:
@@ -220,7 +233,9 @@ class Media:
             sniffed = storage.sniff(data, filename or "")
         except storage.MediaRejectedError as error:
             raise _invalid("file", str(error)) from error
-        if row.mime in storage.RASTER and sniffed.mime not in storage.RASTER:
+        if (row.mime in storage.RASTER and sniffed.mime not in storage.RASTER) or (
+            row.mime in storage.IMAGES and sniffed.mime not in storage.IMAGES
+        ):
             raise _invalid("file", "An image can only be replaced by an image.")
         sha256 = storage.digest(data)
         if sha256 == row.sha256:
@@ -255,24 +270,32 @@ class Media:
             self.session.flush()
         return self.out(row)
 
-    def file(self, media_id: str, size: str) -> tuple[MediaItem, Path | None, bytes | None]:
-        """The item and what to send: a file on disk, or bytes made now (a thumbnail of a vault
-        that can't be written). Sizes other than ``original`` exist for raster images only."""
+    def file(self, media_id: str, size: str) -> ServedFile:
+        """The item and what to send: a file on disk, or bytes made now (a thumbnail, or a
+        sanitized SVG, of a vault that can't be written). Sizes other than ``original`` exist for
+        raster images only. An SVG is sent sanitized (``lore.modules.media.svg``) and inline; one
+        the sanitizer can't read (stored before it existed) is sent as it is, as an attachment."""
         row = self.item(media_id)
+        path = storage.file_path(self.vault_path, row.sha256)
         if size == "original":
-            path = storage.file_path(self.vault_path, row.sha256)
             if not path.is_file():
                 raise NotFoundError(f"The file of media item {media_id} is missing.")
-            return row, path, None
+            if row.mime == storage.SVG:
+                try:
+                    cached, data = storage.safe_svg(self.vault_path, row.sha256)
+                except svg.SvgRejectedError:
+                    return ServedFile(row, path, None, row.mime, inline=False)
+                return ServedFile(row, cached, data, row.mime, inline=True)
+            return ServedFile(row, path, None, row.mime, inline=row.mime in storage.RASTER)
         if row.mime not in storage.RASTER:
             raise _invalid("size", "Only images have thumbnails.")
         width = int(size)
         if width not in storage.THUMB_WIDTHS:
             raise _invalid("size", "Unknown size.")
-        if not storage.file_path(self.vault_path, row.sha256).is_file():
+        if not path.is_file():
             raise NotFoundError(f"The file of media item {media_id} is missing.")
         cached, data = storage.thumbnail(self.vault_path, row.sha256, width)
-        return row, cached, data
+        return ServedFile(row, cached, data, "image/webp", inline=True)
 
     # --- galleries -----------------------------------------------------------------------------
 

@@ -77,12 +77,15 @@ const ARTIFACT = kind('artifact', 'Artifact', {
  * A vault with the media module: a map, a portrait (used as the Crown's cover) and a pdf; the
  * Crown's gallery has three images. Returns the media requests seen.
  */
-function world(options: { body?: unknown; gallery?: boolean } = {}) {
+function world(options: { body?: unknown; gallery?: boolean; svg?: boolean } = {}) {
   const items = new Map<string, ReturnType<typeof itemOut>>(
     [
       { id: 'm1', filename: 'map.png', alt: 'A map' },
       { id: 'm2', filename: 'portrait.png', refs: [{ entity_id: 'a1', context: 'cover' }] },
       { id: 'm3', filename: 'notes.pdf', mime: 'application/pdf' },
+      ...(options.svg === true
+        ? [{ id: 'm4', filename: 'seal.svg', mime: 'image/svg+xml', alt: 'The seal' }]
+        : []),
     ].map((item) => [item.id, itemOut(item)]),
   )
   let gallery: GalleryEntry[] =
@@ -315,6 +318,28 @@ describe('media module', () => {
     await waitFor(() => {
       expect(writes.at(-1)).toMatchObject({ method: 'PATCH', body: { cover_media_id: null } })
     })
+  })
+
+  it('picks an SVG as an image and shows its (sanitized) file as it is', async () => {
+    const { writes } = world({ svg: true })
+    await renderApp('/v/v1/e/a1')
+    const cover = await screen.findByRole('group', { name: 'Cover image' }, WAIT)
+    await userEvent.click(within(cover).getByRole('button', { name: 'Add cover' }))
+    const picker = await screen.findByRole('dialog', { name: 'Choose a cover image' })
+    expect(within(picker).getByLabelText('Upload')).toHaveAttribute(
+      'accept',
+      expect.stringContaining('image/svg+xml'),
+    )
+    await userEvent.click(
+      await within(picker).findByRole('button', { name: 'Pick seal.svg' }, WAIT),
+    )
+    await waitFor(() => {
+      expect(writes.at(-1)).toMatchObject({ method: 'PATCH', body: { cover_media_id: 'm4' } })
+    })
+    const image = await within(cover).findByRole('img', { name: 'Crown (cover)' }, WAIT)
+    // One file that scales: no thumbnails.
+    expect(image.getAttribute('src')).toContain('/m/media/items/m4/file?size=original')
+    expect(image).not.toHaveAttribute('srcset')
   })
 
   it('reorders, captions and adds gallery images', async () => {

@@ -8,10 +8,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { useMediaItems, type MediaItem } from '@/data'
+import { isRaster, useMediaItems, type MediaItem } from '@/data'
 
 import { MediaImage } from './media-image'
-import { ANY_ACCEPT, IMAGE_ACCEPT, UploadButton } from './upload-button'
+import { ANY_ACCEPT, IMAGE_ACCEPT, RASTER_ACCEPT, UploadButton } from './upload-button'
 
 /**
  * The image picker (docs/modules/media.md, UI): the library's images (search by name, alt or
@@ -22,6 +22,7 @@ export function ImagePickerDialog({
   vault,
   title = 'Choose an image',
   imagesOnly = true,
+  rasterOnly = false,
   onPick,
   onClose,
 }: {
@@ -29,6 +30,8 @@ export function ImagePickerDialog({
   title?: string
   /** Other files too (documents) when false. */
   imagesOnly?: boolean
+  /** Raster images only (no SVGs: a map needs the image's size). */
+  rasterOnly?: boolean
   onPick: (item: MediaItem) => void
   onClose: () => void
 }) {
@@ -38,9 +41,7 @@ export function ImagePickerDialog({
     ...(q.trim() === '' ? {} : { q: q.trim() }),
     limit: 60,
   })
-  const shown = (items.data?.items ?? []).filter(
-    (item) => !imagesOnly || item.mime !== 'image/svg+xml',
-  )
+  const shown = (items.data?.items ?? []).filter((item) => !rasterOnly || isRaster(item))
   return (
     <Dialog
       open
@@ -65,7 +66,7 @@ export function ImagePickerDialog({
           />
           <UploadButton
             vault={vault}
-            accept={imagesOnly ? IMAGE_ACCEPT : ANY_ACCEPT}
+            accept={rasterOnly ? RASTER_ACCEPT : imagesOnly ? IMAGE_ACCEPT : ANY_ACCEPT}
             onUploaded={onPick}
           />
         </div>

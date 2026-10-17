@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { useUploadMedia, type MediaItem } from '@/data'
 
 /** What the file input offers (the server judges the bytes anyway). */
-export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif'
-export const ANY_ACCEPT = `${IMAGE_ACCEPT},application/pdf,text/plain,text/markdown,.md,image/svg+xml`
+export const RASTER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif'
+export const IMAGE_ACCEPT = `${RASTER_ACCEPT},image/svg+xml,.svg`
+export const ANY_ACCEPT = `${IMAGE_ACCEPT},application/pdf,text/plain,text/markdown,.md`
 
 /** An upload's message for the author. */
 export function uploadProblem(error: unknown): string {

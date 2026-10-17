@@ -22,6 +22,9 @@ All notable changes to this project are documented here. The format follows
   aliases, tags and dates in every calendar as properties, its text, facts and links, and the
   media files. The readers' export holds only what readers see; "everything" includes private
   content.
+- **SVG images** (#161): uploaded SVGs show inline wherever images do (pages, covers, galleries,
+  `media` fields), as a sanitized copy without scripts, event handlers, links or anything that
+  loads from elsewhere. SVGs the sanitizer can't read are refused on upload.
 
 ### Fixed
 

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  isRaster,
   mediaFileUrl,
   useEntity,
   useMediaItem,
@@ -29,7 +30,13 @@ import {
 } from '@/data'
 
 import { MediaImage } from '../components/media-image'
-import { ANY_ACCEPT, IMAGE_ACCEPT, UploadButton, uploadProblem } from '../components/upload-button'
+import {
+  ANY_ACCEPT,
+  IMAGE_ACCEPT,
+  RASTER_ACCEPT,
+  UploadButton,
+  uploadProblem,
+} from '../components/upload-button'
 
 const PAGE = 100
 const TYPES: readonly { label: string; mime: string }[] = [
@@ -473,7 +480,13 @@ function ItemDetails({
               type="file"
               className="hidden"
               aria-label="Replacement file"
-              accept={item.mime.startsWith('image/') ? IMAGE_ACCEPT : ANY_ACCEPT}
+              accept={
+                isRaster(item)
+                  ? RASTER_ACCEPT
+                  : item.mime.startsWith('image/')
+                    ? IMAGE_ACCEPT
+                    : ANY_ACCEPT
+              }
               onChange={(event) => {
                 const file = event.target.files?.[0]
                 event.target.value = ''

@@ -21,7 +21,7 @@ from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
 from lore.core.vaults import OpenVault
 from lore.core.visibility import AUTHOR, VisibilityPolicy
-from lore.modules.media import storage
+from lore.modules.media import storage, svg
 from lore.modules.media.schemas import (
     Alt,
     Caption,
@@ -40,7 +40,7 @@ router = APIRouter(tags=["media"])
 
 IdPath = Annotated[str, Path(pattern=ID_PATTERN)]
 Size = Literal["160", "480", "1280", "original"]
-CSP = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
 CACHE = "private, max-age=31536000, immutable"
 
 
@@ -63,8 +63,9 @@ def upload(
     caption: Annotated[Caption, Form()] = "",
 ) -> MediaUploadResult:
     """Upload a file (``security.md`` §3): its type is read from its bytes and must be an image
-    (png, jpeg, webp, gif, avif), a document (pdf, plain text, Markdown) or an SVG (served as an
-    attachment); images are decoded, and refused above the pixel limit. Files larger than
+    (png, jpeg, webp, gif, avif), a document (pdf, plain text, Markdown) or an SVG (shown
+    sanitized; one the sanitizer can't read is refused); images are decoded, and refused above
+    the pixel limit. Files larger than
     ``LORE_MAX_UPLOAD_MB`` are refused. The same bytes are stored once: uploading them again
     returns the existing item (``created: false``). Refusals are ``422``, path ``file``."""
     try:
@@ -185,10 +186,17 @@ def get_file(
     ),
 ) -> Response:
     """The file (``security.md`` §3): ``Content-Type`` from the stored item, ``nosniff``, a
-    restrictive CSP, ``ETag`` (the hash, plus the size) and immutable caching. SVG and non-image
-    files are sent as attachments. Thumbnails exist for raster images only."""
-    row, path, data = _media(vault, session, registry, policy).file(media_id, size)
-    etag = f'"{row.sha256}-{size}"'
+    restrictive CSP, ``ETag`` (the hash, plus the size) and immutable caching. Raster images and
+    their thumbnails are inline; an SVG is sanitized and inline (``lore.modules.media.svg``);
+    other files are sent as attachments. Thumbnails exist for raster images only."""
+    served = _media(vault, session, registry, policy).file(media_id, size)
+    row = served.item
+    # An SVG's bytes depend on the sanitizer too.
+    etag = (
+        f'"{row.sha256}-{size}-svg{svg.VERSION}"'
+        if row.mime == storage.SVG
+        else (f'"{row.sha256}-{size}"')
+    )
     headers = {
         "ETag": etag,
         "Cache-Control": CACHE,
@@ -197,16 +205,14 @@ def get_file(
     }
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
-    mime = "image/webp" if size != "original" else row.mime
-    inline = mime in storage.RASTER or mime == "image/webp"
-    disposition = "inline" if inline else "attachment"
-    if path is not None:
+    disposition = "inline" if served.inline else "attachment"
+    if served.path is not None:
         return FileResponse(
-            path, media_type=mime, headers=headers, filename=row.filename,
+            served.path, media_type=served.mime, headers=headers, filename=row.filename,
             content_disposition_type=disposition,
         )  # fmt: skip
     headers["Content-Disposition"] = disposition
-    return Response(content=data, media_type=mime, headers=headers)
+    return Response(content=served.data, media_type=served.mime, headers=headers)
 
 
 # --- galleries ------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
   never by what the uploader called them. Writes go to a temporary file in the same folder and
   are renamed into place, so a file is either complete or absent.
 - The type comes from the bytes (magic numbers), from an allowlist: images (png, jpeg, webp, gif,
-  avif), documents (pdf, plain text, Markdown) and SVG (served only as an attachment). A file
+  avif), documents (pdf, plain text, Markdown) and SVG (shown inline only once sanitized). A file
   whose bytes don't match the name's extension is still judged by its bytes; text files must be
   UTF-8 without NUL bytes.
 - Raster images are decoded with Pillow, which refuses images above ``MAX_PIXELS`` (the
@@ -12,6 +12,8 @@
 - Thumbnails (``THUMB_WIDTHS``) are WebP files in ``media/thumbs/<sha256>_<width>.webp``, made on
   first request and regenerable. Where the vault folder can't be written (a read-only server) the
   thumbnail is made in memory each time.
+- SVGs must be readable by the sanitizer (``lore.modules.media.svg``) to be stored. Their
+  sanitized copy is cached the same way, in ``media/thumbs/<sha256>_safe<svg.VERSION>.svg``.
 """
 
 import hashlib
@@ -23,6 +25,8 @@ from pathlib import Path
 from typing import BinaryIO
 
 from PIL import Image, UnidentifiedImageError
+
+from lore.modules.media import svg
 
 MEDIA_DIR = "media"
 THUMBS_DIR = "thumbs"
@@ -37,6 +41,8 @@ RASTER = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif", "image
 SVG = "image/svg+xml"
 TEXT = frozenset({"text/plain", "text/markdown"})
 ALLOWED = RASTER | TEXT | frozenset({"application/pdf", SVG})
+# What pages show as pictures: raster images and (sanitized) SVGs.
+IMAGES = RASTER | frozenset({SVG})
 
 
 class MediaRejectedError(ValueError):
@@ -94,6 +100,11 @@ def sniff(data: bytes, filename: str) -> Sniffed:
     mime = _magic(data[:16]) or _text_kind(data, filename)
     if mime is None or mime not in ALLOWED:
         raise MediaRejectedError("This type of file isn't supported.")
+    if mime == SVG:
+        try:
+            svg.sanitize(data)
+        except svg.SvgRejectedError as error:
+            raise MediaRejectedError(str(error)) from error
     if mime not in RASTER:
         return Sniffed(mime)
     width, height = _decode(data)
@@ -132,6 +143,10 @@ def thumb_path(vault_path: Path, sha256: str, width: int) -> Path:
     return media_root(vault_path) / THUMBS_DIR / f"{sha256}_{width}.webp"
 
 
+def safe_svg_path(vault_path: Path, sha256: str) -> Path:
+    return media_root(vault_path) / THUMBS_DIR / f"{sha256}_safe{svg.VERSION}.svg"
+
+
 def _write_atomically(target: Path, data: bytes) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=".upload-")
@@ -158,6 +173,8 @@ def remove(vault_path: Path, sha256: str) -> None:
     file_path(vault_path, sha256).unlink(missing_ok=True)
     for width in THUMB_WIDTHS:
         thumb_path(vault_path, sha256, width).unlink(missing_ok=True)
+    for safe in (media_root(vault_path) / THUMBS_DIR).glob(f"{sha256}_safe*.svg"):
+        safe.unlink(missing_ok=True)
 
 
 def _render_thumbnail(source: Path, width: int) -> bytes:
@@ -185,6 +202,21 @@ def thumbnail(vault_path: Path, sha256: str, width: int) -> tuple[Path | None, b
     return cached, None
 
 
+def safe_svg(vault_path: Path, sha256: str) -> tuple[Path | None, bytes | None]:
+    """The SVG as sanitized: its cached file, or (when the folder can't be written) its bytes;
+    raises ``svg.SvgRejectedError`` for a stored file the sanitizer can't read (one stored before
+    it existed)."""
+    cached = safe_svg_path(vault_path, sha256)
+    if cached.is_file():
+        return cached, None
+    data = svg.sanitize(file_path(vault_path, sha256).read_bytes())
+    try:
+        _write_atomically(cached, data)
+    except OSError:
+        return None, data
+    return cached, None
+
+
 def read_limited(stream: BinaryIO, limit: int) -> bytes:
     """Read at most ``limit`` bytes from an upload; raises ``MediaRejectedError`` beyond."""
     read = stream.read
@@ -203,6 +235,7 @@ def read_limited(stream: BinaryIO, limit: int) -> bytes:
 
 __all__ = [
     "ALLOWED",
+    "IMAGES",
     "RASTER",
     "SVG",
     "THUMB_WIDTHS",
@@ -213,6 +246,8 @@ __all__ = [
     "media_root",
     "read_limited",
     "remove",
+    "safe_svg",
+    "safe_svg_path",
     "sniff",
     "store",
     "thumbnail",

@@ -257,7 +257,10 @@ export {
 export {
   IMAGE_TYPES,
   isImage,
+  isRaster,
   mediaFileUrl,
+  RASTER_TYPES,
+  SVG_TYPE,
   useAddToGallery,
   useGallery,
   useMediaItem,

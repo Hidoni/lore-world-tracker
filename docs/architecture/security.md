@@ -13,7 +13,7 @@
 | Author instance | DNS rebinding (attacker domain resolving to 127.0.0.1) | `Host` header allowlist (`LORE_ALLOWED_HOSTS`, default `localhost,127.0.0.1,[::1]` plus the configured host); others get `421`/`400`. |
 | Author instance | Exposure to the LAN/internet | Binds to `127.0.0.1` by default. Docker compose publishes `127.0.0.1:8080:8080`. Exposing author mode publicly is unsupported and documented as such. |
 | Private lore | Leaks through reader deployments | Published snapshots + visibility enforcement + leak test suite (`visibility-and-sharing.md`). |
-| Browser (XSS) | Malicious rich text / names / SVG / links | Rich text is rendered from JSON by TipTap/React (no `dangerouslySetInnerHTML`). Allowed node types are validated server-side. Link marks are restricted to `http(s)`/`mailto`. CSP header. SVG uploads are not rendered inline (§3). |
+| Browser (XSS) | Malicious rich text / names / SVG / links | Rich text is rendered from JSON by TipTap/React (no `dangerouslySetInnerHTML`). Allowed node types are validated server-side. Link marks are restricted to `http(s)`/`mailto`. CSP header. SVG uploads are rendered inline only as sanitized (§3). |
 | Server | Malicious uploads (zip bombs, path traversal, huge files) | Size limits, type allowlist, content sniffing, content-addressed paths, safe zip extraction for restores (§3). |
 | Data | Accidental destruction | Trash, history/undo, pre-migration and scheduled backups, no in-place restore. |
 
@@ -57,11 +57,22 @@ headers → request context → host check → CORS (optional) → mutation guar
   megapixels are refused before decoding). Files are stored by SHA-256 and never by user-provided
   names; the uploaded name is kept for display only, reduced to its last path component. Text
   files must be UTF-8 without NUL bytes (`lore.modules.media.storage`).
-- SVG: accepted only as an attachment (`Content-Disposition: attachment`) and never rendered inline
-  until a sanitizer is added (post-MVP).
+- SVG (#161): shown inline only as sanitized by `lore.modules.media.svg`. Uploads must parse with
+  defusedxml (no entity declarations, no external references) and have an `svg` root, else they
+  are refused ("The SVG can't be read."). The stored file is never changed; the file endpoint sends
+  a rewritten copy (cached as `media/thumbs/<sha256>_safe<VERSION>.svg`, and its `VERSION` is in
+  the `ETag`, so a stricter sanitizer reaches stored files). The copy keeps an allowlist of
+  elements (shapes, text, paint servers, clipping, masking, filters, `use`, `style`) and
+  attributes; it drops scripts, `foreignObject`, animations, event handlers, `xml:base`, foreign
+  namespaces, comments and processing instructions, unwraps links (`a`), allows `href` only to
+  `#id` (or, on `image`/`feImage`, an embedded `data:image/<raster>;base64` image), allows only
+  `url(#id)` in values, and drops `style` attributes and sheets with `@import`, CSS escapes,
+  `expression`, bindings, `image-set()`/`src()` or other `url()`s. An SVG stored before the
+  sanitizer that it can't read is still sent as it is, as an attachment. SVGs have no thumbnails
+  or dimensions, so maps (which need a size) take raster images only.
 - Serving: `Content-Type` from the stored record, `X-Content-Type-Options: nosniff`,
-  `Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'` on
-  media responses.
+  `Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` on
+  media responses (`data:` for the raster images an SVG may embed).
 - Restore/import zips: reject absolute paths, `..`, backslashes, drive letters, symbolic links,
   duplicate entries and files the manifest doesn't list (or that aren't `lore.db`/`media/…`), cap
   the file count and the bytes actually extracted (not the declared sizes), and verify every

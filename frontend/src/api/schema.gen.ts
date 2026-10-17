@@ -1317,8 +1317,9 @@ export interface paths {
         /**
          * Upload
          * @description Upload a file (``security.md`` §3): its type is read from its bytes and must be an image
-         *     (png, jpeg, webp, gif, avif), a document (pdf, plain text, Markdown) or an SVG (served as an
-         *     attachment); images are decoded, and refused above the pixel limit. Files larger than
+         *     (png, jpeg, webp, gif, avif), a document (pdf, plain text, Markdown) or an SVG (shown
+         *     sanitized; one the sanitizer can't read is refused); images are decoded, and refused above
+         *     the pixel limit. Files larger than
          *     ``LORE_MAX_UPLOAD_MB`` are refused. The same bytes are stored once: uploading them again
          *     returns the existing item (``created: false``). Refusals are ``422``, path ``file``.
          */
@@ -1368,8 +1369,9 @@ export interface paths {
         /**
          * File
          * @description The file (``security.md`` §3): ``Content-Type`` from the stored item, ``nosniff``, a
-         *     restrictive CSP, ``ETag`` (the hash, plus the size) and immutable caching. SVG and non-image
-         *     files are sent as attachments. Thumbnails exist for raster images only.
+         *     restrictive CSP, ``ETag`` (the hash, plus the size) and immutable caching. Raster images and
+         *     their thumbnails are inline; an SVG is sanitized and inline (``lore.modules.media.svg``);
+         *     other files are sent as attachments. Thumbnails exist for raster images only.
          */
         get: operations["media_file"];
         /**

@@ -141,7 +141,18 @@ Removal requires an export of `media/`.
 - **Image picker** (`ImagePickerDialog`): the library's images with search, plus upload; shared by
   the editor, covers, galleries and fields.
 
+## Implementation notes (#161, SVG)
+
+- **Sanitizer** (`lore.modules.media.svg`, rules in `security.md` §3): an upload whose SVG it
+  can't read is refused; the stored bytes stay as uploaded, and `GET …/file` sends the sanitized
+  copy inline (cached next to the thumbnails, `media/thumbs/<sha256>_safe<VERSION>.svg`; made in
+  advance on publish, like thumbnails). SVGs have no thumbnail sizes (`422`) and no dimensions.
+- **Images** are raster images and SVGs (`storage.IMAGES`): an SVG is replaced only by an image, a
+  raster image still only by a raster image. The SPA shows SVGs wherever it shows images (image
+  picker, editor, covers, galleries, `media` fields) from the one sanitized file, without
+  `srcset`; the maps picker offers raster images only (`rasterOnly`), as a map needs a size.
+
 ## Future ideas
 
-Audio (pronunciations for lexicon entries), PDF previews, image annotations, SVG sanitization for
-inline rendering, deep-zoom tiling (shared with maps).
+Audio (pronunciations for lexicon entries), PDF previews, image annotations, deep-zoom tiling
+(shared with maps).

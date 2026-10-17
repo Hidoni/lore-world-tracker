@@ -14,8 +14,10 @@ export type GalleryItem = Domain<Schemas['GalleryItemOut']>
 export type MediaQuery = Omit<Query<'media_list'>, 'as_reader'>
 export type MediaSize = '160' | '480' | '1280' | 'original'
 
-/** Raster images (thumbnails exist for these only); other items are files to download. */
-export const IMAGE_TYPES = new Set([
+export const SVG_TYPE = 'image/svg+xml'
+
+/** Raster images (thumbnails exist for these only). */
+export const RASTER_TYPES = new Set([
   'image/png',
   'image/jpeg',
   'image/webp',
@@ -23,8 +25,16 @@ export const IMAGE_TYPES = new Set([
   'image/avif',
 ])
 
+/** What pages show as images: raster images and SVGs (which the server sends sanitized). Other
+ * items are files to download. */
+export const IMAGE_TYPES = new Set([...RASTER_TYPES, SVG_TYPE])
+
 export function isImage(item: Pick<MediaItem, 'mime'>): boolean {
   return IMAGE_TYPES.has(item.mime)
+}
+
+export function isRaster(item: Pick<MediaItem, 'mime'>): boolean {
+  return RASTER_TYPES.has(item.mime)
 }
 
 /**

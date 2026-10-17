@@ -1,14 +1,21 @@
 import { FileIcon, ImageOffIcon } from 'lucide-react'
 
-import { isImage, mediaFileUrl, useMediaItem, type MediaItem, type MediaSize } from '@/data'
+import {
+  isImage,
+  isRaster,
+  mediaFileUrl,
+  useMediaItem,
+  type MediaItem,
+  type MediaSize,
+} from '@/data'
 import { cn } from '@/lib/utils'
 
 /** Thumbnail widths the server makes (`?size=`). */
 const WIDTHS = [160, 480, 1280] as const
 
 /**
- * A media item shown: an image (thumbnails by width, loaded lazily) or, for other files, a
- * download link with the file's name.
+ * A media item shown: an image (thumbnails by width, loaded lazily; an SVG as it is) or, for
+ * other files, a download link with the file's name.
  */
 export function MediaImage({
   vault,
@@ -56,6 +63,18 @@ export function MediaImage({
     )
   }
   const url = (width: MediaSize) => mediaFileUrl(vault, item.id, width, item.sha256)
+  if (!isRaster(item)) {
+    // An SVG: one sanitized file that scales (no thumbnails, no dimensions).
+    return (
+      <img
+        src={url('original')}
+        alt={alt ?? item.alt}
+        loading="lazy"
+        decoding="async"
+        className={cn('h-auto max-w-full', className)}
+      />
+    )
+  }
   const widths = WIDTHS.filter((width) => item.width === null || width < item.width)
   const srcSet = [
     ...widths.map((width) => `${url(String(width) as MediaSize)} ${String(width)}w`),
