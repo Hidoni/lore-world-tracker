@@ -57,7 +57,59 @@ test('pages a static export does not hold yet say so', async ({ page }) => {
   await page.goto(STATIC_URL)
   await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
   await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  // Search (#377) isn't exported yet.
+  await page.getByRole('link', { name: 'Search', exact: true }).first().click()
+  await page.getByRole('searchbox').first().fill('Ilsa')
+  await page.getByRole('searchbox').first().press('Enter')
   await expect(
     page.getByText('This static export does not include this page yet.').first(),
   ).toBeVisible()
+})
+
+test('the timeline of a static export, zoomed out and in', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(String(error)))
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  const vault = /^#\/v\/([^/?]+)/.exec(new URL(page.url()).hash)?.[1] ?? ''
+  // The dimension and Wren's Warning's start, read through the export's own fetch.
+  const found = await page.evaluate(async (base) => {
+    const fetch = (window as unknown as { loreStaticFetch: (r: Request) => Promise<Response> })
+      .loreStaticFetch
+    const get = async (route: string) =>
+      (await (
+        await fetch(new Request(`http://static.invalid/api/v1/${base}/${route}`))
+      ).json()) as {
+        items: { id: string; name: string; start_t?: string; end_t?: string }[]
+      }
+    const dimension = (await get('entities?kind=dimension')).items[0]?.id ?? ''
+    const timelines = (await (
+      await fetch(
+        new Request(`http://static.invalid/api/v1/${base}/dimensions/${dimension}/timelines`),
+      )
+    ).json()) as { items: { id: string; parent_timeline_id: string | null }[] }
+    const timeline = timelines.items.find((t) => t.parent_timeline_id === null)?.id ?? ''
+    const ext = (await (
+      await fetch(new Request(`http://static.invalid/api/v1/${base}/entities/${dimension}`))
+    ).json()) as { ext: { duration: string } }
+    const answer = await get(
+      `timelines/${timeline}/window?from=0&to=${BigInt(ext.ext.duration) + 1n}&px=2000`,
+    )
+    const warning = answer.items.find((item) => item.name === "Wren's Warning")
+    return { dimension, start: warning?.start_t ?? '0', end: warning?.end_t ?? '1' }
+  }, `vaults/${vault}`)
+
+  await page.goto(`${STATIC_URL}#/v/${vault}/d/${found.dimension}/timeline`)
+  const timeline = page.getByRole('application', { name: 'Timeline' })
+  await expect(timeline).toBeVisible()
+  await expect(timeline.getByRole('button', { name: "Wren's Warning" })).toBeVisible()
+  // Zoomed in far past any recorded level: the window is computed for this range and width.
+  const from = BigInt(found.start) - 1n
+  const to = BigInt(found.end) + 1n
+  await page.goto(`${STATIC_URL}#/v/${vault}/d/${found.dimension}/timeline?from=${from}&to=${to}`)
+  await expect(timeline.getByRole('button', { name: "Wren's Warning" })).toBeVisible()
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+  await timeline.getByRole('button', { name: "Wren's Warning" }).click()
+  expect(errors).toEqual([])
 })

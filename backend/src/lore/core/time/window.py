@@ -30,6 +30,10 @@
 The overlap query fetches only ids, raw moment keys and importance; the items kept are loaded
 with the columns they show. Results are cached per vault write generation (``WINDOWS``, decided
 2026-10-07): any committed write to the vault invalidates them.
+
+The static export computes windows in the browser with a port of this module
+(``frontend/src/data/static-windows.ts``, ADR 0016): a change here changes it too
+(``e2e/static-parity.spec.ts`` compares both).
 """
 
 from bisect import bisect_left, bisect_right
@@ -647,6 +651,14 @@ def _items(
         )
     items.sort(key=_order)
     return items
+
+
+def window_items(
+    context: VaultContext, policy: VisibilityPolicy, view: TimelineView, row_ids: list[str]
+) -> list[WindowItem]:
+    """The items of event rows (not occurrences) as a window shows them (the static export
+    computes windows in the browser from these)."""
+    return _items(context, policy, view, sorted(row_ids), _Occurrences())
 
 
 def _order(item: WindowItem) -> tuple[int, int, str, int, str]:

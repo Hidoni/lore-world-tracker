@@ -22,11 +22,21 @@ would have to be made twice.
 - **The static data source is the HTTP data source** over a `fetch` that reads those files
   (`createStaticFetch`): the generated client, `toDomain` and every hook stay as they are.
 - **Free parameters are answered in the browser** from a recorded answer: a full list filtered by
-  a prefix (tags), the change points of an entity for an as-of cursor, timeline tiles at a few
-  zoom levels merged for any window, series rules expanded with `@lore/chronology` (occurrences
-  are never stored in bulk), a MiniSearch index for search. Each such read has a handler keyed by
-  its route; a read the export doesn't hold answers `404 not_in_export`, shown like any failed
-  read.
+  a prefix (tags), the change points of an entity for an as-of cursor, a MiniSearch index for
+  search. Each such read has a handler keyed by its route; a read the export doesn't hold answers
+  `404 not_in_export`, shown like any failed read.
+- **Timeline windows and series occurrences are the exception: computed in the browser** (#375).
+  A window has a free range and pixel budget: tiles recorded at a few zoom levels can't give the
+  server's answer at a deeper zoom or another budget (culling, buckets and series bands depend on
+  both). So the window logic (`lore/core/time/window.py`: overlap, LOD culling, density buckets,
+  filters, series bands, materialized occurrences) is ported to TypeScript
+  (`frontend/src/data/static-windows.ts`) over exported rows: each timeline's events as its view
+  resolves them, with the items they show, the filters' inputs, and the series rules and
+  calendars, expanded with `@lore/chronology` (occurrences are never stored in bulk). Recurrence
+  semantics stay single-sourced in the two conformance-tested engines; the window's own rules
+  are pinned by parity tests against the read-only server over many windows, zooms, budgets and
+  filters (`e2e/static-parity.spec.ts`), so a change to `window.py` that the port misses fails
+  them.
 - **Static mode is chosen at runtime**, not by a separate build: the exporter marks `index.html`
   (`<meta name="lore-static" content="data/" data-vault="…">`) and turns its `<base href="/">`
   into `./`. The SPA then uses hash routing and the static data source. Assets are relative (Vite
@@ -40,3 +50,4 @@ would have to be made twice.
 - Reads with unbounded parameters need a handler and a recorded full answer; their cost (export
   size, browser work) is budgeted in #378.
 - Ranking of client-side search may differ from FTS5's bm25 (documented in #377).
+- The window logic exists twice (Python and TypeScript); the parity tests keep them together.

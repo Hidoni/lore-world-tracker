@@ -12,6 +12,13 @@ export type Handler = (
   groups: readonly string[],
 ) => Promise<unknown>
 
+/** An item of a problem's `errors` (where the request is invalid, and why). */
+export interface ProblemError {
+  path: string
+  code: string
+  message: string
+}
+
 /** A failed read, as the server would answer it (`422` for a parameter it refuses, `404`…). */
 export class StaticProblem extends Error {
   constructor(
@@ -19,6 +26,7 @@ export class StaticProblem extends Error {
     readonly code: string,
     readonly title: string,
     detail: string,
+    readonly errors?: readonly ProblemError[],
   ) {
     super(detail)
   }

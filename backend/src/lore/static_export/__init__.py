@@ -34,8 +34,11 @@ from lore.app import create_app
 from lore.config import Settings
 from lore.core.errors import LoreError
 from lore.core.modules import ModuleSpec
+from lore.core.modules.spec import VaultContext
 from lore.static_export.asgi import Recorder
 from lore.static_export.entities import EntityExport
+from lore.static_export.time import TimeExport
+from lore.static_export.windows import WindowExport
 
 FORMAT_VERSION = 1
 MANIFEST_NAME = "static.json"
@@ -85,7 +88,17 @@ async def _record(app: FastAPI, vault_id: str) -> dict[str, Any]:
     recorder = Recorder(app)
     async with app.router.lifespan_context(app):
         files = {route.partition("?")[0]: await recorder.get(route) for route in _routes(vault_id)}
-        files.update(await EntityExport(app, recorder, vault_id).files())
+        entities = EntityExport(app, recorder, vault_id)
+        files.update(await entities.files())
+        files.update(
+            await TimeExport(recorder, vault_id).files(
+                entities.timelines, entities.summaries, entities.moments
+            )
+        )
+        opened = app.state.vaults.open(vault_id)
+        with opened.sessions() as session:
+            context = VaultContext(opened, session, app.state.registry)
+            files.update(await WindowExport(recorder, vault_id).files(context, entities.timelines))
     return files
 
 

@@ -211,12 +211,28 @@ Implementation (ADR 0016; #147, split into #373–#378):
     bound's first and last moment, from the resolver's extents). An as-of read is the same
     between two such moments, so the browser takes the last one at or before the cursor;
   - `fieldValues` is not exported: only editors call it.
+- **Time reads** (#375, `lore/static_export/time.py`, `frontend/src/data/static-time.ts`):
+  per timeline its event tree (every level) and the cause → effect graph around each event (at
+  depth 6 and 500 nodes, trimmed in the browser to the depth and limit asked), a branch's diff;
+  per entity its notes, worldline segments and personal timeline per timeline, and its presence
+  in every timeline at each moment it can change; correspondences, with mapping computed by
+  `@lore/chronology` along the server's path for each pair of dimensions.
+- **Timeline windows and occurrences** (#375, `lore/static_export/windows.py`,
+  `frontend/src/data/static-windows.ts`) are **computed in the browser** (ADR 0016's exception):
+  a port of `core/time/window.py` and `series.occurrences` over each timeline's rows as its view
+  resolves them (each root's candidate rows nearest first, with the item each shows), the
+  filters' inputs (tags, visible participants and their kinds, the events above each event), and
+  the series rules with their calendars, expanded with `@lore/chronology`. Any range, zoom,
+  budget and filter answers like the server.
 - **Parity** (`e2e/static-parity.spec.ts`): the tiny sample world's export answers what the
   read-only server answers for the same snapshot: every entity's reads, as-of reads around every
-  bound in every timeline, lists with each filter and sort, trees, paging.
+  bound in every timeline, lists with each filter and sort, trees, paging; the time reads; windows
+  over the whole dimension and at every zoom (by powers of ten), at several budgets and with each
+  filter, and every series' occurrences as each timeline sees them, at several windows and limits.
 - **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
-  `calendarPresets`, `tags` (#373), the entity reads (#374). Time reads (#375), module reads
-  and media (#376), search (#377), budgets and lazy loading (#378) follow. The tiny world
+  `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
+  occurrences (#375). Module reads and media (#376), search (#377), budgets and lazy loading
+  (#378) follow. The tiny world
   exports in about 50 s (one recorded read at a time; threads only add contention).
 
 ## 9. Backups vs sharing

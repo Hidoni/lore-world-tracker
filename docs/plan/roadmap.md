@@ -329,7 +329,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | ~~#147~~ | M13-01 | Static export (split into #373–#378) | XL | P2 | #140 |
 | #373 | M13-01a | Static export 1/6: format, builder frame, StaticDataSource with hash routing | L | P2 | #140 |
 | #374 | M13-01b | Static export 2/6: entity reads (shards, links, facts, as-of state) | L | P2 | #373 |
-| #375 | M13-01c | Static export 3/6: time reads (timeline tiles, occurrences, branches, correspondences, worldlines) | L | P2 | #374 |
+| #375 | M13-01c | Static export 3/6: time reads (timeline windows computed in the browser, occurrences, branches, correspondences, worldlines) | L | P2 | #374 |
 | #376 | M13-01d | Static export 4/6: module reads and media files | L | P2 | #375 |
 | #377 | M13-01e | Static export 5/6: client-side search (MiniSearch) | M | P2 | #374 |
 | #378 | M13-01f | Static export 6/6: size budgets, lazy chunks, end-to-end, Publishing UI | M | P2 | #376, #377 |

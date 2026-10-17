@@ -108,6 +108,8 @@ class EntityExport:
             if existence:
                 index["entities"][entity_id]["existence"] = existence
         files[f"{self.base}/static/index"] = index
+        # For the time reads (``time.py``).
+        self.timelines, self.summaries, self.moments = timelines, summaries, moments
         return files
 
     async def _summaries(self, timelines: dict[str, TimelineInfo]) -> dict[str, Any]:
