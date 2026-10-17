@@ -164,6 +164,37 @@ describe('vault picker', () => {
     expect(lastVault()).toBeNull()
   })
 
+  it('migrates a vault whose schema is behind', async () => {
+    const stale = {
+      ...BOREAS,
+      schema_status: { state: 'needs_migration', revision: 'old', head: 'head' },
+    }
+    let vaults = [ATLAS, stale]
+    let migrated: string | null = null
+    server.use(
+      http.get('*/api/v1/vaults', () => HttpResponse.json({ items: vaults, problems: [] })),
+      http.post('*/api/v1/vaults/:id/migrate', ({ params }) => {
+        migrated = params.id as string
+        vaults = [ATLAS, BOREAS]
+        return HttpResponse.json({
+          vault: BOREAS,
+          from_revision: 'old',
+          to_revision: 'head',
+          backup: null,
+        })
+      }),
+    )
+    await renderApp('/')
+    const list = await screen.findByRole('list', { name: 'Vaults' })
+    expect(within(list).getAllByRole('button', { name: 'Migrate' })).toHaveLength(1)
+    await userEvent.click(within(list).getByRole('button', { name: 'Migrate' }))
+    expect(await screen.findByText('Boreas is up to date')).toBeInTheDocument()
+    expect(migrated).toBe('v-boreas')
+    await waitFor(() => {
+      expect(within(list).queryByRole('button', { name: 'Migrate' })).not.toBeInTheDocument()
+    })
+  })
+
   it('shows folders that cannot be opened, the empty state and load errors', async () => {
     server.use(
       http.get('*/api/v1/vaults', () =>

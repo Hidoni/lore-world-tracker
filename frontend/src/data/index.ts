@@ -275,4 +275,11 @@ export {
   type LocationEvent,
   type LocationNode,
 } from './locations'
-export { useCreateVault, useDeleteVault, useRenameVault, useVault, useVaults } from './vaults'
+export {
+  useCreateVault,
+  useDeleteVault,
+  useMigrateVault,
+  useRenameVault,
+  useVault,
+  useVaults,
+} from './vaults'
