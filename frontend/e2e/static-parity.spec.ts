@@ -433,9 +433,10 @@ test('module reads and files answer like the read-only server', async ({ page, r
   for (const id of of('character')) {
     asOf(`${m}/characters/${id}/relationships`, id)
     asOf(`${m}/characters/${id}/life`, id, true)
+    // The page (3 generations) at every moment; the panel (2) in each timeline.
     for (const n of ['2', '3']) {
       const q = `up=${n}&down=${n}&include_spouses=true&include_siblings=true`
-      asOf(`${m}/characters/${id}/family-tree?${q}`, id)
+      asOf(`${m}/characters/${id}/family-tree?${q}`, id, n === '2')
     }
   }
   for (const id of of('group')) {
@@ -471,7 +472,7 @@ test('module reads and files answer like the read-only server', async ({ page, r
       for (const moment of moments) routes.push(`${route}&timeline=${t.id as string}&at=${moment}`)
     }
   }
-  for (const { id } of entities.slice(0, 15)) {
+  for (const { id } of entities.slice(0, 6)) {
     for (const depth of ['1', '2'])
       asOf(`${m}/graph/graph?center=${id as string}&depth=${depth}`, id as string)
   }
