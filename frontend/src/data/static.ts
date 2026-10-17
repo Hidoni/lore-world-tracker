@@ -3,6 +3,7 @@ import { createApiClient, PROBLEM_MEDIA_TYPE } from '@/api'
 import { createHttpDataSource } from './http'
 import { NotInExport, StaticProblem, type Handler, type Load } from './static-core'
 import { ENTITY_HANDLERS } from './static-entities'
+import { TIME_HANDLERS } from './static-time'
 import type { DataSource } from './source'
 
 /**
@@ -52,6 +53,7 @@ interface TagRow {
 /** Reads with free parameters, by route pattern: answered from the recorded full answer. */
 const HANDLERS: readonly (readonly [RegExp, Handler])[] = [
   ...ENTITY_HANDLERS,
+  ...TIME_HANDLERS,
   [
     /^vaults\/[^/]+\/tags$/,
     async (load, route, params) => {

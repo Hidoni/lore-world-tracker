@@ -204,3 +204,79 @@ test('entity reads answer like the read-only server', async ({ page, request }) 
   const paged = await allPages(page, request, `${base}/entities?limit=7&sort=-created`)
   expect(paged.exported).toEqual(paged.served)
 })
+
+test('time reads answer like the read-only server', async ({ page, request }) => {
+  test.setTimeout(240_000)
+  await page.goto(STATIC_URL)
+  const get = async (route: string) =>
+    (await (await request.get(`${STATIC_READER_URL}${API}${route}`)).json()) as Json
+  const vault = at((await get('vaults')).items as Json[], 0).id as string
+  const base = `vaults/${vault}`
+  const entities = (await allPages(page, request, `${base}/entities?limit=500`)).served as Json[]
+  const timelines = entities.filter((e) => e.kind === 'timeline')
+  const dimensions = entities.filter((e) => e.kind === 'dimension').map((e) => e.id as string)
+  const branches: string[] = []
+  const routes: string[] = []
+  for (const dimension of dimensions) {
+    routes.push(`${base}/dimensions/${dimension}/timelines`)
+    routes.push(`${base}/m/correspondences?dimension=${dimension}`)
+    for (const t of (await get(`${base}/dimensions/${dimension}/timelines`)).items as Json[]) {
+      if (t.parent_timeline_id !== null) branches.push(t.id as string)
+    }
+  }
+  routes.push(`${base}/m/correspondences`)
+  for (const c of (await get(`${base}/m/correspondences`)).items as Json[]) {
+    routes.push(`${base}/m/correspondences/${c.id as string}`)
+  }
+
+  // Event trees (every level, paged small), and the graph around each event at a few sizes.
+  for (const { id: timeline } of timelines) {
+    const route = `${base}/timelines/${timeline as string}`
+    const levels: (string | null)[] = [null]
+    while (levels.length > 0) {
+      const parent = levels.pop() ?? null
+      const query = parent === null ? '' : `parent=${parent}&`
+      const tree = await allPages(page, request, `${route}/event-tree?${query}limit=3`)
+      expect(tree.exported, `${route} ${parent ?? 'roots'}`).toEqual(tree.served)
+      for (const node of tree.served as Json[]) {
+        if (node.has_children) levels.push(node.id as string)
+        for (const size of ['depth=1', 'depth=2&limit=3', 'depth=6&limit=500', '']) {
+          routes.push(`${route}/causality?event=${node.id as string}${size ? `&${size}` : ''}`)
+        }
+      }
+    }
+  }
+  for (const branch of branches) {
+    const route = `${base}/m/branches/timelines/${branch}/diff`
+    routes.push(route, `${route}?limit=1`)
+    for (const { id } of entities.slice(0, 40)) {
+      routes.push(`${base}/m/branches/notes/${id as string}/${branch}`)
+    }
+  }
+
+  // Worldlines: segments and personal timelines per timeline, presence around every bound.
+  for (const entity of entities.filter((e) => e.kind === 'character')) {
+    const route = `${base}/m/worldlines/entities/${entity.id as string}`
+    for (const timeline of ['', ...timelines.map((t) => t.id as string)]) {
+      const q = timeline ? `timeline=${timeline}` : ''
+      const segments = await request.get(`${STATIC_READER_URL}${API}${route}/segments?${q}`)
+      if (segments.status() !== 200) continue
+      routes.push(`${route}/segments?${q}`, `${route}/personal-timeline?${q}`)
+      routes.push(`${route}/personal-timeline?include=jumps&include=existence&${q}`)
+      const moments = new Set<bigint>([0n])
+      for (const s of ((await segments.json()) as { segments: Json[] }).segments) {
+        for (const key of ['start_t', 'end_t']) {
+          const t = s[key]
+          if (typeof t === 'string') for (const d of [-1n, 0n, 1n]) moments.add(BigInt(t) + d)
+        }
+      }
+      const where = timelines.find((t) => t.id === timeline)
+      for (const dimension of where ? [where.dimension_id as string] : dimensions) {
+        for (const t of moments) {
+          if (t >= 0n) routes.push(`${route}/presence?dimension=${dimension}&t=${t}&${q}`)
+        }
+      }
+    }
+  }
+  expect(differences(await both(page, request, routes))).toEqual([])
+})
