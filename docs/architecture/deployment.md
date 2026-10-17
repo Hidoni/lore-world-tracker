@@ -12,10 +12,11 @@
 | `LORE_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Host header allowlist, ports ignored; `LORE_HOST` is added unless it is a wildcard address (`*` allowed only with `LORE_READ_ONLY=true`) |
 | `LORE_CORS_ORIGINS` | empty | development only |
 | `LORE_AUTO_MIGRATE` | `true` | migrate vaults on open (with backup) |
-| `LORE_STATIC_DIR` | empty (API only) | built SPA directory to serve at `/` (with SPA fallback) |
+| `LORE_STATIC_DIR` | empty (API only) | built SPA directory to serve at `/` (with SPA fallback); also what **Export static site** copies (`visibility-and-sharing.md` §8) |
 | `LORE_SPEC_DIR` | auto-detected `<repo>/spec` | location of `spec/chronology` (presets, schemas) |
 | `LORE_MAX_UPLOAD_MB` | `50` | upload size limit |
-| `LORE_PUBLISH_DIR` | empty (publishing from the UI disabled) | data-dir root where published snapshots are written |
+| `LORE_PUBLISH_DIR` | empty (publishing from the UI disabled) | data-dir root where published snapshots are written (static sites go to its `static/<vault folder>/`) |
+| `LORE_EXPORT_WORKERS` | CPU count, at most 8 | processes a static export records with (`lore vault export-static`, **Export static site**) |
 | `LORE_LOG_LEVEL` / `LORE_LOG_FORMAT` | `info` / `text` | logging (`json` = one JSON object per line, for containers); every record carries the request id |
 | `LORE_DEBUG` | `false` | include tracebacks in `internal_error` responses (development only, never in shared deployments) |
 

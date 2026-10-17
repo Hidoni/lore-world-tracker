@@ -253,11 +253,22 @@ Implementation (ADR 0016; #147, split into #373–#378):
   every declared module read at every moment around every bound, the lexicon and media lists
   filtered and paged, and the copied files byte for byte; search and the quick switcher for many
   queries, filters and timelines (the same hits and snippets; order not compared).
-- **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
+- **Recording** runs the reads in a pool of worker processes (`LORE_EXPORT_WORKERS`, default
+  the CPU count up to 8), each with its own read-only app over the snapshot; reads are
+  independent, so the files are the same as one process would write. Tests pass their own
+  modules and record in process.
+- **From the app** (#378): **Settings → Publishing → Export static site**
+  (`POST /vaults/{v}/publish/static`, author-only) exports the latest snapshot into
+  `LORE_PUBLISH_DIR/static/<vault folder>/` with the SPA build `LORE_STATIC_DIR`. It is built
+  beside the old site and swapped in once complete; the publish status says when and where.
+- **Loading**: the app loads no data before the first page but `meta`, `vaults`, `settings`,
+  `registry` and the downloads list; each page then loads the files its reads need (the entity
+  index on the first entity read, one shard per entity, a timeline's rows on its first window,
+  the search documents on the first search). Budgets: `testing.md` §4.
+- **Exported**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
   `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
-  occurrences (#375), module reads and media (#376), search (#377). Budgets and lazy loading
-  (#378) follow. The tiny world
-  exports in about 50 s (one recorded read at a time; threads only add contention).
+  occurrences (#375), module reads and media (#376), search (#377); the Publishing UI, budgets
+  and the reader journeys end to end (#378). Module views at other settings follow (#386).
 
 ## 9. Backups vs sharing
 

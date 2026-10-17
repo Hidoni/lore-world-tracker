@@ -9,12 +9,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Static export, first part** (#373): `lore vault export-static <snapshot> --out <dir>` turns a
-  published snapshot into a static site that any web host serves without a Lore server. So far
-  it holds the vault's landing page, lists and entity pages, with the time cursor (#374), and
-  the timeline at any zoom with recurring events, branches, correspondences and worldlines
-  (#375), and module pages (characters, groups, places, species, languages and lexicons, maps,
-  the graph) with their images and files (#376), and search with the quick switcher (#377).
+- **Static site export** (#373–#378): Settings → Publishing → **Export static site**, or
+  `lore vault export-static <snapshot> --out <dir>`, turns a published snapshot into a static
+  site that any web host serves without a Lore server: the vault's landing page, lists and
+  entity pages with the time cursor (#374), the timeline at any zoom with recurring events,
+  branches, correspondences and worldlines (#375), module pages (characters, groups, places,
+  species, languages and lexicons, maps, the graph) with their images and files (#376), and
+  search with the quick switcher (#377). Exports record in several processes
+  (`LORE_EXPORT_WORKERS`) and pages load only the files they need (#378).
 - The dimension wizard's first calendar can be a **Custom calendar**, designed in the calendar
   editor inside the wizard, blank or from a preset, instead of a preset as is (#379).
 

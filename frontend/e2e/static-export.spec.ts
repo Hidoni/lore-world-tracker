@@ -169,3 +169,23 @@ test('module pages, a map and its image in a static export', async ({ page }) =>
     .toBeGreaterThan(0)
   expect(errors).toEqual([])
 })
+
+test('the graph of a static export', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(String(error)))
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  const vault = /^#\/v\/([^/?]+)/.exec(new URL(page.url()).hash)?.[1] ?? ''
+  await page.goto(`${STATIC_URL}#/v/${vault}/m/graph`)
+  await expect(page.getByRole('heading', { name: 'Graph', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('graph-canvas')).toBeVisible()
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Find in the graph' }).fill('Ilsa the Tidebound')
+  await expect(page.getByText('1 found')).toBeVisible()
+  await page.getByRole('textbox', { name: 'Find in the graph' }).press('Enter')
+  const preview = page.getByRole('complementary', { name: 'Selected entity' })
+  await preview.getByRole('link', { name: 'Open Ilsa the Tidebound' }).click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+  expect(errors).toEqual([])
+})
