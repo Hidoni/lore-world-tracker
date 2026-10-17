@@ -211,8 +211,10 @@ What the numbers rest on, and what is left:
   is the event service itself (propagation, dependency edges, displays, search: 50 statements
   per event), and it grows from 14 ms in an empty vault to 27 ms at 100k events while `large`
   is built, 500 events per transaction. Written one per request, an event costs the same next to
-  100k events as in an empty vault (`test_writes_cost_the_same_in_a_large_vault`). #241 looks at
-  the event service.
+  100k events as in an empty vault (`test_writes_cost_the_same_in_a_large_vault`). #241 (a first pass, 2026-10-17): media refs are rebuilt in sets of entities, and bulk writers
+  create through `EntityService.insert` (no response read back): 19 → 15 ms per event in a
+  500-event transaction on this pass's machine. The rest is about 40 statements per event across
+  propagation, indexing, mentions and history; how far to go is #241's decision.
 
 #### The final pass (#144, 2026-10-16)
 

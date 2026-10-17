@@ -34,6 +34,7 @@ from lore.modules.media.models import MediaGalleryItem, MediaItem, MediaRef
 IMAGE = "image"
 MEDIA_FIELD = "media"
 RICH_TEXT = "rich_text"
+_BATCH = 500  # ids per IN list (SQLite allows 32,766 bound variables)
 DERIVED = ("body", "cover", "gallery")
 _RANK: dict[str, int] = {"public": 0, "spoiler": 1, "private": 2}
 _TABLES = frozenset({"entities", "entity_facts", "media_gallery"})
@@ -86,8 +87,13 @@ class Refs:
             kind.key: kind for kind in context.registry.vault_kinds(context.session, enabled)
         }
 
-    def wanted(self, entity: Entity) -> dict[tuple[str, str], Visibility]:
-        """``(media id, context) -> level`` of the entity's derived contexts."""
+    def wanted(
+        self,
+        entity: Entity,
+        gallery: Iterable[tuple[str, Visibility]] | None = None,
+    ) -> dict[tuple[str, str], Visibility]:
+        """``(media id, context) -> level`` of the entity's derived contexts. ``gallery``: its
+        gallery's ``(media id, level)`` when already loaded (``rebuild`` loads them in sets)."""
         found: dict[tuple[str, str], Visibility] = {}
 
         def add(pairs: Iterable[tuple[str, Visibility]], where: str) -> None:
@@ -107,12 +113,17 @@ class Refs:
         self._facts(entity, fields, add)
         if entity.cover_media_id:
             add([(entity.cover_media_id, "public")], "cover")
-        gallery = self.session.execute(
-            select(MediaGalleryItem.media_id, MediaGalleryItem.visibility).where(
-                MediaGalleryItem.entity_id == entity.id, MediaGalleryItem.deleted_at.is_(None)
-            )
-        )
-        add(((media_id, level) for media_id, level in gallery), "gallery")
+        if gallery is None:
+            gallery = [
+                (media_id, level)
+                for media_id, level in self.session.execute(
+                    select(MediaGalleryItem.media_id, MediaGalleryItem.visibility).where(
+                        MediaGalleryItem.entity_id == entity.id,
+                        MediaGalleryItem.deleted_at.is_(None),
+                    )
+                )
+            ]
+        add(gallery, "gallery")
         return found
 
     def _facts(self, entity: Entity, fields: dict[str, FieldDef], add: Any) -> None:
@@ -135,29 +146,54 @@ class Refs:
             add(_field_refs(field, fact.value, level), f"field:{field.key}")
 
     def rebuild(self, entity_ids: Iterable[str]) -> None:
-        for entity_id in sorted(set(entity_ids)):
-            entity = self.session.get(Entity, entity_id)
-            if entity is None:
-                continue  # purged: its refs went with it (ON DELETE CASCADE)
-            wanted = self.wanted(entity)
-            existing = set(
-                self.session.scalars(
-                    select(MediaItem.id).where(MediaItem.id.in_({m for m, _ in wanted}))
-                )
+        """The entities' derived refs, replaced. Done in sets of entities (a changeset of the
+        sample world's bulk writes 500 at once): their galleries, the media items they use and
+        the old refs are read and deleted with a statement per set, not per entity (#241)."""
+        wanted_ids = sorted(set(entity_ids))
+        for start in range(0, len(wanted_ids), _BATCH):
+            self._rebuild(wanted_ids[start : start + _BATCH])
+        self.session.flush()
+
+    def _rebuild(self, ids: list[str]) -> None:
+        entities = {
+            entity.id: entity
+            for entity in self.session.scalars(select(Entity).where(Entity.id.in_(ids)))
+        }  # purged ones are missing: their refs went with them (ON DELETE CASCADE)
+        if not entities:
+            return
+        galleries: dict[str, list[tuple[str, Visibility]]] = {}
+        for owner, media_id, level in self.session.execute(
+            select(
+                MediaGalleryItem.entity_id, MediaGalleryItem.media_id, MediaGalleryItem.visibility
+            ).where(
+                MediaGalleryItem.entity_id.in_(list(entities)),
+                MediaGalleryItem.deleted_at.is_(None),
             )
-            self.session.execute(
-                delete(MediaRef).where(
-                    MediaRef.entity_id == entity_id,
-                    or_(MediaRef.context.in_(DERIVED), MediaRef.context.startswith("field:")),
-                )
+        ):
+            galleries.setdefault(owner, []).append((media_id, level))
+        wanted = {
+            entity_id: self.wanted(entity, galleries.get(entity_id, []))
+            for entity_id, entity in entities.items()
+        }
+        used = {media_id for refs in wanted.values() for media_id, _ in refs}
+        existing = (
+            set(self.session.scalars(select(MediaItem.id).where(MediaItem.id.in_(used))))
+            if used
+            else set()
+        )
+        self.session.execute(
+            delete(MediaRef).where(
+                MediaRef.entity_id.in_(list(entities)),
+                or_(MediaRef.context.in_(DERIVED), MediaRef.context.startswith("field:")),
             )
-            for (media_id, where), level in sorted(wanted.items()):
+        )
+        for entity_id in sorted(wanted):
+            for (media_id, where), level in sorted(wanted[entity_id].items()):
                 if media_id in existing:
                     self.session.add(
                         MediaRef(media_id=media_id, entity_id=entity_id, context=where,
                                  visibility=level)
                     )  # fmt: skip
-        self.session.flush()
 
 
 def _check_covers(context: VaultContext, changes: Sequence[RecordedChange]) -> None:

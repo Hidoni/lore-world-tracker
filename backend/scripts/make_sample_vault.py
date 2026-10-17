@@ -595,10 +595,9 @@ class Services:
 
     def entity(self, kind: str, name: str, *, timeline: str | None = None, **body: Any) -> str:
         """An entity (branch-only when created in a branch ``timeline``)."""
-        created = self.entities.create(
+        return self.entities.insert(
             EntityCreate.model_validate({"kind": kind, "name": name, **body}), timeline_id=timeline
         )
-        return created.entity.id
 
     def branch(self, parent: str, name: str, branch_point: Doc, summary: str = "") -> str:
         """A branch of the ``parent`` timeline (the branches module, M9)."""
