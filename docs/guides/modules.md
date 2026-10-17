@@ -17,13 +17,13 @@ Every module is on in a new vault.
   needs are off, or turning off one that others need, first lists the modules that will switch
   with it; confirm with **Enable all** or **Disable all**.
 
-The commands in this guide that start with "Open" are in the command palette (`Ctrl/Cmd+K`).
+Module views such as **Open the graph** are also commands in the command palette (`Ctrl/Cmd+K`).
 
 ## Entity modules
 
 These add kinds of entities. Each kind gets a section in the sidebar (its **+** button creates
-one), a list page and panels on its entities' pages. All of them can have a lifespan (existence), can be
-multiversal, and can sit under a misc entry.
+one), a list page and panels on its entities' pages. All of them can have a lifespan (existence),
+can be multiversal, and can sit under a misc entry.
 
 ### Locations
 
