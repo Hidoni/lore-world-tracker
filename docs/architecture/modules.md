@@ -94,6 +94,7 @@ class ModuleSpec:
     richtext_nodes: tuple[RichTextNodeHandler, ...] = ()      # extraction/filtering for module node types
     backup_contributors: tuple[BackupContributor, ...] = ()   # extra files (e.g. media blobs)
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
+    markdown_contributors: tuple[MarkdownContributor, ...] = () # files and renderers for the Markdown export
     kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()                   # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()               # rebuild derived rows on every changeset
@@ -118,7 +119,12 @@ transaction on the snapshot's copy (`context`: its session, as a reader would se
 has deleted what readers can't see, and remove or copy what core can't know about (the media
 module copies the files of the items readers see from `source` into `target`; maps drop the maps
 readers can't see). A module table with a `visibility` or `deleted_at` column loses its private
-and trashed rows without help, and rows whose references were deleted go with them. `derived_hooks` (#126) are
+and trashed rows without help, and rows whose references were deleted go with them.
+`markdown_contributors` (#148) are `(MarkdownExport) -> None` (`lore.core.markdown.export`): the
+enabled modules' contributors run once per Markdown export, before any note is written, with the
+vault read under the export's policy; they copy files into the export (`claim` a path, then
+`sink.copy`) and register how their rich-text nodes, field types and covers render
+(`markdown-export.md` §5). `derived_hooks` (#126) are
 `(VaultContext, Sequence[RecordedChange]) -> None`: the enabled modules' hooks run with the
 changes each changeset is about to record, before the consistency check, for every writer and
 undo, to rebuild derived rows (the media module's `media_refs`); raising a typed error refuses the

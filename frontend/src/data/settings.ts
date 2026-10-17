@@ -60,6 +60,14 @@ export function backupDownloadUrl(vault: string, id: string): string {
   return `/api/v1/vaults/${encodeURIComponent(vault)}/backups/${encodeURIComponent(id)}/download`
 }
 
+/**
+ * Where the vault downloads from as a zip of Markdown notes (markdown-export.md; author-only):
+ * `readers` holds what readers see, `author` everything, private content included.
+ */
+export function markdownExportUrl(vault: string, audience: 'readers' | 'author'): string {
+  return `/api/v1/vaults/${encodeURIComponent(vault)}/export/markdown?audience=${audience}`
+}
+
 /** Restores a backup into a new vault, reporting the upload's progress. */
 export function useRestoreBackup() {
   const mutations = useRequiredMutations()

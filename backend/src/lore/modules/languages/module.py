@@ -21,6 +21,7 @@ from lore.modules.languages.lexicon import (
     reindex_after_revert,
 )
 from lore.modules.languages.links import LINK_TYPES
+from lore.modules.languages.markdown import export_lexicon_refs
 from lore.modules.languages.models import LexiconEntry
 from lore.modules.languages.richtext import LEXICON_REF
 from lore.modules.languages.router import router
@@ -68,6 +69,7 @@ MODULE = ModuleSpec(
     ),
     purge_hooks=(purge_entries,),
     richtext_nodes=(LEXICON_REF,),
+    markdown_contributors=(export_lexicon_refs,),
 )
 
 __all__ = ["ALPHABET_FIELD", "MODULE"]

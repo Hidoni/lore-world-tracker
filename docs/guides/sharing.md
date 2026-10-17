@@ -88,6 +88,25 @@ python -m http.server --directory site
 It is still being built: the export opens the vault's landing page, and the other pages say
 "Not in this export" until their data is exported too (#374–#378).
 
+## Markdown / Obsidian export
+
+To read or keep your world in [Obsidian](https://obsidian.md) or another Markdown tool, export
+it as Markdown notes: **Settings → Publishing → Export as Markdown** downloads a zip, or from
+the command line:
+
+```sh
+lore vault export-markdown <vault> --out notes/              # what readers see
+lore vault export-markdown <vault> --out notes/ --audience author   # everything
+```
+
+Each entity becomes a note in `<dimension>/<kind>/`, with `[[wikilinks]]`, its fields, aliases,
+tags and dates (in every calendar) as properties, then its text, facts and links; media files go
+to `_media/`. Open the folder as an Obsidian vault and the graph view shows how everything
+links. Dates show in each dimension's default calendar first; `--calendar <id>` picks another.
+The readers' export is safe to share; the author's ("Download everything") holds private
+content, like a backup. Edits made in the notes don't come back into Lore. Details:
+`docs/architecture/markdown-export.md`.
+
 ## Backups and snapshots are different things
 
 | | Backup | Published snapshot |

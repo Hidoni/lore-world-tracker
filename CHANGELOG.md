@@ -13,6 +13,13 @@ All notable changes to this project are documented here. The format follows
   published snapshot into a static site that any web host serves without a Lore server. So far
   it holds the vault's landing page; the other pages follow (#374–#378).
 
+- **Markdown / Obsidian export** (#148): Settings → Publishing → Export as Markdown, or
+  `lore vault export-markdown <vault> --out <dir>`, writes the vault as Markdown notes for
+  Obsidian and other Markdown tools: one note per entity with `[[wikilinks]]`, its fields,
+  aliases, tags and dates in every calendar as properties, its text, facts and links, and the
+  media files. The readers' export holds only what readers see; "everything" includes private
+  content.
+
 ### Fixed
 
 - **Vault picker for readers** (#373): a read-only server no longer shows the create, rename,

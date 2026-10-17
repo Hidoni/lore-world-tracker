@@ -207,3 +207,8 @@ Implementation (ADR 0016; #147, split into #373–#378):
 
 Backups (`persistence-and-migrations.md` §5) are **full copies including private data** and are
 never meant for sharing. The UI states this next to backup and publish actions.
+
+The **Markdown export** (`markdown-export.md`) reads the vault with the policy of its audience:
+`readers` (the default) holds exactly what readers see and is safe to share; `author` holds
+private content too and is treated like a backup (the UI says so). Its download is author-only
+(`404` for readers); the tests byte-scan the canary vault's readers' export like a snapshot.
