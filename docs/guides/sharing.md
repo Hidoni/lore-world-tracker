@@ -75,6 +75,19 @@ in `./published`. Restart the reader so it opens the new copy:
 docker compose restart reader
 ```
 
+## Static export (preview)
+
+A published snapshot can also become a static site that any web host serves, with no Lore
+server at all:
+
+```sh
+lore vault export-static <snapshot> --out site/ --data-dir ./published --spa frontend/dist
+python -m http.server --directory site
+```
+
+It is still being built: the export opens the vault's landing page, and the other pages say
+"Not in this export" until their data is exported too (#374–#378).
+
 ## Backups and snapshots are different things
 
 | | Backup | Published snapshot |

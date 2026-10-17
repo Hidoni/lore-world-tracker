@@ -187,6 +187,22 @@ dimension/timeline at a few zoom levels, series rules, calendars, search index f
 media). The result is hostable on any static host ("run an http server serving the exposed
 project", brief).
 
+Implementation (ADR 0016; #147, split into #373–#378):
+
+- **Builder** (`lore.static_export`, #373): refuses anything but a published snapshot and an
+  output folder that isn't empty; starts the app read-only over the snapshot, in process, and
+  records reader GET responses: `/api/v1/<route>` → `data/<route>.json`. Copies the SPA build
+  (`--spa`, default `LORE_STATIC_DIR`), marks its `index.html` (`<meta name="lore-static">`, the
+  `<base>` made relative) and writes `static.json` (`format: 1`, vault, app version, published
+  and exported times). The tests byte-scan the canary vault's export like a snapshot (§5).
+- **StaticDataSource** (`frontend/src/data/static.ts`): the HTTP data source over a `fetch` that
+  reads the files, with hash routing. Reads with free parameters have a handler answering from a
+  recorded full answer (tags: the full list, filtered by prefix and limit); anything else not in
+  the export answers `404 not_in_export`.
+- **Exported so far** (#373): `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
+  `calendarPresets`, `tags`. Entity reads (#374), time reads (#375), module reads and media
+  (#376), search (#377), budgets and the end-to-end check (#378) follow.
+
 ## 9. Backups vs sharing
 
 Backups (`persistence-and-migrations.md` §5) are **full copies including private data** and are

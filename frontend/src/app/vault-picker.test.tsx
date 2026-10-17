@@ -164,6 +164,19 @@ describe('vault picker', () => {
     expect(lastVault()).toBeNull()
   })
 
+  it('only lists the vaults for readers', async () => {
+    serveVaults()
+    await renderApp('/?pick=true', undefined, { readOnly: true })
+    const list = await screen.findByRole('list', { name: 'Vaults' })
+    expect(
+      within(list)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Atlas', 'Boreas'])
+    expect(within(list).queryAllByRole('button')).toEqual([])
+    expect(screen.queryByRole('button', { name: 'Create vault' })).not.toBeInTheDocument()
+  })
+
   it('migrates a vault whose schema is behind', async () => {
     const stale = {
       ...BOREAS,

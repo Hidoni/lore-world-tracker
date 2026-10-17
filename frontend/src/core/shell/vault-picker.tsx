@@ -22,6 +22,7 @@ import {
   useDeleteVault,
   useMeta,
   useMigrateVault,
+  useMutations,
   useRenameVault,
   useVaults,
   type Vault,
@@ -219,10 +220,12 @@ function ServerInfo() {
 
 /**
  * The vault picker (`/`, R-VLT-1): list, create, rename and move vaults to the trash. Without
- * `?pick`, it opens the last-opened vault when it still exists.
+ * `?pick`, it opens the last-opened vault when it still exists. Readers (a read-only server, a
+ * static export) only get the list.
  */
 export function VaultPicker({ pick }: { pick: boolean }) {
   const vaults = useVaults()
+  const editable = useMutations() !== null
   const navigate = useNavigate()
   const [renaming, setRenaming] = useState<Vault | null>(null)
   const [deleting, setDeleting] = useState<Vault | null>(null)
@@ -245,7 +248,7 @@ export function VaultPicker({ pick }: { pick: boolean }) {
         <h1 className="text-2xl font-semibold">Vaults</h1>
         <p className="text-muted-foreground">Each vault holds one world, with its own history.</p>
       </div>
-      <CreateVaultForm />
+      {editable && <CreateVaultForm />}
       {vaults.isPending && <p className="text-muted-foreground">Loading vaults…</p>}
       {vaults.isError && (
         <p role="alert" className="text-destructive">
@@ -253,7 +256,9 @@ export function VaultPicker({ pick }: { pick: boolean }) {
         </p>
       )}
       {items?.length === 0 && (
-        <p className="text-muted-foreground">No vaults yet: create one to start a world.</p>
+        <p className="text-muted-foreground">
+          {editable ? 'No vaults yet: create one to start a world.' : 'No vaults are shared here.'}
+        </p>
       )}
       {items !== undefined && items.length > 0 && (
         <ul aria-label="Vaults" className="flex flex-col divide-y rounded-md border">
@@ -274,27 +279,33 @@ export function VaultPicker({ pick }: { pick: boolean }) {
                   </span>
                 </div>
                 {state !== undefined && <Badge variant="secondary">{state}</Badge>}
-                {vault.schema_status.state === 'needs_migration' && <MigrateButton vault={vault} />}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Rename ${vault.name}`}
-                  onClick={() => {
-                    setRenaming(vault)
-                  }}
-                >
-                  <PencilIcon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Move ${vault.name} to the trash`}
-                  onClick={() => {
-                    setDeleting(vault)
-                  }}
-                >
-                  <Trash2Icon />
-                </Button>
+                {editable && vault.schema_status.state === 'needs_migration' && (
+                  <MigrateButton vault={vault} />
+                )}
+                {editable && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Rename ${vault.name}`}
+                      onClick={() => {
+                        setRenaming(vault)
+                      }}
+                    >
+                      <PencilIcon />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Move ${vault.name} to the trash`}
+                      onClick={() => {
+                        setDeleting(vault)
+                      }}
+                    >
+                      <Trash2Icon />
+                    </Button>
+                  </>
+                )}
               </li>
             )
           })}

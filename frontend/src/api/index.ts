@@ -8,5 +8,11 @@ export {
   type ApiClient,
 } from './client'
 export { isPreviewingAsReader, readerUrl, setPreviewingAsReader } from './reader-preview'
-export { ApiError, toApiError, type Problem, type ProblemErrorItem } from './errors'
+export {
+  ApiError,
+  PROBLEM_MEDIA_TYPE,
+  toApiError,
+  type Problem,
+  type ProblemErrorItem,
+} from './errors'
 export type { components, operations, paths } from './schema.gen'

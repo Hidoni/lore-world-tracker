@@ -28,7 +28,7 @@ product owner's request.
 | M10 Media & maps | Uploads, galleries, image nodes; interactive time-aware maps | E10 green | #126–#132 | v0.9.0 |
 | M11 Custom fields & kinds | Custom fields (incl. temporal), custom kinds, relation fields | E11 green | #133–#137 | v0.10.0 |
 | M12 Sharing, backup & hardening | Read-only mode, leak audit, published snapshots, reader UI, perf + a11y passes | E12–E13 green; all budgets met | #138–#146, #241, #307, #361–#363 | **v1.0.0** |
-| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162 | – |
+| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162, #373–#378 | – |
 
 ## Milestone dependencies and parallel tracks
 
@@ -326,7 +326,13 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 
 | # | Key | Title | Size | Prio | Blocked by |
 |---|-----|-------|------|------|------------|
-| #147 | M13-01 | Static export: StaticDataSource, snapshot builder, client-side search, hash routing | XL | P2 | #140 |
+| ~~#147~~ | M13-01 | Static export (split into #373–#378) | XL | P2 | #140 |
+| #373 | M13-01a | Static export 1/6: format, builder frame, StaticDataSource with hash routing | L | P2 | #140 |
+| #374 | M13-01b | Static export 2/6: entity reads (shards, links, facts, as-of state) | L | P2 | #373 |
+| #375 | M13-01c | Static export 3/6: time reads (timeline tiles, occurrences, branches, correspondences, worldlines) | L | P2 | #374 |
+| #376 | M13-01d | Static export 4/6: module reads and media files | L | P2 | #375 |
+| #377 | M13-01e | Static export 5/6: client-side search (MiniSearch) | M | P2 | #374 |
+| #378 | M13-01f | Static export 6/6: size budgets, lazy chunks, end-to-end, Publishing UI | M | P2 | #376, #377 |
 | #148 | M13-02 | Markdown / Obsidian-compatible vault export | L | P2 | #140 |
 | #149 | M13-03 | Portable JSON export/import (cross-version interchange, partial imports) | L | P2 | #146 |
 | #150 | M13-04 | MCP server module: let AI assistants read (and optionally write) the vault safely | XL | P2 | #139 |

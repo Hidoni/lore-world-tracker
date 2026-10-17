@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // Relative asset URLs: index.html resolves them against its <base> ("/" on a server, "./" in a
+  // static export), chunks against their own URL.
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
