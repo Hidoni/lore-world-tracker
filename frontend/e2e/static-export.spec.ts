@@ -57,6 +57,10 @@ test('pages a static export does not hold yet say so', async ({ page }) => {
   await page.goto(STATIC_URL)
   await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
   await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  // Search (#377) isn't exported yet.
+  await page.getByRole('link', { name: 'Search', exact: true }).first().click()
+  await page.getByRole('searchbox').first().fill('Ilsa')
+  await page.getByRole('searchbox').first().press('Enter')
   await expect(
     page.getByText('This static export does not include this page yet.').first(),
   ).toBeVisible()

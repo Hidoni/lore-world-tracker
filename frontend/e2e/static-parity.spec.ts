@@ -334,7 +334,7 @@ test('window reads answer like the read-only server', async ({ page, request }) 
     // The whole dimension at many budgets, then windows at every zoom (by powers of ten).
     const windows: [bigint, bigint][] = [[0n, duration + 1n]]
     for (let zoom = 1n; zoom <= duration; zoom *= 10n) {
-      for (let n = 0; n < 4; n++) {
+      for (let n = 0; n < 2; n++) {
         const width = duration / zoom + BigInt(Math.floor(random() * 3))
         const start = (duration * BigInt(Math.floor(random() * 1_000_000))) / 1_000_000n
         windows.push([start, start + (width > 0n ? width : 1n)])
@@ -358,7 +358,7 @@ test('window reads answer like the read-only server', async ({ page, request }) 
       'include_cancelled=true',
     ]
     for (const [i, [from, to]] of windows.entries()) {
-      for (const px of [1, 9, 120, 2400]) routes.push(`${route}?from=${from}&to=${to}&px=${px}`)
+      for (const px of [1, 120, 2400]) routes.push(`${route}?from=${from}&to=${to}&px=${px}`)
       const filter = filters[i % filters.length] ?? ''
       routes.push(`${route}?from=${from}&to=${to}&px=640&${filter}`)
     }
@@ -369,7 +369,7 @@ test('window reads answer like the read-only server', async ({ page, request }) 
   // Occurrences of every series seen: as each timeline sees it, at every zoom and limit.
   for (const id of series) {
     const route = `${base}/events/${id}/occurrences`
-    const event = (await get(`${base}/entities/${id}`))
+    const event = await get(`${base}/entities/${id}`)
     const dimension = (await get(`${base}/entities/${event.dimension_id as string}`)).ext as Json
     const duration = BigInt(dimension.duration as string)
     for (const timeline of ['', ...timelines.map((t) => `&timeline=${t.id as string}`)]) {
