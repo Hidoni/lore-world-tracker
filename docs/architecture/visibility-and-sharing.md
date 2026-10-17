@@ -182,9 +182,8 @@ implementing it in `StaticDataSource`.
 
 `lore vault export-static <vault> --out dist/`: build from a published snapshot. It writes the
 SPA build (configured for `StaticDataSource` and hash routing) plus `data/` JSON chunks
-(registry, entity index, entities sharded by id prefix, link adjacency, timeline tiles per
-dimension/timeline at a few zoom levels, series rules, calendars, search index for MiniSearch,
-media). The result is hostable on any static host ("run an http server serving the exposed
+(registry, entity index, entity shards, the rows timeline windows are computed from, series
+rules, calendars, module reads, the search documents, media). The result is hostable on any static host ("run an http server serving the exposed
 project", brief).
 
 Implementation (ADR 0016; #147, split into #373–#378):
@@ -237,16 +236,26 @@ Implementation (ADR 0016; #147, split into #373–#378):
   uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
   it opens and each entity's local graph at 1 and 2 steps); other choices answer
   `not_in_export` until #386 computes them.
+- **Search** (#377, `lore/static_export/search.py`, `frontend/src/data/static-search.ts`): the
+  documents a reader can search (in any timeline, with their entity's branch origin) and their
+  public columns, from the snapshot, loaded on the first search. `search` and `quickSearch` are
+  the server's ported: the expression grammar, matching as FTS5's `unicode61 remove_diacritics 2`
+  tokenizer (word starts, exact phrases, OR, NOT, groups), the filters, snippets, and the quick
+  switcher's word starts then substrings (the `trigram` table). The same queries find the same
+  documents with the same snippets; their order follows the same bm25 formula and column
+  weights over the exported documents' statistics, so ties and near ties can be ordered
+  differently from the server's (whose statistics count every row of its FTS table).
 - **Parity** (`e2e/static-parity.spec.ts`): the tiny sample world's export answers what the
   read-only server answers for the same snapshot: every entity's reads, as-of reads around every
   bound in every timeline, lists with each filter and sort, trees, paging; the time reads; windows
   over the whole dimension and at every zoom (by powers of ten), at several budgets and with each
   filter, and every series' occurrences as each timeline sees them, at several windows and limits;
   every declared module read at every moment around every bound, the lexicon and media lists
-  filtered and paged, and the copied files byte for byte.
+  filtered and paged, and the copied files byte for byte; search and the quick switcher for many
+  queries, filters and timelines (the same hits and snippets; order not compared).
 - **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
   `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
-  occurrences (#375), module reads and media (#376). Search (#377), budgets and lazy loading
+  occurrences (#375), module reads and media (#376), search (#377). Budgets and lazy loading
   (#378) follow. The tiny world
   exports in about 50 s (one recorded read at a time; threads only add contention).
 

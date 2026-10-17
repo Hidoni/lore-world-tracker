@@ -38,6 +38,7 @@ from lore.core.modules.spec import VaultContext
 from lore.static_export.asgi import Recorder
 from lore.static_export.entities import EntityExport
 from lore.static_export.modules import ModuleExport
+from lore.static_export.search import search_index
 from lore.static_export.time import TimeExport
 from lore.static_export.windows import WindowExport
 
@@ -102,6 +103,9 @@ async def _record(app: FastAPI, vault_id: str) -> tuple[dict[str, Any], dict[str
             context = VaultContext(opened, session, app.state.registry)
             windows = WindowExport(recorder, vault_id)
             files.update(await windows.files(context, entities.timelines))
+            files[f"vaults/{vault_id}/static/search"] = search_index(
+                session, app.state.registry, entities.timelines
+            )
         module_files, binaries = await ModuleExport(recorder, vault_id).record(
             app.state.registry.modules,
             entities.summaries,

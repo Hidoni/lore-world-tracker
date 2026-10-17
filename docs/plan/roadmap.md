@@ -332,7 +332,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #375 | M13-01c | Static export 3/6: time reads (timeline windows computed in the browser, occurrences, branches, correspondences, worldlines) | L | P2 | #374 |
 | #376 | M13-01d | Static export 4/6: module reads and media files | L | P2 | #375 |
 | #386 | M13-01d2 | Static export 4b: module views at any setting (family tree depths, org chart levels, graph filters) | M | P3 | #376 |
-| #377 | M13-01e | Static export 5/6: client-side search (MiniSearch) | M | P2 | #374 |
+| #377 | M13-01e | Static export 5/6: client-side search (the server's search ported) | M | P2 | #374 |
 | #378 | M13-01f | Static export 6/6: size budgets, lazy chunks, end-to-end, Publishing UI | M | P2 | #376, #377 |
 | #148 | M13-02 | Markdown / Obsidian-compatible vault export | L | P2 | #140 |
 | #149 | M13-03 | Portable JSON export/import (cross-version interchange, partial imports) | L | P2 | #146 |

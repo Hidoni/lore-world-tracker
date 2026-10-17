@@ -56,14 +56,35 @@ test('an entity page of a static export', async ({ page }) => {
 test('pages a static export does not hold yet say so', async ({ page }) => {
   await page.goto(STATIC_URL)
   await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
-  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
-  // Search (#377) isn't exported yet.
-  await page.getByRole('link', { name: 'Search', exact: true }).first().click()
-  await page.getByRole('searchbox').first().fill('Ilsa')
-  await page.getByRole('searchbox').first().press('Enter')
+  await page.getByRole('link', { name: 'Characters', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Ilsa the Tidebound' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+  await revealPanels(page)
+  // Family trees are exported at the depths the app opens with (#386 adds the others).
+  await page.getByLabel('Generations up').first().selectOption('5')
   await expect(
     page.getByText('This static export does not include this page yet.').first(),
   ).toBeVisible()
+})
+
+test('search in a static export: the search page and the quick switcher', async ({ page }) => {
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  await page.getByRole('link', { name: 'Search', exact: true }).first().click()
+  await page.getByRole('searchbox').first().fill('Tidebound')
+  await page.getByRole('searchbox').first().press('Enter')
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: /Ilsa the Tidebound/ })
+    .first()
+    .click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
+  // The quick switcher.
+  await page.keyboard.press('Control+k')
+  await page.keyboard.type('Ilsa')
+  await expect(page.getByRole('option', { name: /Ilsa the Tidebound/ }).first()).toBeVisible()
 })
 
 test('the timeline of a static export, zoomed out and in', async ({ page }) => {

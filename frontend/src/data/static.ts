@@ -10,6 +10,7 @@ import {
 } from './static-core'
 import { ENTITY_HANDLERS } from './static-entities'
 import { MODULE_HANDLERS } from './static-modules'
+import { SEARCH_HANDLERS } from './static-search'
 import { TIME_HANDLERS } from './static-time'
 import { WINDOW_HANDLERS } from './static-windows'
 import type { DataSource } from './source'
@@ -70,6 +71,7 @@ const HANDLERS: readonly (readonly [RegExp, Handler])[] = [
   ...ENTITY_HANDLERS,
   ...TIME_HANDLERS,
   ...WINDOW_HANDLERS,
+  ...SEARCH_HANDLERS,
   [
     /^vaults\/[^/]+\/tags$/,
     async (load, route, params) => {
