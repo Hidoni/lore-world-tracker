@@ -35,7 +35,7 @@ FIXTURE_DIRS = sorted(
 
 
 def test_there_is_a_fixture_for_every_release() -> None:
-    assert [path.name for path in FIXTURE_DIRS][:9] == [
+    assert [path.name for path in FIXTURE_DIRS][:10] == [
         "v0.1.0",
         "v0.2.0",
         "v0.3.0",
@@ -45,6 +45,7 @@ def test_there_is_a_fixture_for_every_release() -> None:
         "v0.8.0",
         "v0.9.0",
         "v0.10.0",
+        "v1.0.0",
     ]
 
 

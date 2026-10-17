@@ -8,9 +8,9 @@ shipped as a Docker image.
 ## Project status
 
 Planning finished on 2026-10-01. Implementation happens through **GitHub issues** grouped in
-milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). M0–M11
+milestones **M0–M13** in `Hidoni/lore-world-tracker` (see `docs/plan/roadmap.md`). M0–M12
 are done (M2 released as v0.1.0, M3 as v0.2.0, M4 as v0.3.0, M5 as v0.4.0, M6 as v0.5.0,
-M7 as v0.6.0, M8 as v0.7.0, M9 as v0.8.0, M10 as v0.9.0, M11 as v0.10.0;
+M7 as v0.6.0, M8 as v0.7.0, M9 as v0.8.0, M10 as v0.9.0, M11 as v0.10.0, M12 as v1.0.0, the MVP;
 `CHANGELOG.md`). If reality and
 this file diverge, fix this file in your PR.
 

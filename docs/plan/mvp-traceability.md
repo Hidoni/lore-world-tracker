@@ -22,7 +22,7 @@ cite it.
 | mark things private/spoiler and run a read-only server (from a published snapshot) for readers | #40, #138–#142 |
 | back up and restore a vault, and upgrade the app without losing data | #31, #41, #42, #143, and a golden fixture vault per release (#43 … #137) |
 
-Quality across all of it: accessibility (#145), performance (#144, #241; budgets still open:
+Quality across all of it: accessibility (#145), performance (#144, #241,
 #361–#363), end-to-end journeys E1–E13 (#70, #87, #107, #124, #131, #136, #143).
 
 ## Requirements
