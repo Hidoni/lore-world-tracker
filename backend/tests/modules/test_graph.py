@@ -7,6 +7,9 @@ from typing import Any
 
 import pytest
 
+from lore.core.modules.spec import VaultContext
+from lore.core.visibility import READER
+from lore.modules.graph.service import GraphReader
 from tests.entity_api import LinkApi, make_client, problem
 from tests.entity_modules import with_real_modules
 from tests.test_facts import absolute
@@ -193,3 +196,25 @@ def test_disabled_module(api: LinkApi, world: World) -> None:
     assert api.modules("graph", enabled=False).status_code == 200
     response = api.client.get(f"{api.base}/m/graph/graph")
     problem(response, 404, "module_disabled")
+
+
+def test_the_data_a_static_export_computes_graphs_from(api: LinkApi, world: World) -> None:
+    app: Any = api.client.app
+    opened = app.state.vaults.open(api.vault)
+    with opened.sessions() as session:
+        context = VaultContext(opened, session, app.state.registry)
+        data = GraphReader(context, READER).static_data({world.prime: [0, 99, 100, 199, 200]})
+    links = {row[0]: row for row in data["links"]}
+    # Readers' links only: none with the private Spy.
+    assert world.marriage["id"] in links
+    assert world.rivalry["id"] not in links
+    assert links[world.marriage["id"]][4] == "queen consort"
+    assert links[world.marriage["id"]][5] == world.prime
+    # Valid from 100 to 200 on the prime timeline.
+    assert data["valid"][world.prime][world.marriage["id"]] == [
+        ["0", False], ["100", True], ["200", False],
+    ]  # fmt: skip
+    # Mentions outside private blocks, between entities readers see.
+    assert [world.aria["id"], world.varn["id"], 1] in data["mentions"]
+    assert not any(world.spy["id"] in row for row in data["mentions"])
+    assert {"character", "location", "misc"} <= set(data["kinds"])

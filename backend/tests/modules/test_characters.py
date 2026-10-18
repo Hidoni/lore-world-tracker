@@ -7,7 +7,10 @@ from typing import Any
 
 import pytest
 
+from lore.core.modules.spec import VaultContext
+from lore.core.visibility import READER
 from lore.modules.characters.links import CATEGORIES
+from lore.modules.characters.service import Characters
 from tests.entity_api import LinkApi, make_client, problem
 from tests.entity_modules import with_real_modules
 from tests.test_facts import absolute
@@ -327,3 +330,30 @@ def test_family_tree_leaves_out_the_trash_and_other_kinds(api: LinkApi) -> None:
     problem(
         m(api, f"/{people['Aldric']['id']}/family-tree", timeline=place["id"]), 404, "not_found"
     )
+
+
+def test_the_data_a_static_export_computes_family_trees_from(api: LinkApi) -> None:
+    dimension = api.make("dimension", "Aetheria")
+    prime = dimension["ext"]["prime_timeline_id"]
+    home = {"dimension_id": dimension["id"]}
+    mother, child = (api.make("character", n, **home) for n in ("Mira", "Wren"))
+    secret = api.make("character", "Secret", visibility="private", **home)
+    born = api.made_link("characters.parent_of", mother, child, data={"kind": "adoptive"})
+    api.made_link("characters.parent_of", secret, child)
+    response = api.client.post(
+        f"{api.base}/entities/{mother['id']}/facts",
+        json={"field_key": "core.exists", "timeline_id": prime, "valid_from": absolute(10),
+              "valid_to": absolute(20)},
+    )  # fmt: skip
+    assert response.status_code == 201, response.json()
+    app: Any = api.client.app
+    opened = app.state.vaults.open(api.vault)
+    with opened.sessions() as session:
+        context = VaultContext(opened, session, app.state.registry)
+        data = Characters(context, READER).static_data([prime])
+    # Readers' family links only (none with the private parent), with their relation.
+    assert data["links"] == [
+        [born["id"], "characters.parent_of", mother["id"], child["id"], "adoptive"]
+    ]
+    assert data["lifespans"][prime][mother["id"]] == ["10", "20"]
+    assert secret["id"] not in data["lifespans"][prime]
