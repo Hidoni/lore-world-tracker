@@ -604,6 +604,14 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
       "range_separator": {
         "maxLength": 50,
         "type": "string"
+      },
+      "between_prefix": {
+        "maxLength": 50,
+        "type": "string"
+      },
+      "between_separator": {
+        "maxLength": 50,
+        "type": "string"
       }
     },
     "type": "object"
@@ -1259,6 +1267,16 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
       "approximate": {
         "type": "boolean"
       },
+      "range": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TimeRange"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "frozen_from": {
         "anyOf": [
           {
@@ -1274,6 +1292,22 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
     "required": [
       "anchor",
       "precision"
+    ],
+    "type": "object"
+  },
+  "TimeRange": {
+    "additionalProperties": false,
+    "properties": {
+      "earliest": {
+        "$ref": "#/$defs/TimePoint"
+      },
+      "latest": {
+        "$ref": "#/$defs/TimePoint"
+      }
+    },
+    "required": [
+      "earliest",
+      "latest"
     ],
     "type": "object"
   },

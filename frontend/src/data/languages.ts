@@ -18,7 +18,7 @@ export type LexiconEntryUpdate = Schemas['LexiconEntryUpdate']
 export type LexiconDefinition = Schemas['Definition']
 export type EtymologySource = Schemas['EtymologySource']
 /** A time point as request bodies take it. */
-export type WireTimePoint = Schemas['TimePoint']
+export type WireTimePoint = Schemas['TimePoint-Input']
 
 /** The language family graph (of a dimension and the multiversal languages, or all). */
 export function useLanguageFamilyTree(vault: string, dimension: string | null) {

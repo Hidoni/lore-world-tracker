@@ -213,29 +213,41 @@ type DefinitionAnchor = Annotated[
 
 def _reject_range(data: Any) -> Any:
     if isinstance(data, dict) and "range" in data:
-        msg = "'range' is reserved for explicit uncertainty ranges (post-MVP) and not allowed in v1"
+        msg = "'range' is not allowed in calendar definitions"
         raise ValueError(msg)
     return data
 
 
 class TimePoint(_Model):
-    """An anchor plus precision and the circa flag (time-model §5.1).
-
-    The member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.
-    """
+    """An anchor plus precision and the circa flag (time-model §5.1), and optionally the range
+    of moments it lies in (§5.4b): the anchor stays the stored moment, the best estimate."""
 
     anchor: Anchor
     precision: Precision
     approximate: StrictBool = False
+    range: TimeRange | None = Field(default=None, exclude_if=lambda v: v is None)
+    """An explicit uncertainty range: "between ``earliest`` and ``latest``" (#151)."""
     frozen_from: dict[str, Any] | None = Field(default=None, exclude_if=lambda v: v is None)
     """The spec this point was frozen from when a record it depended on was purged (an
     ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
     history; never resolved."""
 
-    @model_validator(mode="before")
-    @classmethod
-    def _no_range(cls, data: Any) -> Any:
-        return _reject_range(data)
+    @model_validator(mode="after")
+    def _flat_range(self) -> TimePoint:
+        if self.range is not None and any(
+            end.range is not None for end in (self.range.earliest, self.range.latest)
+        ):
+            msg = "the ends of a range can't have ranges of their own"
+            raise ValueError(msg)
+        return self
+
+
+class TimeRange(_Model):
+    """The range of moments a time point lies in (time-model §5.4b): from the start of
+    ``earliest``'s unit to the end of ``latest``'s."""
+
+    earliest: TimePoint
+    latest: TimePoint
 
 
 class DefinitionTimePoint(_Model):
@@ -510,6 +522,8 @@ class DisplayOptions(_Model):
     scientific_threshold: Annotated[StrictInt, Field(ge=1, le=MAX_DIGITS + 1)] = 16
     significant_digits: Annotated[StrictInt, Field(ge=1, le=50)] = 4
     range_separator: Annotated[str, StringConstraints(max_length=50)] = " \u2013 "  # en dash
+    between_prefix: Annotated[str, StringConstraints(max_length=50)] = "between "
+    between_separator: Annotated[str, StringConstraints(max_length=50)] = " and "
 
 
 class CalendarDefinition(_Model):

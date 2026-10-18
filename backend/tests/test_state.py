@@ -213,3 +213,19 @@ def test_lists_tree_and_children_filter_by_existence(world: World) -> None:
     assert {e for _, e in listed("/entities", kind="gadget")} == {None}
     problem(world.api.client.get(f"{world.api.base}/entities", params={"at": "0"}),
             422, "validation_error")  # fmt: skip
+
+
+def test_existence_is_possible_inside_an_uncertainty_range(world: World) -> None:
+    """Began between year 2 and year 4 (best guess year 3): possible until the range is over."""
+    cal = world.calendar
+    begun = in_year(cal, 3) | {"range": {"earliest": in_year(cal, 2), "latest": in_year(cal, 4)}}
+    world.made(field_key="core.exists", valid_from=begun)
+    expected = {
+        YEAR - 1: "not_exists",
+        YEAR: "possible",  # the range has begun
+        3 * YEAR: "possible",
+        4 * YEAR - 2: "possible",
+        4 * YEAR - 1: "exists",  # the last moment of the range: begun, whenever it was
+        5 * YEAR: "exists",
+    }
+    assert {t: existence(world, t) for t in expected} == expected

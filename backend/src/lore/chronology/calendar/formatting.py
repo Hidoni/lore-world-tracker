@@ -288,6 +288,22 @@ def format_span(
             for point in (start, end)
         ]
         return separator.join(texts)
+    return _joined(calendar, start, end, separator)
+
+
+def format_between(calendar: CompiledCalendar, earliest: DisplayPoint, latest: DisplayPoint) -> str:
+    """§10 ``format_between``: an uncertainty range ("between 12 and 15 Frostfall 1023"),
+    collapsed like ``format_span``; both ends in the same unit give that one date."""
+    display = _layout(calendar).display
+    text = _joined(calendar, earliest, latest, display.between_separator)
+    single = format_date(calendar, earliest.t, earliest.precision, approximate=earliest.approximate)
+    return text if text == single else display.between_prefix + text
+
+
+def _joined(
+    calendar: CompiledCalendar, start: DisplayPoint, end: DisplayPoint, separator: str
+) -> str:
+    """Two closed ends joined by ``separator``, the shared coarse parts written once."""
     first, last = _date(calendar, start.t, start.precision), _date(calendar, end.t, end.precision)
     pattern, end_pattern = _pattern(calendar, first), _pattern(calendar, last)
     start_pieces: Sequence[Piece] = pattern

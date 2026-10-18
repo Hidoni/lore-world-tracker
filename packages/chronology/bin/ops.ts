@@ -14,6 +14,7 @@ import {
   type DisplayPoint,
   formatAbsolute,
   formatDate,
+  formatBetween,
   formatSpan,
   eraOf,
   eraValueToJson,
@@ -116,6 +117,7 @@ export const OPS = [
   'diff',
   'format',
   'format_span',
+  'format_between',
   'format_absolute',
   'preset_instantiate',
   'expand',
@@ -182,6 +184,12 @@ function displayOptions(d: Json): IntegerDisplayOptions {
 }
 
 const bounds = ({ start, end }: Bounds) => ({ start: start.toString(), end: end.toString() })
+
+function closedPoint(data: unknown): DisplayPoint {
+  const point = displayPoint(data)
+  if (point === null) throw new Error('a range needs both ends')
+  return point
+}
 
 function displayPoint(data: unknown): DisplayPoint | null {
   if (data === null) return null
@@ -321,6 +329,9 @@ export const HANDLERS: Partial<Record<Op, Handler>> = {
     const t = BigInt(str(d, 't'))
     return { text: formatDate(compiled(calendar), t, str(d, 'precision'), { approximate }) }
   },
+  format_between: (calendar, d) => ({
+    text: formatBetween(compiled(calendar), closedPoint(d.earliest), closedPoint(d.latest)),
+  }),
   format_span: (calendar, d) => ({
     text: formatSpan(compiled(calendar), displayPoint(d.start), displayPoint(d.end)),
   }),

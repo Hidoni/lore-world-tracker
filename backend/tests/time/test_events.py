@@ -477,3 +477,19 @@ def test_changesets_and_undo(api: LinkApi, world: dict[str, Any]) -> None:
     assert times(api, a, b) == [(str(DAY),) * 2, (str(2 * DAY),) * 2]
     created = changes(api, 4)[-1]
     assert api.client.post(f"{api.base}/changes/{created['id']}/revert").status_code == 409
+
+
+def test_range_ends_move_with_their_anchors_and_cannot_cycle(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    a = event(api, world, "Omen", start=at(10 * DAY))
+    ranged = at(12 * DAY) | {"range": {"earliest": at(5 * DAY), "latest": after(a, 5 * DAY)}}
+    b = event(api, world, "Doom", start=ranged)
+    resolved = api.client.get(f"{api.base}/entities/{b['id']}").json()["ext"]
+    assert resolved["start_t"] == str(12 * DAY)
+    # Moving the anchor of the range's latest end past the estimate breaks the range: refused.
+    moved = problem(api.patch(fresh(api, a), ext={"start": at(DAY)}), 422, "time_constraint")
+    assert moved["context"]["records"][0]["code"] == "range_invalid"
+    # A range end can't depend on its own point.
+    own = {**at(12 * DAY), "range": {"earliest": at(5 * DAY), "latest": after(b, DAY)}}
+    problem(api.patch(fresh(api, b), ext={"start": own}), 409, "time_cycle")

@@ -192,6 +192,12 @@ alignment fields are invalid).
 - input: `{"t": "<moment>", "precision": "<level id>" | "base", "approximate": false}`
 - expected: `{"text": "<string>"}`, or `{"error": "invalid_date"}` for an unknown precision
 
+### `format_between` (§10)
+
+- input: `{"earliest": {"t", "precision", "approximate"}, "latest": {"t", "precision", "approximate"}}`
+- expected: `{"text": "<string>"}`: `display.between_prefix`, the ends collapsed like `format_span`
+  and joined by `display.between_separator`; both ends in the same unit give that one date
+
 ### `format_span` (§10)
 
 - input: `{"start": {"t", "precision", "approximate"} | null, "end": {"t", "precision", "approximate"} | null}`

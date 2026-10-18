@@ -140,13 +140,23 @@ def test_alignment_cannot_use_a_local_anchor() -> None:
         CalendarDefinition.model_validate(definition)
 
 
-@pytest.mark.parametrize("model", [TimePoint, schema.DefinitionTimePoint])
-def test_range_is_reserved_and_rejected(model: type[TimePoint]) -> None:
+def test_a_time_point_may_have_a_range_with_flat_ends() -> None:
+    ranged = absolute("5") | {"range": {"earliest": absolute("1"), "latest": absolute("9")}}
+    point = TimePoint.model_validate(ranged)
+    assert point.range is not None
+    assert point.model_dump(mode="json")["range"]["latest"]["anchor"]["t"] == "9"
+    assert "range" not in TimePoint.model_validate(absolute("5")).model_dump(mode="json")
+    nested = absolute("5") | {"range": {"earliest": ranged, "latest": absolute("9")}}
+    with pytest.raises(ValidationError, match="ranges of their own"):
+        TimePoint.model_validate(nested)
+    with pytest.raises(ValidationError):
+        TimePoint.model_validate(absolute("5") | {"range": {"earliest": absolute("1")}})
+
+
+def test_definition_time_points_have_no_range() -> None:
     point = absolute("5") | {"range": {"earliest": absolute("1"), "latest": absolute("9")}}
-    with pytest.raises(ValidationError, match="reserved"):
-        model.model_validate(point)
-    with pytest.raises(ValidationError, match="reserved"):
-        model.model_validate(absolute("5") | {"range": None})
+    with pytest.raises(ValidationError, match="not allowed"):
+        schema.DefinitionTimePoint.model_validate(point)
 
 
 def test_time_point_defaults_and_strict_flags() -> None:

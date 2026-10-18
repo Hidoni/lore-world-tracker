@@ -140,6 +140,104 @@
         "text": "1 – 1023"
       },
       "note": "only the year: nothing is shared"
+    },
+    {
+      "id": "between-days",
+      "op": "format_between",
+      "input": {
+        "earliest": {
+          "t": "435000008080524000",
+          "precision": "day",
+          "approximate": false
+        },
+        "latest": {
+          "t": "435000008080732800",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "between 12 and 15 Frostfall 1023"
+      },
+      "note": "time-model §5.4b: collapsed like format_span"
+    },
+    {
+      "id": "between-months",
+      "op": "format_between",
+      "input": {
+        "earliest": {
+          "t": "435000008080524000",
+          "precision": "month",
+          "approximate": false
+        },
+        "latest": {
+          "t": "435000008086025228",
+          "precision": "month",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "between Frostfall and Bloom 1023"
+      }
+    },
+    {
+      "id": "between-years",
+      "op": "format_between",
+      "input": {
+        "earliest": {
+          "t": "435000000000000000",
+          "precision": "year",
+          "approximate": false
+        },
+        "latest": {
+          "t": "435000008080524000",
+          "precision": "year",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "between 1 and 1023"
+      }
+    },
+    {
+      "id": "between-one-unit",
+      "op": "format_between",
+      "input": {
+        "earliest": {
+          "t": "435000008080524000",
+          "precision": "day",
+          "approximate": false
+        },
+        "latest": {
+          "t": "435000008080524000",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "12 Frostfall 1023"
+      },
+      "note": "both ends in the same unit: that one date"
+    },
+    {
+      "id": "between-circa",
+      "op": "format_between",
+      "input": {
+        "earliest": {
+          "t": "435000008080524000",
+          "precision": "day",
+          "approximate": true
+        },
+        "latest": {
+          "t": "435000008080732800",
+          "precision": "day",
+          "approximate": false
+        }
+      },
+      "expected": {
+        "text": "between c. 12 and 15 Frostfall 1023"
+      },
+      "note": "each approximate end gets its circa prefix"
     }
   ]
 }

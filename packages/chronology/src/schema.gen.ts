@@ -93,14 +93,17 @@ export interface CalendarDuration {
   sign: 1 | -1
 }
 /**
- * An anchor plus precision and the circa flag (time-model §5.1).
- *
- * The member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.
+ * An anchor plus precision and the circa flag (time-model §5.1), and optionally the range
+ * of moments it lies in (§5.4b): the anchor stays the stored moment, the best estimate.
  */
 export interface TimePoint {
   anchor: Anchor
   precision: string
   approximate?: boolean
+  /**
+   * An explicit uncertainty range: "between ``earliest`` and ``latest``" (#151).
+   */
+  range?: TimeRange | null
   /**
    * The spec this point was frozen from when a record it depended on was purged (an
    * ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
@@ -109,6 +112,14 @@ export interface TimePoint {
   frozen_from?: {
     [k: string]: unknown | undefined
   } | null
+}
+/**
+ * The range of moments a time point lies in (time-model §5.4b): from the start of
+ * ``earliest``'s unit to the end of ``latest``'s.
+ */
+export interface TimeRange {
+  earliest: TimePoint
+  latest: TimePoint
 }
 export interface TimePointEnd {
   kind: 'time_point'
@@ -552,6 +563,8 @@ export interface DisplayOptions {
   scientific_threshold?: number
   significant_digits?: number
   range_separator?: string
+  between_prefix?: string
+  between_separator?: string
 }
 /**
  * Inputs to ``compile`` besides the definition (chronology-engine §4).

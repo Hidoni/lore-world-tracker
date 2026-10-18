@@ -37,6 +37,8 @@ export function displayOptions(options: DisplayOptions | null | undefined): Disp
     scientific_threshold: options?.scientific_threshold ?? 16,
     significant_digits: options?.significant_digits ?? 4,
     range_separator: options?.range_separator ?? ' – ',
+    between_prefix: options?.between_prefix ?? 'between ',
+    between_separator: options?.between_separator ?? ' and ',
   }
 }
 
@@ -357,6 +359,33 @@ export function formatSpan(
       )
       .join(separator)
   }
+  return joined(calendar, start, end, separator)
+}
+
+/**
+ * §10 `formatBetween`: an uncertainty range ("between 12 and 15 Frostfall 1023"), collapsed like
+ * `formatSpan`; both ends in the same unit give that one date.
+ */
+export function formatBetween(
+  calendar: CompiledCalendar,
+  earliest: DisplayPoint,
+  latest: DisplayPoint,
+): string {
+  const display = layoutOf(calendar).display
+  const text = joined(calendar, earliest, latest, display.between_separator)
+  const single = formatDate(calendar, earliest.t, earliest.precision, {
+    approximate: earliest.approximate,
+  })
+  return text === single ? text : display.between_prefix + text
+}
+
+/** Two closed ends joined by `separator`, the shared coarse parts written once. */
+function joined(
+  calendar: CompiledCalendar,
+  start: DisplayPoint,
+  end: DisplayPoint,
+  separator: string,
+): string {
   const first = dateAt(calendar, start.t, start.precision)
   const last = dateAt(calendar, end.t, end.precision)
   const pattern = patternOf(calendar, first)

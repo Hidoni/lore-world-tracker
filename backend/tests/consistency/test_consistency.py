@@ -534,3 +534,17 @@ def test_pair_rules_load_time_points_in_sets(api: LinkApi, world: dict[str, Any]
     many, many_statements = scan(10)
     assert (few, many) == (6, 36)
     assert many_statements == few_statements
+
+
+def test_a_range_makes_a_violation_possible(api: LinkApi, world: dict[str, Any]) -> None:
+    """A raid best placed on day 8 is outside its war (from day 10): definitely, until it is
+    known only to have begun between day 5 and day 15, which the war may hold."""
+    rule = "core.event.subevent_outside_parent"
+    parent = made(event(api, world, "War", at(10 * DAY), end=until(20 * DAY)))
+    child = made(event(api, world, "Raid", at(8 * DAY), parent_id=parent["id"]))
+    [finding] = of_rule(api, rule)
+    assert finding["certainty"] == "definite"
+    start = at(8 * DAY) | {"range": {"earliest": at(5 * DAY), "latest": at(15 * DAY)}}
+    assert patch(api, child["id"], ext={"start": start}).status_code == 200
+    [finding] = of_rule(api, rule)
+    assert finding["certainty"] == "possible"

@@ -13,6 +13,12 @@ All notable changes to this project are documented here. The format follows
   [--dry-run]` replaces the history older than N days with one snapshot per entity (its net
   change over that period) to bound storage. Snapshots show as “Compacted” in the history and
   can't be undone.
+- **Uncertainty ranges for time points** (#399, part of #151): "began between 1020 and 1025".
+  A time point can carry a range of moments; its anchor stays the best estimate. The range
+  widens the point's uncertainty, so as-of states and consistency findings become *possible*
+  inside it, and dates show as "between AD 1020 and 1025". Both chronology engines format
+  ranges (`format_between`), with new calendar display options for the wording. The picker
+  follows in #400.
 - **Static site export** (#373–#378): Settings → Publishing → **Export static site**, or
   `lore vault export-static <snapshot> --out <dir>`, turns a published snapshot into a static
   site that any web host serves without a Lore server: the vault's landing page, lists and

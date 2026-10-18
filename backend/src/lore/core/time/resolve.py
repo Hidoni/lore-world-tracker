@@ -57,6 +57,7 @@ from lore.chronology.schema import (
     RelativeAnchor,
     TimePoint,
     TimePointEnd,
+    TimeRange,
     UnknownEnd,
 )
 from lore.core.entities.models import Entity
@@ -95,6 +96,7 @@ type ProblemCode = Literal[
     "slot_not_referenceable",
     "not_supported",
     "unmapped",
+    "range_invalid",
 ]
 
 
@@ -129,6 +131,10 @@ class Resolution:
     dimension_id: str | None = None
     """The dimension the moment belongs to (relative anchors to another dimension's records are
     mapped through the correspondences, §5.2)."""
+    bounds: tuple[Resolution, Resolution] | None = None
+    """An uncertainty range's resolved ends (§5.4b): ``extent`` spans them."""
+    estimate_extent: tuple[int, int] | None = None
+    """With ``bounds``: the extent of the point's own anchor (the best estimate's unit)."""
 
     @property
     def ok(self) -> bool:
@@ -298,7 +304,44 @@ class Resolver:
                 result = self._relative(anchor, point.precision, seen, depth)
         if result.approximate != point.approximate:
             result = replace(result, approximate=point.approximate)
+        if point.range is not None and result.ok:
+            result = self._ranged(result, point.range, seen, depth)
         return self._finish(result)
+
+    def _ranged(
+        self,
+        result: Resolution,
+        bounds: TimeRange,
+        seen: frozenset[tuple[str, str, str]],
+        depth: int,
+    ) -> Resolution:
+        """An explicit uncertainty range (§5.4b): the extent from the start of ``earliest``'s
+        unit to the end of ``latest``'s, widened to hold the point's own. A failed end fails the
+        point (its problem's path under ``range.<end>``)."""
+        ends: list[Resolution] = []
+        for name, end in (("earliest", bounds.earliest), ("latest", bounds.latest)):
+            found = self._finish(self._resolve(end, seen, depth))
+            if not found.ok or found.extent is None:
+                return replace(found, problem=_at(found.problem, f"range.{name}"))
+            ends.append(found)
+        earliest, latest = ends
+        assert earliest.extent is not None
+        assert latest.extent is not None
+        assert result.t is not None
+        lo, hi = earliest.extent[0], latest.extent[1]
+        if earliest.extent[0] > latest.extent[0]:
+            message = "The earliest moment of the range is after its latest."
+            return _failed(TimeStatus.INVALID_DATE, "range_invalid", message, "range")
+        if not lo <= result.t < hi:
+            message = "The moment lies outside its range."
+            return _failed(TimeStatus.INVALID_DATE, "range_invalid", message, "range")
+        own = result.extent or (result.t, result.t + 1)
+        return replace(
+            result,
+            extent=(min(lo, own[0]), max(hi, own[1])),
+            bounds=(earliest, latest),
+            estimate_extent=own,
+        )
 
     def _finish(self, result: Resolution) -> Resolution:
         """Bounds check and the trash status."""

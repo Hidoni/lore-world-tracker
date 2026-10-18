@@ -342,7 +342,7 @@
     },
     "TimePoint": {
       "additionalProperties": false,
-      "description": "An anchor plus precision and the circa flag (time-model §5.1).\n\nThe member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.",
+      "description": "An anchor plus precision and the circa flag (time-model §5.1), and optionally the range\nof moments it lies in (§5.4b): the anchor stays the stored moment, the best estimate.",
       "properties": {
         "anchor": {
           "$ref": "#/$defs/Anchor"
@@ -355,6 +355,18 @@
         "approximate": {
           "default": false,
           "type": "boolean"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An explicit uncertainty range: \"between ``earliest`` and ``latest``\" (#151)."
         },
         "frozen_from": {
           "anyOf": [
@@ -375,6 +387,24 @@
         "precision"
       ],
       "title": "TimePoint",
+      "type": "object"
+    },
+    "TimeRange": {
+      "additionalProperties": false,
+      "description": "The range of moments a time point lies in (time-model §5.4b): from the start of\n``earliest``'s unit to the end of ``latest``'s.",
+      "properties": {
+        "earliest": {
+          "$ref": "#/$defs/TimePoint"
+        },
+        "latest": {
+          "$ref": "#/$defs/TimePoint"
+        }
+      },
+      "required": [
+        "earliest",
+        "latest"
+      ],
+      "title": "TimeRange",
       "type": "object"
     }
   }

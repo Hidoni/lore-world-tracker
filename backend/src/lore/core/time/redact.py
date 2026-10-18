@@ -7,14 +7,22 @@ resolves, but the reader gets the resolved moment, not the reference.
 
 Such a point is returned as an ``absolute`` anchor at its resolved moment, keeping its precision
 when the dimension's default calendar has that level (``base`` otherwise) and its circa flag. A
-point that doesn't resolve (or whose dimension is unknown) is left out (``None``).
+point that doesn't resolve (or whose dimension is unknown) is left out (``None``). The ends of an
+uncertainty range (§5.4b) are redacted the same way, each on its own; the range is left out when
+an end can't be shown.
 """
 
 from collections.abc import Collection, Iterable, Iterator
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from lore.chronology.schema import CalendarAnchor, CalendarDuration, RelativeAnchor, TimePoint
+from lore.chronology.schema import (
+    CalendarAnchor,
+    CalendarDuration,
+    RelativeAnchor,
+    TimePoint,
+    TimeRange,
+)
 from lore.core.errors import ConflictError
 from lore.core.time.models import Calendar
 from lore.core.time.resolve import BASE, Resolver, owner_visible
@@ -46,16 +54,34 @@ class ReaderTimes:
             point = parse_time_point(document)
         except SpecError:
             return None  # never stored like this; nothing to show
-        if self._visible(point):
+        ends = () if point.range is None else (point.range.earliest, point.range.latest)
+        if all(self._visible(part) for part in (point, *ends)):
             return document
+        shown = self._redacted(point.model_copy(update={"range": None}), dimension_id, owner)
+        if shown is None:
+            return None
+        redacted = [self._redacted(end, dimension_id, owner) for end in ends]
+        if ends and None not in redacted:
+            earliest, latest = redacted
+            assert earliest is not None
+            assert latest is not None
+            shown = shown.model_copy(update={"range": TimeRange(earliest=earliest, latest=latest)})
+        return dump_spec(shown)
+
+    def _redacted(
+        self, point: TimePoint, dimension_id: str | None, owner: str | None
+    ) -> TimePoint | None:
+        """A point without a range as the policy may see it: itself, or ``absolute`` at its
+        moment (``None`` when it doesn't resolve)."""
+        if self._visible(point):
+            return point
         t, precision = self._moment(point, self._dimension(point) or dimension_id, owner)
         if t is None:
             return None
         anchor = {"kind": "absolute", "t": str(t)}
-        shown = TimePoint.model_validate(
+        return TimePoint.model_validate(
             {"anchor": anchor, "precision": precision, "approximate": point.approximate}
         )
-        return dump_spec(shown)
 
     def _plainly_visible(self, document: Any) -> bool:
         """A stored document whose anchor names only entities the policy shows: most points of
@@ -63,6 +89,8 @@ class ReaderTimes:
         anchor = document.get("anchor") if isinstance(document, dict) else None
         if not isinstance(anchor, dict) or anchor.get("kind") not in ("calendar", "relative"):
             return False
+        if document.get("range") is not None:
+            return False  # its ends are checked one by one
         ref = anchor.get("ref")
         if ref is not None and ref.get("type") not in self._entity_types:
             return False
@@ -117,9 +145,10 @@ class ReaderTimes:
             return
         wanted: set[str] = set()
         for document in documents:
-            anchor = document.get("anchor") if isinstance(document, dict) else None
-            if isinstance(anchor, dict):
-                wanted.update(_entity_ids(anchor, self._entity_types))
+            for part in _parts(document):
+                anchor = part.get("anchor")
+                if isinstance(anchor, dict):
+                    wanted.update(_entity_ids(anchor, self._entity_types))
         wanted -= self._visible_ids.keys() | {ABSOLUTE_CALENDAR_ID}
         if wanted:
             shown = self.policy.visible_ids(self.context.session, wanted)
@@ -159,6 +188,18 @@ class ReaderTimes:
             row = self.context.session.get(Calendar, calendar_id)
             self._dimensions[calendar_id] = None if row is None else row.dimension_id
         return self._dimensions[calendar_id]
+
+
+def _parts(document: Any) -> Iterator[dict[str, Any]]:
+    """A stored point and the ends of its range."""
+    if not isinstance(document, dict):
+        return
+    yield document
+    bounds = document.get("range")
+    if isinstance(bounds, dict):
+        for end in (bounds.get("earliest"), bounds.get("latest")):
+            if isinstance(end, dict):
+                yield end
 
 
 def _entity_ids(anchor: dict[str, Any], entity_types: Collection[str]) -> Iterator[str]:
