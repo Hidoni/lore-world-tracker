@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **History compaction** (#159): `lore vault compact-history <vault> --older-than N
+  [--dry-run]` replaces the history older than N days with one snapshot per entity (its net
+  change over that period) to bound storage. Snapshots show as “Compacted” in the history and
+  can't be undone.
 - **Static site export** (#373–#378): Settings → Publishing → **Export static site**, or
   `lore vault export-static <snapshot> --out <dir>`, turns a published snapshot into a static
   site that any web host serves without a Lore server: the vault's landing page, lists and

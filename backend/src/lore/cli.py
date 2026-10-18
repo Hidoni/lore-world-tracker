@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import asdict
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -14,7 +15,13 @@ from lore.config import Settings
 from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
 from lore.core.logging import configure_logging
-from lore.core.maintenance import DERIVED_DATA, check_vault, optimize_vault, reindex_vault
+from lore.core.maintenance import (
+    DERIVED_DATA,
+    check_vault,
+    compact_vault_history,
+    optimize_vault,
+    reindex_vault,
+)
 from lore.core.markdown.export import Audience, FolderSink, export_vault_markdown
 from lore.core.models import load_metadata as load_core_metadata
 from lore.core.modules import ModuleRegistry
@@ -337,6 +344,35 @@ def vault_reindex(vault: VaultArgument) -> None:
     for check in (c for module in modules for c in module.derived_checks):
         if check.id in counts:  # the enabled modules' checks
             typer.echo(f"{check.id}: rebuilt {counts[check.id]} {check.unit}")
+
+
+@vault_app.command("compact-history")
+def vault_compact_history(
+    vault: VaultArgument,
+    older_than: Annotated[
+        int, typer.Option(min=1, help="Compact the changes saved more than this many days ago.")
+    ],
+    dry_run: Annotated[
+        bool, typer.Option(help="Only report what would be compacted; change nothing.")
+    ] = False,
+) -> None:
+    """Replace a vault's history older than N days with one snapshot per entity (its net
+    change over that period), to bound storage. Compacted changes can't be undone or looked at
+    one by one any more, so make a backup first (`lore vault backup`). `lore vault optimize
+    --vacuum` then shrinks the file."""
+    manager = _vault_manager()
+    try:
+        opened = manager.open(manager.resolve(vault).id)
+        report = compact_vault_history(opened, timedelta(days=older_than), dry_run=dry_run)
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    verb = "would compact" if dry_run else "compacted"
+    typer.echo(
+        f"{verb} {report.changesets} changesets ({report.changes} changes) older than "
+        f"{older_than} days into {report.snapshots} snapshots ({report.snapshot_changes} changes)"
+    )
 
 
 @vault_app.command("optimize")

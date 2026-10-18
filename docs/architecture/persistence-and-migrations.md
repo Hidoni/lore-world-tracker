@@ -116,6 +116,9 @@ PRAGMA temp_store = MEMORY;
     problems}`.
   - `lore vault reindex <vault>` runs every checker's rebuild in one write transaction (search
     index, then mentions, then time), fixing whatever `check` reports about derived data.
+  - `lore vault compact-history <vault> --older-than N [--dry-run]` replaces the history older
+    than N days (N ≥ 1) with per-entity snapshots (`data-model.md` §7, Retention and compaction)
+    in one write transaction; `--dry-run` reports the counts and rolls back.
 - **Read-only mode** opens `file:lore.db?mode=ro&uri=true`. Published snapshots
   (`journal_mode=DELETE`), and databases no process is writing (no `lore.db-wal`), are
   additionally opened with `immutable=1`, so not even SQLite's `-wal`/`-shm` side files appear in
@@ -215,13 +218,14 @@ Implementation (`VaultManager.open` / `.migrate`):
 ```
 lore vault list | create | status <vault> | migrate <vault> [--to REV] | check <vault> [--json]
 lore vault reindex <vault> | optimize <vault> [--vacuum] | backup <vault> [--no-media]
+lore vault compact-history <vault> --older-than N [--dry-run]
 lore vault restore <zip> | publish <vault> --out DIR
 lore db revision -m "msg" [--autogenerate]     # wraps alembic with the programmatic config (uses a scratch DB)
 lore db check                                    # empty autogenerate diff + single head
 ```
 
-`lore vault` commands take a vault id or folder name. `check`, `reindex` and `optimize` are
-described in §2. `make check` (and so CI) runs
+`lore vault` commands take a vault id or folder name. `check`, `reindex`, `compact-history` and
+`optimize` are described in §2. `make check` (and so CI) runs
 `lore db check`.
 
 ### 3.5 Migration tests

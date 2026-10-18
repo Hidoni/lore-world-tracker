@@ -384,7 +384,7 @@ Mentions of the entity itself and of missing entities aren't recorded (decided 2
 
 ## 7. History: changesets
 
-- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'import'|'migration'|'system'|'undo'),
+- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'import'|'migration'|'system'|'undo'|'compaction'),
   summary, request_id, reverts_changeset_id NULL, reverted_by_changeset_id NULL)`.
 - `changes(id INTEGER PK, changeset_id → changesets, table_name, row_id, op ('insert'|'update'|'delete'),
   before JSON NULL, after JSON NULL)`.
@@ -423,8 +423,26 @@ changeset (origin `undo`, `reverts_changeset_id`; the reverted one gets
 `REVERT_HOOKS` after an undo. History of purged entities stays available (decided 2026-10-04).
 History is never shown to readers: on a read-only server the history routes answer `404`.
 
-Retention: keep everything by default. A maintenance command can compact history older than
-N days into per-entity snapshots (post-MVP).
+**Retention and compaction** (#159): everything is kept by default. `lore vault compact-history
+<vault> --older-than N [--dry-run]` (`lore.core.history.compaction`) replaces the history older
+than N days with **per-entity snapshots**, in one write transaction:
+
+- It compacts a **prefix** of history: the changesets before the oldest one whose `updated_at`
+  is within the last N days (merges move `updated_at`; changesets are ordered by id).
+- Each row's net change over that prefix (its first `before`, its last `after`, op from which is
+  null) is kept; rows that ended where they started (e.g. an entity created and purged) are
+  dropped. Replaying the history still gives every row's first `before` and last `after`.
+- One snapshot changeset per entity (origin `compaction`, summary "Changes of “Ana” before
+  2026-09-01 (compacted)", `created_at`/`updated_at` from the changesets it replaces) holds the
+  net changes of its rows. A row with several owners (a link) goes to its smallest owner id's
+  snapshot and keeps all its owners in `change_entities`, so it stays in both entities' history.
+  Rows without an owner (tags, link types, suppressions) share one vault-wide snapshot.
+- Snapshot ids are UUIDv7 of their `updated_at`, capped below the first kept changeset's, so the
+  feed's order and a later compaction (which compacts snapshots again) stay right.
+- Kept undos of compacted changesets lose their `reverts_changeset_id`. Snapshots **can't be
+  undone** (`409 conflict`; the UI shows no Undo for them, and "Undo the last change" skips them).
+- Only history tables change: nothing is recorded and no consistency rule runs. Freed pages are
+  reused; `lore vault optimize --vacuum` shrinks the file.
 
 ## 8. Visibility (data side)
 
