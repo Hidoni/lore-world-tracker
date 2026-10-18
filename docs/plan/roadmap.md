@@ -28,7 +28,7 @@ product owner's request.
 | M10 Media & maps | Uploads, galleries, image nodes; interactive time-aware maps | E10 green | #126–#132 | v0.9.0 |
 | M11 Custom fields & kinds | Custom fields (incl. temporal), custom kinds, relation fields | E11 green | #133–#137 | v0.10.0 |
 | M12 Sharing, backup & hardening | Read-only mode, leak audit, published snapshots, reader UI, perf + a11y passes | E12–E13 green; all budgets met | #138–#146, #241, #307, #361–#363 | **v1.0.0** |
-| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162, #373–#379 | – |
+| M13 Post-MVP | Static export, Markdown/JSON export, MCP, uncertainty ranges, … | (per issue) | #147–#162, #373–#379, #386, #395, #396 | – |
 
 ## Milestone dependencies and parallel tracks
 
@@ -336,7 +336,9 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #378 | M13-01f | Static export 6/6: size budgets, lazy chunks, end-to-end, Publishing UI | M | P2 | #376, #377 |
 | #148 | M13-02 | Markdown / Obsidian-compatible vault export | L | P2 | #140 |
 | #149 | M13-03 | Portable JSON export/import (cross-version interchange, partial imports) | L | P2 | #146 |
-| #150 | M13-04 | MCP server module: let AI assistants read (and optionally write) the vault safely | XL | P2 | #139 |
+| #150 | M13-04 | MCP server module: design and ADR (implementation split into #395, #396) | M | P2 | #139 |
+| #395 | M13-04a | MCP 1/2: the mcp module, endpoint, token auth and read tools | L | P2 | #150 |
+| #396 | M13-04b | MCP 2/2: write tools, AI access settings page, stdio bridge, guide | M | P2 | #395 |
 | #151 | M13-05 | Explicit uncertainty ranges for time points (earliest/latest) | L | P2 | #146 |
 | #152 | M13-06 | Base-unit refinement tool (e.g. seconds → milliseconds) | M | P2 | #146 |
 | #153 | M13-07 | Log-scale ("cosmic") timeline axis mode | M | P2 | #146 |

@@ -75,7 +75,9 @@ headers → request context → host check → CORS (optional) → mutation guar
   (`uv sync --frozen`, `npm ci`).
 - Dependabot (or Renovate) for both ecosystems, weekly and grouped (M0 issue).
 - No runtime fetching of code. External calls are absent by default. Any future integration
-  (AI/MCP) must be opt-in per vault.
+  (AI/MCP) must be opt-in per vault. The MCP module (`mcp.md`, ADR 0017) is off by default in every vault, reads
+  with the readers' policy unless the author grants more, writes only when turned on, and needs
+  a bearer token kept outside vaults (§5).
 
 ## 5. Secrets
 
