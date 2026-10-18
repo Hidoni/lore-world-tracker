@@ -6,7 +6,7 @@ server refuses the ``POST`` like any write."""
 
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from lore.core.api.deps import PolicyDep, SettingsDep, VaultIdPath, VaultManagerDep
@@ -82,7 +82,11 @@ class StaticExportNotConfiguredError(ConflictError):
 
 @router.post("/publish/static", name="publish_static")
 def publish_static(
-    vault_id: VaultIdPath, manager: VaultManagerDep, settings: SettingsDep, policy: PolicyDep
+    vault_id: VaultIdPath,
+    manager: VaultManagerDep,
+    settings: SettingsDep,
+    policy: PolicyDep,
+    request: Request,
 ) -> PublishStatus:
     """Export the vault's latest published snapshot as a static site (``visibility-and-sharing.md``
     §8) into ``LORE_PUBLISH_DIR/static/<vault folder>/``, replacing the previous one: any static
@@ -93,5 +97,6 @@ def publish_static(
         raise StaticExportNotConfiguredError(
             "Set LORE_PUBLISH_DIR and LORE_STATIC_DIR (the app's build) to export a static site."
         )
-    export_site(settings.publish_dir, manager.get(vault_id), settings.static_dir)
+    exporter = request.app.state.static_exporter
+    export_site(settings.publish_dir, manager.get(vault_id), settings.static_dir, exporter)
     return _status(manager, settings, vault_id)
