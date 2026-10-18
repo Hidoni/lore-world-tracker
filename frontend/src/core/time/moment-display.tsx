@@ -1,8 +1,9 @@
-import { formatAbsolute } from '@lore/chronology'
+import { formatAbsolute, type TimePoint } from '@lore/chronology'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import { formatIn, formatSpanIn, relativeTo, relativeToPresent, type Moment } from './format'
+import { momentOf } from './point-moment'
 import { useDisplayLens, useTimeContext } from './time-context'
 
 /**
@@ -79,19 +80,32 @@ export function MomentDisplay({
   )
 }
 
-/** A span in the display calendar (`formatSpan`: shared coarse parts collapse; open end `?`). */
+/**
+ * A span in the display calendar (`formatSpan`: shared coarse parts collapse; open end `?`).
+ * With the time points of its ends, a ranged end (time-model.md §5.4b) shows its range.
+ */
 export function SpanDisplay({
   vault,
   dimension,
   start,
   end,
+  startPoint,
+  endPoint,
 }: {
   vault: string
   dimension: string
   start: Moment | null
   end: Moment | null
+  startPoint?: TimePoint | null
+  endPoint?: TimePoint | null
 }) {
   const { dimension: time, lenses, lens } = useDisplayLens(vault, dimension)
   if (time === null || lens === null) return <span className="text-muted-foreground">…</span>
-  return <span>{formatSpanIn(lens, start, end, time, lenses) ?? '—'}</span>
+  const ranged = (moment: Moment | null, point: TimePoint | null | undefined) =>
+    moment === null || point?.range == null ? moment : momentOf(moment.t, point, lenses)
+  return (
+    <span>
+      {formatSpanIn(lens, ranged(start, startPoint), ranged(end, endPoint), time, lenses) ?? '—'}
+    </span>
+  )
 }

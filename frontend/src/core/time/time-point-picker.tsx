@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BigNumberInput } from './big-number-input'
 import type { DimensionTime, Lens } from './calendars'
 import { formatIn } from './format'
+import { pointMoment } from './point-moment'
 import { RelativeTab, relativeDraftOf, type RelativeDraft } from './relative-tab'
 import { SELECT_CLASS } from './select'
 
@@ -243,7 +244,7 @@ function Row({
  * the moment and the date in the display calendar. With `vault` (authors), **Relative** anchors
  * a moment to another record's slot (`RelativeTab`).
  */
-export function TimePointPicker({
+function PointPicker({
   dimension,
   lenses,
   value,
@@ -547,6 +548,173 @@ export function TimePointPicker({
       <p aria-live="polite" className="text-sm text-muted-foreground" data-testid="time-preview">
         {preview ?? ' '}
       </p>
+    </fieldset>
+  )
+}
+
+type PickerProps = Parameters<typeof PointPicker>[0]
+
+/** A time point without its range (the picker's single-date parts). */
+function single(point: TimePoint | null): TimePoint | null {
+  if (point?.range == null) return point
+  const rest = { ...point }
+  delete rest.range
+  return rest
+}
+
+/** Why a range can't be saved, when the browser can tell (§5.4b; the server checks the rest
+ * and refuses with `range_invalid`). */
+function rangeProblem(
+  earliest: TimePoint,
+  latest: TimePoint,
+  estimate: TimePoint | null,
+  lenses: readonly Lens[],
+): string | null {
+  const lo = pointMoment(earliest, lenses)
+  const hi = pointMoment(latest, lenses)
+  if (lo !== null && hi !== null && hi < lo) return 'The latest date comes before the earliest.'
+  const best = estimate === null ? null : pointMoment(estimate, lenses)
+  if (best !== null && lo !== null && best < lo) {
+    return 'The best estimate comes before the earliest date.'
+  }
+  return null
+}
+
+/**
+ * The time point picker (frontend.md §8; `PointPicker` for one date). With `ranges`, an
+ * explicit uncertainty range (time-model.md §5.4b): **Between … and …** picks the earliest and
+ * the latest dates (each a date, a moment or a relative anchor), and the best estimate, the
+ * stored moment, is the earliest unless the author picks another. Reports `null` until both
+ * ends are valid and in order.
+ */
+export function TimePointPicker({
+  ranges = false,
+  ...props
+}: PickerProps & {
+  /** Offers "Between … and …" (time points of records; never definitions or the cursor). */
+  ranges?: boolean
+}) {
+  const { value, onChange, label = 'Time', lenses } = props
+  const stored = value?.range ?? null
+  const [ranged, setRanged] = useState(stored !== null)
+  const [earliest, setEarliest] = useState<TimePoint | null>(stored?.earliest ?? single(value))
+  const [latest, setLatest] = useState<TimePoint | null>(stored?.latest ?? null)
+  const [estimate, setEstimate] = useState<TimePoint | null>(stored === null ? null : single(value))
+  const [ownEstimate, setOwnEstimate] = useState(
+    stored !== null && JSON.stringify(single(value)) !== JSON.stringify(stored.earliest),
+  )
+  if (!ranges) return <PointPicker {...props} />
+
+  const report = (next: {
+    ranged: boolean
+    earliest: TimePoint | null
+    latest: TimePoint | null
+    estimate: TimePoint | null
+    ownEstimate: boolean
+  }) => {
+    if (!next.ranged) {
+      onChange(next.earliest)
+      return
+    }
+    const best = next.ownEstimate ? next.estimate : next.earliest
+    if (next.earliest === null || next.latest === null || best === null) {
+      onChange(null)
+      return
+    }
+    if (rangeProblem(next.earliest, next.latest, best, lenses) !== null) {
+      onChange(null)
+      return
+    }
+    onChange({ ...best, range: { earliest: next.earliest, latest: next.latest } })
+  }
+  const state = { ranged, earliest, latest, estimate, ownEstimate }
+  const change = (patch: Partial<typeof state>) => {
+    const next = { ...state, ...patch }
+    if (patch.ranged !== undefined) setRanged(next.ranged)
+    if (patch.earliest !== undefined) setEarliest(next.earliest)
+    if (patch.latest !== undefined) setLatest(next.latest)
+    if (patch.estimate !== undefined) setEstimate(next.estimate)
+    if (patch.ownEstimate !== undefined) setOwnEstimate(next.ownEstimate)
+    report(next)
+  }
+  const problem =
+    ranged && earliest !== null && latest !== null
+      ? rangeProblem(earliest, latest, ownEstimate ? estimate : null, lenses)
+      : null
+  // Enter in one end confirms nothing: the range is the value.
+  const nested: PickerProps = { ...props }
+  delete nested.onConfirm
+  const toggle = (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={ranged}
+        onChange={(event) => {
+          change({ ranged: event.target.checked })
+        }}
+      />
+      Between two dates (uncertain)
+    </label>
+  )
+  if (!ranged) {
+    return (
+      <div className="flex flex-col gap-2">
+        <PointPicker
+          {...props}
+          value={earliest}
+          onChange={(point) => {
+            change({ earliest: point })
+          }}
+        />
+        {toggle}
+      </div>
+    )
+  }
+  return (
+    <fieldset className="flex flex-col gap-3">
+      <legend className="text-sm font-medium">{label}: between … and …</legend>
+      <PointPicker
+        {...nested}
+        label="Earliest"
+        value={earliest}
+        onChange={(point) => {
+          change({ earliest: point })
+        }}
+      />
+      <PointPicker
+        {...nested}
+        label="Latest"
+        value={latest}
+        onChange={(point) => {
+          change({ latest: point })
+        }}
+      />
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={ownEstimate}
+          onChange={(event) => {
+            change({ ownEstimate: event.target.checked })
+          }}
+        />
+        A best estimate other than the earliest date
+      </label>
+      {ownEstimate && (
+        <PointPicker
+          {...nested}
+          label="Best estimate"
+          value={estimate}
+          onChange={(point) => {
+            change({ estimate: point })
+          }}
+        />
+      )}
+      {problem !== null && (
+        <p role="alert" className="text-sm text-destructive">
+          {problem}
+        </p>
+      )}
+      {toggle}
     </fieldset>
   )
 }

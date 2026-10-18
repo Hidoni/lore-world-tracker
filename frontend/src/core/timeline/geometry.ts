@@ -12,6 +12,9 @@ export interface TimedItem {
   end_kind: string
   end_precision: string | null
   end_approximate: boolean
+  /** A ranged start's or end's extent (time-model.md §5.4b), wider than its precision's unit. */
+  start_extent?: { lo: bigint; hi: bigint } | null
+  end_extent?: { lo: bigint; hi: bigint } | null
 }
 
 /** A drawn item: an instant (a diamond at `x0`) or a span from `x0` to `x1`. */
@@ -81,7 +84,8 @@ function computeExtent(
 
 /**
  * Where an item goes on the timeline (frontend.md §9.3): spans are bars whose edges fade over the
- * uncertainty of their start and end (their precision's unit), softened further for circa; an
+ * uncertainty of their start and end (their precision's unit, or an uncertainty range's extent),
+ * softened further for circa; an
  * unknown end fades out after the start; instants are diamonds unless their own uncertainty is
  * wide, then a fuzzy span. `null` without a start.
  */
@@ -91,7 +95,7 @@ export function itemGeometry(
   lenses: readonly Lens[],
 ): ItemGeometry | null {
   if (item.start_t === null) return null
-  const start = extentOf(item.start_t, item.start_precision, lenses)
+  const start = item.start_extent ?? extentOf(item.start_t, item.start_precision, lenses)
   const px = (t: bigint) => toPx(v, t)
   const startWidth = start.hi - start.lo
   const soften = (fade: number, circa: boolean) => (circa ? Math.max(fade, CIRCA_PX) : fade)
@@ -135,7 +139,7 @@ export function itemGeometry(
   // The end's uncertainty: its own precision for an end date, the start's carried over otherwise.
   const end =
     item.end_kind === 'time_point' && item.end_precision !== null
-      ? extentOf(item.end_t, item.end_precision, lenses)
+      ? (item.end_extent ?? extentOf(item.end_t, item.end_precision, lenses))
       : { lo: item.end_t, hi: item.end_t + startWidth }
   let x0 = px(start.lo)
   const x1 = px(end.hi > end.lo ? end.hi : end.lo)

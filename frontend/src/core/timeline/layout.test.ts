@@ -131,6 +131,27 @@ describe('item geometry', () => {
     )
   })
 
+  it('fades a ranged start and end over their uncertainty ranges', () => {
+    const start = { lo: day('2000', 'jan', '1'), hi: day('2000', 'mar', '1') }
+    const end = { lo: day('2000', 'sep', '1'), hi: day('2000', 'dec', '1') }
+    const g = itemGeometry(
+      item({
+        start_t: day('2000', 'feb', '1'),
+        start_precision: 'day',
+        start_extent: start,
+        end_t: day('2000', 'oct', '1'),
+        end_precision: 'day',
+        end_extent: end,
+      }),
+      v,
+      lenses,
+    )
+    expect(g?.x0).toBeCloseTo(toPx(v, start.lo))
+    expect(g?.x1).toBeCloseTo(toPx(v, end.hi))
+    expect(g?.fadeIn).toBeCloseTo(toPx(v, start.hi) - toPx(v, start.lo))
+    expect(g?.fadeOut).toBeCloseTo(toPx(v, end.hi) - toPx(v, end.lo))
+  })
+
   it('softens circa edges, fades an unknown end, and shares edges wider than the bar', () => {
     const circa = itemGeometry(
       item({ end_t: day('2000', 'feb', '1'), start_approximate: true }),

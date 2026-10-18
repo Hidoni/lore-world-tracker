@@ -285,6 +285,14 @@ class WindowItemOut(BaseModel):
     occurrence_state: str | None = Field(
         description="A materialized occurrence's `referenced`, `modified` or `cancelled`."
     )
+    start_extent: Extent | None = Field(
+        default=None,
+        description="A start with an uncertainty range (time-model §5.4b): the moments it may "
+        "be. Null otherwise (the precision says it).",
+    )
+    end_extent: Extent | None = Field(
+        default=None, description="The same for a `time_point` end with a range."
+    )
 
 
 class SeriesBandOut(BaseModel):

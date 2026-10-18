@@ -58,6 +58,7 @@ from lore.core.time.schemas import (
     EventDisplay,
     EventTreeNode,
     EventTreePage,
+    Extent,
     OccurrenceOut,
     OccurrencePage,
     PresetList,
@@ -521,6 +522,12 @@ def get_window(
                 occurrence_key=item.occurrence_key,
                 series_id=item.series_id,
                 occurrence_state=item.occurrence_state,
+                start_extent=None
+                if item.start_extent is None
+                else Extent(lo=item.start_extent["lo"], hi=item.start_extent["hi"]),
+                end_extent=None
+                if item.end_extent is None
+                else Extent(lo=item.end_extent["lo"], hi=item.end_extent["hi"]),
             )
             for item in window.items
         ],

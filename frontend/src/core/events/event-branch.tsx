@@ -260,6 +260,7 @@ export function OverrideEventDialog({
               value={end}
               onChange={setEnd}
               label="End"
+              ranges
             />
           )}
           {problem !== null && (

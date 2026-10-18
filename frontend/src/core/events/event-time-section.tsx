@@ -12,6 +12,7 @@ import {
   formatDurationIn,
   relativeTo,
   formatIn,
+  momentOf,
   timeProblemMessage,
   useDisplayLens,
   type DimensionTime,
@@ -140,25 +141,36 @@ function EndText({
   }
 }
 
-/** The moments to show for an event: its start, and its end at the precision it was given. */
-export function eventMoments(time: EventTime): { start: Moment | null; end: Moment | null } {
-  const point = time.start
-  const start =
-    time.startT === null || point === null
-      ? null
-      : { t: time.startT, precision: point.precision, approximate: point.approximate === true }
+/**
+ * The moments to show for an event: its start, and its end at the precision it was given, each
+ * with its uncertainty range when it has one the browser can resolve (`momentOf`).
+ */
+export function eventMoments(
+  time: EventTime,
+  lenses: readonly Lens[] = [],
+): { start: Moment | null; end: Moment | null } {
+  const start = time.start === null ? null : momentOf(time.startT, time.start, lenses)
   if (time.endT === null || start === null || time.end?.kind === 'unknown') {
     return { start, end: null }
   }
   const endPoint = time.end?.kind === 'time_point' ? time.end.time_point : null
+  const end = endPoint === null ? null : momentOf(time.endT, endPoint, lenses)
+  if (end !== null) {
+    return { start, end: { ...end, approximate: end.approximate === true || start.approximate } }
+  }
   return {
     start,
-    end: {
-      t: time.endT,
-      precision: endPoint?.precision ?? start.precision,
-      approximate: endPoint?.approximate === true || start.approximate,
-    },
+    end: { t: time.endT, precision: start.precision, approximate: start.approximate === true },
   }
+}
+
+/** The event's dates as the server displays them (in the dimension's default calendar). */
+function serverDisplay(
+  entity: Entity,
+): { calendar_id?: string; start?: string | null; end?: string | null } | null {
+  const ext = entity.ext
+  const display = ext?.display
+  return display !== null && typeof display === 'object' ? display : null
 }
 
 interface TimelineNode {
@@ -226,12 +238,23 @@ export function EventTimeSection({
   if (dimension === null || lens === null) {
     return <p className="text-sm text-muted-foreground">Loading…</p>
   }
-  const { start, end } = eventMoments(time)
+  const { start, end } = eventMoments(time, lenses)
   const shown = (moment: Moment | null, fallback: string) =>
     moment === null
       ? fallback
       : (formatIn(lens, moment, dimension, lenses) ?? formatAbsolute(moment.t, dimension.baseUnit))
   const unknownEnd = time.end?.kind === 'unknown'
+  // A range with a relative end resolves on the server: its display, when in this calendar.
+  const served = serverDisplay(entity)
+  const endPoint = time.end?.kind === 'time_point' ? time.end.time_point : null
+  const ranged = (point: TimePoint | null, moment: Moment | null, text: string | null) =>
+    point?.range != null && moment !== null && moment.range === undefined && text != null
+      ? served?.calendar_id === lens.id
+        ? text
+        : null
+      : null
+  const startText = ranged(time.start, start, served?.start ?? null) ?? shown(start, 'Not set')
+  const endText = ranged(endPoint, end, served?.end ?? null) ?? shown(end, '—')
   const duration =
     start === null || end === null ? null : formatDurationIn(lens, start, end.t, dimension, lenses)
   const measure = lens.calendar === null ? (lenses.find((c) => c.calendar !== null) ?? lens) : lens
@@ -278,7 +301,7 @@ export function EventTimeSection({
         <dt className="text-muted-foreground">Start</dt>
         <dd className="flex flex-col">
           <span className="font-medium">
-            {shown(start, 'Not set')}
+            {startText}
             {ago !== null && (
               <span className="ml-1 font-normal text-muted-foreground">({ago})</span>
             )}
@@ -291,7 +314,7 @@ export function EventTimeSection({
         </dd>
         <dt className="text-muted-foreground">End</dt>
         <dd className="flex flex-col">
-          <span className="font-medium">{unknownEnd ? 'Unknown' : shown(end, '—')}</span>
+          <span className="font-medium">{unknownEnd ? 'Unknown' : endText}</span>
           {time.end !== null && (
             <span className="text-xs text-muted-foreground">
               <EndText vault={vault} end={time.end} dimension={dimension} lenses={lenses} />

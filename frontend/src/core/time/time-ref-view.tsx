@@ -13,7 +13,7 @@ import { useEntity, type Entity } from '@/data'
 
 import type { Lens } from './calendars'
 import { formatIn, relativeToPresent } from './format'
-import { pointMoment } from './point-moment'
+import { momentOf, pointMoment } from './point-moment'
 import { useTimeContext } from './time-context'
 
 /** The words a slot is described with ("when <the war> starts"). */
@@ -113,7 +113,11 @@ export function TimeRefView({
     }
     return plain(dimension === null ? '…' : 'a date')
   }
-  const moment = { t, precision, approximate }
+  const moment = (timePoint === null ? null : momentOf(t, timePoint, lenses)) ?? {
+    t,
+    precision,
+    approximate,
+  }
   const shown = formatIn(lens, moment, dimension, lenses) ?? formatAbsolute(t, dimension.baseUnit)
   const relative = relativeToPresent(
     lens.calendar === null ? (lenses[0] ?? lens) : lens,

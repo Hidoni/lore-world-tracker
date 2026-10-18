@@ -584,7 +584,13 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
   "WindowItemOut": {
     "o": {
       "start_t": "m",
-      "end_t": "m"
+      "end_t": "m",
+      "start_extent": {
+        "r": "Extent"
+      },
+      "end_extent": {
+        "r": "Extent"
+      }
     }
   },
   "Worldline": {

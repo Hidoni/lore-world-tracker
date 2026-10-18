@@ -117,6 +117,23 @@ def test_items(api: LinkApi, world: dict[str, Any]) -> None:
     assert era["end_precision"] is None
 
 
+def test_items_carry_the_extent_of_an_uncertainty_range(
+    api: LinkApi, world: dict[str, Any]
+) -> None:
+    """A ranged start or end (time-model.md §5.4b) shows its range: the window item carries the
+    extent; other items leave it to their precision."""
+    ranged = {**at(120), "range": {"earliest": at(100), "latest": at(150)}}
+    end = {**at(400), "range": {"earliest": at(300), "latest": at(500)}}
+    event(api, world, "Plain", 10, 20)
+    api.make("event", "Ranged", dimension_id=world["dimension"]["id"],
+             ext={"start": ranged, "end": {"kind": "time_point", "time_point": end}})  # fmt: skip
+    items = {item["name"]: item for item in window(api, world, 0, 1000)["items"]}
+    assert items["Ranged"]["start_t"] == "120"
+    assert items["Ranged"]["start_extent"] == {"lo": "100", "hi": "151"}
+    assert items["Ranged"]["end_extent"] == {"lo": "300", "hi": "501"}
+    assert (items["Plain"]["start_extent"], items["Plain"]["end_extent"]) == (None, None)
+
+
 def test_has_children_of_an_era_past_the_variable_limit(
     api: LinkApi, world: dict[str, Any]
 ) -> None:

@@ -75,6 +75,7 @@ function Bound({
           displayLens={lens}
           vault={vault}
           label={label}
+          ranges
         />
       )}
     </div>

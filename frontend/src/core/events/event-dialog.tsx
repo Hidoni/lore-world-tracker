@@ -495,6 +495,7 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
               onChange={setStart}
               owner={owner('start')}
               label="Start"
+              ranges
             />
             {errors['ext.start'] !== undefined && (
               <p className="text-sm text-destructive">{errors['ext.start']}</p>
@@ -510,6 +511,7 @@ export function EventForm({ vault, onClose, onSaved, ...props }: EventFormProps)
               value={end}
               onChange={setEnd}
               owner={owner('end')}
+              ranges
             />
             {errors['ext.end'] !== undefined && (
               <p className="text-sm text-destructive">{errors['ext.end']}</p>
