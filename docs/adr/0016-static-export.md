@@ -53,3 +53,10 @@ would have to be made twice.
   matching would find other documents). The same documents are found; ranking uses the same
   bm25 formula over the exported documents' statistics, so near ties can be ordered differently.
 - The window logic exists twice (Python and TypeScript); the parity tests keep them together.
+- Family trees and the graph are the third (#386): their settings multiply (generations,
+  spouses and siblings; kinds, link types, tags, center and depth), so recording each is out of
+  reach. Their modules export the data the views are made of (`ModuleSpec.static_data`: family
+  links and lifespans; links with their validity per timeline, and mentions), and the views
+  are ported (`static-family.ts`, `static-graph.ts`). The parity tests run every setting the UI
+  offers; graph edges are compared as sets (the server's order follows its queries). Org charts
+  stay recorded, at each number of levels the page offers.

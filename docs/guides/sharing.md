@@ -99,9 +99,8 @@ from any subfolder and the host needs no rewrite rules. Exporting takes a few mi
 world of about a thousand entities (it uses up to 8 processes: `LORE_EXPORT_WORKERS`), and the
 site loads only the files each page needs (`docs/architecture/testing.md` §4 has the budgets).
 
-A few views at settings other than their defaults (family trees deeper than 3 generations, graph
-filters) say "Not in this export" (#386). Search finds what the server finds, but results with
-nearly the same relevance can come in another order.
+Search finds what the server finds, but results with nearly the same relevance can come in
+another order.
 
 ## Markdown / Obsidian export
 

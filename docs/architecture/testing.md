@@ -284,24 +284,25 @@ What changed in #144:
   the world, which stays the same). The scan then takes 6.8 s here (about 4.2 s on the
   reference), with 18,185 findings.
 
-Static export (#378), measured 2026-10-18 on the `small` world in a 4-core cloud container
+Static export (#378, #386), measured 2026-10-18 on the `small` world in a 4-core cloud container
 (Chromium headless, `python -m http.server`, first visit; gzip is what a host would send):
 
 | | Measured | Budget |
 | --- | --- | --- |
-| Export time (4 workers) | 9 min 34 s (before #378: over an hour, one process) | < 15 min |
+| Export time (4 workers) | 6 min 22 s (#378: 9 min 34 s; before #378: over an hour, one process) | < 15 min |
 | Landing page | 1.3 MB (201 kB gzip), 12 files | < 2 MB |
-| Entity page (Ilsa the Tidebound, with its panels) | 1.5 MB (211 kB gzip), 17 files | < 5 MB |
+| Entity page (Ilsa the Tidebound, with its panels) | 1.9 MB (339 kB gzip), 17 files | < 5 MB |
 | Timeline | 2.1 MB (292 kB gzip), 18 files | < 5 MB |
-| Graph page | 3.6 MB (433 kB gzip), 15 files | < 5 MB |
+| Graph page | 1.8 MB (333 kB gzip), 14 files | < 5 MB |
 | Search | 2.0 MB (257 kB gzip), 13 files | < 5 MB |
-| Largest data file (the graph page's read) | 2.3 MB | < 3 MB |
-| Whole site | 146 MB, 8,420 files | |
+| Largest data file (the entity index) | 0.9 MB | < 3 MB |
+| Whole site | 84 MB, 7,346 files (#378: 146 MB) | |
 
 What got it there: event moments only for the reads that show events while they happen (maps),
 reads recorded in a pool of processes, a file per entity for reads naming it in the query (the
 local graph: one 224 MB file before) and per event for causality, and the objects of a read's
-answers stored once per file (the graph page's file: 32 MB before).
+answers stored once per file (the graph page's file: 32 MB before); then (#386) family trees
+and graphs computed in the browser from the links, instead of recorded per entity and moment.
 
 ### 4.1 Chronology engine budgets
 

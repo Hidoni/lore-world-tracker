@@ -35,7 +35,9 @@ from lore.app import create_app
 from lore.config import Settings
 from lore.core.errors import LoreError
 from lore.core.modules import ModuleSpec
+from lore.core.modules.service import enabled_modules
 from lore.core.modules.spec import VaultContext
+from lore.core.visibility import READER
 from lore.static_export.asgi import Recorder, start_worker, workers
 from lore.static_export.entities import EntityExport
 from lore.static_export.modules import ModuleExport
@@ -116,7 +118,29 @@ async def _record(
             windows.event_moments,
         )
         files.update(module_files)
+        with opened.sessions() as session:
+            files.update(_module_data(VaultContext(opened, session, app.state.registry), vault_id,
+                                      entities.moments))  # fmt: skip
     return files, binaries
+
+
+def _module_data(
+    context: VaultContext, vault_id: str, moments: dict[tuple[str, str], list[int]]
+) -> dict[str, Any]:
+    """The data the browser computes module views from (``ModuleSpec.static_data``), for the
+    modules on in the vault: by timeline, every moment a record can change at."""
+    by_timeline: dict[str, set[int]] = {}
+    for (_entity, timeline), found in moments.items():
+        by_timeline.setdefault(timeline, {0}).update(found)
+    ordered = {timeline: sorted(found) for timeline, found in by_timeline.items()}
+    enabled = set(enabled_modules(context.session, context.registry))
+    files: dict[str, Any] = {}
+    for module in context.registry.modules:
+        if module.static_data is None or module.id not in enabled:
+            continue
+        for name, data in module.static_data(context, READER, ordered).items():
+            files[f"vaults/{vault_id}/static/m/{module.id}/{name}"] = data
+    return files
 
 
 def _mark_index(index: Path, vault_id: str) -> None:

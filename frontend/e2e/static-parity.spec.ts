@@ -433,18 +433,29 @@ test('module reads and files answer like the read-only server', async ({ page, r
   for (const id of of('character')) {
     asOf(`${m}/characters/${id}/relationships`, id)
     asOf(`${m}/characters/${id}/life`, id, true)
-    // The page (3 generations) at every moment; the panel (2) in each timeline.
-    for (const n of ['2', '3']) {
-      const q = `up=${n}&down=${n}&include_spouses=true&include_siblings=true`
-      asOf(`${m}/characters/${id}/family-tree?${q}`, id, n === '2')
+    // Family trees are computed in the browser (#386): every setting the page offers, and the
+    // page's default at every moment.
+    for (const up of ['0', '1', '2', '3', '6']) {
+      for (const down of ['0', '1', '3', '6']) {
+        for (const spouses of ['true', 'false']) {
+          for (const siblings of ['true', 'false']) {
+            const q = `up=${up}&down=${down}&include_spouses=${spouses}&include_siblings=${siblings}`
+            routes.push(`${m}/characters/${id}/family-tree?${q}`)
+          }
+        }
+      }
     }
+    asOf(`${m}/characters/${id}/family-tree?up=3&down=3`, id)
+    routes.push(`${m}/characters/${id}/family-tree?limit=2`)
   }
   for (const id of of('group')) {
     asOf(`${m}/groups/${id}/members?include_subgroups=false`, id)
     asOf(`${m}/groups/${id}/members?include_subgroups=true`, id)
     asOf(`${m}/groups/${id}/leaders`, id)
     asOf(`${m}/groups/${id}/territory`, id)
-    asOf(`${m}/groups/${id}/org-chart?depth=3`, id)
+    for (const depth of ['1', '2', '3', '4', '5', '6']) {
+      asOf(`${m}/groups/${id}/org-chart?depth=${depth}`, id, depth !== '3')
+    }
   }
   routes.push(`${m}/locations/tree?depth=6&limit=500`)
   for (const id of of('location')) {
@@ -462,20 +473,68 @@ test('module reads and files answer like the read-only server', async ({ page, r
     const q = dimension ? `?dimension=${dimension}` : ''
     routes.push(`${m}/species/descent-tree${q}`, `${m}/languages/family-tree${q}`)
   }
-  // The graph page, and the local graph of a sample of entities.
-  routes.push(`${m}/graph/graph`)
-  for (const dimension of dimensions) {
-    const route = `${m}/graph/graph?dimension=${dimension}`
-    routes.push(route)
-    for (const t of timelines.filter((t) => t.dimension_id === dimension)) {
-      routes.push(`${route}&timeline=${t.id as string}`)
-      for (const moment of moments) routes.push(`${route}&timeline=${t.id as string}&at=${moment}`)
+  // The graph is computed in the browser (#386): the page with each filter, at every moment,
+  // and the local graph of every entity at each depth.
+  const graphs: string[] = []
+  const kinds = [...new Set(entities.map((e) => e.kind as string))]
+  const tags = ((await get(`${base}/tags`)).items as Json[]).map((t) => t.id as string)
+  const linkTypes = ((await get(`${base}/link-types`)).items as Json[]).map((t) => t.key as string)
+  const filters = [
+    '',
+    'include_mentions=false',
+    'include_hierarchy=false',
+    'include_mentions=false&include_hierarchy=false',
+    'limit=5',
+    `kind=${kinds[0] ?? ''}&kind=${kinds[1] ?? ''}`,
+    ...kinds.map((kind) => `kind=${kind}`),
+    ...tags.slice(0, 4).map((tag) => `tag=${tag}`),
+    ...linkTypes.slice(0, 6).map((type) => `link_type=${type}`),
+  ]
+  for (const filter of filters) {
+    const join = filter ? `?${filter}&` : '?'
+    graphs.push(`${m}/graph/graph${filter ? `?${filter}` : ''}`)
+    for (const dimension of dimensions) {
+      const route = `${m}/graph/graph${join}dimension=${dimension}`
+      graphs.push(route)
+      for (const t of timelines.filter((t) => t.dimension_id === dimension)) {
+        graphs.push(`${route}&timeline=${t.id as string}`)
+        if (filter && filter !== 'limit=5') continue
+        for (const moment of moments)
+          graphs.push(`${route}&timeline=${t.id as string}&at=${moment}`)
+      }
     }
   }
-  for (const { id } of entities.slice(0, 6)) {
-    for (const depth of ['1', '2'])
-      asOf(`${m}/graph/graph?center=${id as string}&depth=${depth}`, id as string)
+  for (const { id } of entities) {
+    for (const depth of ['1', '2', '3', '4']) {
+      graphs.push(`${m}/graph/graph?center=${id as string}&depth=${depth}`)
+    }
+    graphs.push(`${m}/graph/graph?center=${id as string}&depth=2&include_mentions=false&limit=3`)
   }
+  for (const { id } of entities.slice(0, 8)) {
+    for (const timeline of seenIn(id as string)) {
+      for (const moment of moments) {
+        graphs.push(
+          `${m}/graph/graph?center=${id as string}&depth=2&timeline=${timeline}&at=${moment}`,
+        )
+      }
+    }
+  }
+  // The same nodes in the same order, and the same edges (in any order).
+  const sortedEdges = (answer: Answer): Answer => {
+    const body = answer.body as { edges?: Json[] }
+    if (!Array.isArray(body.edges)) return answer
+    const key = (edge: Json) => JSON.stringify(Object.entries(edge).sort())
+    return {
+      ...answer,
+      body: { ...body, edges: [...body.edges].sort((a, b) => (key(a) < key(b) ? -1 : 1)) },
+    }
+  }
+  const graphResults = (await both(page, request, graphs)).map((result) => ({
+    ...result,
+    exported: sortedEdges(result.exported),
+    served: sortedEdges(result.served),
+  }))
+  expect(differences(graphResults)).toEqual([])
   // Maps, pins and galleries.
   routes.push(`${m}/maps/maps`)
   const maps = (await get(`${m}/maps/maps`)).items as Json[]

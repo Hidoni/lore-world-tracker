@@ -12,7 +12,7 @@ the issue that builds each one replaces its alias with a real protocol:
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from lore.core.time.slots import SlotProvider
     from lore.core.vaults import OpenVault
     from lore.core.vaults.publish import PublishContext
+    from lore.core.visibility import VisibilityPolicy
 
 type TimelineTableSpec = object
 type GraphContributor = object
@@ -50,6 +51,13 @@ type PublishContributor = Callable[["PublishContext"], None]
 # Adds a module's part to a Markdown export (``lore.core.markdown.export``): files (media) and how
 # its rich-text nodes, field types and covers render. Runs before any note is written.
 type MarkdownContributor = Callable[["MarkdownExport"], None]
+# What a static export's browser computes a module's views from, when recording each setting
+# would multiply (ADR 0016, #386: family trees, the graph): given the snapshot (a reader's
+# context and policy) and, per timeline, every moment its records can change at, JSON files by
+# name, written to ``static/m/<module id>/<name>``.
+type StaticData = Callable[
+    ["VaultContext", "VisibilityPolicy", Mapping[str, Sequence[int]]], Mapping[str, Any]
+]
 # Rebuilds a module's derived rows from the changes a changeset is about to record (``media_refs``
 # from bodies, fields and covers); runs before the consistency check, undo included. Raising a
 # typed error refuses the write.
@@ -137,6 +145,7 @@ class ModuleSpec:
     publish_contributors: tuple[PublishContributor, ...] = ()
     markdown_contributors: tuple[MarkdownContributor, ...] = ()  # Markdown export (media files)
     static_reads: tuple[StaticRead, ...] = ()  # reads a static export records (ADR 0016)
+    static_data: StaticData | None = None  # data a static export computes views from (#386)
     kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()  # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()  # rebuild derived rows on every changeset

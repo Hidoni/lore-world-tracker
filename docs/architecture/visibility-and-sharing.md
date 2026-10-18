@@ -237,10 +237,21 @@ Implementation (ADR 0016; #147, split into #373–#378):
   lists once (`pool`; the lists are `{"#": [index, …]}`), since answers in other timelines and
   at other moments mostly repeat them. Downloads (media files and
   their thumbnails, lexicon CSVs) are copied under `static/files/`, listed in `static/files`, and
-  `mediaFileUrl`/`lexiconExportUrl` point at the copies. Recorded so far: the parameters the app
-  uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
-  it opens and each entity's local graph at 1 and 2 steps); other choices answer
-  `not_in_export` until #386 computes them.
+  `mediaFileUrl`/`lexiconExportUrl` point at the copies. Org charts are recorded at each number
+  of levels the page offers (1–6).
+- **Computed module views** (#386; ADR 0016's exception, like windows): views whose settings
+  multiply are computed in the browser from data the module exports (`ModuleSpec.static_data`,
+  written to `static/m/<module>/`):
+  - **family trees** (`frontend/src/data/static-family.ts`, a port of `family_tree`): every
+    family link a reader sees and each character's lifespan per timeline, with names and
+    existence from the entity index; any generations up and down, with or without spouses and
+    siblings, any limit;
+  - **the graph** (`frontend/src/data/static-graph.ts`, a port of `GraphReader`): every link a
+    reader sees with where each bounded one is valid in each timeline (read with the module's
+    own query at every moment a record of the timeline can change at), and the mentions; nodes,
+    tags, parents, branch scope and existence from the index. Any filters (kinds, link types,
+    tags, mentions, hierarchy, scope), center and depth, limit and cursor give the server's
+    nodes in its order and its edges (in another order).
 - **Search** (#377, `lore/static_export/search.py`, `frontend/src/data/static-search.ts`): the
   documents a reader can search (in any timeline, with their entity's branch origin) and their
   public columns, from the snapshot, loaded on the first search. `search` and `quickSearch` are
@@ -256,7 +267,9 @@ Implementation (ADR 0016; #147, split into #373–#378):
   over the whole dimension and at every zoom (by powers of ten), at several budgets and with each
   filter, and every series' occurrences as each timeline sees them, at several windows and limits;
   every declared module read at every moment around every bound, the lexicon and media lists
-  filtered and paged, and the copied files byte for byte; search and the quick switcher for many
+  filtered and paged, and the copied files byte for byte; family trees at every generations,
+  spouses and siblings setting, and the graph with each filter, at every moment, and around every
+  entity at each depth (edges compared as sets); search and the quick switcher for many
   queries, filters and timelines (the same hits and snippets; order not compared).
 - **Recording** runs the reads in a pool of worker processes (`LORE_EXPORT_WORKERS`, default
   the CPU count up to 8), each with its own read-only app over the snapshot; reads are
@@ -273,7 +286,7 @@ Implementation (ADR 0016; #147, split into #373–#378):
 - **Exported**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
   `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
   occurrences (#375), module reads and media (#376), search (#377); the Publishing UI, budgets
-  and the reader journeys end to end (#378). Module views at other settings follow (#386).
+  and the reader journeys end to end (#378), module views at every setting (#386).
 
 ## 9. Backups vs sharing
 

@@ -1,10 +1,23 @@
 """The characters module's spec."""
 
-from lore.core.modules import ModuleSpec, StaticRead
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from lore.core.modules import ModuleSpec, StaticRead, VaultContext
+from lore.core.visibility import VisibilityPolicy
 from lore.modules.characters.consistency import CONSISTENCY_RULES
 from lore.modules.characters.kinds import CHARACTER_KIND
 from lore.modules.characters.links import LINK_TYPES
 from lore.modules.characters.router import router
+from lore.modules.characters.service import Characters
+
+
+def _static_data(
+    context: VaultContext, policy: VisibilityPolicy, moments: Mapping[str, Sequence[int]]
+) -> dict[str, Any]:
+    """A static export computes family trees in the browser (``static-family.ts``)."""
+    return {"family": Characters(context, policy).static_data(moments)}
+
 
 MODULE = ModuleSpec(
     id="characters",
@@ -17,16 +30,6 @@ MODULE = ModuleSpec(
     static_reads=(
         StaticRead("{id}/relationships", kind="character", as_of=True),
         StaticRead("{id}/life", kind="character", timeline=True),
-        # The family tree page (3 generations) and panel (2), as the app asks for them.
-        StaticRead(
-            "{id}/family-tree",
-            kind="character",
-            variants=tuple(
-                (("up", n), ("down", n), ("include_spouses", "true"), ("include_siblings", "true"))
-                for n in ("2", "3")
-            ),
-            timeline=True,
-            as_of=True,
-        ),
     ),
+    static_data=_static_data,
 )

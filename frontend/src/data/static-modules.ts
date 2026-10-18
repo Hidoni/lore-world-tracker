@@ -2,6 +2,8 @@ import type { components } from '@/api'
 
 import { NotInExport, type Handler, type Load } from './static-core'
 import { lowerAscii, pick } from './static-entities'
+import { familyTree } from './static-family'
+import { graph } from './static-graph'
 import { replay, type Refused } from './static-time'
 
 /**
@@ -136,10 +138,13 @@ const mediaItems: Handler = async (load, _route, params, [vault = '']) => {
 
 const V = '^vaults/([^/]+)'
 
-/** The module reads of a static export, by route: lists first, then any recorded read. */
+/** The module reads of a static export, by route: lists and computed views first, then any
+ * recorded read. */
 export const MODULE_HANDLERS: readonly (readonly [RegExp, Handler])[] = [
   [new RegExp(`${V}/m/languages/([^/]+)/lexicon$`), lexicon],
   [new RegExp(`${V}/m/media/items$`), mediaItems],
+  [new RegExp(`${V}/m/graph/graph$`), graph],
+  [new RegExp(`${V}/m/characters/([^/]+)/family-tree$`), familyTree],
   [new RegExp(`${V}/(m/.+)$`), moduleRead],
 ]
 
