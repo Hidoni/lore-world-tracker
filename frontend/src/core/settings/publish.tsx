@@ -1,7 +1,13 @@
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { markdownExportUrl, useMutations, usePublish, usePublishStatus } from '@/data'
+import {
+  markdownExportUrl,
+  useExportStaticSite,
+  useMutations,
+  usePublish,
+  usePublishStatus,
+} from '@/data'
 
 import { Section } from './shared'
 
@@ -13,6 +19,7 @@ export function PublishSettings({ vault }: { vault: string }) {
   return (
     <div className="flex flex-col gap-6">
       <PublishSnapshot vault={vault} />
+      <StaticSite vault={vault} />
       <MarkdownExport vault={vault} />
     </div>
   )
@@ -58,6 +65,60 @@ function PublishSnapshot({ vault }: { vault: string }) {
               <>
                 Last published{' '}
                 <time dateTime={publishedAt}>{new Date(publishedAt).toLocaleString()}</time>.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+/**
+ * The static site (visibility-and-sharing.md §8): the latest snapshot as plain files that any
+ * static host serves, written beside the snapshot in the publish directory.
+ */
+function StaticSite({ vault }: { vault: string }) {
+  const editable = useMutations() !== null
+  const status = usePublishStatus(vault)
+  const exportSite = useExportStaticSite(vault)
+  if (!editable || !status.data?.available) return null
+  const { published_at: publishedAt, static_available: available } = status.data
+  const exportedAt = status.data.static_exported_at ?? null
+  return (
+    <Section
+      title="Export static site"
+      description="The latest snapshot as a website of plain files: copy the folder to any static host (GitHub Pages, a web server, a file share) and readers browse the world with no Lore server. Export again after publishing a new snapshot."
+    >
+      {!available && (
+        <p className="text-sm text-muted-foreground">
+          Static export isn’t set up on this server: set <code>LORE_STATIC_DIR</code> to the app’s
+          build, or run <code>lore vault export-static</code>.
+        </p>
+      )}
+      {available && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            disabled={exportSite.isPending || publishedAt === null}
+            onClick={() => {
+              exportSite.mutate(undefined, {
+                onSuccess: () => {
+                  toast.success('Static site exported')
+                },
+              })
+            }}
+          >
+            {exportSite.isPending ? 'Exporting… (this can take minutes)' : 'Export static site'}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            {publishedAt === null ? (
+              'Publish a snapshot first: the site is made from it.'
+            ) : exportedAt === null ? (
+              'Not exported yet.'
+            ) : (
+              <>
+                Exported <time dateTime={exportedAt}>{new Date(exportedAt).toLocaleString()}</time>{' '}
+                to <code>{status.data.static_path}</code>.
               </>
             )}
           </p>

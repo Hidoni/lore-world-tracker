@@ -3,6 +3,7 @@
 import gc
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI
@@ -80,6 +81,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.vaults.close()
 
 
+def _export_static(data_dir: Path, vault: str, out: Path, spa_dir: Path) -> None:
+    """Settings → Publishing → Export static site (``core.vaults.static_site``)."""
+    from lore.static_export import export_static  # noqa: PLC0415 (it imports this module)
+
+    export_static(data_dir, vault, out, spa_dir)
+
+
 def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) -> FastAPI:
     """The app. ``modules`` defaults to ``lore.modules.ALL_MODULES`` (tests pass their own); the
     registry is validated here, so an invalid module set fails at startup."""
@@ -104,6 +112,7 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
         module_registry=app.state.registry,
     )
     app.state.scheduler = None if settings.read_only else MaintenanceScheduler(app.state.vaults)
+    app.state.static_exporter = _export_static
     install_error_handlers(app)
 
     api = APIRouter(prefix=API_BASE_PATH, responses=PROBLEM_RESPONSES)

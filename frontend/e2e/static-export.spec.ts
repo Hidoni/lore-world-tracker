@@ -11,6 +11,11 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   page.on('pageerror', (error) => errors.push(String(error)))
   const requests: string[] = []
   page.on('request', (request) => requests.push(request.url()))
+  let data = 0
+  page.on('response', (response) => {
+    if (response.url().includes('/site/data/'))
+      void response.body().then((body) => (data += body.length))
+  })
 
   await page.goto(STATIC_URL)
   // The vault list, for readers: no editing.
@@ -36,6 +41,10 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   })
   expect(outside).toEqual([])
   expect(requests.some((url) => url.includes('/site/data/vaults/'))).toBe(true)
+  // The landing page loads only what it shows (testing.md §4: 2 MB on the small world).
+  await page.waitForLoadState('networkidle')
+  expect(data).toBeGreaterThan(0)
+  expect(data).toBeLessThan(2_000_000)
   expect(errors).toEqual([])
 })
 
@@ -167,5 +176,25 @@ test('module pages, a map and its image in a static export', async ({ page }) =>
   await expect
     .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0)
+  expect(errors).toEqual([])
+})
+
+test('the graph of a static export', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(String(error)))
+  await page.goto(STATIC_URL)
+  await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
+  await expect(page.getByRole('heading', { name: 'Aetheria', level: 1 })).toBeVisible()
+  const vault = /^#\/v\/([^/?]+)/.exec(new URL(page.url()).hash)?.[1] ?? ''
+  await page.goto(`${STATIC_URL}#/v/${vault}/m/graph`)
+  await expect(page.getByRole('heading', { name: 'Graph', level: 1 })).toBeVisible()
+  await expect(page.getByTestId('graph-canvas')).toBeVisible()
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Find in the graph' }).fill('Ilsa the Tidebound')
+  await expect(page.getByText('1 found')).toBeVisible()
+  await page.getByRole('textbox', { name: 'Find in the graph' }).press('Enter')
+  const preview = page.getByRole('complementary', { name: 'Selected entity' })
+  await preview.getByRole('link', { name: 'Open Ilsa the Tidebound' }).click()
+  await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
   expect(errors).toEqual([])
 })

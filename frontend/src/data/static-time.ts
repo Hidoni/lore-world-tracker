@@ -23,7 +23,6 @@ type Intervals<T> = [string, T][]
 
 interface TimelineFile {
   event_tree: Record<string, Schemas['EventTreeNode'][]>
-  causality: Record<string, Schemas['CausalityGraphOut']>
 }
 
 /** A read the server refused, recorded as its problem (replayed as the same problem). */
@@ -108,14 +107,12 @@ const eventTree: Handler = async (load, _route, params, [vault = '', timeline = 
 }
 
 const causality: Handler = async (load, _route, params, [vault = '', timeline = '']) => {
-  const file = await loadOr404<TimelineFile>(
-    load,
-    `vaults/${vault}/static/timelines/${timeline}`,
-    `timeline ${timeline}`,
-  )
   const event = params.get('event') ?? ''
-  const graph = file.causality[event]
-  if (!graph) throw notFound(`event ${event} on the timeline`)
+  const graph = await loadOr404<Schemas['CausalityGraphOut']>(
+    load,
+    `vaults/${vault}/static/causality/${timeline}/${event}`,
+    `event ${event} on the timeline`,
+  )
   const depth = intParam(params, 'depth', 2)
   const limit = intParam(params, 'limit', 200)
   // Nodes are nearest first: the ones within `depth`, up to `limit` of them.

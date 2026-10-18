@@ -9,7 +9,9 @@ import { replay, type Refused } from './static-time'
  * (`ModuleSpec.static_reads`) and the builder records them (`lore/static_export/modules.py`):
  * one file per route under `static/reads/`, with the answer for each query recorded, as-of
  * answers by moment (the last one at or before the cursor), and paged lists whole (filtered and
- * paged here, like the server does).
+ * paged here, like the server does). A read naming its entity in the query (`graph?center=…`) has
+ * a file per entity under `static/split/<route>/<param>/<id>`, listed in `static/split`: an
+ * entity page loads only its own.
  */
 
 type Schemas = components['schemas']
@@ -18,6 +20,19 @@ interface ReadsFile {
   answers: Record<string, unknown>
   as_of: Record<string, [string, unknown][]>
   lists: Record<string, unknown[]>
+  /** The objects of the answers, each once: their lists are `{"#": [index, …]}`. */
+  pool?: unknown[]
+}
+
+/** An answer with its pooled lists filled back in (`modules.py` `_Pool`). */
+function unpool(value: unknown, pool: readonly unknown[]): unknown {
+  if (Array.isArray(value)) return value.map((item) => unpool(item, pool))
+  if (value === null || typeof value !== 'object') return value
+  const entries = Object.entries(value)
+  const [first] = entries
+  if (entries.length === 1 && first?.[0] === '#' && Array.isArray(first[1]))
+    return (first[1] as number[]).map((index) => unpool(pool[index], pool))
+  return Object.fromEntries(entries.map(([key, item]) => [key, unpool(item, pool)]))
 }
 
 /** Query parameters that only bust caches or that a static export ignores. */
@@ -36,9 +51,18 @@ async function readsOf(load: Load, vault: string, route: string): Promise<ReadsF
 
 /** A recorded module read: its answer for the query, at the cursor for as-of reads. */
 export const moduleRead: Handler = async (load, _route, params, [vault = '', route = '']) => {
+  // Reads naming their entity in the query have a file per entity (`static/split`).
+  const split = ((await load(`vaults/${vault}/static/split`)) as Record<string, string[]>)[
+    route
+  ]?.find((name) => params.has(name))
   let file: ReadsFile
   try {
-    file = await readsOf(load, vault, route)
+    file =
+      split === undefined
+        ? await readsOf(load, vault, route)
+        : ((await load(
+            `vaults/${vault}/static/split/${route}/${split}/${params.get(split) ?? ''}`,
+          )) as ReadsFile)
   } catch (error) {
     // Not a declared read: a read recorded as a plain file (`m/correspondences/<id>`).
     if (!(error instanceof NotInExport) || queryKey(params) !== '[]') throw error
@@ -49,10 +73,10 @@ export const moduleRead: Handler = async (load, _route, params, [vault = '', rou
   if (at !== null) {
     const intervals = file.as_of[key]
     if (intervals === undefined) throw new NotInExport(route)
-    return replay(pick(intervals, at) as object | Refused, route)
+    return replay(unpool(pick(intervals, at), file.pool ?? []) as object | Refused, route)
   }
   if (!(key in file.answers)) throw new NotInExport(route)
-  return replay(file.answers[key] as object | Refused, route)
+  return replay(unpool(file.answers[key], file.pool ?? []) as object | Refused, route)
 }
 
 /** Our own cursors: the position after the last item returned. */

@@ -213,6 +213,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/publish/static": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Static
+         * @description Export the vault's latest published snapshot as a static site (``visibility-and-sharing.md``
+         *     §8) into ``LORE_PUBLISH_DIR/static/<vault folder>/``, replacing the previous one: any static
+         *     host serves that folder. ``409 static_export_not_configured`` without a publish directory or
+         *     the SPA build (``LORE_STATIC_DIR``), ``409 static_export_failed`` without a snapshot.
+         */
+        post: operations["publish_publish_static"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/export/markdown": {
         parameters: {
             query?: never;
@@ -6378,13 +6401,23 @@ export interface components {
         /**
          * PublishStatus
          * @description Whether the server can publish (``LORE_PUBLISH_DIR`` is set) and the vault's latest
-         *     snapshot there (``published_at`` null: none yet).
+         *     snapshot there (``published_at`` null: none yet); whether it can also export the snapshot as
+         *     a static site (``LORE_STATIC_DIR``: the SPA build) and where the latest one is.
          */
         PublishStatus: {
             /** Available */
             available: boolean;
             /** Published At */
             published_at: string | null;
+            /**
+             * Static Available
+             * @default false
+             */
+            static_available?: boolean;
+            /** Static Exported At */
+            static_exported_at?: string | null;
+            /** Static Path */
+            static_path?: string | null;
         };
         /** QuickFixOut */
         QuickFixOut: {
@@ -8180,6 +8213,41 @@ export interface operations {
         };
     };
     publish_publish: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishStatus"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    publish_publish_static: {
         parameters: {
             query?: {
                 /** @description Apply reader filtering (preview what readers see). */

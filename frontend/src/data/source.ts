@@ -218,6 +218,8 @@ export interface Mutations {
   createBackup(vault: string, body: Schemas['BackupCreate']): Promise<Schemas['Backup']>
   /** Publishes a sanitized snapshot into the server's publish directory. */
   publishVault(vault: string): Promise<Schemas['PublishStatus']>
+  /** Exports the latest snapshot as a static site (visibility-and-sharing.md §8). */
+  exportStaticSite(vault: string): Promise<Schemas['PublishStatus']>
   updateSettings(
     vault: string,
     body: Schemas['VaultSettingsUpdate'],

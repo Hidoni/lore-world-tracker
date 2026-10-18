@@ -550,6 +550,8 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
     createBackup: (vault, body) =>
       unwrap(client.POST(`${V}/backups`, { params: path(vault), body })),
     publishVault: (vault) => unwrap(client.POST(`${V}/publish`, { params: path(vault) })),
+    exportStaticSite: (vault) =>
+      unwrap(client.POST(`${V}/publish/static`, { params: path(vault) })),
     updateSettings: (vault, body) =>
       unwrap(client.PATCH(`${V}/settings`, { params: path(vault), body })),
     setModule: (vault, module, body) =>

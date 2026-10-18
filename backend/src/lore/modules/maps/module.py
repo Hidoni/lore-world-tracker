@@ -28,7 +28,7 @@ MODULE = ModuleSpec(
     static_reads=(
         StaticRead("maps"),
         StaticRead("maps", kind="location", variants=((("location", "{id}"),),)),
-        StaticRead("maps/{id}", ids_from="maps", timeline=True, as_of=True),
+        StaticRead("maps/{id}", ids_from="maps", timeline=True, as_of=True, event_moments=True),
         StaticRead("entities/{id}/pins", kind="*"),
     ),
 )

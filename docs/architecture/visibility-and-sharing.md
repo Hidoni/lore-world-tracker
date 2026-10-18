@@ -212,7 +212,8 @@ Implementation (ADR 0016; #147, split into #373–#378):
   - `fieldValues` is not exported: only editors call it.
 - **Time reads** (#375, `lore/static_export/time.py`, `frontend/src/data/static-time.ts`):
   per timeline its event tree (every level) and the cause → effect graph around each event (at
-  depth 6 and 500 nodes, trimmed in the browser to the depth and limit asked), a branch's diff;
+  depth 6 and 500 nodes, trimmed in the browser to the depth and limit asked; one file per
+  event), a branch's diff;
   per entity its notes, worldline segments and personal timeline per timeline, and its presence
   in every timeline at each moment it can change; correspondences, with mapping computed by
   `@lore/chronology` along the server's path for each pair of dimensions.
@@ -230,7 +231,11 @@ Implementation (ADR 0016; #147, split into #373–#378):
   as-of answers at each moment they can change in each timeline (the bounds of the facts and links
   of every entity the read names, and the moments it names itself), kept where they change. The
   lexicon and the media library are recorded whole and filtered and paged in the browser like
-  the server does (ASCII-lowercase prefix and substring matching). Downloads (media files and
+  the server does (ASCII-lowercase prefix and substring matching). A read naming its entity in
+  the query (the local graph's `center`, a location's `root`) has a file per entity under
+  `static/split/` (listed in `static/split`), and each file stores the objects of its answers'
+  lists once (`pool`; the lists are `{"#": [index, …]}`), since answers in other timelines and
+  at other moments mostly repeat them. Downloads (media files and
   their thumbnails, lexicon CSVs) are copied under `static/files/`, listed in `static/files`, and
   `mediaFileUrl`/`lexiconExportUrl` point at the copies. Recorded so far: the parameters the app
   uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
@@ -253,11 +258,22 @@ Implementation (ADR 0016; #147, split into #373–#378):
   every declared module read at every moment around every bound, the lexicon and media lists
   filtered and paged, and the copied files byte for byte; search and the quick switcher for many
   queries, filters and timelines (the same hits and snippets; order not compared).
-- **Exported so far**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
+- **Recording** runs the reads in a pool of worker processes (`LORE_EXPORT_WORKERS`, default
+  the CPU count up to 8), each with its own read-only app over the snapshot; reads are
+  independent, so the files are the same as one process would write. Tests pass their own
+  modules and record in process.
+- **From the app** (#378): **Settings → Publishing → Export static site**
+  (`POST /vaults/{v}/publish/static`, author-only) exports the latest snapshot into
+  `LORE_PUBLISH_DIR/static/<vault folder>/` with the SPA build `LORE_STATIC_DIR`. It is built
+  beside the old site and swapped in once complete; the publish status says when and where.
+- **Loading**: the app loads no data before the first page but `meta`, `vaults`, `settings`,
+  `registry` and the downloads list; each page then loads the files its reads need (the entity
+  index on the first entity read, one shard per entity, a timeline's rows on its first window,
+  the search documents on the first search). Budgets: `testing.md` §4.
+- **Exported**: `meta`, `vaults`/`vault`, `settings`, `registry`, `linkTypes`,
   `calendarPresets`, `tags` (#373), the entity reads (#374), the time reads, windows and
-  occurrences (#375), module reads and media (#376), search (#377). Budgets and lazy loading
-  (#378) follow. The tiny world
-  exports in about 50 s (one recorded read at a time; threads only add contention).
+  occurrences (#375), module reads and media (#376), search (#377); the Publishing UI, budgets
+  and the reader journeys end to end (#378). Module views at other settings follow (#386).
 
 ## 9. Backups vs sharing
 

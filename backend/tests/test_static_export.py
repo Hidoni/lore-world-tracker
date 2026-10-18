@@ -11,7 +11,9 @@ import pytest
 from typer.testing import CliRunner
 
 from lore import cli
+from lore.core.modules import StaticRead
 from lore.static_export import MANIFEST_NAME, StaticExportError, StaticExportInfo, export_static
+from lore.static_export.modules import _File, _key
 from tests.visibility.canary import (
     LEAK_MODULES,
     Canary,
@@ -143,3 +145,27 @@ def test_cli_export_static(
 
 def _with_leak_modules(data_dir: Path, vault: str, out: Path, spa_dir: Path) -> StaticExportInfo:
     return export_static(data_dir, vault, out, spa_dir, modules=LEAK_MODULES)
+
+
+def test_answers_store_each_object_once() -> None:
+    node = {"id": "a", "name": "Ilsa"}
+    other = {"id": "b", "name": "Wren"}
+    recorded = _File(
+        answers={"[]": {"nodes": [node, other], "truncated": False}},
+        as_of={"[]": [["0", {"nodes": [node]}], ["5", {"nodes": [node, other], "tags": ["x"]}]]},
+    )
+    dumped = recorded.dump()
+    assert dumped["pool"] == [node, other]
+    assert dumped["answers"] == {"[]": {"nodes": {"#": [0, 1]}, "truncated": False}}
+    assert dumped["as_of"]["[]"] == [
+        ["0", {"nodes": {"#": [0]}}],
+        ["5", {"nodes": {"#": [0, 1]}, "tags": ["x"]}],
+    ]
+
+
+def test_reads_naming_their_entity_in_the_query_have_a_file_per_entity() -> None:
+    graph = StaticRead("graph", kind="*", variants=((("center", "{id}"), ("depth", "1")),))
+    assert _key(graph, "m/graph/graph", "e1") == "static/split/m/graph/graph/center/e1"
+    assert _key(graph, "m/graph/graph", None) == "m/graph/graph"
+    members = StaticRead("{id}/members", kind="group")
+    assert _key(members, "m/groups/e1/members", "e1") == "m/groups/e1/members"

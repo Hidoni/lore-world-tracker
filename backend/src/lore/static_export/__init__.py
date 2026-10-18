@@ -22,6 +22,7 @@ import json
 import re
 import shutil
 from collections.abc import Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,7 +36,7 @@ from lore.config import Settings
 from lore.core.errors import LoreError
 from lore.core.modules import ModuleSpec
 from lore.core.modules.spec import VaultContext
-from lore.static_export.asgi import Recorder
+from lore.static_export.asgi import Recorder, start_worker, workers
 from lore.static_export.entities import EntityExport
 from lore.static_export.modules import ModuleExport
 from lore.static_export.search import search_index
@@ -85,10 +86,11 @@ def data_path(route: str) -> str:
     return f"{DATA_DIR}/{route}.json"
 
 
-async def _record(app: FastAPI, vault_id: str) -> tuple[dict[str, Any], dict[str, bytes]]:
+async def _record(
+    app: FastAPI, vault_id: str, recorder: Recorder
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     """Every file under ``data/``: the JSON ones (by path without ``.json``) and the copied
     downloads (by path)."""
-    recorder = Recorder(app)
     async with app.router.lifespan_context(app):
         files = {route.partition("?")[0]: await recorder.get(route) for route in _routes(vault_id)}
         entities = EntityExport(app, recorder, vault_id)
@@ -153,7 +155,15 @@ def export_static(
                 f"{info.name} is not a published snapshot: publish it first (lore vault "
                 "publish) and export the snapshot"
             )
-        files, binaries = asyncio.run(_record(app, info.id))
+        # A pool of worker processes for the default modules (tests pass their own, which
+        # workers couldn't rebuild): the reads are independent.
+        size = workers() if modules is None else 1
+        if size > 1:
+            with ProcessPoolExecutor(size, initializer=start_worker, initargs=(settings,)) as pool:
+                recorder = Recorder(app, pool, size)
+                files, binaries = asyncio.run(_record(app, info.id, recorder))
+        else:
+            files, binaries = asyncio.run(_record(app, info.id, Recorder(app)))
     finally:
         app.state.vaults.close()
 

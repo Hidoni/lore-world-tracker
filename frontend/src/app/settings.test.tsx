@@ -244,6 +244,30 @@ describe('publishing settings', () => {
     expect(screen.queryByRole('button', { name: 'Publish snapshot' })).not.toBeInTheDocument()
   })
 
+  it('exports the snapshot as a static site and shows where', async () => {
+    const writes = serveVault()
+    await renderApp('/v/v1/settings/publishing')
+    const exportButton = await screen.findByRole('button', { name: 'Export static site' })
+    expect(exportButton).toBeDisabled()
+    expect(screen.getByText(/Publish a snapshot first/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Publish snapshot' }))
+    await waitFor(() => {
+      expect(exportButton).toBeEnabled()
+    })
+    await userEvent.click(exportButton)
+    expect(await screen.findByText(/Exported/)).toHaveTextContent('/data/published/static/aetheria')
+    expect(writes.at(-1)).toMatchObject({ method: 'POST', path: '/publish/static' })
+  })
+
+  it('explains when the server has no app build for static sites', async () => {
+    serveVault({ staticExport: false })
+    await renderApp('/v/v1/settings/publishing')
+    expect(await screen.findByText(/Static export isn’t set up/)).toHaveTextContent(
+      'LORE_STATIC_DIR',
+    )
+    expect(screen.queryByRole('button', { name: 'Export static site' })).not.toBeInTheDocument()
+  })
+
   it('links the Markdown exports', async () => {
     serveVault()
     await renderApp('/v/v1/settings/publishing')

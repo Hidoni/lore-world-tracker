@@ -75,22 +75,33 @@ in `./published`. Restart the reader so it opens the new copy:
 docker compose restart reader
 ```
 
-## Static export (preview)
+## Static site
 
-A published snapshot can also become a static site that any web host serves, with no Lore
-server at all:
+A published snapshot can also become a static site: plain files that any web host serves
+(GitHub Pages, Netlify, an nginx or Apache folder, a file share), with no Lore server at all.
+Readers browse it like the read-only server: the landing page, lists and entity pages with the
+time cursor, the timeline at any zoom (recurring events, branches, correspondences,
+worldlines), the module pages with their maps, images and files, the graph, and search.
+
+From the app: **Settings → Publishing → Export static site** (after **Publish snapshot**)
+writes the site to `<publish directory>/static/<vault folder>/`, replacing the previous one only
+once the new one is complete. The server needs `LORE_PUBLISH_DIR` and `LORE_STATIC_DIR` (the
+app's build; the Docker image sets it). Export again after each new snapshot. From the command
+line:
 
 ```sh
 lore vault export-static <snapshot> --out site/ --data-dir ./published --spa frontend/dist
-python -m http.server --directory site
+python -m http.server --directory site      # try it at http://localhost:8000/
 ```
 
-It is still being built: the export has the landing page, lists and entity pages (with the time
-cursor), the timeline (any zoom, recurring events, branches, correspondences, worldlines), and
-the module pages with their maps, images and files, and search. A few views at settings other
-than their defaults (family trees deeper than 3 generations, graph filters) say "Not in this
-export" until they are exported too (#386). Search finds what the server finds, but results
-with nearly the same relevance can come in another order.
+Copy the folder anywhere: links are relative and pages are routed by the URL's `#`, so it works
+from any subfolder and the host needs no rewrite rules. Exporting takes a few minutes for a
+world of about a thousand entities (it uses up to 8 processes: `LORE_EXPORT_WORKERS`), and the
+site loads only the files each page needs (`docs/architecture/testing.md` §4 has the budgets).
+
+A few views at settings other than their defaults (family trees deeper than 3 generations, graph
+filters) say "Not in this export" (#386). Search finds what the server finds, but results with
+nearly the same relevance can come in another order.
 
 ## Markdown / Obsidian export
 
