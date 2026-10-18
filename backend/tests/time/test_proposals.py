@@ -3,6 +3,7 @@
 expiry."""
 
 import copy
+import sqlite3
 from collections.abc import Iterator
 from datetime import timedelta
 from fractions import Fraction
@@ -427,7 +428,11 @@ def _proposals(vault: Any) -> list[Proposal]:
 
 
 def test_expired_proposals_are_deleted_hourly_and_on_open(
-    api: LinkApi, world: dict[str, Any], tmp_path: Path, caplog: pytest.LogCaptureFixture
+    api: LinkApi,
+    world: dict[str, Any],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     event(api, world, "Thaw", date(world, 1, "thawing", 1))
     manager = api.client.app.state.vaults  # type: ignore[attr-defined]
@@ -447,13 +452,14 @@ def test_expired_proposals_are_deleted_hourly_and_on_open(
     assert _proposals(manager.open(api.vault)) == []
     # Never on a read-only server; failures are logged.
     assert VaultManager(tmp_path, read_only=True).run_scheduled_cleanup() == []
-    opened = manager.open(api.vault)
-    opened.engine.dispose()
-    opened.info.database_path.chmod(0o000)
-    try:
-        assert manager.run_scheduled_cleanup(utc_now() + timedelta(hours=2)) == []
-    finally:
-        opened.info.database_path.chmod(0o644)
+    manager.open(api.vault)
+
+    def fail(*_args: object) -> None:
+        raise sqlite3.OperationalError("unable to open database file")
+
+    # Raise rather than chmod the file: root ignores file permissions.
+    monkeypatch.setattr("lore.core.vaults.manager._purge_proposals", fail)
+    assert manager.run_scheduled_cleanup(utc_now() + timedelta(hours=2)) == []
     assert "deleting expired proposals" in caplog.text
 
 

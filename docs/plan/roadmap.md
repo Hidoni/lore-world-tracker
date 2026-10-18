@@ -350,6 +350,7 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #161 | M13-15 | SVG sanitization for inline rendering of uploaded SVGs | S | P2 | #146 |
 | #162 | M13-16 | Deep-zoom tiling for very large map images | M | P2 | #146 |
 | #379 | M13-17 | Dimension wizard: design a custom first calendar instead of picking a preset | M | P2 | – |
+| #391 | M13-18 | Make the scheduler failure tests pass when the suite runs as root | S | P3 | – |
 
 ## Requirement traceability
 
