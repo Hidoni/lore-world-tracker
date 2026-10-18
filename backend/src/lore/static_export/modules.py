@@ -11,6 +11,15 @@ Each read is recorded per route (its ids filled in) into ``static/reads/<route>`
   (``bound_moments``, from the entity export), so any reading of them is covered;
 - ``lists``: by query, every item of a paged read, for the browser to filter and page.
 
+A read naming its entity in the query instead of the path (``graph?center={id}``) is recorded
+per entity into ``static/split/<route>/<param>/<id>`` (the same three parts), listed in
+``static/split`` (route → parameters): one entity's page loads its own file, not every
+entity's.
+
+Answers of one file mostly share their items (a graph's nodes and edges in each timeline and
+at each moment), so each object in a list of an answer is stored once in the file's ``pool``,
+and the list is written ``{"#": [index, …]}``.
+
 Downloads (``file``) are copied under ``static/files/`` and listed in ``static/files`` (by
 route and query), so the app links to the copies.
 """
@@ -29,6 +38,7 @@ from lore.static_export.entities import TimelineInfo, intervals
 from lore.static_export.time import PROBLEM
 
 READS = "static/reads"
+SPLIT = "static/split"
 FILES = "static/files"
 NOT_FOUND = 404
 OK = 200
@@ -63,7 +73,42 @@ class _File:
     lists: dict[str, Any] = field(default_factory=dict)
 
     def dump(self) -> dict[str, Any]:
-        return {"answers": self.answers, "as_of": self.as_of, "lists": self.lists}
+        pool = _Pool()
+        as_of = {
+            key: [[moment, pool.encode(answer)] for moment, answer in found]
+            for key, found in self.as_of.items()
+        }
+        answers = {key: pool.encode(answer) for key, answer in self.answers.items()}
+        dumped = {"answers": answers, "as_of": as_of, "lists": self.lists}
+        if pool.items:
+            dumped["pool"] = pool.items
+        return dumped
+
+
+class _Pool:
+    """The objects of a file's answers, each once (``static-modules.ts`` ``unpool``)."""
+
+    def __init__(self) -> None:
+        self.items: list[Any] = []
+        self.index: dict[str, int] = {}
+
+    def encode(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: self.encode(item) for key, item in value.items()}
+        if isinstance(value, list):
+            if value and all(isinstance(item, dict) for item in value):
+                return {"#": [self._add(item) for item in value]}
+            return [self.encode(item) for item in value]
+        return value
+
+    def _add(self, item: dict[str, Any]) -> int:
+        encoded = self.encode(item)
+        key = json.dumps(encoded, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        found = self.index.get(key)
+        if found is None:
+            found = self.index[key] = len(self.items)
+            self.items.append(encoded)
+        return found
 
 
 class ModuleExport:
@@ -74,6 +119,7 @@ class ModuleExport:
         self.binaries: dict[str, bytes] = {}
         self.files: dict[str, str] = {}
         self.ids: dict[tuple[str, str], set[str]] = {}
+        self.split: dict[str, list[str]] = {}
 
     async def record(
         self,
@@ -102,10 +148,11 @@ class ModuleExport:
             for read in module.static_reads:
                 await self._read(module.id, read)
         files: dict[str, Any] = {
-            f"{self.base}/{READS}/{route}": recorded.dump()
-            for route, recorded in self.reads.items()
+            f"{self.base}/{key if key.startswith(SPLIT) else f'{READS}/{key}'}": recorded.dump()
+            for key, recorded in self.reads.items()
         }
         files[f"{self.base}/{FILES}"] = self.files
+        files[f"{self.base}/{SPLIT}"] = self.split
         return files, self.binaries
 
     def _entity_ids(self, module: str, read: StaticRead) -> Sequence[str | None]:
@@ -130,10 +177,14 @@ class ModuleExport:
     async def _read(self, module: str, read: StaticRead) -> None:
         ids = self._entity_ids(module, read)
         if not read.file:  # reads files in the declared order, whatever finishes first
+            split = _split_param(read)
+            if split is not None:
+                params = self.split.setdefault(f"m/{module}/{read.path}", [])
+                if split not in params:
+                    params.append(split)
             for entity_id in ids:
-                self.reads.setdefault(
-                    f"m/{module}/{read.path.replace('{id}', entity_id or '')}", _File()
-                )
+                route = f"m/{module}/{read.path.replace('{id}', entity_id or '')}"
+                self.reads.setdefault(_key(read, route, entity_id), _File())
         await asyncio.gather(*(self._read_one(module, read, entity_id) for entity_id in ids))
 
     async def _read_one(self, module: str, read: StaticRead, entity_id: str | None) -> None:
@@ -162,7 +213,7 @@ class ModuleExport:
         if read.file:
             await self._file(route, pairs)
             return True
-        recorded = self.reads.setdefault(route, _File())
+        recorded = self.reads.setdefault(_key(read, route, entity_id), _File())
         if read.paged is not None:
             params = {**dict(pairs), "limit": read.paged}
             status, first = await self.recorder.answer(route_with(f"{self.base}/{route}", params))
@@ -231,6 +282,24 @@ class ModuleExport:
         path = f"{self.base}/{FILES}/{route}/{name}{_extension(content_type)}"
         self.binaries[path] = body
         self.files[f"{route}?{query_key(pairs)}"] = path
+
+
+def _split_param(read: StaticRead) -> str | None:
+    """The query parameter naming a read's entity, when its path doesn't."""
+    if read.file or "{id}" in read.path:
+        return None
+    return next(
+        (name for variant in read.variants for name, value in variant if value == "{id}"), None
+    )
+
+
+def _key(read: StaticRead, route: str, entity_id: str | None) -> str:
+    """Where a read of ``route`` for ``entity_id`` is recorded: the route's file, or the entity's
+    own under ``static/split/`` (``_split_param``)."""
+    split = _split_param(read)
+    if split is None or entity_id is None:
+        return route
+    return f"{SPLIT}/{route}/{split}/{entity_id}"
 
 
 def _strings(value: Any) -> Iterable[str]:

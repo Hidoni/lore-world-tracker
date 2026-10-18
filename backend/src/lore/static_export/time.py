@@ -47,7 +47,11 @@ class TimeExport:
             route = f"{self.base}/dimensions/{dimension}/timelines"
             files[route] = await get(route)
         for timeline in timelines.values():
-            files[f"{self.base}/static/timelines/{timeline.id}"] = await self._timeline(timeline)
+            tree, causality = await self._timeline(timeline)
+            files[f"{self.base}/static/timelines/{timeline.id}"] = {"event_tree": tree}
+            # Each event's graph in its own file: an event page loads only its own.
+            for event, graph in causality.items():
+                files[f"{self.base}/static/causality/{timeline.id}/{event}"] = graph
             if not timeline.prime:
                 route = f"{self.base}/m/branches/timelines/{timeline.id}/diff"
                 files[route] = await get(route_with(route, {"limit": DIFF_LIMIT}))
@@ -62,7 +66,9 @@ class TimeExport:
                 files[f"{self.base}/static/notes/{entity_id}"] = note
         return files
 
-    async def _timeline(self, timeline: TimelineInfo) -> dict[str, Any]:
+    async def _timeline(
+        self, timeline: TimelineInfo
+    ) -> tuple[dict[str, list[Any]], dict[str, Any]]:
         """The timeline's event tree, by parent (``""``: the roots), and causality by event."""
         route = f"{self.base}/timelines/{timeline.id}"
         tree: dict[str, list[Any]] = {}
@@ -85,7 +91,7 @@ class TimeExport:
                 for event in events
             )
         )
-        return {"event_tree": tree, "causality": dict(zip(events, graphs, strict=True))}
+        return tree, dict(zip(events, graphs, strict=True))
 
     async def _correspondences(self, timelines: dict[str, TimelineInfo]) -> dict[str, Any]:
         route = f"{self.base}/m/correspondences"

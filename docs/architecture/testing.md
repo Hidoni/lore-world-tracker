@@ -120,6 +120,9 @@ Measured on the `large` sample vault on a typical dev laptop:
 | Entity page interactive in the app: heading, content and its reads done; visualizations may draw after (`make bench-pages`)                                                | < 300 ms                                        |
 | Timeline pan/zoom with 1,000 visible items (`make bench-pages`)                                                                                                             | 60 fps                                          |
 | Initial JS of the shell (`npm run check:bundle`, part of `make check-frontend`)                                                                                             | < 400 kB gzip                                   |
+| Static export of the `small` world (`lore vault export-static`, 4 workers; #378)                                                                                            | < 15 min                                        |
+| Static export: data a page loads on the `small` world, first visit (landing; any page: entity, timeline, graph, search; #378)                                              | landing < 2 MB (300 kB gzip); any < 5 MB (600 kB gzip) |
+| Static export: largest data file on the `small` world (#378)                                                                                                                | < 3 MB                                          |
 
 Perf tests are marked `perf`; `make perf` runs the backend ones (`make bench` the chronology
 ones). They are meant to run nightly and when a PR has the label `perf`, and regressions greater
@@ -147,6 +150,13 @@ Playwright's polling) from the navigation until its heading shows, nothing says 
 its last read has finished, both as a full load and as a navigation in the app (the budget);
 the panels that draw a visualization (family tree, local graph, map) are timed separately
 ("drawn"). The timeline is panned and zoomed for 4 s while animation frames are counted.
+
+The static export's budgets (#378) are for the `small` world (1,067 entities, 2,754 links) on 4
+cores, served by `python -m http.server`: export it (`lore vault publish`, then
+`lore vault export-static`), then open each page in a fresh Chromium and sum the bytes of the
+`data/` files it fetched (gzip as a host would compress them). `e2e/static-export.spec.ts` checks
+the landing page's budget on the tiny world in CI, so a page that starts loading everything up
+front fails there.
 
 `npm run check:bundle -w @lore/web` (`frontend/scripts/check-bundle.ts`, part of
 `make check-frontend` and so of CI) sums the gzipped JS that `dist/index.html` loads before
@@ -273,6 +283,25 @@ What changed in #144:
   joining the latest era while its span lasts and 3% an older one (drawn apart from the rest of
   the world, which stays the same). The scan then takes 6.8 s here (about 4.2 s on the
   reference), with 18,185 findings.
+
+Static export (#378), measured 2026-10-18 on the `small` world in a 4-core cloud container
+(Chromium headless, `python -m http.server`, first visit; gzip is what a host would send):
+
+| | Measured | Budget |
+| --- | --- | --- |
+| Export time (4 workers) | 9 min 34 s (before #378: over an hour, one process) | < 15 min |
+| Landing page | 1.3 MB (201 kB gzip), 12 files | < 2 MB |
+| Entity page (Ilsa the Tidebound, with its panels) | 1.5 MB (211 kB gzip), 17 files | < 5 MB |
+| Timeline | 2.1 MB (292 kB gzip), 18 files | < 5 MB |
+| Graph page | 3.6 MB (433 kB gzip), 15 files | < 5 MB |
+| Search | 2.0 MB (257 kB gzip), 13 files | < 5 MB |
+| Largest data file (the graph page's read) | 2.3 MB | < 3 MB |
+| Whole site | 146 MB, 8,420 files | |
+
+What got it there: event moments only for the reads that show events while they happen (maps),
+reads recorded in a pool of processes, a file per entity for reads naming it in the query (the
+local graph: one 224 MB file before) and per event for causality, and the objects of a read's
+answers stored once per file (the graph page's file: 32 MB before).
 
 ### 4.1 Chronology engine budgets
 

@@ -11,6 +11,11 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   page.on('pageerror', (error) => errors.push(String(error)))
   const requests: string[] = []
   page.on('request', (request) => requests.push(request.url()))
+  let data = 0
+  page.on('response', (response) => {
+    if (response.url().includes('/site/data/'))
+      void response.body().then((body) => (data += body.length))
+  })
 
   await page.goto(STATIC_URL)
   // The vault list, for readers: no editing.
@@ -36,6 +41,10 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   })
   expect(outside).toEqual([])
   expect(requests.some((url) => url.includes('/site/data/vaults/'))).toBe(true)
+  // The landing page loads only what it shows (testing.md §4: 2 MB on the small world).
+  await page.waitForLoadState('networkidle')
+  expect(data).toBeGreaterThan(0)
+  expect(data).toBeLessThan(2_000_000)
   expect(errors).toEqual([])
 })
 

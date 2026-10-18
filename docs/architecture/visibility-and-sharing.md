@@ -212,7 +212,8 @@ Implementation (ADR 0016; #147, split into #373–#378):
   - `fieldValues` is not exported: only editors call it.
 - **Time reads** (#375, `lore/static_export/time.py`, `frontend/src/data/static-time.ts`):
   per timeline its event tree (every level) and the cause → effect graph around each event (at
-  depth 6 and 500 nodes, trimmed in the browser to the depth and limit asked), a branch's diff;
+  depth 6 and 500 nodes, trimmed in the browser to the depth and limit asked; one file per
+  event), a branch's diff;
   per entity its notes, worldline segments and personal timeline per timeline, and its presence
   in every timeline at each moment it can change; correspondences, with mapping computed by
   `@lore/chronology` along the server's path for each pair of dimensions.
@@ -230,7 +231,11 @@ Implementation (ADR 0016; #147, split into #373–#378):
   as-of answers at each moment they can change in each timeline (the bounds of the facts and links
   of every entity the read names, and the moments it names itself), kept where they change. The
   lexicon and the media library are recorded whole and filtered and paged in the browser like
-  the server does (ASCII-lowercase prefix and substring matching). Downloads (media files and
+  the server does (ASCII-lowercase prefix and substring matching). A read naming its entity in
+  the query (the local graph's `center`, a location's `root`) has a file per entity under
+  `static/split/` (listed in `static/split`), and each file stores the objects of its answers'
+  lists once (`pool`; the lists are `{"#": [index, …]}`), since answers in other timelines and
+  at other moments mostly repeat them. Downloads (media files and
   their thumbnails, lexicon CSVs) are copied under `static/files/`, listed in `static/files`, and
   `mediaFileUrl`/`lexiconExportUrl` point at the copies. Recorded so far: the parameters the app
   uses by default (family trees at 2 and 3 generations, org charts at 3 levels, the graph page as
