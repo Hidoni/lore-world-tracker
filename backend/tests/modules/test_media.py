@@ -17,6 +17,7 @@ from lore.core.modules.spec import VaultContext
 from lore.core.registry.types import FieldDef
 from lore.modules.media import api as media_api
 from lore.modules.media import storage
+from lore.modules.media import svg as svg_rules
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect
 from lore.modules.media.publish import copy_visible_media
@@ -180,12 +181,56 @@ def test_oversized_files_and_decompression_bombs_are_refused(library: Library) -
 def test_documents_and_svg(library: Library) -> None:
     notes = library.uploaded(b"# Notes\n\nThe gate opens at dusk.\n", "notes.md")
     assert notes["mime"] == "text/markdown"
-    svg = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "glyph.svg")
+    assert library.file(notes["id"]).headers["content-disposition"].startswith("attachment")
+    svg = library.uploaded(
+        b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script>'
+        b'<circle r="4" fill="gold"/></svg>',
+        "glyph.svg",
+    )
     assert svg["mime"] == "image/svg+xml"
     served = library.file(svg["id"])
     assert served.status_code == 200
-    assert served.headers["content-disposition"].startswith("attachment")
+    assert served.headers["content-type"] == "image/svg+xml"
+    assert served.headers["content-disposition"].startswith("inline")
+    assert served.headers["content-security-policy"].startswith("default-src 'none'")
+    # Sanitized (``lore.modules.media.svg``): the circle, not the script or the handler.
+    assert served.content == (
+        b'<svg xmlns="http://www.w3.org/2000/svg"><circle r="4" fill="gold" /></svg>'
+    )
+    assert served.headers["etag"] == f'"{svg["sha256"]}-original-svg{svg_rules.VERSION}"'
     assert library.file(svg["id"], size="160").status_code == 422  # no thumbnails
+    unreadable = library.upload(b'<svg xmlns="http://www.w3.org/2000/svg"><g></svg>', "x.svg")
+    assert invalid(unreadable) == ["file"]
+    assert "can't be read" in unreadable.json()["errors"][0]["message"]
+
+
+def test_svgs_the_sanitizer_cant_read_stay_attachments(
+    client: TestClient, library: Library
+) -> None:
+    """A file stored before the sanitizer (here: its bytes changed on disk) is sent as it is."""
+    item = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "old.svg")
+    stored = storage.file_path(vault_path(client, library), item["sha256"])
+    stored.write_bytes(b"<svg><script>alert(1)</script>")
+    served = library.file(item["id"])
+    assert served.status_code == 200
+    assert served.headers["content-disposition"].startswith("attachment")
+    assert served.content == b"<svg><script>alert(1)</script>"
+
+
+def test_svgs_are_replaced_only_by_images(library: Library) -> None:
+    item = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "seal.svg")
+
+    def replace(data: bytes, filename: str) -> Any:
+        revision = library.get(item["id"]).json()["revision"]
+        return library.client.put(
+            f"{library.base}/items/{item['id']}/file", files={"file": (filename, data)},
+            data={"revision": str(revision)}, headers=HEADERS,
+        )  # fmt: skip
+
+    assert invalid(replace(b"%PDF-1.4\n%%EOF\n", "seal.pdf")) == ["file"]
+    assert replace(png(8, 8), "seal.png").status_code == 200
+    # A raster image stays a raster image.
+    assert invalid(replace(b'<svg xmlns="http://www.w3.org/2000/svg"/>', "seal.svg")) == ["file"]
 
 
 # --- files ----------------------------------------------------------------------------------------
@@ -344,14 +389,17 @@ def test_publishing_copies_only_what_readers_see(
 ) -> None:
     secret = library.uploaded(png(color="black"))
     shown = library.uploaded(png(500, 300, color="yellow"))
+    seal = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "seal.svg")
     library.api.make("misc", "Diary", body=doc(block("private", image(secret["id"])),
-                                               image(shown["id"])))  # fmt: skip
+                                               image(shown["id"]), image(seal["id"])))  # fmt: skip
     vault = client.app.state.vaults.open(library.api.vault)  # type: ignore[attr-defined]
     registry = client.app.state.registry  # type: ignore[attr-defined]
     target = tmp_path / "published"
     with vault.sessions() as session:
         copied = copy_visible_media(VaultContext(vault, session, registry), target)
-    assert copied == [shown["id"]]
+    assert copied == sorted([shown["id"], seal["id"]])
     assert storage.file_path(target, shown["sha256"]).is_file()
     assert storage.thumb_path(target, shown["sha256"], 160).is_file()
+    # A reader-side server may not be able to write the sanitized copy: it is made in advance.
+    assert storage.safe_svg_path(target, seal["sha256"]).is_file()
     assert not storage.file_path(target, secret["sha256"]).exists()

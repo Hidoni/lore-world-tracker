@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 from lore.core.modules.spec import VaultContext
 from lore.core.vaults.publish import PublishContext
 from lore.core.visibility import READER
-from lore.modules.media import storage
+from lore.modules.media import storage, svg
 from lore.modules.media.models import MediaItem
 from lore.modules.media.service import Media
 
@@ -25,9 +25,9 @@ def publish_media(publish: PublishContext) -> None:
 def copy_visible_media(
     context: VaultContext, target: Path, *, source: Path | None = None
 ) -> list[str]:
-    """Copy the reader-visible items' files (and, for raster images, every thumbnail size) from
-    ``source`` (default: the context's vault folder) into ``target`` (a vault folder being
-    published) at the same paths; returns their ids."""
+    """Copy the reader-visible items' files (and, for raster images, every thumbnail size; for
+    SVGs, the sanitized copy) from ``source`` (default: the context's vault folder) into
+    ``target`` (a vault folder being published) at the same paths; returns their ids."""
     source = source or context.vault.info.path
     service = Media(context, READER)
     rows = context.session.execute(
@@ -43,6 +43,8 @@ def copy_visible_media(
         destination = storage.file_path(target, sha256)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(original, destination)
+        if mime == storage.SVG:
+            _copy_safe_svg(source, target, sha256)
         if mime in storage.RASTER:
             for width in storage.THUMB_WIDTHS:
                 cached, data = storage.thumbnail(source, sha256, width)
@@ -54,6 +56,19 @@ def copy_visible_media(
                     out.write_bytes(data)
         copied.append(media_id)
     return copied
+
+
+def _copy_safe_svg(source: Path, target: Path, sha256: str) -> None:
+    try:
+        cached, data = storage.safe_svg(source, sha256)
+    except svg.SvgRejectedError:
+        return  # served as an attachment, as it is
+    out = storage.safe_svg_path(target, sha256)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if cached is not None:
+        shutil.copyfile(cached, out)
+    elif data is not None:
+        out.write_bytes(data)
 
 
 __all__ = ["copy_visible_media", "publish_media"]

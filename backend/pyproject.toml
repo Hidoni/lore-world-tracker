@@ -5,6 +5,7 @@ description = "A living wiki for fictional worlds with exact, arbitrary-precisio
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.20.0",
+    "defusedxml>=0.7.1",
     "fastapi>=0.142.2",
     "jsonschema>=4.25",
     "pillow>=12",
@@ -30,6 +31,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.16.10",
+    "types-defusedxml>=0.7.0.20260504",
     "types-jsonschema>=4.26.0.20260518",
 ]
 

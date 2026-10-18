@@ -37,6 +37,7 @@ export function NewMapDialog({
       <ImagePickerDialog
         vault={vault}
         title="The map's image"
+        rasterOnly
         onPick={(item) => {
           setImage(item)
           setPicking(false)
