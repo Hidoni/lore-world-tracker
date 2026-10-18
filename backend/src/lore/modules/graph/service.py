@@ -11,9 +11,13 @@ tree as edges, read with set-based SQL through the request's ``VisibilityPolicy`
 - **Global** (no ``center``): every node and the edges between them, in a few statements. **Local**
   (``center``, ``depth``): a breadth-first search from the center, a set of edges per level.
 - Over ``limit`` nodes, the highest-degree ones are kept (``truncated``).
+
+A static export computes the graph in the browser (``static_data``, #386): its links with where
+they are valid in each timeline, and its mentions; nodes and existence come from the export's
+entity index.
 """
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, NamedTuple, cast
 
@@ -44,6 +48,8 @@ from lore.core.time.timeline_view import TimelineView
 from lore.core.visibility import AUTHOR, VisibilityPolicy
 
 LINK = "link"
+_LINK_COLUMNS = (Link.id, Link.source_id, Link.target_id, Link.link_type, Link.role,
+                 Link.timeline_id)  # fmt: skip
 _BATCH = 5000
 type Scope = Callable[[Any], ColumnElement[bool]]  # an id column -> "is a node"
 type Shown = Literal["exists", "unknown", "possible"]
@@ -284,6 +290,58 @@ class GraphReader:
         ids = sorted(found.nodes)
         for batch in _chunks(ids):
             found.add_edges(self._edges(query, as_of, _ids(batch), _ids(ids)))
+
+    # --- static export --------------------------------------------------------------------------
+
+    def static_data(self, moments: Mapping[str, Sequence[int]]) -> dict[str, Any]:
+        """What ``frontend/src/data/static-graph.ts`` computes any graph from: the node kinds,
+        every link a reader sees (``[id, source, target, type, role, timeline]``), where each
+        bounded one is valid in each timeline (``[[moment, valid], …]`` where it changes, read
+        at ``moments``: every moment a record of the timeline can change at), and the mentions
+        (``[source, target, weight]``). Ends are checked against the nodes in the browser."""
+        enabled = enabled_modules(self.session, self.registry)
+        kinds = sorted(self.registry.vault_kind_keys(self.session, enabled))
+        rows = self.session.execute(
+            select(*_LINK_COLUMNS)
+            .where(
+                Link.deleted_at.is_(None),
+                Link.overrides_id.is_(None),
+                *self.policy.links(Link),  # both ends too: the export holds only what readers see
+            )
+            .order_by(Link.id)
+        ).all()
+        bounded = [row[0] for row in rows if row[5] is not None]
+        anything: Scope = lambda column: column.is_not(None)  # noqa: E731
+        valid: dict[str, dict[str, list[list[Any]]]] = {}
+        for timeline_id, found in moments.items():
+            dimension_id = self.session.scalar(
+                select(Timeline.dimension_id).where(Timeline.entity_id == timeline_id)
+            )
+            if dimension_id is None:
+                continue
+            query = Query(timeline=timeline_id, include_mentions=False, include_hierarchy=False)
+            changes: dict[str, list[list[Any]]] = {link_id: [] for link_id in bounded}
+            for t in found:
+                as_of = AsOf(timeline_id=timeline_id, dimension_id=dimension_id, t=t)
+                shown = {e.link_id for e in self._links(query, as_of, anything, anything)}
+                for link_id, kept in changes.items():
+                    now = link_id in shown
+                    if not kept or kept[-1][1] != now:
+                        kept.append([str(t), now])
+            valid[timeline_id] = {
+                link_id: kept for link_id, kept in changes.items() if any(now for _t, now in kept)
+            }
+        visible = select(Entity.id).where(
+            Entity.deleted_at.is_(None), *self.policy.entities(Entity)
+        )
+        seen: Scope = lambda column: column.in_(visible)  # noqa: E731
+        mentions = self._mentions(seen, seen)
+        return {
+            "kinds": kinds,
+            "links": [list(row) for row in rows],
+            "valid": valid,
+            "mentions": [[e.source, e.target, e.weight] for e in mentions],
+        }
 
     # --- result ---------------------------------------------------------------------------------
 

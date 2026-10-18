@@ -96,6 +96,7 @@ class ModuleSpec:
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
     markdown_contributors: tuple[MarkdownContributor, ...] = () # files and renderers for the Markdown export
     static_reads: tuple[StaticRead, ...] = ()            # reads a static export records (ADR 0016)
+    static_data: StaticData | None = None                # data a static export computes views from
     kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
     purge_hooks: tuple[PurgeHook, ...] = ()                   # run before any entity is purged
     derived_hooks: tuple[DerivedHook, ...] = ()               # rebuild derived rows on every changeset
@@ -131,7 +132,11 @@ id (entities of a `kind`, or the items of another read: `ids_from`), each query 
 (`variants`), and optionally each dimension, timeline and as-of moment; `paged` lists are
 recorded whole for the browser to filter and page, `file` reads (downloads) are copied. A
 reader-facing read with free parameters the browser can't derive from these needs its own
-handler (`frontend/src/data/static-modules.ts`). `derived_hooks` (#126) are
+handler (`frontend/src/data/static-modules.ts`). When recording each setting would multiply, a
+module exports the data the browser computes the view from instead: `static_data` (#386) is
+`(VaultContext, VisibilityPolicy, moments by timeline) -> {name: JSON}`, written to
+`static/m/<module>/<name>` (characters: family links and lifespans; graph: links with their
+validity per timeline, and mentions), and a handler ports the view. `derived_hooks` (#126) are
 `(VaultContext, Sequence[RecordedChange]) -> None`: the enabled modules' hooks run with the
 changes each changeset is about to record, before the consistency check, for every writer and
 undo, to rebuild derived rows (the media module's `media_refs`); raising a typed error refuses the

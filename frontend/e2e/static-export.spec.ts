@@ -62,18 +62,18 @@ test('an entity page of a static export', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
 })
 
-test('pages a static export does not hold yet say so', async ({ page }) => {
+test('family trees of a static export at any depth', async ({ page }) => {
   await page.goto(STATIC_URL)
   await page.getByRole('list', { name: 'Vaults' }).getByRole('link', { name: 'Aetheria' }).click()
   await page.getByRole('link', { name: 'Characters', exact: true }).first().click()
   await page.getByRole('link', { name: 'Ilsa the Tidebound' }).first().click()
   await expect(page.getByRole('heading', { name: 'Ilsa the Tidebound', level: 1 })).toBeVisible()
   await revealPanels(page)
-  // Family trees are exported at the depths the app opens with (#386 adds the others).
+  // Computed in the browser (#386): any number of generations, with or without spouses.
   await page.getByLabel('Generations up').first().selectOption('5')
-  await expect(
-    page.getByText('This static export does not include this page yet.').first(),
-  ).toBeVisible()
+  await page.getByLabel('Generations down').first().selectOption('0')
+  await expect(page.getByText('This static export does not include this page yet.')).toHaveCount(0)
+  await expect(page.getByText('Ilsa the Tidebound').first()).toBeVisible()
 })
 
 test('search in a static export: the search page and the quick switcher', async ({ page }) => {

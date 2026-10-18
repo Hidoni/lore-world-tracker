@@ -16,7 +16,7 @@ type Existence = NonNullable<Summary['existence']>
 /** `[[moment, answer], …]`: the answer from each moment on (the first moment is 0). */
 type Intervals<T> = [string, T][]
 
-interface IndexEntry {
+export interface IndexEntry {
   summary: Summary
   tags: string[]
   aliases: string[]
@@ -55,7 +55,7 @@ interface Shard {
 }
 
 /** What lists derive from the index, once per loaded index. */
-interface Derived {
+export interface Derived {
   index: Index
   children: Map<string, string[]>
   primes: Map<string, string>
@@ -63,7 +63,7 @@ interface Derived {
 
 const derived = new WeakMap<object, Derived>()
 
-async function loadIndex(load: Load, vault: string): Promise<Derived> {
+export async function loadIndex(load: Load, vault: string): Promise<Derived> {
   const index = (await load(`vaults/${vault}/static/index`)) as Index
   let found = derived.get(index)
   if (!found) {
@@ -82,11 +82,11 @@ async function loadIndex(load: Load, vault: string): Promise<Derived> {
   return found
 }
 
-function notFound(what: string): StaticProblem {
+export function notFound(what: string): StaticProblem {
   return new StaticProblem(404, 'not_found', 'Not found', `No ${what}.`)
 }
 
-function invalid(detail: string): StaticProblem {
+export function invalid(detail: string): StaticProblem {
   return new StaticProblem(422, 'invalid_input', 'Invalid input', detail)
 }
 
@@ -116,20 +116,20 @@ export function lowerAscii(text: string): string {
 }
 
 /** Whether an entity is shown in a timeline's view (`entity_scope`): branch-only ones in theirs. */
-function inScope(derived: Derived, entry: IndexEntry, timeline: string | null): boolean {
+export function inScope(derived: Derived, entry: IndexEntry, timeline: string | null): boolean {
   if (entry.origin === null) return true
   if (timeline === null) return false
   return derived.index.timelines[timeline]?.lineage.includes(entry.origin) ?? false
 }
 
-function checkTimeline(derived: Derived, timeline: string | null): void {
+export function checkTimeline(derived: Derived, timeline: string | null): void {
   if (timeline !== null && !(timeline in derived.index.timelines)) {
     throw notFound(`timeline ${timeline}`)
   }
 }
 
 /** The cursor's timeline (`as_of_for`): the given one, else the prime timeline of `dimension`. */
-function cursorTimeline(
+export function cursorTimeline(
   derived: Derived,
   timeline: string | null,
   dimension: string | null | undefined,
@@ -139,7 +139,7 @@ function cursorTimeline(
   return found
 }
 
-function existenceAt(entry: IndexEntry, timeline: string, at: string): Existence {
+export function existenceAt(entry: IndexEntry, timeline: string, at: string): Existence {
   const intervals = entry.existence?.[timeline]
   return (intervals && pick(intervals, at)) ?? 'unknown'
 }

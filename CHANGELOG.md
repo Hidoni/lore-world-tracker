@@ -16,7 +16,9 @@ All notable changes to this project are documented here. The format follows
   branches, correspondences and worldlines (#375), module pages (characters, groups, places,
   species, languages and lexicons, maps, the graph) with their images and files (#376), and
   search with the quick switcher (#377). Exports record in several processes
-  (`LORE_EXPORT_WORKERS`) and pages load only the files they need (#378).
+  (`LORE_EXPORT_WORKERS`) and pages load only the files they need (#378). Family trees, org
+  charts and the graph work at every setting: any generations, levels, filters and depth
+  (#386).
 - The dimension wizard's first calendar can be a **Custom calendar**, designed in the calendar
   editor inside the wizard, blank or from a preset, instead of a preset as is (#379).
 

@@ -23,6 +23,12 @@ MODULE = ModuleSpec(
         ),
         StaticRead("{id}/leaders", kind="group", as_of=True),
         StaticRead("{id}/territory", kind="group", as_of=True),
-        StaticRead("{id}/org-chart", kind="group", variants=((("depth", "3"),),), as_of=True),
+        # The org chart at each number of levels the page offers.
+        StaticRead(
+            "{id}/org-chart",
+            kind="group",
+            variants=tuple((("depth", str(n)),) for n in range(1, 7)),
+            as_of=True,
+        ),
     ),
 )

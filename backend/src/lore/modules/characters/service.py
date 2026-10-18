@@ -4,7 +4,7 @@ family tree. Every read goes through the request's ``VisibilityPolicy``; events 
 
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import aliased
@@ -316,6 +316,34 @@ class Characters:
             edges=edges,
             truncated=tree.truncated,
         )
+
+    # --- static export --------------------------------------------------------------------------
+
+    def static_data(self, timelines: Iterable[str]) -> dict[str, Any]:
+        """What ``frontend/src/data/static-family.ts`` computes any family tree from (#386):
+        every family link the request sees (``[id, type, source, target, relation]``, by id) and
+        each character's lifespan per timeline (``[from, to]``, moments as strings)."""
+        people = list(
+            self.session.scalars(
+                select(Entity.id).where(
+                    Entity.kind == CHARACTER,
+                    Entity.deleted_at.is_(None),
+                    *self.policy.entities(Entity),
+                )
+            )
+        )
+        links = [
+            [link.id, link.link_type, link.source_id, link.target_id, _relation(link.data)]
+            for link in self._family_links(people, list(FAMILY))
+        ]
+        lifespans: dict[str, dict[str, list[str | None]]] = {}
+        for timeline_id in timelines:
+            reader = StateReader(self.context, self.policy, timeline_id, 0)
+            lifespans[timeline_id] = {
+                person: [None if t is None else str(t) for t in _lifespan(facts)]
+                for person, facts in reader.facts(people, keys=[EXISTS]).items()
+            }
+        return {"links": links, "lifespans": lifespans}
 
 
 def _lifespan(facts: Sequence[EntityFact]) -> tuple[int | None, int | None]:
