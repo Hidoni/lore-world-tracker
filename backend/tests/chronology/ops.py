@@ -20,6 +20,7 @@ from lore.chronology.calendar.eras import era_of
 from lore.chronology.calendar.formatting import (
     DisplayPoint,
     format_absolute,
+    format_between,
     format_date,
     format_span,
 )
@@ -93,6 +94,7 @@ OPS = NUMBER_OPS | frozenset(
         "diff",
         "format",
         "format_span",
+        "format_between",
         "format_absolute",
         "preset_instantiate",
         "expand",
@@ -130,6 +132,10 @@ def _binary(operation: Callable[[numbers.Rational, numbers.Rational], numbers.Ra
 def _format_integer(_: CalendarFile | None, d: dict[str, Any]) -> Any:
     options = {key: d[key] for key in d.keys() - {"n"}}
     return {"text": numbers.format_integer(int(d["n"]), **options)}
+
+
+def _closed_point(data: dict[str, Any]) -> DisplayPoint:
+    return DisplayPoint(int(data["t"]), data["precision"], data["approximate"])
 
 
 def _display_point(data: dict[str, Any] | None) -> DisplayPoint | None:
@@ -344,6 +350,11 @@ HANDLERS: dict[str, Handler] = {
     "diff": _diff,
     "format": lambda c, d: {
         "text": format_date(_compiled(c), int(d["t"]), d["precision"], approximate=d["approximate"])
+    },
+    "format_between": lambda c, d: {
+        "text": format_between(
+            _compiled(c), _closed_point(d["earliest"]), _closed_point(d["latest"])
+        )
     },
     "format_span": lambda c, d: {
         "text": format_span(_compiled(c), _display_point(d["start"]), _display_point(d["end"]))

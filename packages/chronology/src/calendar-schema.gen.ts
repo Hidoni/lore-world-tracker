@@ -604,6 +604,14 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
       "range_separator": {
         "maxLength": 50,
         "type": "string"
+      },
+      "between_prefix": {
+        "maxLength": 50,
+        "type": "string"
+      },
+      "between_separator": {
+        "maxLength": 50,
+        "type": "string"
       }
     },
     "type": "object"

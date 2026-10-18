@@ -97,7 +97,14 @@ def duration_targets(duration: DurationSpec) -> set[Target]:
 
 
 def time_point_targets(point: TimePoint | DefinitionTimePoint) -> set[Target]:
-    """The targets a time point depends on."""
+    """The targets a time point depends on (its range's ends' too, §5.4b)."""
+    found = _anchor_targets(point)
+    if isinstance(point, TimePoint) and point.range is not None:
+        found |= _anchor_targets(point.range.earliest) | _anchor_targets(point.range.latest)
+    return found
+
+
+def _anchor_targets(point: TimePoint | DefinitionTimePoint) -> set[Target]:
     anchor = point.anchor
     match anchor.kind:
         case "calendar":

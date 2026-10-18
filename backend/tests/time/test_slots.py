@@ -128,7 +128,7 @@ def test_spec_columns_validate_and_round_trip(session: Session) -> None:
     ("column", "document"),
     [
         ("start_spec", {"anchor": {"kind": "absolute", "t": "-1"}, "precision": "base"}),
-        ("start_spec", {**point("1"), "range": {}}),  # reserved for post-MVP
+        ("start_spec", {**point("1"), "range": {}}),  # a range needs both ends
         ("start_spec", {"kind": "instant"}),
         ("end_spec", {"kind": "sometime"}),
         ("end_spec", point("1")),

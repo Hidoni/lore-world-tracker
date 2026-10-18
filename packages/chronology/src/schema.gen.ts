@@ -552,6 +552,8 @@ export interface DisplayOptions {
   scientific_threshold?: number
   significant_digits?: number
   range_separator?: string
+  between_prefix?: string
+  between_separator?: string
 }
 /**
  * Inputs to ``compile`` besides the definition (chronology-engine §4).

@@ -619,6 +619,16 @@
           "default": " – ",
           "maxLength": 50,
           "type": "string"
+        },
+        "between_prefix": {
+          "default": "between ",
+          "maxLength": 50,
+          "type": "string"
+        },
+        "between_separator": {
+          "default": " and ",
+          "maxLength": 50,
+          "type": "string"
         }
       },
       "title": "DisplayOptions",

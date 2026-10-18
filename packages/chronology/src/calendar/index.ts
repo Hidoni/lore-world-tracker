@@ -61,6 +61,7 @@ export {
   displayOptions,
   formatAbsolute,
   formatDate,
+  formatBetween,
   formatSpan,
 } from './formatting'
 export { type Piece, PatternError, type Token, parsePattern } from './formats'

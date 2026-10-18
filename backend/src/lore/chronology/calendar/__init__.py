@@ -29,6 +29,7 @@ from lore.chronology.calendar.cycles import CycleValue, cycle_value
 from lore.chronology.calendar.formatting import (
     DisplayPoint,
     format_absolute,
+    format_between,
     format_date,
     format_span,
 )
@@ -71,6 +72,7 @@ __all__ = [
     "diff",
     "duration_upper_bound",
     "format_absolute",
+    "format_between",
     "format_date",
     "format_span",
     "from_counted_ordinal",
