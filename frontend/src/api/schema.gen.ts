@@ -2674,7 +2674,7 @@ export interface components {
             /** @description The timeline to branch from. */
             parent_timeline_id: components["schemas"]["EntityId"];
             /** @description Where the branch diverges: records starting before it are inherited. It may be anchored, but only to records of the parent timeline. */
-            branch_point: components["schemas"]["TimePoint"];
+            branch_point: components["schemas"]["TimePoint-Input"];
             name: components["schemas"]["EntityName"];
             /**
              * Summary
@@ -3633,7 +3633,7 @@ export interface components {
             /** @description Leave when this event starts. */
             event_id?: components["schemas"]["EntityId"] | null;
             /** @description Leave at this moment. */
-            at?: components["schemas"]["TimePoint"] | null;
+            at?: components["schemas"]["TimePoint-Input"] | null;
             /** @description With `at`: the timeline it is in (default: the last segment covering it). */
             timeline_id?: components["schemas"]["EntityId"] | null;
             /**
@@ -3695,9 +3695,9 @@ export interface components {
             /** @description Default: the dimension's prime (or `new_branch`). */
             timeline_id?: components["schemas"]["EntityId"] | null;
             new_branch?: components["schemas"]["NewBranch"] | null;
-            arrival: components["schemas"]["TimePoint"];
+            arrival: components["schemas"]["TimePoint-Input"];
             /** @description Where the new segment ends (default: the end of time). */
-            until?: components["schemas"]["TimePoint"] | null;
+            until?: components["schemas"]["TimePoint-Input"] | null;
             rate?: components["schemas"]["Rational"] | null;
             /**
              * Event Name
@@ -3901,8 +3901,8 @@ export interface components {
             visibility?: components["schemas"]["Visibility"];
             /** @description Required when the link has validity bounds; null = timeless. */
             timeline_id?: components["schemas"]["Id"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             sort_key?: components["schemas"]["SortKey"] | null;
             link_type: components["schemas"]["LinkTypeKey"];
             source_id?: components["schemas"]["Id"] | null;
@@ -4325,9 +4325,9 @@ export interface components {
             /** @description The timeline it holds in: of the entity's dimension (any for a multiversal entity). */
             timeline_id: components["schemas"]["EntityId"];
             /** @description Start (`null`: always). */
-            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
             /** @description End, excluded (`null`: on). */
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             /** @default public */
             visibility?: components["schemas"]["Visibility"];
             /** @description The event that caused it. */
@@ -4371,8 +4371,8 @@ export interface components {
              * @description An override row (a branch's version, time-model.md §4.4): its root's id.
              */
             overrides_id?: string | null;
-            valid_from: components["schemas"]["TimePoint"] | null;
-            valid_to: components["schemas"]["TimePoint"] | null;
+            valid_from: components["schemas"]["TimePoint-Output"] | null;
+            valid_to: components["schemas"]["TimePoint-Output"] | null;
             /** Valid From T */
             valid_from_t: MomentString | null;
             /** Valid To T */
@@ -4414,8 +4414,8 @@ export interface components {
             /** Value */
             value?: unknown;
             timeline_id?: components["schemas"]["EntityId"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             visibility?: components["schemas"]["Visibility"] | null;
             source_event_id?: components["schemas"]["EntityId"] | null;
             /** Note */
@@ -5030,9 +5030,9 @@ export interface components {
             /** @description Required with an attestation bound: where it is dated. */
             timeline_id?: components["schemas"]["EntityId"] | null;
             /** @description First attested. */
-            valid_from?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
             /** @description Last attested. */
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             /** Sort Key */
             sort_key?: string | null;
             /** Headword */
@@ -5068,8 +5068,8 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** Timeline Id */
             timeline_id: string | null;
-            valid_from: components["schemas"]["TimePoint"] | null;
-            valid_to: components["schemas"]["TimePoint"] | null;
+            valid_from: components["schemas"]["TimePoint-Output"] | null;
+            valid_to: components["schemas"]["TimePoint-Output"] | null;
             /** Valid From T */
             valid_from_t: MomentString | null;
             /** Valid To T */
@@ -5119,8 +5119,8 @@ export interface components {
             tags?: string[] | null;
             visibility?: components["schemas"]["Visibility"] | null;
             timeline_id?: components["schemas"]["EntityId"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             /** Sort Key */
             sort_key?: string | null;
             /** Suppress */
@@ -5178,8 +5178,8 @@ export interface components {
             visibility?: components["schemas"]["Visibility"];
             /** @description Required when the link has validity bounds; null = timeless. */
             timeline_id?: components["schemas"]["Id"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             sort_key?: components["schemas"]["SortKey"] | null;
             link_type: components["schemas"]["LinkTypeKey"];
             source_id: components["schemas"]["Id"];
@@ -5227,8 +5227,8 @@ export interface components {
              * @description An override row (a branch's version, time-model.md §4.4): its root's id.
              */
             overrides_id?: string | null;
-            valid_from: components["schemas"]["TimePoint"] | null;
-            valid_to: components["schemas"]["TimePoint"] | null;
+            valid_from: components["schemas"]["TimePoint-Output"] | null;
+            valid_to: components["schemas"]["TimePoint-Output"] | null;
             /**
              * Valid From T
              * @description The start's resolved moment.
@@ -5404,8 +5404,8 @@ export interface components {
             visibility?: components["schemas"]["Visibility"] | null;
             /** @description Required when the link has validity bounds; null = timeless. */
             timeline_id?: components["schemas"]["Id"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
             sort_key?: components["schemas"]["SortKey"] | null;
             /** Revision */
             revision: number;
@@ -5887,7 +5887,7 @@ export interface components {
             /** @description Default: the destination dimension's prime timeline. */
             parent_timeline_id?: components["schemas"]["EntityId"] | null;
             /** @description Default: the arrival moment. */
-            branch_point?: components["schemas"]["TimePoint"] | null;
+            branch_point?: components["schemas"]["TimePoint-Input"] | null;
         };
         /** NoteIn */
         NoteIn: {
@@ -6167,8 +6167,8 @@ export interface components {
             visibility?: components["schemas"]["Visibility"];
             /** @description With a validity: the timeline it is in. */
             timeline_id?: components["schemas"]["EntityId"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
         };
         /** PinOut */
         PinOut: {
@@ -6207,8 +6207,8 @@ export interface components {
             timeline_id: string | null;
             /** Overrides Id */
             overrides_id: string | null;
-            valid_from: components["schemas"]["TimePoint"] | null;
-            valid_to: components["schemas"]["TimePoint"] | null;
+            valid_from: components["schemas"]["TimePoint-Output"] | null;
+            valid_to: components["schemas"]["TimePoint-Output"] | null;
             /** Valid From T */
             valid_from_t: MomentString | null;
             /** Valid To T */
@@ -6257,8 +6257,8 @@ export interface components {
             child_map_id?: components["schemas"]["EntityId"] | null;
             visibility?: components["schemas"]["Visibility"] | null;
             timeline_id?: components["schemas"]["EntityId"] | null;
-            valid_from?: components["schemas"]["TimePoint"] | null;
-            valid_to?: components["schemas"]["TimePoint"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
         };
         /** PinWriteResult */
         PinWriteResult: {
@@ -6508,7 +6508,7 @@ export interface components {
             rule: {
                 [key: string]: unknown;
             } | null;
-            start?: components["schemas"]["TimePoint"] | null;
+            start?: components["schemas"]["TimePoint-Input"] | null;
             end?: components["schemas"]["EndSpec"] | null;
         };
         /**
@@ -6674,7 +6674,7 @@ export interface components {
         };
         /** ResolveRequestItem */
         ResolveRequestItem: {
-            time_point: components["schemas"]["TimePoint"];
+            time_point: components["schemas"]["TimePoint-Input"];
             /** @description An end spec resolved from the point. */
             end?: components["schemas"]["EndSpec"] | null;
         };
@@ -6860,8 +6860,8 @@ export interface components {
             /** @description A timeline of `dimension_id`. */
             timeline_id: components["schemas"]["EntityId"];
             /** @description May be anchored to events of that timeline. */
-            start: components["schemas"]["TimePoint"];
-            end: components["schemas"]["TimePoint"];
+            start: components["schemas"]["TimePoint-Input"];
+            end: components["schemas"]["TimePoint-Input"];
             /** @description Subjective base units per base unit of the dimension (default 1; > 0). */
             rate?: components["schemas"]["Rational"] | null;
             /** @description The event of the jump into this segment's previous one. */
@@ -7066,9 +7066,9 @@ export interface components {
         /** SyncPointIn */
         SyncPointIn: {
             /** @description The moment in dimension A (may be anchored to its events). */
-            a: components["schemas"]["TimePoint"];
+            a: components["schemas"]["TimePoint-Input"];
             /** @description The same moment in dimension B. */
-            b: components["schemas"]["TimePoint"];
+            b: components["schemas"]["TimePoint-Input"];
             /** Note */
             note?: string | null;
         };
@@ -7129,11 +7129,10 @@ export interface components {
         Temporal: "never" | "optional" | "required";
         /**
          * TimePoint
-         * @description An anchor plus precision and the circa flag (time-model §5.1).
-         *
-         *     The member ``range`` is reserved for explicit uncertainty ranges and rejected in v1.
+         * @description An anchor plus precision and the circa flag (time-model §5.1), and optionally the range
+         *     of moments it lies in (§5.4b): the anchor stays the stored moment, the best estimate.
          */
-        TimePoint: {
+        "TimePoint-Input": {
             anchor: components["schemas"]["Anchor"];
             /** Precision */
             precision: string;
@@ -7142,6 +7141,34 @@ export interface components {
              * @default false
              */
             approximate?: boolean;
+            /** @description An explicit uncertainty range: "between ``earliest`` and ``latest``" (#151). */
+            range?: components["schemas"]["TimeRange-Input"] | null;
+            /**
+             * Frozen From
+             * @description The spec this point was frozen from when a record it depended on was purged (an
+             *     ``absolute`` anchor at the last resolved moment replaced it, time-model §7.3). Kept for
+             *     history; never resolved.
+             */
+            frozen_from?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * TimePoint
+         * @description An anchor plus precision and the circa flag (time-model §5.1), and optionally the range
+         *     of moments it lies in (§5.4b): the anchor stays the stored moment, the best estimate.
+         */
+        "TimePoint-Output": {
+            anchor: components["schemas"]["Anchor"];
+            /** Precision */
+            precision: string;
+            /**
+             * Approximate
+             * @default false
+             */
+            approximate?: boolean;
+            /** @description An explicit uncertainty range: "between ``earliest`` and ``latest``" (#151). */
+            range?: components["schemas"]["TimeRange-Output"] | null;
             /**
              * Frozen From
              * @description The spec this point was frozen from when a record it depended on was purged (an
@@ -7159,7 +7186,7 @@ export interface components {
              * @enum {string}
              */
             kind: "time_point";
-            time_point: components["schemas"]["TimePoint"];
+            time_point: components["schemas"]["TimePoint-Input"];
         };
         /** TimeProblem */
         TimeProblem: {
@@ -7175,6 +7202,24 @@ export interface components {
              * @description Where in the item (dotted, e.g. `anchor.fields.month`).
              */
             path: string;
+        };
+        /**
+         * TimeRange
+         * @description The range of moments a time point lies in (time-model §5.4b): from the start of
+         *     ``earliest``'s unit to the end of ``latest``'s.
+         */
+        "TimeRange-Input": {
+            earliest: components["schemas"]["TimePoint-Input"];
+            latest: components["schemas"]["TimePoint-Input"];
+        };
+        /**
+         * TimeRange
+         * @description The range of moments a time point lies in (time-model §5.4b): from the start of
+         *     ``earliest``'s unit to the end of ``latest``'s.
+         */
+        "TimeRange-Output": {
+            earliest: components["schemas"]["TimePoint-Output"];
+            latest: components["schemas"]["TimePoint-Output"];
         };
         /**
          * TimeSlotsOut

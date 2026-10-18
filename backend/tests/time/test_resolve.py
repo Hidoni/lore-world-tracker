@@ -915,3 +915,95 @@ def test_displays_fall_back_to_a_level_that_fits(api: Api, world: dict[str, Any]
         t = gregorian_t(2024, 2, 1)
         assert month["start"]["display"] == format_date(repeat, t, "day")  # a month holds days
         assert hour["start"]["display"] == format_date(repeat, t + 3 * 3600, "day")
+
+
+# --- uncertainty ranges (§5.4b) -----------------------------------------------------------------
+
+
+def ranged(estimate: TimePoint, earliest: TimePoint, latest: TimePoint) -> TimePoint:
+    return parse_time_point(dump(estimate) | {"range": {"earliest": dump(earliest),
+                                                        "latest": dump(latest)}})  # fmt: skip
+
+
+def test_a_range_widens_the_extent(resolver: Resolver, world: dict[str, Any]) -> None:
+    g = world["gregorian"]
+    year = cal(g, "year", year="1022")
+    result = resolver.resolve(
+        ranged(year, cal(g, "year", year="1020"), cal(g, "year", year="1025"))
+    )
+    assert result.ok
+    assert result.t == gregorian_t(1022, 1, 1)
+    assert result.extent == (gregorian_t(1020, 1, 1), gregorian_t(1026, 1, 1))
+    assert result.estimate_extent == (gregorian_t(1022, 1, 1), gregorian_t(1023, 1, 1))
+    assert result.bounds is not None
+    # A relative end follows its target; the range is still the point's extent.
+    pin("p", absolute(gregorian_t(1030, 1, 1)), gregorian_t(1030, 1, 1))
+    later = ranged(year, cal(g, "year", year="1020"), relative("p", base(0), "base"))
+    assert resolver.resolve(later).extent == (gregorian_t(1020, 1, 1), gregorian_t(1030, 1, 1) + 1)
+
+
+def test_a_range_must_hold_its_moment(resolver: Resolver, world: dict[str, Any]) -> None:
+    g = world["gregorian"]
+    inverted = ranged(cal(g, "year", year="1022"), cal(g, "year", year="1025"),
+                      cal(g, "year", year="1020"))  # fmt: skip
+    outside = ranged(cal(g, "year", year="1030"), cal(g, "year", year="1020"),
+                     cal(g, "year", year="1025"))  # fmt: skip
+    for spec in (inverted, outside):
+        result = resolver.resolve(spec)
+        assert result.status == TimeStatus.INVALID_DATE
+        assert result.problem is not None
+        assert (result.problem.code, result.problem.path) == ("range_invalid", "range")
+    broken = ranged(cal(g, "year", year="1022"), cal(g, "year", year="1020"),
+                    relative("missing", base(0), "base"))  # fmt: skip
+    result = resolver.resolve(broken)
+    assert result.status == TimeStatus.UNRESOLVED_REF
+    assert result.problem is not None
+    assert result.problem.path.startswith("range.latest")
+
+
+def test_range_ends_are_dependencies() -> None:
+    from lore.core.time.dependencies import SlotNode, time_point_targets  # noqa: PLC0415
+
+    spec = ranged(absolute(5), absolute(1), relative("p", base(0), "base"))
+    assert SlotNode("pin.pin", "p", "start") in time_point_targets(spec)
+
+
+def test_ranges_display_as_between(api: Api, world: dict[str, Any]) -> None:
+    g = world["gregorian"]
+    first, last = cal(g, "year", year="1020"), cal(g, "year", year="1025")
+    body = {
+        "dimension_id": world["dimension"],
+        "items": [
+            {"time_point": dump(ranged(first, first, last))},
+            {"time_point": dump(ranged(cal(g, "year", year="1022"), first, last))},
+        ],
+    }
+    plain, estimate = _resolve(api, **body).json()["items"]
+    # Collapsed like spans: the era is written once, as in "AD 1066 to 1500".
+    assert plain["start"]["display"] == "between AD 1020 and 1025"
+    assert estimate["start"]["display"] == "AD 1022 (between AD 1020 and 1025)"
+    assert estimate["start"]["extent"] == {
+        "lo": str(gregorian_t(1020, 1, 1)),
+        "hi": str(gregorian_t(1026, 1, 1)),
+    }
+
+
+def test_readers_see_hidden_range_ends_as_moments(api: Api, world: dict[str, Any]) -> None:
+    g = world["gregorian"]
+    secret = api.make("calendar", "Secret", visibility="private",
+                      ext={"definition": _definition(api, "gregorian")},
+                      dimension_id=world["dimension"])  # fmt: skip
+    hidden = cal(secret["id"], "year", year="1020")
+    spec = dump(ranged(cal(g, "year", year="1022"), hidden, cal(g, "year", year="1025")))
+    opened = _manager(api).open(api.vault)
+    registry = api.client.app.state.registry  # type: ignore[attr-defined]
+    with opened.sessions() as session:
+        times = ReaderTimes(VaultContext(opened, session, registry), READER)
+        shown = times.point(spec, world["dimension"])
+    assert shown["anchor"] == spec["anchor"]  # the estimate names a visible calendar
+    assert shown["range"]["earliest"]["anchor"] == {
+        "kind": "absolute",
+        "t": str(gregorian_t(1020, 1, 1)),
+    }
+    assert shown["range"]["latest"] == spec["range"]["latest"]
+    assert secret["id"] not in str(shown)

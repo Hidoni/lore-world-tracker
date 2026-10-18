@@ -46,11 +46,30 @@ def _dump(document: dict[str, Any]) -> str:
 def _single(name: str, type_: Any) -> dict[str, Any]:
     body = TypeAdapter(type_).json_schema(schema_generator=_SchemaGenerator)
     defs = body.pop("$defs", {})
+    ref = body.get("$ref")
+    if isinstance(ref, str) and set(body) == {"$ref"} and ref.startswith(DEFS):
+        # A recursive type (TimePoint, whose range holds time points) comes as a reference to
+        # its own definition: the root is the type itself, and references to it are "#".
+        own = ref.removeprefix(DEFS)
+        body = _rooted(defs.pop(own), ref)
+        defs = {key: _rooted(value, ref) for key, value in defs.items()}
     body.setdefault("title", name)  # named unions (PEP 695 aliases) come without one
     document: dict[str, Any] = {"$schema": JSON_SCHEMA_DIALECT, **body}
     if defs:
         document["$defs"] = defs
     return document
+
+
+DEFS = "#/$defs/"
+
+
+def _rooted(value: Any, ref: str) -> Any:
+    """``value`` with the references ``ref`` to the root made ``#``."""
+    if isinstance(value, dict):
+        return {k: "#" if k == "$ref" and v == ref else _rooted(v, ref) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rooted(item, ref) for item in value]
+    return value
 
 
 def _bundle() -> dict[str, Any]:

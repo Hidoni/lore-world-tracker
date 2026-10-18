@@ -388,8 +388,39 @@ A time point frozen on purge (§7.3) carries `frozen_from`: the spec it replaced
 an end spec document), kept for history and never resolved. It is left out of documents when
 absent.
 
-Explicit uncertainty ranges ("between 1020 and 1025") are **post-MVP**. The schema reserves
-an optional `"range": {"earliest": TimePoint, "latest": TimePoint}` member that v1 must reject.
+### 5.4b Explicit uncertainty ranges (#151, D2 follow-up)
+
+"Began between 1020 and 1025": a time point may carry the range of moments it lies in.
+
+```jsonc
+{ "anchor": …, "precision": "year", "approximate": false,
+  "range": { "earliest": TimePoint, "latest": TimePoint } }
+```
+
+- `earliest` and `latest` are time points of any anchor kind, without a `range` of their own.
+  Relative ends depend on their targets like any anchor (§7): moving the target moves the end,
+  and a cycle through an end is refused (`time_cycle`).
+- The point's own anchor stays its **stored moment** (sorting, overlap, queries): the best
+  estimate. A picker sets it to `earliest` unless the author picks another.
+- **Extent** = `[lo(earliest), hi(latest))`, widened to hold the point's own extent. Everything
+  that reads extents follows: as-of coverage is *possible* inside the range, consistency rules
+  find a violation of the stored moments *possible* when the extents overlap
+  (`consistency.md` §4), and timelines draw soft edges over it.
+- `lo(earliest) ≤ lo(latest)`, and the stored moment inside the extent; otherwise the point
+  doesn't resolve: status `invalid_date`, problem `range_invalid` (path `range`). An end that
+  doesn't resolve fails the point, with its problem's path under `range.earliest` or
+  `range.latest`.
+- **Display**: "between {earliest} and {latest}", each end at its own precision, collapsed like
+  spans (`chronology-engine.md` §10 `format_between`). With a best estimate other than
+  `earliest`: "{estimate} (between … and …)".
+- A relative anchor to a ranged point shifts its extent by the offset (§5.3), so the range
+  carries over.
+- Readers: each end is redacted like the point (an end naming something they can't see becomes
+  `absolute` at its moment), and the range is left out when an end can't be shown.
+- Purge freezing (§7.3) replaces the whole point, range included, with an `absolute` anchor
+  (the spec is kept in `frozen_from`). Calendar proposals pin or keep the point's own anchor;
+  calendar ends keep their typed dates.
+- Definition time points (inside calendar definitions) have no range.
 
 ### 5.5 Event ends
 
@@ -976,7 +1007,7 @@ the Portal shows "Concurrently in Dreamrealm: Year 1, Day 1".
 
 ## 14. Deferred / future
 
-- Explicit uncertainty ranges (D2 follow-up; schema member reserved).
+- ~~Explicit uncertainty ranges~~: done (§5.4b, #151; the picker in #400).
 - Base-unit refinement tool (§3).
 - Per-timeline calendar variants (eras that differ by branch). For now calendars are
   dimension-level, and their anchors resolve in the **prime** timeline.

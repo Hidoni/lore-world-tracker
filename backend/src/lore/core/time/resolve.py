@@ -131,6 +131,10 @@ class Resolution:
     dimension_id: str | None = None
     """The dimension the moment belongs to (relative anchors to another dimension's records are
     mapped through the correspondences, §5.2)."""
+    bounds: tuple[Resolution, Resolution] | None = None
+    """An uncertainty range's resolved ends (§5.4b): ``extent`` spans them."""
+    estimate_extent: tuple[int, int] | None = None
+    """With ``bounds``: the extent of the point's own anchor (the best estimate's unit)."""
 
     @property
     def ok(self) -> bool:
@@ -332,7 +336,12 @@ class Resolver:
             message = "The moment lies outside its range."
             return _failed(TimeStatus.INVALID_DATE, "range_invalid", message, "range")
         own = result.extent or (result.t, result.t + 1)
-        return replace(result, extent=(min(lo, own[0]), max(hi, own[1])))
+        return replace(
+            result,
+            extent=(min(lo, own[0]), max(hi, own[1])),
+            bounds=(earliest, latest),
+            estimate_extent=own,
+        )
 
     def _finish(self, result: Resolution) -> Resolution:
         """Bounds check and the trash status."""

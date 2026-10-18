@@ -7,16 +7,20 @@ and the calendars named in the request must be visible (``404`` otherwise); time
 only through records the request may see (``lore.core.time.resolve``).
 """
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from lore.chronology.calendar import (
     CompiledCalendar,
     DateError,
+    DisplayPoint,
     format_absolute,
+    format_between,
     format_date,
     to_fields,
     unit_bounds,
 )
+from lore.chronology.schema import DisplayOptions
 from lore.core.errors import NotFoundError
 from lore.core.time.calendars import AbsoluteLens, lens
 from lore.core.time.dimensions import DIMENSION
@@ -79,9 +83,12 @@ def display_level(calendar: CompiledCalendar, resolution: Resolution) -> str:
 
 def display(lens_: Lens, resolution: Resolution) -> str | None:
     """A resolution formatted in a calendar (``None`` when it has no moment, or the calendar
-    can't show it)."""
+    can't show it). A ranged point (§5.4b) is "between … and …", after its best estimate when
+    that isn't the earliest: "1022 (between 1020 and 1025)"."""
     if resolution.t is None or resolution.extent is None:
         return None
+    if resolution.bounds is not None:
+        return _ranged(lens_, resolution, resolution.bounds)
     if isinstance(lens_, AbsoluteLens):
         return format_absolute(resolution.t, lens_.base_unit, approximate=resolution.approximate)
     try:
@@ -89,6 +96,28 @@ def display(lens_: Lens, resolution: Resolution) -> str | None:
         return format_date(lens_, resolution.t, level, approximate=resolution.approximate)
     except DateError:
         return None
+
+
+def _ranged(
+    lens_: Lens, resolution: Resolution, bounds: tuple[Resolution, Resolution]
+) -> str | None:
+    estimate = display(lens_, replace(resolution, bounds=None, extent=resolution.estimate_extent))
+    earliest, latest = (display(lens_, end) for end in bounds)
+    if estimate is None or earliest is None or latest is None:
+        return estimate
+    if isinstance(lens_, AbsoluteLens):
+        options = DisplayOptions()
+        text = f"{options.between_prefix}{earliest}{options.between_separator}{latest}"
+    else:
+        points = []
+        for end in bounds:
+            assert end.t is not None
+            points.append(DisplayPoint(end.t, display_level(lens_, end), end.approximate))
+        try:
+            text = format_between(lens_, points[0], points[1])
+        except DateError:
+            return estimate
+    return text if estimate == earliest else f"{estimate} ({text})"
 
 
 def _point(resolution: Resolution, lens_: Lens | None) -> ResolvedPoint:

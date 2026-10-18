@@ -251,9 +251,11 @@ const DISPLAY_DEFAULTS: Required<DisplayOptions> = {
   scientific_threshold: 16,
   significant_digits: 4,
   range_separator: ' – ',
+  between_prefix: 'between ',
+  between_separator: ' and ',
 }
 
-/** Display options (circa prefix, digit grouping, scientific notation, range separator). */
+/** Display options (circa prefix, digit grouping, scientific notation, range separators). */
 export function DisplayEditor({ definition, errors, onChange }: StructureProps) {
   const display = definition.display ?? {}
   const set = (key: keyof DisplayOptions, value: string | number | null) => {
@@ -268,7 +270,10 @@ export function DisplayEditor({ definition, errors, onChange }: StructureProps) 
       }),
     )
   }
-  const text = (key: 'circa' | 'digit_group' | 'range_separator', label: string) => (
+  const text = (
+    key: 'circa' | 'digit_group' | 'range_separator' | 'between_prefix' | 'between_separator',
+    label: string,
+  ) => (
     <label className="grid grid-cols-[12rem_1fr] items-center gap-2">
       {label}
       <PathInput
@@ -306,6 +311,8 @@ export function DisplayEditor({ definition, errors, onChange }: StructureProps) 
       {number('scientific_threshold', 'Scientific notation from (digits)')}
       {number('significant_digits', 'Significant digits')}
       {text('range_separator', 'Range separator')}
+      {text('between_prefix', 'Uncertainty range prefix')}
+      {text('between_separator', 'Uncertainty range separator')}
       <FieldErrors errors={errors} path="/display" />
     </section>
   )

@@ -342,7 +342,7 @@ moments.
   "intercalary": { "day": "{month.name} {era_year} {era}" }        // by precision: used when the deepest named unit at or above it is intercalary
 },
 "display": { "circa": "c. ", "digit_group": ",", "scientific_threshold": 16, "significant_digits": 4,
-             "range_separator": " – " }
+             "range_separator": " – ", "between_prefix": "between ", "between_separator": " and " }
 ```
 
 Tokens (in braces, `{{`/`}}` escape a literal brace):
@@ -728,6 +728,11 @@ Python: `lore.chronology.calendar.arithmetic` (`is_uniform`, `add`, `diff` retur
   - Both ends in the same unit and equally approximate give **one date** (`15 March 2024`).
   - Each approximate end gets its own circa prefix (`c. 12 – c. 15 Frostfall 1023`).
   - An **open** end (either one) renders as `?`: `1023 – ?`.
+- `format_between(earliest_tp, latest_tp)` renders an uncertainty range (`time-model.md`
+  §5.4b): `display.between_prefix`, then both ends collapsed like `format_span` and joined by
+  `display.between_separator`: `between 12 and 15 Frostfall 1023`, `between Frostfall and Bloom
+  1023`. Both ends in the same unit and equally approximate give that one date, without the
+  prefix. Each approximate end gets its circa prefix (`between c. 12 and 15 Frostfall 1023`).
 - Large numbers: §3.11 (dates) and `format_integer` (§2).
 - The **Absolute** virtual calendar formats as `t = <format_integer(t)> <abbr>` with the base unit's
   abbreviation (`t = 1,234 s`: unlike date numbers, every number is grouped) and the default
