@@ -79,7 +79,7 @@ class _File:
             for key, found in self.as_of.items()
         }
         answers = {key: pool.encode(answer) for key, answer in self.answers.items()}
-        dumped = {"answers": answers, "as_of": as_of, "lists": self.lists}
+        dumped: dict[str, Any] = {"answers": answers, "as_of": as_of, "lists": self.lists}
         if pool.items:
             dumped["pool"] = pool.items
         return dumped
