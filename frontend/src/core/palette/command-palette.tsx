@@ -126,10 +126,13 @@ function Palette({
     return Icon ? <Icon aria-hidden /> : undefined
   }
 
-  /** Undoes the newest changeset not undone yet (an undo's undo is a redo). */
+  /** Undoes the newest changeset not undone yet (an undo's undo is a redo; compacted history
+   * can't be undone). */
   const undoLast = async () => {
     const { items } = await source.changes(vault, { limit: 20 })
-    const last = items.find((item) => item.reverted_by_changeset_id === null)
+    const last = items.find(
+      (item) => item.reverted_by_changeset_id === null && item.origin !== 'compaction',
+    )
     if (last === undefined) {
       toast('Nothing to undo')
       return

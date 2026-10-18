@@ -143,17 +143,23 @@ on a temporary copy, never changes the vault, and can run while the app is runni
 much free temporary space as the database takes). It exits with status 1 and lists the problems
 if it finds any; `--json` prints a report for scripts.
 
-The other two commands open the vault, so stop the server first:
+The other commands open the vault, so stop the server first:
 
 ```sh
 docker compose stop lore
 docker compose run --rm lore lore vault reindex <vault>
+docker compose run --rm lore lore vault compact-history <vault> --older-than 365
 docker compose run --rm lore lore vault optimize <vault> --vacuum
 docker compose start lore
 ```
 
 - `reindex` rebuilds the search index, mentions and resolved dates from your content. Run it
   when `check` reports problems with them, or when search misses things it should find.
+- `compact-history --older-than N` replaces the history older than N days with one entry per
+  entity (what changed over that period), to keep the database from growing with every edit.
+  Compacted history can't be undone or looked at edit by edit any more, so make a backup first;
+  `--dry-run` only says how much it would compact. Run `optimize --vacuum` afterwards to shrink
+  the file.
 - `optimize` refreshes SQLite's statistics (the app also does this daily). With `--vacuum` it
   also rewrites the database file to reclaim space after large deletions; that needs as much
   free disk space as the file takes.

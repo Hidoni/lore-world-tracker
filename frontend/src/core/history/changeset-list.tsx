@@ -28,6 +28,7 @@ export const ORIGIN_LABEL: Record<string, string> = {
   migration: 'Migration',
   system: 'System',
   undo: 'Undo',
+  compaction: 'Compacted',
 }
 
 /** What an undo refused, in words (`409 revert_conflict`: changed rows or broken rules). */
@@ -83,6 +84,8 @@ function ChangesetRow({
   const editable = useMutations() !== null
   const revert = useRevertChange(vault)
   const undone = item.reverted_by_changeset_id !== null
+  // compacted history (snapshots of old changes, data-model.md §7) can't be undone
+  const undoable = !undone && item.origin !== 'compaction'
   const when = new Date(item.updated_at).toLocaleString()
   const problem = revert.isError ? revertProblem(revert.error) : null
   return (
@@ -108,7 +111,7 @@ function ChangesetRow({
         <time dateTime={item.updated_at} className="text-xs text-muted-foreground">
           {when}
         </time>
-        {editable && !undone && (
+        {editable && undoable && (
           <Button
             variant="ghost"
             size="sm"

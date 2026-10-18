@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **History compaction** (#159): `lore vault compact-history <vault> --older-than N
+  [--dry-run]` replaces the history older than N days with one snapshot per entity (its net
+  change over that period) to bound storage. Snapshots show as “Compacted” in the history and
+  can't be undone.
 - **Uncertainty ranges for time points** (#399, part of #151): "began between 1020 and 1025".
   A time point can carry a range of moments; its anchor stays the best estimate. The range
   widens the point's uncertainty, so as-of states and consistency findings become *possible*

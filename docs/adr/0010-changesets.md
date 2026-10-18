@@ -20,7 +20,8 @@ be recovered, so capture must start on day one.
 ## Consequences
 
 - Per-entity history, recent-changes feed, undo, and an audit trail for debugging propagation.
-- Storage grows with edits. Compaction is a post-MVP maintenance task.
+- Storage grows with edits. `lore vault compact-history` (#159) bounds it by replacing old
+  history with per-entity snapshots (`data-model.md` §7).
 - Developers must not bypass the ORM silently (enforced in review and tests that compare row
   counts with change counts in service tests).
 

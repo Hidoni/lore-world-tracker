@@ -228,9 +228,9 @@ Link rules (`lore.core.links.service`, `types_service`; decided 2026-10-04 where
 | POST | `/vaults/{v}/consistency/scan` | full re-scan → `{rules, findings}` |
 | GET/PATCH | `/vaults/{v}/consistency/rules` (`/{rule_id}`) | list rules `{items: [{id, owner, title, description, category, default_severity, severity, configurable, findings}]}` (author-only) / set severity `{severity: off\|warning\|error\|null}` (null: the default) → the rule; hard rules `422`, unknown `404` |
 | POST/DELETE | `/vaults/{v}/consistency/suppressions` (`/{fingerprint}`) | suppress `{fingerprint, note}` → `201` the finding (`404` unknown, `409` already, `422` hard rule) / unsuppress → `204` (`404`) |
-| GET | `/vaults/{v}/changes` | recent changes feed, newest first (`cursor, limit`, `origin` repeatable: `ui|api|cli|import|migration|system|undo`; #68) → `{items: [{id, created_at, updated_at, origin, summary, reverts/reverted_by ids, change_count, entities: [{id, name, kind, exists}]}], next_cursor}` |
+| GET | `/vaults/{v}/changes` | recent changes feed, newest first (`cursor, limit`, `origin` repeatable: `ui|api|cli|import|migration|system|undo|compaction`; #68) → `{items: [{id, created_at, updated_at, origin, summary, reverts/reverted_by ids, change_count, entities: [{id, name, kind, exists}]}], next_cursor}` |
 | GET | `/vaults/{v}/changes/{id}` | changeset detail with row-level `changes` (`before`/`after` full rows, JSON columns decoded, `entity_ids`) |
-| POST | `/vaults/{v}/changes/{id}/revert` | undo a changeset → `{changeset (the undo), affected}`; `409 revert_conflict` (`context.rows` changed since, or `context.problems` rules the undo would break), `409 conflict` if already undone (`data-model.md` §7) |
+| POST | `/vaults/{v}/changes/{id}/revert` | undo a changeset → `{changeset (the undo), affected}`; `409 revert_conflict` (`context.rows` changed since, or `context.problems` rules the undo would break), `409 conflict` if already undone or a compaction snapshot (`data-model.md` §7) |
 
 **Search expressions** (`q` of `/search`, `lore.core.search.expression`): a word matches words
 that start with it (`dra` finds "Dragon"); `"quoted phrases"` match those words in order, exactly
