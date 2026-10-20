@@ -98,7 +98,10 @@ const timelineRoute = createRoute({
   path: 'timeline',
   // `from`/`to`: the viewport (moments as decimal strings; it may extend outside the dimension).
   // `perf=1` shows the performance overlay. `in`: the events drilled into, comma-separated ids.
-  validateSearch: (search): { from?: string; to?: string; perf?: '1'; in?: string } => {
+  // `scale=log`: the logarithmic axis (#153).
+  validateSearch: (
+    search,
+  ): { from?: string; to?: string; perf?: '1'; in?: string; scale?: 'log' } => {
     const moment = (value: unknown) =>
       typeof value === 'string' && /^-?(0|[1-9][0-9]*)$/.test(value) ? value : undefined
     const from = moment(search.from)
@@ -106,6 +109,7 @@ const timelineRoute = createRoute({
     return {
       ...(from !== undefined && to !== undefined ? { from, to } : {}),
       ...(search.perf === '1' || search.perf === 1 ? { perf: '1' as const } : {}),
+      ...(search.scale === 'log' ? { scale: 'log' as const } : {}),
       ...(typeof search.in === 'string' && /^[\w-]+(,[\w-]+)*$/.test(search.in)
         ? { in: search.in }
         : {}),

@@ -2,6 +2,7 @@ import { DateError, fromFields, unitBounds, type TimePoint } from '@lore/chronol
 import { fromPx, toPx, type Viewport } from '@lore/chronology/viewport'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
+  ChartSplineIcon,
   ChevronRightIcon,
   ListIcon,
   LocateIcon,
@@ -32,6 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   CreateBranchDialog,
+  elapsedIn,
   formatIn,
   reachableFrom,
   TimePointPicker,
@@ -563,7 +565,9 @@ function Timeline({
     }
   }, [])
 
-  const found = axisTicks(lens.calendar, v, dimension.baseUnit)
+  const found = axisTicks(lens.calendar, v, dimension.baseUnit, (units) =>
+    units === 0n ? '0' : (elapsedIn(lens, 0n, units, dimension)?.text ?? units.toString()),
+  )
   const level = found.major[0]?.level ?? found.minor[0]?.level ?? 'base'
   const centerX = v.widthPx / 2
   const minor = found.minor[0] ?? found.major[0]
@@ -870,6 +874,15 @@ function Timeline({
           onClick={controls.fitAll}
         >
           <MaximizeIcon aria-hidden />
+        </Button>
+        <Button
+          variant={controls.logScale ? 'secondary' : 'outline'}
+          size="sm"
+          aria-pressed={controls.logScale}
+          title="Logarithmic axis: decades since inception, from the first second to the end of time"
+          onClick={controls.toggleScale}
+        >
+          <ChartSplineIcon aria-hidden /> Log scale
         </Button>
         <Button
           variant="outline"

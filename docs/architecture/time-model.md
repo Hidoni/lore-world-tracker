@@ -1047,4 +1047,4 @@ the Portal shows "Concurrently in Dreamrealm: Year 1, Day 1".
   dimension-level, and their anchors resolve in the **prime** timeline.
 - Time zones / local times (a calendar regime offset per location).
 - Branch re-parenting and merging.
-- Log-scale ("cosmic") timeline axis (frontend only).
+- ~~Log-scale ("cosmic") timeline axis~~: done (#153; chronology-engine.md §12).

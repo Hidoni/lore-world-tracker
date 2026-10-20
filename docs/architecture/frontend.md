@@ -924,7 +924,10 @@ Authoring, hierarchy, filters (`core/timeline/`, #83):
 
 ### 9.4 Interaction
 
-Wheel zoom at the cursor, drag to pan, `+`/`-` zoom, `Home` fits the whole dimension, `G` goes to a date (TimePointPicker). Click selects (preview in the right panel),
+Wheel zoom at the cursor, drag to pan, `+`/`-` zoom, `Home` fits the whole dimension, `G` goes to a date (TimePointPicker). **Log scale** (#153, URL `scale=log`) switches the axis to decades
+since inception (`Viewport.log`, chronology-engine.md §12); the axis then shows a tick per power
+of ten of base units, labelled with the elapsed time in the display calendar (`elapsedIn`), and
+everything else (windows, lanes, items, cursor) follows the same projection. Click selects (preview in the right panel),
 double-click opens the page. Double-click on empty space creates an event there, with precision
 chosen from the zoom level. Dragging an event's body or edges edits absolute/calendar anchors
 (snapping to tick units). Relative-anchored items show a lock and offer to edit the offset
