@@ -1,16 +1,21 @@
 import type { BaseUnit, CompiledCalendar } from '@lore/chronology'
-import { ticks, toPx, type Ticks, type Viewport } from '@lore/chronology/viewport'
+import { logTicks, ticks, toPx, type Ticks, type Viewport } from '@lore/chronology/viewport'
 
 import { absoluteTicks } from './absolute-ticks'
 
 export const AXIS_HEIGHT = 44
 
-/** The ticks of the display calendar (Absolute: base units) for the viewport. */
+/**
+ * The ticks of the display calendar (Absolute: base units) for the viewport; on a logarithmic
+ * axis, the powers of ten since inception, labelled with `elapsed` (e.g. "10^9 years").
+ */
 export function axisTicks(
   calendar: CompiledCalendar | null,
   v: Viewport,
   baseUnit: BaseUnit,
+  elapsed?: (units: bigint) => string,
 ): Ticks {
+  if (v.log !== undefined) return logTicks(v, elapsed === undefined ? {} : { label: elapsed })
   if (calendar === null) return absoluteTicks(v, baseUnit)
   try {
     return ticks(calendar, v)

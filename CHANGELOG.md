@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Log-scale timeline** (#153): the timeline's **Log scale** button turns the axis
+  logarithmic: every power of ten of time since inception takes the same width, so a dimension
+  from its first second to its heat death fits in one view. Zoom, pan, lanes and the time cursor
+  work on it; the URL keeps it (`scale=log`).
 - **Base-unit refinement** (#152): `lore vault refine-base-unit <vault> --dimension D --factor K
   [--unit millisecond,milliseconds,ms] [--dry-run]` makes a dimension's base unit K times finer
   (seconds → milliseconds) without moving any date: moments, base durations, intervals, the

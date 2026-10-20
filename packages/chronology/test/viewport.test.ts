@@ -4,14 +4,20 @@ import { describe, expect, test } from 'vitest'
 
 import { rational } from '../src/numbers'
 import {
+  MIN_DECADES,
   MIN_SPAN,
   OFFSCREEN_PX,
   type Viewport,
+  centerOn,
   clamp,
   fit,
   fromPx,
+  logTicks,
+  logViewport,
   marginOf,
   panBy,
+  toLinear,
+  toLogScale,
   tileBounds,
   tileFor,
   toLogPx,
@@ -205,5 +211,105 @@ describe('toLogPx', () => {
     const huge = 10n ** 400n
     expect(toLogPx(0n, huge, 400, 10n ** 200n - 1n)).toBeCloseTo(200)
     expect(() => toLogPx(5n, 5n, 100, 5n)).toThrow(RangeError)
+  })
+})
+
+/** The log scale of a viewport the test knows is logarithmic. */
+function scale(v: Viewport): { lo: number; hi: number } {
+  if (v.log === undefined) throw new Error('not logarithmic')
+  return v.log
+}
+
+describe('logarithmic viewports (#153)', () => {
+  const D = 10n ** 100n
+  const whole = logViewport(0n, 0, 100, 1000)
+
+  test('decades are evenly spaced, from inception to heat death', () => {
+    expect(toPx(whole, 0n)).toBe(0)
+    expect(toPx(whole, 10n ** 50n - 1n)).toBeCloseTo(500, 3)
+    expect(toPx(whole, D - 1n)).toBeCloseTo(1000, 3)
+    expect(whole.start).toBe(0n)
+    expect(whole.span).toBe(D - 1n)
+    // Moments before the origin sit at the left edge.
+    expect(toPx(logViewport(5n, 0, 2, 100), 0n)).toBe(0)
+  })
+
+  test('fromPx inverts toPx to the precision of doubles, with exact powers of ten', () => {
+    expect(fromPx(whole, 500)).toBe(10n ** 50n - 1n)
+    expect(fromPx(whole, 0)).toBe(0n)
+    fc.assert(
+      fc.property(fc.bigInt({ min: 1n, max: D }), (t) => {
+        const back = fromPx(whole, toPx(whole, t))
+        // Within a 1/1024-pixel step (a factor of 10^(100/1000/1024)), or one base unit.
+        const error = back > t ? back - t : t - back
+        expect(error <= 1n || error * 1000n <= t).toBe(true)
+      }),
+    )
+  })
+
+  test('zooming keeps the moment under the pointer; panning moves decades', () => {
+    const zoomed = zoomAt(whole, 250, rational(1n, 10n))
+    expect(scale(zoomed).hi - scale(zoomed).lo).toBeCloseTo(10, 9)
+    expect(toPx(zoomed, fromPx(whole, 250))).toBeCloseTo(250, 0)
+    const panned = panBy(zoomed, 100)
+    expect(scale(panned).lo).toBeCloseTo(scale(zoomed).lo + 1, 9)
+    // Never before the origin, never narrower than the minimum.
+    expect(panBy(whole, -500).log?.lo).toBe(0)
+    const narrow = zoomAt(whole, 0, rational(1n, 10n ** 12n))
+    expect(scale(narrow).hi - scale(narrow).lo).toBeCloseTo(MIN_DECADES, 9)
+  })
+
+  test('fit, clamp and center work in decades', () => {
+    const shown = fit(whole, 10n ** 9n, 10n ** 12n)
+    expect(shown.log?.lo).toBeCloseTo(9, 6)
+    expect(shown.log?.hi).toBeCloseTo(12, 6)
+    const wide = clamp(logViewport(0n, 0, 300, 1000), D)
+    expect(wide.log?.hi).toBeCloseTo(105, 6)
+    const late = clamp(logViewport(0n, 120, 130, 1000), D)
+    expect(late.log?.hi).toBeLessThanOrEqual(105 + 1e-9)
+    const centered = centerOn(shown, 10n ** 20n)
+    expect((scale(centered).lo + scale(centered).hi) / 2).toBeCloseTo(20, 6)
+  })
+
+  test('switching scales keeps the range', () => {
+    const linear = viewport(1000n, 9000n, 800)
+    const log = toLogScale(linear)
+    expect(log.start).toBe(linear.start)
+    expect(Number(log.span)).toBeCloseTo(Number(linear.span), -1)
+    expect(toLinear(log).log).toBeUndefined()
+    expect(toLogScale(log)).toBe(log)
+  })
+
+  test('edges: off-screen moments, padding, a dimension before its origin, the linear center', () => {
+    const narrow = logViewport(0n, 2, 2, 100)
+    expect(scale(narrow).hi - scale(narrow).lo).toBeCloseTo(MIN_DECADES, 9)
+    expect(narrow.span).toBe(MIN_SPAN)
+    // Far beyond the right edge: clamped off-screen.
+    expect(toPx(logViewport(0n, 0, 1e-6 + MIN_DECADES, 100), 10n ** 2000n)).toBe(OFFSCREEN_PX)
+    const padded = fit(whole, 10n ** 9n, 10n ** 12n, 100)
+    expect(toPx(padded, 10n ** 9n)).toBeCloseTo(100, 0)
+    expect(scale(fit(whole, 10n ** 9n, 10n ** 12n, 600)).lo).toBeCloseTo(9, 6) // padding too wide
+    expect(scale(clamp(logViewport(10n, 0, 3, 100), 5n)).hi).toBeLessThan(1)
+    expect(centerOn(viewport(0n, 100n, 10), 1000n).start).toBe(950n)
+    expect(scale(toLogScale(viewport(-50n, 10n ** 6n, 100))).lo).toBe(0)
+  })
+
+  test('ticks at the powers of ten, thinned out when decades are narrow', () => {
+    const { major, minor } = logTicks(logViewport(0n, 0, 6, 1200))
+    expect(major.map((tick) => tick.t)).toEqual([0n, 1n, 10n, 100n, 1000n, 10_000n, 100_000n])
+    expect(minor.map((tick) => tick.t)).toContain(3000n)
+    expect(minor.map((tick) => tick.t)).not.toContain(2000n)
+    const crowded = logTicks(whole, { label: (elapsed) => `${elapsed.toString().length - 1}` })
+    expect(crowded.minor).toEqual([])
+    expect(crowded.major.length).toBeLessThanOrEqual(17)
+    expect(crowded.major.at(-1)?.label).toBe('98') // every 7th decade (10 px each, 64 px apart)
+    expect(() => logTicks(viewport(0n, 10n, 10))).toThrow(RangeError)
+    expect(logTicks(logViewport(0n, 0, 6, 1200), { maxTicks: 3 }).major.length).toBeLessThanOrEqual(
+      3,
+    )
+    // Zoomed into one decade: its minor ticks, with the next power of ten past the right edge.
+    const decade = logTicks(logViewport(0n, 3.05, 3.95, 900))
+    expect(decade.major).toEqual([])
+    expect(decade.minor.map((tick) => tick.t)).toContain(5000n)
   })
 })

@@ -816,7 +816,18 @@ place where moments become floating-point pixels: pixel inputs are scaled to 1/1
 - `toLogPx(start, end, widthPx, t)`: a logarithmic axis for charts (the correspondence editor's
   mapping chart), `widthPx · (log10(t+1) − log10(start+1)) / (log10(end+1) − log10(start+1))`
   with `t` clamped to `[start, end]`; logarithms come from the decimal digits, so moments beyond
-  doubles work. Timelines stay linear.
+  doubles work.
+- **Logarithmic viewports** (#153): `Viewport.log = {origin, lo, hi}` makes pixel `x` show
+  `origin + 10^e − 1` with `e` linear from `lo` (left) to `hi` (right): decades since `origin`,
+  0 at the left of an axis starting there. The exponents are floating point (the axis's only
+  float state next to pixels); `10^e` becomes a `bigint` exactly below 10^15 and with 16
+  significant digits above. `start`/`span` are the range covered. `toPx`, `fromPx`, `zoomAt`
+  (scales the decades, keeping the decade under `x`), `panBy` (shifts decades), `fit`, `clamp`
+  (`lo ≥ 0`, at most 5% past `log10(D)`) and `centerOn` dispatch on it; `logViewport`,
+  `toLogScale` and `toLinear` build and convert, keeping the range. The narrowest log view is
+  `MIN_DECADES = 0.01`. `logTicks(v)` gives a major tick per power of ten since the origin
+  (every n-th one when decades are narrower than the minimum spacing) and minor ticks at
+  2–9 × 10^k where they fit.
 - `zoomAt(x, factor: Rational)`: the new span is `floor(span · factor)` (at least the minimum) and
   the start is chosen so that `fromPx(x)` is **exactly** the same moment before and after.
 - `panBy(dx)`: the view moves `dx` pixels later in time (negative: earlier).

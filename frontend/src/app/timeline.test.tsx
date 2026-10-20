@@ -225,6 +225,53 @@ describe('the timeline view', () => {
     })
   })
 
+  it('switches to a logarithmic axis: decades since inception, kept in the URL (#153)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    world()
+    const { router } = await renderApp('/v/v1/d/d1/timeline')
+    const toggle = await screen.findByRole('button', { name: 'Log scale' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(toggle)
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    await waitFor(() => {
+      expect((router.state.location.search as { scale?: string }).scale).toBe('log')
+    })
+    expect(screen.getByRole('button', { name: 'Log scale' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    // Major ticks at powers of ten of base units, labelled as elapsed time.
+    const { major } = rendered()
+    expect(major.length).toBeGreaterThan(5)
+    for (const [t] of major) expect(t === 0n || /^10*$/.test(t.toString())).toBe(true)
+    const late = major.at(-1)
+    expect(late?.[1]).toMatch(/years/)
+    // The whole dimension still fits.
+    const [from, to] = urlRange(router)
+    expect(from).toBe(0n)
+    expect(to >= D / 2n).toBe(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Log scale' }))
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    await waitFor(() => {
+      expect((router.state.location.search as { scale?: string }).scale).toBeUndefined()
+    })
+  })
+
+  it('opens on a logarithmic axis from the URL', async () => {
+    world()
+    await renderApp(`/v/v1/d/d1/timeline?from=0&to=${10n ** 30n}&scale=log`)
+    expect(await screen.findByRole('button', { name: 'Log scale' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    const { major } = rendered()
+    expect(major.map(([t]) => t)).toContain(10n ** 10n)
+  })
+
   it('moves the view from the minimap with the keyboard', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const total = 10n ** 15n

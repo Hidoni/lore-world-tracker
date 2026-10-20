@@ -1,5 +1,15 @@
 import { rational, type BigRational } from '@lore/chronology'
-import { clamp, fit, panBy, viewport, zoomAt, type Viewport } from '@lore/chronology/viewport'
+import {
+  centerOn,
+  clamp,
+  fit,
+  panBy,
+  toLinear,
+  toLogScale,
+  viewport,
+  zoomAt,
+  type Viewport,
+} from '@lore/chronology/viewport'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -35,6 +45,10 @@ export interface ViewportControls {
   fitAll: () => void
   /** Center the view on `t`, keeping the span. */
   center: (t: bigint) => void
+  /** Whether the axis is logarithmic (#153): decades since inception, URL `scale=log`. */
+  logScale: boolean
+  /** Switch between the linear and the logarithmic axis, keeping the range shown. */
+  toggleScale: () => void
 }
 
 /**
@@ -43,17 +57,16 @@ export interface ViewportControls {
  * back to it after `URL_DEBOUNCE_MS` of calm (replacing the history entry).
  */
 export function useViewport(D: bigint, widthPx: number): ViewportControls {
-  const search: { from?: string; to?: string } = useSearch({ strict: false })
+  const search: { from?: string; to?: string; scale?: string } = useSearch({ strict: false })
   const navigate = useNavigate()
   const [state, setState] = useState<Viewport>(() => {
     const range = rangeOf(search)
     const base = viewport(0n, D > 0n ? D : 1n, widthPx)
-    return clamp(
+    const linear =
       range === null
         ? fit(base, 0n, D, FIT_PADDING_PX)
-        : viewport(range[0], range[1] - range[0], widthPx),
-      D,
-    )
+        : viewport(range[0], range[1] - range[0], widthPx)
+    return clamp(search.scale === 'log' ? toLogScale(linear) : linear, D)
   })
   // The width follows the container; the span stays (the scale changes).
   const current = state.widthPx === widthPx ? state : { ...state, widthPx }
@@ -66,7 +79,8 @@ export function useViewport(D: bigint, widthPx: number): ViewportControls {
 
   // The URL follows once the view settles; a URL changed elsewhere (back/forward) moves the view.
   const written = useRef<string | null>(null)
-  const key = `${current.start}:${current.start + current.span}`
+  const scale = current.log === undefined ? undefined : ('log' as const)
+  const key = `${current.start}:${current.start + current.span}:${scale ?? ''}`
   useEffect(() => {
     const timer = setTimeout(() => {
       if (written.current === key) return
@@ -77,6 +91,7 @@ export function useViewport(D: bigint, widthPx: number): ViewportControls {
           ...previous,
           from: current.start.toString(),
           to: (current.start + current.span).toString(),
+          scale,
         }),
         replace: true,
       })
@@ -84,13 +99,14 @@ export function useViewport(D: bigint, widthPx: number): ViewportControls {
     return () => {
       clearTimeout(timer)
     }
-  }, [key, current.start, current.span, navigate])
+  }, [key, current.start, current.span, scale, navigate])
   const range = rangeOf(search)
-  const urlKey = range === null ? null : `${range[0]}:${range[1]}`
+  const urlKey = range === null ? null : `${range[0]}:${range[1]}:${search.scale ?? ''}`
   useEffect(() => {
     if (range === null || urlKey === written.current) return
     written.current = urlKey
-    setState(clamp(viewport(range[0], range[1] - range[0], widthPx), D))
+    const linear = viewport(range[0], range[1] - range[0], widthPx)
+    setState(clamp(search.scale === 'log' ? toLogScale(linear) : linear, D))
     // Only an outside change of the URL moves the view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlKey])
@@ -110,7 +126,11 @@ export function useViewport(D: bigint, widthPx: number): ViewportControls {
       update((v) => fit(v, 0n, D, FIT_PADDING_PX))
     },
     center: (t) => {
-      update((v) => ({ ...v, start: t - v.span / 2n }))
+      update((v) => centerOn(v, t))
+    },
+    logScale: current.log !== undefined,
+    toggleScale: () => {
+      update((v) => (v.log === undefined ? toLogScale(v) : toLinear(v)))
     },
   }
 }

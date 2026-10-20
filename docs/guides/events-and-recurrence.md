@@ -150,6 +150,11 @@ command palette (`Ctrl/Cmd+K`).
   (Ctrl zooms)** if you prefer). The toolbar's zoom buttons, **Fit the dimension** and **Go to…**
   (a date in any calendar) do the same from buttons; on the focused timeline `+`/`−`, `Home`,
   `←`/`→` and `G` work too. The minimap shows the whole dimension: click or drag it to move there.
+- **Log scale:** the toolbar's **Log scale** turns the axis logarithmic. Every power of ten of time
+  since the dimension's inception takes the same width ("1 second", "10^9 years", …), so the first
+  second, the age of stars and the heat death fit in one view. Zooming and panning move through
+  decades; the button turns it back to a linear axis over the same range. The URL keeps it
+  (`scale=log`).
 - **What you see:** spans are bars whose edges fade over their uncertainty, instants are diamonds,
   eras and overlays (moon phases) appear along the axis. Where too many events crowd together, the
   less important ones become a density strip with "+N" counts; zoom in to see them.
