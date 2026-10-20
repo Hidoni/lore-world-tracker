@@ -17,8 +17,10 @@ All notable changes to this project are documented here. The format follows
   A time point can carry a range of moments; its anchor stays the best estimate. The range
   widens the point's uncertainty, so as-of states and consistency findings become *possible*
   inside it, and dates show as "between AD 1020 and 1025". Both chronology engines format
-  ranges (`format_between`), with new calendar display options for the wording. The picker
-  follows in #400.
+  ranges (`format_between`), with new calendar display options for the wording. In the app
+  (#400), the date picker of event dates and of fact, link and pin bounds offers **Between two
+  dates (uncertain)** with an optional best estimate, pages show the range, and the timeline
+  fades the item's edge over it.
 - **Static site export** (#373–#378): Settings → Publishing → **Export static site**, or
   `lore vault export-static <snapshot> --out <dir>`, turns a published snapshot into a static
   site that any web host serves without a Lore server: the vault's landing page, lists and

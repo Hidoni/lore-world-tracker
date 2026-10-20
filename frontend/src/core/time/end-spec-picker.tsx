@@ -63,6 +63,7 @@ export function EndSpecPicker({
   onChange,
   owner,
   label = 'End',
+  ranges = false,
 }: {
   vault: string
   dimension: DimensionTime
@@ -74,6 +75,8 @@ export function EndSpecPicker({
   /** The end slot being edited (a relative end anchored to it would be a cycle). */
   owner?: SlotRef
   label?: string
+  /** An end date may be an uncertainty range (`TimePointPicker`'s `ranges`). */
+  ranges?: boolean
 }) {
   const [draft, setDraft] = useState(() => draftOf(value))
   const id = useId()
@@ -129,6 +132,7 @@ export function EndSpecPicker({
           lenses={lenses}
           value={draft.point}
           label={`${label} date`}
+          ranges={ranges}
           {...(owner === undefined ? {} : { owner })}
           onChange={(point) => {
             setDraft((previous) => ({ ...previous, point }))

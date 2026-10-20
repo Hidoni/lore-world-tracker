@@ -57,6 +57,19 @@ edge over the whole year. Choose the coarsest level you actually know rather tha
 prefix, the timeline softens the edge, and consistency rules report problems involving it as only
 *possible* (see `temporal-state.md` §7).
 
+### Between two dates
+
+When all you know is a range ("founded between 1020 and 1025"), tick **Between two dates
+(uncertain)** under the picker. Pick the **Earliest** and the **Latest** date, each one a date, a
+fixed moment or relative to another event, at its own precision. The event sorts at the earliest
+date unless you tick **A best estimate other than the earliest date** and pick one inside the
+range. It displays as "between AD 1020 and 1025" (or "AD 1022 (between AD 1020 and 1025)" with an
+estimate), the timeline fades its edge over the whole range, and as with precision, the moments
+inside it only *possibly* hold the event (`temporal-state.md` §6). A latest date before the
+earliest, or an estimate outside the range, is refused. The same option is offered for event
+ends and for the bounds of facts, links and map pins. The wording ("between", "and") is part of
+the calendar's **Display** options.
+
 ## 3. Anchor a date to another event
 
 On the **Relative** tab:

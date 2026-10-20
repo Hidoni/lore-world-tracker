@@ -383,6 +383,9 @@ const timelineWindow: Handler = async (load, _route, params, [vault = '', timeli
             end_t: String(occurrence.end) as Item['end_t'],
             occurrence_key: occurrence.key,
             series_id: row.item.entity_id,
+            // An occurrence is at its own moment, without the start's range (`window.py`).
+            start_extent: null,
+            end_extent: null,
           },
         })
       }

@@ -1,6 +1,7 @@
 import { fromFields, type TimePoint } from '@lore/chronology'
 
 import type { Lens } from './calendars'
+import type { Moment } from './format'
 
 /**
  * The moment a time point's anchor denotes when the browser can tell on its own: an absolute
@@ -21,4 +22,33 @@ export function pointMoment(point: TimePoint, lenses: readonly Lens[]): bigint |
   } catch {
     return null
   }
+}
+
+/**
+ * A time point's moment `t` to show, with its uncertainty range (time-model.md §5.4b) when the
+ * browser can resolve both ends (`pointMoment`; relative ends resolve on the server, and the
+ * moment then shows as its best estimate). `null` without `t`.
+ */
+export function momentOf(
+  t: bigint | null,
+  point: TimePoint | null | undefined,
+  lenses: readonly Lens[],
+): Moment | null {
+  if (t === null) return null
+  const moment: Moment = {
+    t,
+    precision: point?.precision ?? 'base',
+    approximate: point?.approximate === true,
+  }
+  const range = point?.range
+  if (range == null) return moment
+  const end = (end: TimePoint): Moment | null => {
+    const at = pointMoment(end, lenses)
+    return at === null
+      ? null
+      : { t: at, precision: end.precision, approximate: end.approximate === true }
+  }
+  const earliest = end(range.earliest)
+  const latest = end(range.latest)
+  return earliest === null || latest === null ? moment : { ...moment, range: { earliest, latest } }
 }

@@ -459,7 +459,7 @@ Server rules for saved documents (bodies and `rich_text` fields; `lore.core.rich
 | Component | Behavior |
 |-----------|----------|
 | `MomentDisplay` | Formats a moment at a precision in the display calendar (with circa). Tooltip: all calendars of the dimension, absolute value, and "N years before present". `SpanDisplay` formats a start/end pair (`formatSpan`). |
-| `TimePointPicker` | Tabs **Date** (calendar + level-by-level selects from `options()`, precision selector, circa toggle, era selector), **Relative** (target search → event/fact/link/segment slot, edge, offset via `DurationPicker`), **Absolute** (`BigNumberInput`). Calendar and absolute inputs are validated live client-side by the TS engine. Relative previews call `/time/resolve`. |
+| `TimePointPicker` | Tabs **Date** (calendar + level-by-level selects from `options()`, precision selector, circa toggle, era selector), **Relative** (target search → event/fact/link/segment slot, edge, offset via `DurationPicker`), **Absolute** (`BigNumberInput`). Calendar and absolute inputs are validated live client-side by the TS engine. Relative previews call `/time/resolve`. With `ranges` (event start and end dates, validity bounds), **Between two dates** picks an uncertainty range (time-model.md §5.4b): an Earliest and a Latest picker (any tab each) and an optional best estimate (the earliest otherwise); an inverted range is flagged live, the rest by the server (`range_invalid`). Ranged points display as "between … and …" (`formatIn` with `Moment.range`, built by `momentOf` when both ends resolve in the browser; the event page falls back to the server's display for relative ends). |
 | `DurationPicker` | Base units, or calendar amounts per level. |
 | `EndSpecPicker` | end date / duration / instant / end of time / unknown. |
 | `RecurrenceEditor` | Presets plus an advanced builder (freq, interval, filters, selectors, time, limit, exclusions). Natural-language summary, next-10 preview (TS engine). |
@@ -803,8 +803,9 @@ Events (`core/timeline/`, #81):
   several SVG nodes, which keeps 1,000 items inside the node budget. At most 1,400 are drawn
   (on screen with a 200 px margin, the most important first beyond that).
   - A span is a bar whose CSS gradient fades its edges over the start's and end's uncertainty:
-    the unit of their precision (`unitBounds` in a calendar that has the level). A duration end
-    carries the start's uncertainty. Edges wider than the bar share it.
+    the unit of their precision (`unitBounds` in a calendar that has the level), or the extent of
+    an uncertainty range (time-model.md §5.4b; window items carry `start_extent`/`end_extent`).
+    A duration end carries the start's uncertainty. Edges wider than the bar share it.
   - Circa softens an edge to at least 6 px. An unknown end fades out over 72 px after the start.
   - Instants are diamonds, unless their own uncertainty is wider than 8 px: then they are a
     fuzzy span.

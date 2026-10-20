@@ -472,6 +472,8 @@ function PinPopover({
                 ? null
                 : { t: pin.valid_to_t, precision: pin.valid_to?.precision ?? 'base' }
             }
+            startPoint={pin.valid_from}
+            endPoint={pin.valid_to}
           />
         </p>
       )}

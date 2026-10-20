@@ -47,6 +47,8 @@ function Change({ vault, fact }: { vault: string; fact: Fact }) {
             dimension={dimension}
             start={moment(fact.valid_from_t, fact.valid_from?.precision)}
             end={moment(fact.valid_to_t, fact.valid_to?.precision)}
+            startPoint={fact.valid_from}
+            endPoint={fact.valid_to}
           />
         </span>
       )}

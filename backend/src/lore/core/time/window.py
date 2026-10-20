@@ -53,6 +53,7 @@ from lore.chronology.recurrence import (
     count_in_window,
     expand,
 )
+from lore.chronology.schema import TimePoint
 from lore.core.entities.models import Entity, EntityTag
 from lore.core.errors import ErrorItem, InvalidInputError
 from lore.core.links.models import Link
@@ -116,6 +117,9 @@ class WindowItem:
     occurrence_key: str | None = None
     series_id: str | None = None
     occurrence_state: str | None = None
+    # A ranged start or end date's extent (time-model.md §5.4b): ``{"lo", "hi"}``.
+    start_extent: dict[str, int] | None = None
+    end_extent: dict[str, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -610,6 +614,17 @@ def _items(
             return point
         return times.point(point, dimension_id, owner=owner) or {}
 
+    resolvers: dict[str, Resolver] = {}
+
+    def ranged(point: dict[str, Any], dimension_id: str | None) -> dict[str, int] | None:
+        """The extent of a ranged point (``None`` for others: their precision says it)."""
+        if point.get("range") is None or dimension_id is None:
+            return None
+        if dimension_id not in resolvers:
+            resolvers[dimension_id] = Resolver(context, dimension_id, view.timeline_id, policy)
+        found = resolvers[dimension_id].resolve(TimePoint.model_validate(point))
+        return None if found.extent is None else {"lo": found.extent[0], "hi": found.extent[1]}
+
     by_id = {row.id: row for row in rows}
     items = []
     for kept_id in kept:
@@ -647,6 +662,9 @@ def _items(
                     else None
                 ),
                 occurrence_state=row.occurrence_state,
+                # An occurrence of a series is at its own moment, without the start's range.
+                start_extent=ranged(start, row.dimension_id) if occurrence is None else None,
+                end_extent=ranged(end_point, row.dimension_id) if occurrence is None else None,
             )
         )
     items.sort(key=_order)

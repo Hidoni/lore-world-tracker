@@ -205,6 +205,94 @@ describe('TimePointPicker', () => {
   })
 })
 
+function RangePicker({ initial = null }: { initial?: TimePoint | null }) {
+  const { dimension, lenses } = presetLenses('alternating-years', 'gregorian')
+  const [value, setValue] = useState<TimePoint | null>(initial)
+  return (
+    <>
+      <TimePointPicker
+        dimension={dimension}
+        lenses={lenses}
+        value={initial}
+        onChange={setValue}
+        label="Start"
+        ranges
+      />
+      <pre data-testid="value">{JSON.stringify(value)}</pre>
+    </>
+  )
+}
+
+const yearPoint = (year: string): TimePoint => ({
+  anchor: { kind: 'calendar', calendar_id: 'alternating-years', fields: { year } },
+  precision: 'year',
+  approximate: false,
+})
+
+async function typeYear(group: string, year: string) {
+  const scope = within(screen.getByRole('group', { name: group }))
+  await userEvent.selectOptions(scope.getByRole('combobox', { name: 'Precision' }), 'year')
+  const input = scope.getByRole('textbox', { name: 'year' })
+  await userEvent.clear(input)
+  await userEvent.type(input, year)
+}
+
+describe('TimePointPicker ranges', () => {
+  it('picks between two dates, the best estimate the earliest unless picked', async () => {
+    render(<RangePicker />)
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Between two dates (uncertain)' }))
+    await typeYear('Earliest', '1020')
+    expect(emitted()).toBeNull()
+    await typeYear('Latest', '1025')
+    expect(emitted()).toEqual({
+      ...yearPoint('1020'),
+      range: { earliest: yearPoint('1020'), latest: yearPoint('1025') },
+    })
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'A best estimate other than the earliest date' }),
+    )
+    await typeYear('Best estimate', '1022')
+    expect(emitted()).toEqual({
+      ...yearPoint('1022'),
+      range: { earliest: yearPoint('1020'), latest: yearPoint('1025') },
+    })
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Between two dates (uncertain)' }))
+    expect(emitted()).toEqual(yearPoint('1020'))
+  })
+
+  it('refuses a latest date before the earliest', async () => {
+    render(<RangePicker />)
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Between two dates (uncertain)' }))
+    await typeYear('Earliest', '1020')
+    await typeYear('Latest', '1010')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The latest date comes before the earliest.',
+    )
+    expect(emitted()).toBeNull()
+  })
+
+  it('opens a stored range with its ends and estimate', () => {
+    const initial: TimePoint = {
+      ...yearPoint('1022'),
+      range: { earliest: yearPoint('1020'), latest: yearPoint('1025') },
+    }
+    render(<RangePicker initial={initial} />)
+    expect(screen.getByRole('checkbox', { name: 'Between two dates (uncertain)' })).toBeChecked()
+    const year = (group: string) =>
+      within(screen.getByRole('group', { name: group })).getByRole('textbox', { name: 'year' })
+    expect(year('Earliest')).toHaveValue('1,020')
+    expect(year('Latest')).toHaveValue('1,025')
+    expect(year('Best estimate')).toHaveValue('1,022')
+  })
+
+  it('offers no range unless asked', () => {
+    render(<Picker />)
+    expect(
+      screen.queryByRole('checkbox', { name: 'Between two dates (uncertain)' }),
+    ).not.toBeInTheDocument()
+  })
+})
+
 describe('DurationPicker', () => {
   function Harness() {
     const { dimension, lenses } = presetLenses('gregorian')

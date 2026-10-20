@@ -7723,6 +7723,10 @@ export interface components {
              * @description A materialized occurrence's `referenced`, `modified` or `cancelled`.
              */
             occurrence_state: string | null;
+            /** @description A start with an uncertainty range (time-model §5.4b): the moments it may be. Null otherwise (the precision says it). */
+            start_extent?: components["schemas"]["Extent"] | null;
+            /** @description The same for a `time_point` end with a range. */
+            end_extent?: components["schemas"]["Extent"] | null;
         };
         /** WizardCalendar */
         WizardCalendar: {

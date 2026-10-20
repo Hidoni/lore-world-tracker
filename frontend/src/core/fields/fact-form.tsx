@@ -404,6 +404,7 @@ export function OverrideFactForm({
           value={until}
           onChange={setUntil}
           label={labels?.to ?? 'Until'}
+          ranges
         />
       )}
       <div className="flex flex-col gap-1.5">

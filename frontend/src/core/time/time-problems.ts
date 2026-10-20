@@ -12,6 +12,8 @@ const MESSAGES: Record<string, string> = {
   reform_gap: 'This date was skipped by a calendar reform.',
   reform_ambiguous: 'This date exists twice across a calendar reform.',
   calendar_error: 'The calendar doesn’t compile.',
+  range_invalid:
+    'The range doesn’t hold: its latest date comes before its earliest, or the best estimate lies outside it.',
   unmapped:
     'The target is in another dimension, and no correspondence says what happens here then.',
 }
@@ -46,6 +48,7 @@ export function timeWriteProblem(error: unknown): string | null {
     )
     if (codes.includes('end_before_start')) return 'The end would come before the start.'
     if (codes.includes('out_of_bounds')) return MESSAGES.out_of_bounds ?? null
+    if (codes.includes('range_invalid')) return MESSAGES.range_invalid ?? null
     return error.detail
   }
   return null

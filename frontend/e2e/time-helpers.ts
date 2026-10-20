@@ -40,6 +40,17 @@ export async function typeDay(
   await start.getByLabel('day', { exact: true }).selectOption(String(day))
 }
 
+/** Fills a time point picker with a Gregorian year (year precision). */
+export async function typeYear(
+  scope: ReturnType<Page['getByRole']>,
+  year: number,
+  picker = 'Start',
+) {
+  const group = scope.getByRole('group', { name: picker, exact: true })
+  await group.getByLabel('Precision').selectOption('year')
+  await group.getByLabel('year', { exact: true }).fill(String(year))
+}
+
 /** Seconds from the inception to the start of 1 January of a (proleptic Gregorian) year. */
 export function yearStart(year: number): bigint {
   let days = 0n

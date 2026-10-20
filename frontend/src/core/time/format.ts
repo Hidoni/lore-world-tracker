@@ -5,6 +5,7 @@ import {
   type Duration,
   diff,
   formatAbsolute,
+  formatBetween,
   formatDate,
   formatInteger,
   formatSpan,
@@ -20,6 +21,9 @@ export interface Moment {
   approximate?: boolean
   /** The uncertainty extent `[lo, hi)` when known (API resolutions carry it). */
   extent?: { lo: bigint; hi: bigint }
+  /** An explicit uncertainty range (time-model.md §5.4b): its ends, each at its own precision;
+   * the moment itself is the best estimate. */
+  range?: { earliest: Moment; latest: Moment }
 }
 
 /** How wide the moment's uncertainty is: its extent, or its precision's unit in a calendar that
@@ -58,13 +62,18 @@ export function displayLevel(lens: Lens, moment: Moment, all: readonly Lens[]): 
   return chosen
 }
 
-/** A moment in a display calendar (`null` when the calendar can't show it). */
+/**
+ * A moment in a display calendar (`null` when the calendar can't show it). A ranged moment
+ * (§5.4b) is "between … and …", after its best estimate when that isn't the earliest: "1022
+ * (between 1020 and 1025)" (the backend's `display`, `lore.core.time.batch`).
+ */
 export function formatIn(
   lens: Lens,
   moment: Moment,
   dimension: DimensionTime,
   all: readonly Lens[],
 ): string | null {
+  if (moment.range !== undefined) return betweenIn(lens, moment, dimension, all)
   const approximate = moment.approximate === true
   try {
     if (lens.calendar === null)
@@ -73,6 +82,39 @@ export function formatIn(
   } catch {
     return null
   }
+}
+
+function betweenIn(
+  lens: Lens,
+  moment: Moment,
+  dimension: DimensionTime,
+  all: readonly Lens[],
+): string | null {
+  // The estimate at its own precision: the widened extent belongs to the range.
+  const range = moment.range
+  const own = { t: moment.t, precision: moment.precision, approximate: moment.approximate === true }
+  const estimate = formatIn(lens, own, dimension, all)
+  if (range === undefined) return estimate
+  const earliest = formatIn(lens, range.earliest, dimension, all)
+  const latest = formatIn(lens, range.latest, dimension, all)
+  if (estimate === null || earliest === null || latest === null) return estimate
+  let text: string
+  const calendar = lens.calendar
+  if (calendar === null) {
+    text = `between ${earliest} and ${latest}`
+  } else {
+    const point = (end: Moment): DisplayPoint => ({
+      t: end.t,
+      precision: displayLevel(lens, end, all),
+      approximate: end.approximate === true,
+    })
+    try {
+      text = formatBetween(calendar, point(range.earliest), point(range.latest))
+    } catch {
+      return estimate
+    }
+  }
+  return estimate === earliest ? text : `${estimate} (${text})`
 }
 
 /** A span in a display calendar: shared coarse parts collapse, an open end is `?`. */
@@ -85,6 +127,12 @@ export function formatSpanIn(
 ): string | null {
   try {
     const calendar = lens.calendar
+    if (start?.range !== undefined || end?.range !== undefined) {
+      // A ranged end doesn't collapse with the other: each is shown whole.
+      const one = (moment: Moment | null) =>
+        moment === null ? '?' : (formatIn(lens, moment, dimension, all) ?? '?')
+      return `${one(start)} – ${one(end)}`
+    }
     if (calendar === null) {
       const one = (moment: Moment | null) =>
         moment === null ? '?' : (formatIn(lens, moment, dimension, all) ?? '?')
