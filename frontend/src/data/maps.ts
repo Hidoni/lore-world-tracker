@@ -13,6 +13,7 @@ type Schemas = components['schemas']
 export type MapRecord = Domain<Schemas['MapRecord']>
 export type MapDetail = Domain<Schemas['MapDetail']>
 export type MapPin = Domain<Schemas['PinOut']>
+export type MapRegion = Domain<Schemas['RegionOut']>
 export type EntityPins = Domain<Schemas['EntityPins']>
 export type MapQuery = Omit<Query<'maps_get'>, 'as_reader'>
 
@@ -108,6 +109,34 @@ export function useDeletePin(vault: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (pin: string) => mutations.deletePin(vault, pin),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useCreateRegion(vault: string, map: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Schemas['RegionCreate']) => mutations.createRegion(vault, map, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useUpdateRegion(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ region, body }: { region: string; body: Schemas['RegionUpdate'] }) =>
+      mutations.updateRegion(vault, region, body),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+export function useDeleteRegion(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (region: string) => mutations.deleteRegion(vault, region),
     onSuccess: (result) => invalidateAffected(client, vault, result.affected),
   })
 }

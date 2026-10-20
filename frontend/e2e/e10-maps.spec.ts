@@ -55,7 +55,7 @@ test('E10: map with pins, drill-down and the time cursor', async ({ page, lore, 
   await expect(panel.locator('.leaflet-image-layer')).toBeVisible()
 
   // Pin Ashgard from the tray of unplaced child locations.
-  await panel.getByRole('button', { name: 'Edit pins' }).click()
+  await panel.getByRole('button', { name: 'Edit map' }).click()
   const tray = panel.getByRole('region', { name: 'Unplaced child locations' })
   await tray.getByRole('button', { name: 'Place Ashgard on the map' }).click()
   await expect(tray.getByText('Every child location is on this map.')).toBeVisible()
@@ -79,4 +79,53 @@ test('E10: map with pins, drill-down and the time cursor', async ({ page, lore, 
   await page.goto(`${map}?at=600`)
   await expect(page.locator('.leaflet-image-layer')).toBeVisible()
   await expect(marker(page, 'Ashgard')).toHaveCount(0)
+})
+
+// Regions (#154): drawn by clicking corners in a real Leaflet map, then selected by a click.
+test('E10: drawing a region on a map', async ({ page, lore, request }) => {
+  const dimension = await lore.createDimension('Aetheria')
+  const varn = await lore.createEntity('location', 'Varn', { dimension_id: dimension.id })
+  const uploaded = await request.post(`${lore.base}/m/media/items`, {
+    multipart: {
+      file: { name: 'varn.png', mimeType: 'image/png', buffer: png(400, 300, [90, 140, 90]) },
+    },
+    headers: HEADERS,
+  })
+  expect(uploaded.ok()).toBe(true)
+  const image = (await uploaded.json()) as { item: { id: string } }
+  const created = await request.post(`${lore.base}/m/maps/maps`, {
+    data: { location_id: varn.id, media_id: image.item.id, name: 'Varn' },
+    headers: HEADERS,
+  })
+  expect(created.ok()).toBe(true)
+  const { map } = (await created.json()) as { map: { id: string } }
+
+  await page.goto(`${lore.url()}/m/maps/maps/${map.id}`)
+  const canvas = page.locator('.leaflet-container')
+  await expect(page.locator('.leaflet-image-layer')).toBeVisible()
+  await page.getByRole('button', { name: 'Edit map' }).click()
+  await page.getByRole('button', { name: 'Draw region' }).click()
+  const box = await canvas.boundingBox()
+  if (box === null) throw new Error('no map')
+  const cx = box.width / 2
+  const cy = box.height / 2
+  for (const [dx, dy] of [
+    [-40, -30],
+    [40, -30],
+    [0, 40],
+  ] as const)
+    await canvas.click({ position: { x: cx + dx, y: cy + dy } })
+  await expect(page.getByText(/3 so far/)).toBeVisible()
+  await page.getByRole('button', { name: 'Finish region' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Add a region' })
+  await dialog.getByRole('searchbox', { name: 'Find an entity' }).fill('Marsh')
+  await dialog.getByRole('button', { name: 'Add the label “Marsh”' }).click()
+  await expect(page.getByRole('dialog', { name: 'Edit Marsh' })).toBeVisible()
+  await expect(page.locator('path.lore-region')).toHaveCount(1)
+  // The new region is selected: its corners are handles.
+  await expect(page.locator('.leaflet-marker-icon[title^="Corner"]')).toHaveCount(3)
+  await page.getByRole('button', { name: 'Done editing' }).click()
+
+  await canvas.click({ position: { x: cx, y: cy - 10 } })
+  await expect(page.getByRole('dialog', { name: 'Marsh' })).toBeVisible()
 })

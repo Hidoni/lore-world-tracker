@@ -2281,6 +2281,45 @@ export interface paths {
         patch: operations["maps_update_pin"];
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/maps/maps/{map_id}/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Region
+         * @description A region (#154): a polygon of image pixel coordinates, for an entity (a territory: its
+         *     location) or a label; a validity needs a timeline of the location's dimension.
+         */
+        post: operations["maps_add_region"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/maps/regions/{region_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Trash Region */
+        delete: operations["maps_trash_region"];
+        options?: never;
+        head?: never;
+        /** Update Region */
+        patch: operations["maps_update_region"];
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/maps/entities/{entity_id}/pins": {
         parameters: {
             query?: never;
@@ -5597,6 +5636,11 @@ export interface components {
             /** Pins */
             pins: components["schemas"]["PinOut"][];
             /**
+             * Regions
+             * @description Polygons drawn on the map (#154), as of the cursor like pins.
+             */
+            regions: components["schemas"]["RegionOut"][];
+            /**
              * Breadcrumbs
              * @description The maps of the location's ancestors, outermost first (each one's first map the request sees).
              */
@@ -6265,6 +6309,7 @@ export interface components {
             pin: components["schemas"]["PinOut"];
             affected: components["schemas"]["Affected"];
         };
+        Point: number[];
         /** Presence */
         Presence: {
             /** Entity Id */
@@ -6599,6 +6644,107 @@ export interface components {
         };
         /** @enum {string} */
         RecurrenceStrategy: "keep_key" | "rekey" | "detach" | "trash";
+        /**
+         * RegionController
+         * @description An entity controlling the region's target (a ``groups.controls`` link to it).
+         */
+        RegionController: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string | null;
+        };
+        /** RegionCreate */
+        RegionCreate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** @description null: a label region. */
+            target_entity_id?: components["schemas"]["EntityId"] | null;
+            /** Label */
+            label?: string | null;
+            /** Points */
+            points: components["schemas"]["Point"][];
+            color?: components["schemas"]["Color"] | null;
+            /** @default public */
+            visibility?: components["schemas"]["Visibility"];
+            /** @description With a validity: the timeline it is in. */
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
+        };
+        /** RegionOut */
+        RegionOut: {
+            /** Id */
+            id: string;
+            /** Map Id */
+            map_id: string;
+            target: components["schemas"]["PinTarget"] | null;
+            /** Label */
+            label: string | null;
+            /** Display Label */
+            display_label: string;
+            /**
+             * Points
+             * @description `[x, y]` image pixel coordinates, in order.
+             */
+            points: number[][];
+            /** Color */
+            color: string | null;
+            /**
+             * Controllers
+             * @description Who controls the target (`groups.controls` links to it): at the cursor with `at`, else at any time.
+             */
+            controllers: components["schemas"]["RegionController"][];
+            visibility: components["schemas"]["Visibility"];
+            /** Timeline Id */
+            timeline_id: string | null;
+            /** Overrides Id */
+            overrides_id: string | null;
+            valid_from: components["schemas"]["TimePoint-Output"] | null;
+            valid_to: components["schemas"]["TimePoint-Output"] | null;
+            /** Valid From T */
+            valid_from_t: MomentString | null;
+            /** Valid To T */
+            valid_to_t: MomentString | null;
+            /** Time Status */
+            time_status: string | null;
+            /** Revision */
+            revision: number;
+            /** @default certain */
+            shown?: components["schemas"]["Shown"];
+        };
+        /** RegionUpdate */
+        RegionUpdate: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /** Revision */
+            revision: number;
+            target_entity_id?: components["schemas"]["EntityId"] | null;
+            /** Label */
+            label?: string | null;
+            /** Points */
+            points?: components["schemas"]["Point"][] | null;
+            color?: components["schemas"]["Color"] | null;
+            visibility?: components["schemas"]["Visibility"] | null;
+            timeline_id?: components["schemas"]["EntityId"] | null;
+            valid_from?: components["schemas"]["TimePoint-Input"] | null;
+            valid_to?: components["schemas"]["TimePoint-Input"] | null;
+        };
+        /** RegionWriteResult */
+        RegionWriteResult: {
+            region: components["schemas"]["RegionOut"];
+            affected: components["schemas"]["Affected"];
+        };
         /**
          * Registry
          * @description Everything the generic UI is generated from, for this vault's enabled modules.
@@ -12888,6 +13034,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PinWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_add_region: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_trash_region: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionWriteResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    maps_update_region: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionWriteResult"];
                 };
             };
             /** @description Problem */

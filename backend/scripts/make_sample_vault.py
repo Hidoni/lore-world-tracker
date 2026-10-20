@@ -106,7 +106,7 @@ from lore.modules.custom_fields.schemas import (
 from lore.modules.custom_fields.service import CustomFields
 from lore.modules.languages.lexicon import Lexicon
 from lore.modules.languages.lexicon_schemas import LexiconEntryCreate
-from lore.modules.maps.schemas import MapCreate, PinCreate
+from lore.modules.maps.schemas import MapCreate, PinCreate, RegionCreate
 from lore.modules.maps.service import Maps
 from lore.modules.media.service import Media
 from lore.modules.worldlines.schemas import TimeTravelIn
@@ -1679,8 +1679,8 @@ def _map_image(width: int, height: int, sea: str, land: str) -> bytes:
 
 def _core_maps(writer: Writer, core: Core, world: SampleWorld) -> None:
     """Maps (M10): Thalassa's map with a pin for the city of Varn (drilling into Varn's map),
-    one for the Sundering (shown while it happens) and a label; Varn's map with the Spire and a
-    harbor pin that is there until the Sundering."""
+    one for the Sundering (shown while it happens), a label and the Kingdom of Varn's territory;
+    Varn's map with the Spire and a harbor pin that is there until the Sundering."""
     with writer.transaction("Sample world: maps") as s:
         media = Media(s.context)
         maps = Maps(s.context)
@@ -1693,6 +1693,10 @@ def _core_maps(writer: Writer, core: Core, world: SampleWorld) -> None:
         maps.add_pin(thalassa.id, PinCreate(target_entity_id=core["Varn"], x=520, y=310))
         maps.add_pin(thalassa.id, PinCreate(target_entity_id=core["The Sundering"], x=300, y=200))
         maps.add_pin(thalassa.id, PinCreate(label="Here be dragons", x=700, y=80))
+        # The Kingdom of Varn's territory, colored by its ruler, the Empire (#154).
+        kingdom: list[list[float]] = [[440, 240], [610, 250], [640, 360], [520, 420], [420, 360]]
+        maps.add_region(thalassa.id, RegionCreate(target_entity_id=core["Kingdom of Varn"],
+                                                  points=kingdom))  # fmt: skip
         maps.add_pin(varn.id, PinCreate(target_entity_id=core["The Spire"], x=200, y=150))
         maps.add_pin(varn.id, PinCreate.model_validate({
             "label": "Old Harbor", "x": 80, "y": 220, "timeline_id": core["Prime"],

@@ -230,18 +230,22 @@ export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './sp
 export {
   useCreateMap,
   useCreatePin,
+  useCreateRegion,
   useDeleteMap,
   useDeletePin,
+  useDeleteRegion,
   useEntityPins,
   useMapDetail,
   useMaps,
   useUpdateMap,
   useUpdatePin,
+  useUpdateRegion,
   type EntityPins,
   type MapDetail,
   type MapPin,
   type MapQuery,
   type MapRecord,
+  type MapRegion,
 } from './maps'
 export {
   useCreateCustomField,

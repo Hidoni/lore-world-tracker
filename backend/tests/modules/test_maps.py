@@ -229,3 +229,106 @@ def test_map_rules(atlas: Atlas) -> None:
     assert patched.status_code == 200
     [outside] = findings(atlas, rule)
     assert {s["id"] for s in outside["subjects"]} == {atlas.port["id"], faraway["id"]}
+
+
+# --- regions (#154) -------------------------------------------------------------------------------
+
+SQUARE = [[100, 100], [300, 100], [300, 300], [100, 300]]
+
+
+def add_region(atlas: Atlas, map_row: dict[str, Any], **body: Any) -> Any:
+    body.setdefault("points", SQUARE)
+    return atlas.api.client.post(f"{atlas.base}/maps/{map_row['id']}/regions", json=body)
+
+
+def region(atlas: Atlas, map_row: dict[str, Any], **body: Any) -> dict[str, Any]:
+    response = add_region(atlas, map_row, **body)
+    assert response.status_code == 201, response.json()
+    found: dict[str, Any] = response.json()["region"]
+    return found
+
+
+def regions(atlas: Atlas, **params: Any) -> dict[str, dict[str, Any]]:
+    found = atlas.detail(atlas.continent, **params)["regions"]
+    return {r["display_label"]: r for r in found}
+
+
+def test_regions_are_polygons_for_an_entity_or_a_label(atlas: Atlas) -> None:
+    port = region(atlas, atlas.continent, target_entity_id=atlas.port["id"], color="#AA3300")
+    assert (port["display_label"], port["points"], port["color"]) == ("Port", SQUARE, "#aa3300")
+    assert port["controllers"] == []
+    assert invalid(add_region(atlas, atlas.continent)) == ["label"]
+    assert invalid(add_region(atlas, atlas.continent, label="Line", points=SQUARE[:2])) == [
+        "body.points"
+    ]
+    off = [[0, 0], [1001, 0], [0, 10]]
+    assert invalid(add_region(atlas, atlas.continent, label="Off", points=off)) == ["points.1"]
+    api = atlas.api
+    moved = api.client.patch(f"{atlas.base}/regions/{port['id']}", json={
+        "revision": port["revision"], "points": [[0, 0], [10, 0], [10, 10]],
+        "label": "Harbor"})  # fmt: skip
+    assert moved.status_code == 200, moved.json()
+    assert regions(atlas)["Harbor"]["points"] == [[0, 0], [10, 0], [10, 10]]
+    stale = api.client.patch(f"{atlas.base}/regions/{port['id']}", json={
+        "revision": port["revision"], "label": "Again"})  # fmt: skip
+    assert stale.status_code == 409
+    trashed = api.client.delete(f"{atlas.base}/regions/{port['id']}", headers=HEADERS)
+    assert trashed.status_code == 200
+    assert regions(atlas) == {}
+
+
+def test_regions_follow_the_cursor_and_take_their_rulers(atlas: Atlas) -> None:
+    api = atlas.api
+    home = {"dimension_id": atlas.dimension["id"]}
+    region(atlas, atlas.continent, label="Camp", timeline_id=atlas.prime,
+           valid_from=at(100), valid_to=at(200))  # fmt: skip
+    region(atlas, atlas.continent, target_entity_id=atlas.port["id"])
+    empire = api.make("group", "Empire", **home)
+    league = api.make("group", "League", **home)
+    for group, start, end in ((empire, 0, 150), (league, 150, 400)):
+        linked = api.link("groups.controls", group, atlas.port, timeline_id=atlas.prime,
+                          valid_from=at(start), valid_to=at(end))  # fmt: skip
+        assert linked.status_code == 201, linked.json()
+    assert set(regions(atlas)) == {"Camp", "Port"}
+    assert {c["name"] for c in regions(atlas)["Port"]["controllers"]} == {"Empire", "League"}
+    early = regions(atlas, at="120")
+    assert set(early) == {"Camp", "Port"}
+    assert [c["name"] for c in early["Port"]["controllers"]] == ["Empire"]
+    late = regions(atlas, at="250")
+    assert set(late) == {"Port"}
+    assert [c["name"] for c in late["Port"]["controllers"]] == ["League"]
+    # Readers don't see a private ruler.
+    api.patch(league, visibility="private")
+    assert regions(atlas, at="250", as_reader=True)["Port"]["controllers"] == []
+
+
+def test_readers_see_regions_only_when_everything_is_visible(atlas: Atlas) -> None:
+    api = atlas.api
+    secret = api.make("location", "Secret Cove", visibility="private",
+                      dimension_id=atlas.dimension["id"])  # fmt: skip
+    region(atlas, atlas.continent, target_entity_id=secret["id"])
+    region(atlas, atlas.continent, label="Hidden", visibility="private")
+    region(atlas, atlas.continent, target_entity_id=atlas.port["id"])
+    assert set(regions(atlas, as_reader=True)) == {"Port"}
+    assert set(regions(atlas)) == {"Secret Cove", "Hidden", "Port"}
+
+
+def test_a_branch_ends_a_region_early_and_purge_removes_regions(atlas: Atlas) -> None:
+    api = atlas.api
+    camp = region(atlas, atlas.continent, label="Camp", timeline_id=atlas.prime,
+                  valid_from=at(100), valid_to=at(300))  # fmt: skip
+    response = api.client.post(f"{api.base}/m/branches/timelines", json={
+        "parent_timeline_id": atlas.prime, "branch_point": at(150), "name": "Burned"})  # fmt: skip
+    branch = response.json()["entity"]["id"]
+    override = api.client.post(f"{api.base}/m/branches/overrides", json={
+        "record_type": "maps.region", "root_id": camp["id"], "timeline_id": branch,
+        "changes": {"valid_to": at(160)}})  # fmt: skip
+    assert override.status_code == 201, override.json()
+    assert "Camp" in regions(atlas, at="170")
+    assert "Camp" not in regions(atlas, timeline=branch, at="170")
+    # Trashing the map trashes its regions; purging the target removes them.
+    port = region(atlas, atlas.continent, target_entity_id=atlas.port["id"])
+    assert api.delete(atlas.port["id"]).status_code == 200
+    purged = api.delete(atlas.port["id"], purge=True)
+    assert purged.status_code == 200, purged.json()
+    assert port["id"] not in {r["id"] for r in atlas.detail(atlas.continent)["regions"]}

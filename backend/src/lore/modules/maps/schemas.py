@@ -113,8 +113,48 @@ class MapCrumb(BaseModel):
     location_id: str
 
 
+type Point = Annotated[list[Coordinate], Field(min_length=2, max_length=2)]
+Points = Annotated[list[Point], Field(min_length=3, max_length=2000)]
+
+
+class RegionController(BaseModel):
+    """An entity controlling the region's target (a ``groups.controls`` link to it)."""
+
+    id: str
+    kind: str
+    name: str
+    color: str | None
+
+
+class RegionOut(BaseModel):
+    id: str
+    map_id: str
+    target: PinTarget | None
+    label: str | None
+    display_label: str
+    points: list[list[float]] = Field(description="`[x, y]` image pixel coordinates, in order.")
+    color: str | None
+    controllers: list[RegionController] = Field(
+        description="Who controls the target (`groups.controls` links to it): at the cursor "
+        "with `at`, else at any time."
+    )
+    visibility: Visibility
+    timeline_id: str | None
+    overrides_id: str | None
+    valid_from: TimePoint | None
+    valid_to: TimePoint | None
+    valid_from_t: MomentStr | None
+    valid_to_t: MomentStr | None
+    time_status: str | None
+    revision: int
+    shown: Shown = "certain"
+
+
 class MapDetail(MapRecord):
     pins: list[PinOut]
+    regions: list[RegionOut] = Field(
+        description="Polygons drawn on the map (#154), as of the cursor like pins."
+    )
     breadcrumbs: list[MapCrumb] = Field(
         description="The maps of the location's ancestors, outermost first (each one's first "
         "map the request sees)."
@@ -150,6 +190,36 @@ class PinUpdate(SuppressIn):
     timeline_id: EntityId | None = None
     valid_from: TimePoint | None = None
     valid_to: TimePoint | None = None
+
+
+class RegionCreate(SuppressIn):
+    target_entity_id: EntityId | None = Field(default=None, description="null: a label region.")
+    label: Label | None = None
+    points: Points
+    color: Color | None = None
+    visibility: Visibility = "public"
+    timeline_id: EntityId | None = Field(
+        default=None, description="With a validity: the timeline it is in."
+    )
+    valid_from: TimePoint | None = None
+    valid_to: TimePoint | None = None
+
+
+class RegionUpdate(SuppressIn):
+    revision: int
+    target_entity_id: EntityId | None = None
+    label: Label | None = None
+    points: Points | None = None
+    color: Color | None = None
+    visibility: Visibility | None = None
+    timeline_id: EntityId | None = None
+    valid_from: TimePoint | None = None
+    valid_to: TimePoint | None = None
+
+
+class RegionWriteResult(BaseModel):
+    region: RegionOut
+    affected: Affected
 
 
 class MapWriteResult(BaseModel):

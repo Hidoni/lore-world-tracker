@@ -5,6 +5,9 @@
   for any entity or none (a label). A pin with an explicit validity is time-bound in its
   ``timeline_id`` (``valid_from``/``valid_to`` slots, branch overrides through ``overrides_id``);
   without one it is timeless and follows its target's existence at the cursor.
+- ``maps_regions`` (#154): a polygon on a map (``points``: image pixel coordinates), for an
+  entity (usually a location: the territory) or a label, time-bound like a pin. Readers see who
+  controls its target (``groups.controls`` links) at the cursor.
 """
 
 from typing import Any
@@ -78,7 +81,36 @@ class MapPin(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDelet
     )
 
 
+class MapRegion(IdMixin, VisibilityMixin, RevisionMixin, TimestampsMixin, SoftDeleteMixin, Base):
+    __tablename__ = "maps_regions"
+
+    map_id: Mapped[str] = mapped_column(ForeignKey("maps_maps.id", ondelete=CASCADE))
+    target_entity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("entities.id", ondelete=RESTRICT)
+    )
+    label: Mapped[str | None] = mapped_column(String)
+    points: Mapped[list[list[float]]] = mapped_column(JSON)
+    color: Mapped[str | None] = mapped_column(String)
+    timeline_id: Mapped[str | None] = mapped_column(ForeignKey("entities.id", ondelete=RESTRICT))
+    overrides_id: Mapped[str | None] = mapped_column(
+        ForeignKey("maps_regions.id", ondelete=CASCADE)
+    )
+    valid_from_spec: Mapped[TimePoint | None] = spec_column()
+    valid_from_t: Mapped[int | None] = moment_column()
+    valid_to_spec: Mapped[TimePoint | None] = spec_column()
+    valid_to_t: Mapped[int | None] = moment_column()
+    time_status: Mapped[str | None] = status_column()
+
+    __table_args__ = (
+        Index("ix_maps_regions_map_id", "map_id"),
+        Index("ix_maps_regions_target_entity_id", "target_entity_id"),
+        Index("ix_maps_regions_timeline_start", "timeline_id", "valid_from_t"),
+        Index("ix_maps_regions_overrides_id", "overrides_id"),
+    )
+
+
 # Validity is open on both sides (a pin with only an end was there since the beginning).
-register_time_bound(
-    TimeBound(MapPin, start="valid_from_t", end="valid_to_t", open_start=True, open_end=True)
-)
+for _model in (MapPin, MapRegion):
+    register_time_bound(
+        TimeBound(_model, start="valid_from_t", end="valid_to_t", open_start=True, open_end=True)
+    )

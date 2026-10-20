@@ -351,6 +351,11 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
         "a": {
           "r": "PinOut"
         }
+      },
+      "regions": {
+        "a": {
+          "r": "RegionOut"
+        }
       }
     }
   },
@@ -455,6 +460,19 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
         "a": {
           "r": "RecurrenceProposalItem"
         }
+      }
+    }
+  },
+  "RegionOut": {
+    "o": {
+      "valid_from_t": "m",
+      "valid_to_t": "m"
+    }
+  },
+  "RegionWriteResult": {
+    "o": {
+      "region": {
+        "r": "RegionOut"
       }
     }
   },

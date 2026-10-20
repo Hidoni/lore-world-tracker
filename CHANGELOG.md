@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Map regions** (#154): draw territories on maps (**Edit map** → **Draw region**). A region is
+  a polygon for a place (or a label), with dates of its own or following the place, so the time
+  cursor animates borders. It takes the color of whoever controls the place (`groups.controls`
+  links valid at the cursor), and its popover says who that is. Regions drag by their corners,
+  redraw, show in the map's list view and toggle as a layer. API: `POST
+  /m/maps/maps/{id}/regions`, `PATCH|DELETE /m/maps/regions/{id}`; the map detail lists
+  `regions`.
 - **Log-scale timeline** (#153): the timeline's **Log scale** button turns the axis
   logarithmic: every power of ten of time since inception takes the same width, so a dimension
   from its first second to its heat death fits in one view. Zoom, pan, lanes and the time cursor

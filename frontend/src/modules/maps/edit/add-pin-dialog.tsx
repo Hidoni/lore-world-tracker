@@ -17,16 +17,19 @@ import { useEntity, useQuickSearch } from '@/data'
 export type PinChoice = { target: string } | { label: string }
 
 /**
- * Adding a pin where the map was clicked: an entity (search by name), a new location created
- * there (a child of the map's location), or a plain label.
+ * Adding a pin where the map was clicked (or a region just drawn): an entity (search by name), a
+ * new location created there (a child of the map's location), or a plain label.
  */
 export function AddPinDialog({
   vault,
   location,
+  noun = 'pin',
   onAdd,
   onClose,
 }: {
   vault: string
+  /** What is being added. */
+  noun?: 'pin' | 'region'
   /** The map's location (the parent of a location created here). */
   location: string
   onAdd: (choice: PinChoice) => void
@@ -64,9 +67,11 @@ export function AddPinDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a pin</DialogTitle>
+          <DialogTitle>Add a {noun}</DialogTitle>
           <DialogDescription>
-            Pin a place, a character or an event here, or write a label.
+            {noun === 'pin'
+              ? 'Pin a place, a character or an event here, or write a label.'
+              : 'The place this region is (its controllers color it), or a label.'}
           </DialogDescription>
         </DialogHeader>
         <Input

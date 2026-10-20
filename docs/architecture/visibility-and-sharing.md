@@ -20,12 +20,12 @@ The default visibility for new content is a vault setting (default `public`).
 Entities · aliases · tags (derived: a tag is visible if any visible entity uses it) · field values
 (`entities.field_visibility`, with defaults from the field definition) · facts · links ·
 rich-text blocks (`visibilityBlock`) · per-timeline notes · worldline segments ·
-correspondences · timelines (as entities) · module rows (map pins, gallery items, lexicon entries)
+correspondences · timelines (as entities) · module rows (map pins and regions, gallery items, lexicon entries)
 · media (derived from references).
 
 **Effective visibility** (the most restrictive wins):
 
-- A link, fact, alias, note, segment or pin is visible only if its own level allows it **and**
+- A link, fact, alias, note, segment, pin or map region is visible only if its own level allows it **and**
   every entity it references is visible.
 - Anything time-bound in a **private timeline** is invisible.
 - A **media item** is visible only if at least one visible context references it (body image in a
