@@ -40,7 +40,8 @@
 [`modules/_template.md`](modules/_template.md) · [`misc`](modules/misc.md) ·
 [`locations`](modules/locations.md) · [`species`](modules/species.md) ·
 [`characters`](modules/characters.md) · [`groups`](modules/groups.md) ·
-[`languages`](modules/languages.md) · [`media`](modules/media.md) · [`maps`](modules/maps.md) ·
+[`languages`](modules/languages.md) · [`scripts`](modules/scripts.md) ·
+[`media`](modules/media.md) · [`maps`](modules/maps.md) ·
 [`custom_fields`](modules/custom_fields.md) · [`graph`](modules/graph.md) ·
 [`branches`](modules/branches.md) · [`correspondences`](modules/correspondences.md) ·
 [`worldlines`](modules/worldlines.md)

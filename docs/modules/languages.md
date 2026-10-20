@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | Module id | `languages` |
-| Depends on | – (media for writing-system samples when enabled) |
+| Depends on | – (the `scripts` module adds writing-system fonts, with media) |
 | Default enabled | yes |
 | Milestone | M6 |
 
@@ -179,5 +179,5 @@ attachments.
 
 ## Future ideas
 
-Custom script fonts (`scripts` module) to render headwords in the conlang's script; sound-change
+Sound-change
 appliers and word generators; interlinear glossed texts; per-entry audio (media).

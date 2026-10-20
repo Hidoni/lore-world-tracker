@@ -232,6 +232,7 @@ def test_csv_round_trip_and_dry_run(api: LinkApi) -> None:
 def test_disabled_module_and_purge(api: LinkApi) -> None:
     varnish = api.make("language", "Varnish")
     add(api, varnish, "word")
+    assert api.modules("scripts", enabled=False).status_code == 200  # it depends on languages
     assert api.modules("languages", enabled=False).status_code == 200
     problem(api.client.get(path(api, f"/{varnish['id']}/lexicon")), 404, "module_disabled")
     assert api.modules("languages", enabled=True).status_code == 200

@@ -75,6 +75,14 @@ export interface FieldEditorExtensionProps {
 }
 
 /** A section of a dimension's overview page (`/v/$vault/d/$dimension`). */
+export interface TextRendererProps {
+  vault: string
+  /** The text's owner: a language's id for `language`. */
+  owner: string
+  text: string
+  className?: string | undefined
+}
+
 export interface DimensionSection {
   id: string
   title: string
@@ -177,6 +185,14 @@ export interface ModuleDefinition {
   fieldTypeRenderers?: Readonly<Record<string, ComponentType<FieldRendererProps>>>
   /** Editors of the module's field types (`media`); without one a type is shown, not edited. */
   fieldTypeEditors?: Readonly<Record<string, ComponentType<FieldEditorExtensionProps>>>
+  /** Renderers of single fields, by field key: they win over the field type's renderer
+   * (the scripts module shows `scripts.font` in its font). */
+  fieldRenderers?: Readonly<Record<string, ComponentType<FieldRendererProps>>>
+  /** Editors of single fields, by field key: they win over the field type's editor. */
+  fieldEditors?: Readonly<Record<string, ComponentType<FieldEditorExtensionProps>>>
+  /** How text of a language shows, by key (`language`: words of a language, given its id). The
+   * scripts module sets them in the language's script font; without one, plain text. */
+  textRenderers?: Readonly<Record<string, ComponentType<TextRendererProps>>>
   timelineLayers?: readonly TimelineLayer[]
   graphStyles?: GraphStyles
   editorExtensions?: readonly EditorExtensionLoader[]

@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
+import { LanguageText } from '@/core/modules'
 import { TimePointPicker, useTimeContext } from '@/core/time'
 import {
   isRevisionConflict,
@@ -113,7 +114,9 @@ function EntryDetails({ vault, entry }: { vault: string; entry: LexiconEntry }) 
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{entry.headword}</SheetTitle>
+        <SheetTitle>
+          <LanguageText vault={vault} language={entry.language_id} text={entry.headword} />
+        </SheetTitle>
         <SheetDescription>
           {[
             entry.romanization,
@@ -297,7 +300,9 @@ function EntryForm({
       }}
     >
       <SheetHeader className="px-0">
-        <SheetTitle>{entry.headword}</SheetTitle>
+        <SheetTitle>
+          <LanguageText vault={vault} language={entry.language_id} text={entry.headword} />
+        </SheetTitle>
         <SheetDescription>The entry’s details. Notes save as you type.</SheetDescription>
       </SheetHeader>
       <div className="grid grid-cols-2 gap-3">

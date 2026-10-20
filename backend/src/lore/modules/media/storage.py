@@ -4,7 +4,8 @@
   never by what the uploader called them. Writes go to a temporary file in the same folder and
   are renamed into place, so a file is either complete or absent.
 - The type comes from the bytes (magic numbers), from an allowlist: images (png, jpeg, webp, gif,
-  avif), documents (pdf, plain text, Markdown) and SVG (shown inline only once sanitized). A file
+  avif), documents (pdf, plain text, Markdown), SVG (shown inline only once sanitized) and fonts
+  (woff2, woff, ttf, otf: writing systems' script fonts, #155), whose headers must be whole. A file
   whose bytes don't match the name's extension is still judged by its bytes; text files must be
   UTF-8 without NUL bytes.
 - Raster images are decoded with Pillow, which refuses images above ``MAX_PIXELS`` (the
@@ -40,7 +41,8 @@ Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 RASTER = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"})
 SVG = "image/svg+xml"
 TEXT = frozenset({"text/plain", "text/markdown"})
-ALLOWED = RASTER | TEXT | frozenset({"application/pdf", SVG})
+FONTS = frozenset({"font/woff2", "font/woff", "font/ttf", "font/otf"})
+ALLOWED = RASTER | TEXT | FONTS | frozenset({"application/pdf", SVG})
 # What pages show as pictures: raster images and (sanitized) SVGs.
 IMAGES = RASTER | frozenset({SVG})
 
@@ -65,7 +67,17 @@ _SIGNATURES: tuple[tuple[int, bytes, str], ...] = (
     (0, b"%PDF-", "application/pdf"),
     (4, b"ftypavif", "image/avif"),
     (4, b"ftypavis", "image/avif"),
+    (0, b"wOF2", "font/woff2"),
+    (0, b"wOFF", "font/woff"),
+    (0, b"OTTO", "font/otf"),
+    (0, b"\x00\x01\x00\x00", "font/ttf"),
+    (0, b"true", "font/ttf"),
 )
+# A font's header: WOFF/WOFF2 have their length at bytes 8 to 12; an sfnt (ttf/otf) table directory
+# is 12 bytes, then 16 per table (at most this many tables).
+_FONT_HEADER = 12
+_TABLE_RECORD = 16
+_MAX_TABLES = 256
 
 
 def _magic(head: bytes) -> str | None:
@@ -105,10 +117,25 @@ def sniff(data: bytes, filename: str) -> Sniffed:
             svg.sanitize(data)
         except svg.SvgRejectedError as error:
             raise MediaRejectedError(str(error)) from error
+    if mime in FONTS:
+        _check_font(data, mime)
     if mime not in RASTER:
         return Sniffed(mime)
     width, height = _decode(data)
     return Sniffed(mime, width, height)
+
+
+def _check_font(data: bytes, mime: str) -> None:
+    """A font's header must be whole: a WOFF/WOFF2 file as long as it says, an sfnt (ttf/otf)
+    file with its table directory. Browsers parse (and sanitize) the tables themselves."""
+    bad = MediaRejectedError("This font file is damaged or incomplete.")
+    if mime in ("font/woff", "font/woff2"):
+        if len(data) < _FONT_HEADER or int.from_bytes(data[8:_FONT_HEADER]) != len(data):
+            raise bad
+        return
+    tables = int.from_bytes(data[4:6]) if len(data) >= _FONT_HEADER else 0
+    if not 0 < tables <= _MAX_TABLES or len(data) < _FONT_HEADER + _TABLE_RECORD * tables:
+        raise bad
 
 
 def _decode(data: bytes) -> tuple[int, int]:

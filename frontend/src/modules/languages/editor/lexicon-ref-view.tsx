@@ -1,5 +1,5 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { RichTextNodeProps } from '@/core/modules'
+import { LanguageText, type RichTextNodeProps } from '@/core/modules'
 import { useLexiconEntry } from '@/data'
 
 /**
@@ -25,7 +25,11 @@ export function LexiconRefView({ vault, entryId }: { vault: string; entryId: str
           className="lexicon-ref inline cursor-help font-medium italic underline decoration-dotted underline-offset-2"
           data-lexicon-ref=""
         >
-          {entry.data.headword}
+          <LanguageText
+            vault={vault}
+            language={entry.data.language_id}
+            text={entry.data.headword}
+          />
         </button>
       </TooltipTrigger>
       <TooltipContent className="max-w-sm">

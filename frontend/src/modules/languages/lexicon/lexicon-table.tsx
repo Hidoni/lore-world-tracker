@@ -15,6 +15,7 @@ import {
   type LexiconEntry,
   type LexiconQuery,
 } from '@/data'
+import { LanguageText } from '@/core/modules'
 import { cn } from '@/lib/utils'
 
 import { cellText, columnChange, COLUMNS, PARTS_OF_SPEECH, type ColumnKey } from './fields'
@@ -237,7 +238,11 @@ function EntryRowView({
             <EditableCell vault={vault} entry={entry} column={column.key} title={column.title} />
           ) : (
             <span className={cn('block truncate px-1', column.key === 'headword' && 'font-medium')}>
-              {cellText(entry, column.key)}
+              {column.key === 'headword' ? (
+                <LanguageText vault={vault} language={entry.language_id} text={entry.headword} />
+              ) : (
+                cellText(entry, column.key)
+              )}
             </span>
           )}
         </div>
@@ -367,7 +372,13 @@ function EditableCell({
         setDraft(text)
       }}
     >
-      {text || <span className="text-muted-foreground">—</span>}
+      {text === '' ? (
+        <span className="text-muted-foreground">—</span>
+      ) : column === 'headword' ? (
+        <LanguageText vault={vault} language={entry.language_id} text={text} />
+      ) : (
+        text
+      )}
     </button>
   )
 }

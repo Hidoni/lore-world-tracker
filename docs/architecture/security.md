@@ -52,7 +52,8 @@ headers → request context → host check → CORS (optional) → mutation guar
 ## 3. Files
 
 - Uploads: an allowlist of MIME types (images: png, jpeg, webp, gif, avif; documents: pdf, txt,
-  md; fonts for the future scripts module). Type is verified by magic bytes, and images are
+  md; fonts: woff2, woff, ttf, otf, for the scripts module, with whole headers). Type is verified
+  by magic bytes, and images are
   decoded with Pillow (the dimension limit protects against decompression bombs: images above 50
   megapixels are refused before decoding). Files are stored by SHA-256 and never by user-provided
   names; the uploaded name is kept for display only, reduced to its last path component. Text

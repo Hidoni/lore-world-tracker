@@ -11,18 +11,19 @@ import { Input } from '@/components/ui/input'
 import { isRaster, useMediaItems, type MediaItem } from '@/data'
 
 import { MediaImage } from './media-image'
-import { ANY_ACCEPT, IMAGE_ACCEPT, RASTER_ACCEPT, UploadButton } from './upload-button'
+import { ANY_ACCEPT, FONT_ACCEPT, IMAGE_ACCEPT, RASTER_ACCEPT, UploadButton } from './upload-button'
 
 /**
  * The image picker (docs/modules/media.md, UI): the library's images (search by name, alt or
  * caption) and an upload; picking one, or uploading, closes it. Shared by the editor, covers,
- * galleries and `media` fields.
+ * galleries and `media` fields; with `fontsOnly`, the library's fonts (writing systems' fonts).
  */
 export function ImagePickerDialog({
   vault,
   title = 'Choose an image',
   imagesOnly = true,
   rasterOnly = false,
+  fontsOnly = false,
   onPick,
   onClose,
 }: {
@@ -32,12 +33,14 @@ export function ImagePickerDialog({
   imagesOnly?: boolean
   /** Raster images only (no SVGs: a map needs the image's size). */
   rasterOnly?: boolean
+  /** Fonts instead of images. */
+  fontsOnly?: boolean
   onPick: (item: MediaItem) => void
   onClose: () => void
 }) {
   const [q, setQ] = useState('')
   const items = useMediaItems(vault, {
-    ...(imagesOnly ? { mime: 'image/' } : {}),
+    ...(fontsOnly ? { mime: 'font/' } : imagesOnly ? { mime: 'image/' } : {}),
     ...(q.trim() === '' ? {} : { q: q.trim() }),
     limit: 60,
   })
@@ -66,7 +69,15 @@ export function ImagePickerDialog({
           />
           <UploadButton
             vault={vault}
-            accept={rasterOnly ? RASTER_ACCEPT : imagesOnly ? IMAGE_ACCEPT : ANY_ACCEPT}
+            accept={
+              fontsOnly
+                ? FONT_ACCEPT
+                : rasterOnly
+                  ? RASTER_ACCEPT
+                  : imagesOnly
+                    ? IMAGE_ACCEPT
+                    : ANY_ACCEPT
+            }
             onUploaded={onPick}
           />
         </div>

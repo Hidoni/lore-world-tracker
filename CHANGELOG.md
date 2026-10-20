@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Script fonts** (#155): the new `scripts` module lets a writing system have a font (WOFF2,
+  WOFF, TTF or OTF, uploaded to the media library), a size and a sample. Lexicon headwords, words
+  in pages and lexicon search results of languages written in it show in that font (right to
+  left for right-to-left scripts), unless a language's **Headwords** say **Plain text**. The
+  media library accepts font files, checked by their bytes.
 - **Map regions** (#154): draw territories on maps (**Edit map** → **Draw region**). A region is
   a polygon for a place (or a label), with dates of its own or following the place, so the time
   cursor animates borders. It takes the color of whoever controls the place (`groups.controls`

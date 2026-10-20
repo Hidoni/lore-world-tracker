@@ -8,7 +8,8 @@ import { useUploadMedia, type MediaItem } from '@/data'
 /** What the file input offers (the server judges the bytes anyway). */
 export const RASTER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif'
 export const IMAGE_ACCEPT = `${RASTER_ACCEPT},image/svg+xml,.svg`
-export const ANY_ACCEPT = `${IMAGE_ACCEPT},application/pdf,text/plain,text/markdown,.md`
+export const FONT_ACCEPT = 'font/woff2,font/woff,font/ttf,font/otf,.woff2,.woff,.ttf,.otf'
+export const ANY_ACCEPT = `${IMAGE_ACCEPT},application/pdf,text/plain,text/markdown,.md,${FONT_ACCEPT}`
 
 /** An upload's message for the author. */
 export function uploadProblem(error: unknown): string {

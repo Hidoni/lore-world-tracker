@@ -29,7 +29,8 @@
 | `groups` | kind `group`; membership/relations/territory link types; org chart | – | on |
 | `languages` | kinds `language`, `writing_system`; lexicon; language family view | – | on |
 | `media` | uploads, media library, image nodes, covers, galleries | – | on |
-| `maps` | image maps on locations, pins, drill-down, time-aware pins | `locations`, `media` | on |
+| `maps` | image maps on locations, pins and regions, drill-down, time-aware pins | `locations`, `media` | on |
+| `scripts` | writing systems' fonts: headwords and samples in the conlang's script | `languages`, `media` | on |
 | `custom_fields` | custom fields on any kind, custom kinds, relation-field sugar | – | on |
 | `graph` | global graph view + local graph panel | – | on |
 | `branches` | alternate-timeline UI/API (create branches, overrides, comparison) | – | on |
@@ -225,6 +226,9 @@ defineModule({
   linkTypeRenderers: { 'groups.member_of': MembershipRow },
   fieldTypeRenderers: { 'media': MediaFieldValue },  // a module field type's display
   fieldTypeEditors: { 'media': MediaFieldEditor },   // and its editor (the fields panel)
+  fieldRenderers: { 'scripts.font': FontFieldValue }, // one field's display (wins over its type's)
+  fieldEditors: { 'scripts.font': FontFieldEditor },  // and its editor
+  textRenderers: { language: ScriptText },          // words of a language (core `LanguageText`)
   timelineLayers: [{ id, title, component }],   // overlays on the timeline view; component gets
                                                  // { vault, timeline, dimensionId, v, height }
   graphStyles: { nodes: {...}, edges: {...} },
