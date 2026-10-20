@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { CastleIcon, TagIcon } from 'lucide-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import MapCanvas, { type CanvasMarker } from './views/map-canvas'
+import MapCanvas, { type CanvasMarker, type CanvasRegion } from './views/map-canvas'
 
 const markers: CanvasMarker[] = [
   { id: 'p1', label: 'Port', x: 500, y: 400, icon: CastleIcon, color: '#b45309', ghost: false },
@@ -47,5 +47,43 @@ describe('map canvas', () => {
     if (map === null) throw new Error('no map')
     fireEvent.click(map)
     expect(onSelect).toHaveBeenLastCalledWith(null)
+  })
+
+  it('draws regions under the pins, drags the selected one’s corners, adds corners while drawing', async () => {
+    const regions: CanvasRegion[] = [
+      { id: 'r1', label: 'Varn', points: [[0, 0], [100, 0], [100, 100]], color: '#0e7490', ghost: false },
+      { id: 'r2', label: 'Wilds', points: [[200, 200], [300, 200], [300, 300]], color: null, ghost: true },
+    ] // prettier-ignore
+    const onSelect = vi.fn()
+    const onDraw = vi.fn()
+    const props = {
+      image: '/map.png',
+      width: 1000,
+      height: 800,
+      markers: [],
+      regions,
+      selected: 'r1',
+      onSelect,
+      editing: true,
+      onDraw,
+    }
+    const { container, rerender } = render(<MapCanvas {...props} />)
+    const shapes = container.querySelectorAll('path.lore-region')
+    expect(shapes).toHaveLength(2)
+    expect(shapes[0]).toHaveAttribute('stroke', '#0e7490')
+    expect(shapes[1]).toHaveClass('lore-region-ghost')
+    // Editing, the selected region's corners are handles.
+    expect(await screen.findAllByRole('button', { name: /^Corner \d of Varn$/ })).toHaveLength(3)
+    const wilds = shapes[1]
+    if (wilds === undefined) throw new Error('no region')
+    fireEvent.click(wilds)
+    expect(onSelect).toHaveBeenLastCalledWith('r2')
+
+    rerender(<MapCanvas {...props} drawing={[{ x: 1, y: 2 }]} />)
+    expect(screen.queryAllByRole('button', { name: /^Corner/ })).toHaveLength(0)
+    const map = container.querySelector('.leaflet-container')
+    if (map === null) throw new Error('no map')
+    fireEvent.click(map)
+    expect(onDraw).toHaveBeenCalledOnce()
   })
 })

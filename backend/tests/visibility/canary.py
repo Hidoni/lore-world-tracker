@@ -424,9 +424,9 @@ def _media(b: _Builder, home: dict[str, Any]) -> None:
 
 
 def _maps(b: _Builder, home: dict[str, Any]) -> None:
-    """A public map of a public location with a public pin, and what readers must not see: a
-    private map, a private label pin, a pin of a private location and a pin in a private branch
-    of the prime timeline."""
+    """A public map of a public location with a public pin and region, and what readers must not
+    see: a private map, a private label pin, a pin of a private location, a pin in a private branch
+    of the prime timeline, private regions and the private group ruling the public region."""
     api = b.api
     image = api.client.post(
         f"{api.base}/m/media/items", files={"file": ("chart.png", _png("gray"))}, headers=HEADERS
@@ -463,6 +463,20 @@ def _maps(b: _Builder, home: dict[str, Any]) -> None:
                               "timeline_id": branch.json()["entity"]["id"],
                               "valid_from": POINT}))  # fmt: skip
     b.canary.hidden_ids |= {pin["pin"]["id"] for pin in hidden}
+    # Regions (#154): a public one of the pier, ruled by a private group; a private one and one
+    # of a private location.
+    regions = f"maps/{chart['id']}/regions"
+    square = [[0, 0], [3, 0], [3, 2]]
+    made(regions, {"target_entity_id": pier["id"], "points": square})
+    hidden_regions = [
+        made(regions, {"label": b.canary_string(), "points": square, "visibility": "private"}),
+        made(regions, {"target_entity_id": b.hidden("location", visibility="private",
+                                                     **home)["id"],
+                       "label": b.canary_string(), "points": square}),
+    ]  # fmt: skip
+    b.canary.hidden_ids |= {region["region"]["id"] for region in hidden_regions}
+    ruler = b.hidden("group", visibility="private", **home)
+    b.hidden_link("groups.controls", ruler, pier)
 
 
 def _branches(b: _Builder, home: dict[str, Any]) -> None:

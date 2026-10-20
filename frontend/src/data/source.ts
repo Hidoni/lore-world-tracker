@@ -347,6 +347,17 @@ export interface Mutations {
   createPin(vault: string, map: string, body: Schemas['PinCreate']): Promise<D<'PinWriteResult'>>
   updatePin(vault: string, pin: string, body: Schemas['PinUpdate']): Promise<D<'PinWriteResult'>>
   deletePin(vault: string, pin: string): Promise<D<'PinWriteResult'>>
+  createRegion(
+    vault: string,
+    map: string,
+    body: Schemas['RegionCreate'],
+  ): Promise<D<'RegionWriteResult'>>
+  updateRegion(
+    vault: string,
+    region: string,
+    body: Schemas['RegionUpdate'],
+  ): Promise<D<'RegionWriteResult'>>
+  deleteRegion(vault: string, region: string): Promise<D<'RegionWriteResult'>>
   // The custom_fields module.
   createCustomField(
     vault: string,

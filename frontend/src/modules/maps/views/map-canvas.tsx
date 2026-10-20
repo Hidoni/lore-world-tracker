@@ -19,6 +19,18 @@ export interface CanvasMarker {
   ghost: boolean
 }
 
+export interface CanvasRegion {
+  id: string
+  label: string
+  /** `[x, y]` image pixels from the top left, in order. */
+  points: readonly (readonly number[])[]
+  color: string | null
+  ghost: boolean
+}
+
+/** A region's default fill (no color of its own, its controllers' or its target's). */
+const REGION_COLOR = '#64748b'
+
 /** What a dragged entity carries (the child-location tray): its id. */
 export const ENTITY_DRAG_TYPE = 'application/x-lore-entity'
 
@@ -49,14 +61,17 @@ function markerIcon(marker: CanvasMarker, glyph: string, selected: boolean): L.D
  * overlay over its own pixel bounds, pins as kind-icon markers (faded when ghosts) that cluster
  * when crowded, a tooltip on hover, `onSelect` on click (a click on the map clears it). Editing
  * (no clustering then): a click on the map places (`onPlace`), pins drag (`onMove`), and entities
- * dragged in (`ENTITY_DRAG_TYPE`) drop (`onDropEntity`). Loaded lazily with the map views
- * (frontend.md §12).
+ * dragged in (`ENTITY_DRAG_TYPE`) drop (`onDropEntity`). Regions are filled polygons under the
+ * pins, selected like them; editing, the selected region's corners drag (`onReshape`), and while
+ * `drawing` (the corners so far) a click adds a corner (`onDraw`) instead of placing a pin. Loaded
+ * lazily with the map views (frontend.md §12).
  */
 export default function MapCanvas({
   image,
   width,
   height,
   markers,
+  regions = [],
   selected,
   focus = null,
   onSelect,
@@ -64,11 +79,16 @@ export default function MapCanvas({
   onPlace,
   onMove,
   onDropEntity,
+  drawing = null,
+  onDraw,
+  onReshape,
 }: {
   image: string
   width: number
   height: number
   markers: readonly CanvasMarker[]
+  regions?: readonly CanvasRegion[]
+  /** A pin's or a region's id. */
   selected: string | null
   /** A pin to center on once it is drawn. */
   focus?: string | null
@@ -77,18 +97,42 @@ export default function MapCanvas({
   onPlace?: (point: Point) => void
   onMove?: (id: string, point: Point) => void
   onDropEntity?: (entity: string, point: Point) => void
+  /** The corners of a region being drawn (`null`: not drawing). */
+  drawing?: readonly Point[] | null
+  onDraw?: (point: Point) => void
+  onReshape?: (id: string, points: Point[]) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  const shapes = useRef<L.LayerGroup | null>(null)
   const focused = useRef<string | null>(null)
   // Leaflet markers take HTML: the icons render here, hidden, and markers copy their markup.
   const icons = useMemo(() => [...new Set(markers.map((marker) => marker.icon))], [markers])
   const glyphs = useRef<HTMLDivElement>(null)
-  const handlers = useRef({ onSelect, onPlace, onMove, onDropEntity, editing })
+  const drawingNow = drawing !== null
+  const handlers = useRef({
+    onSelect,
+    onPlace,
+    onMove,
+    onDropEntity,
+    onDraw,
+    onReshape,
+    editing,
+    drawing: drawingNow,
+  })
   useEffect(() => {
-    handlers.current = { onSelect, onPlace, onMove, onDropEntity, editing }
-  }, [onSelect, onPlace, onMove, onDropEntity, editing])
+    handlers.current = {
+      onSelect,
+      onPlace,
+      onMove,
+      onDropEntity,
+      onDraw,
+      onReshape,
+      editing,
+      drawing: drawingNow,
+    }
+  }, [onSelect, onPlace, onMove, onDropEntity, onDraw, onReshape, editing, drawingNow])
   /** An image pixel of a map position, kept on the image. */
   const pointOf = (latlng: L.LatLng): Point => ({
     x: Math.round(Math.min(Math.max(latlng.lng, 0), width) * 10) / 10,
@@ -116,8 +160,11 @@ export default function MapCanvas({
       // A marker's click reaches the map too: it selects, it doesn't clear or place.
       const target = event.originalEvent.target
       if (target instanceof Element && target.closest('.leaflet-marker-icon') !== null) return
-      const { editing: placing, onPlace: place, onSelect: select } = handlers.current
-      if (placing && place) place(pointOf(event.latlng))
+      const { editing: placing, drawing: adding, onDraw: draw } = handlers.current
+      const { onPlace: place, onSelect: select } = handlers.current
+      if (adding && draw) draw(pointOf(event.latlng))
+      else if (target instanceof Element && target.closest('.lore-region') !== null) return
+      else if (placing && place) place(pointOf(event.latlng))
       else select(null)
     })
     // Leaflet focuses the map on every press (keyboard navigation) and only restores the
@@ -127,12 +174,15 @@ export default function MapCanvas({
     box.focus = (options?: FocusOptions) => {
       focus({ ...options, preventScroll: true })
     }
+    // Regions sit under the pins (their own pane, below the markers').
+    shapes.current = L.layerGroup().addTo(created)
     map.current = created
     focused.current = null
     return () => {
       created.remove()
       map.current = null
       layer.current = null
+      shapes.current = null
     }
     // pointOf reads width and height, which are deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,11 +251,80 @@ export default function MapCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers, icons, selected, focus, height, image, width, editing])
 
+  useEffect(() => {
+    map.current?.getContainer().classList.toggle('lore-drawing', drawingNow)
+  }, [drawingNow, image, width, height])
+
+  useEffect(() => {
+    const group = shapes.current
+    if (group === null) return
+    group.clearLayers()
+    const corners = (points: readonly (readonly number[])[]) =>
+      points.map(([x = 0, y = 0]) => toLatLng({ x, y }, height))
+    for (const region of regions) {
+      const color = region.color ?? REGION_COLOR
+      const chosen = region.id === selected
+      L.polygon(corners(region.points), {
+        className: `lore-region${region.ghost ? ' lore-region-ghost' : ''}`,
+        color,
+        fillColor: color,
+        weight: chosen ? 3 : 1.5,
+        opacity: region.ghost ? 0.4 : 0.9,
+        fillOpacity: region.ghost ? 0.08 : 0.25,
+        dashArray: region.ghost ? '4 4' : undefined,
+        // While drawing, clicks go through to the map (a corner may sit on a region).
+        interactive: !drawingNow,
+      })
+        .bindTooltip(region.label, { sticky: true })
+        .on('click', (event) => {
+          L.DomEvent.stopPropagation(event)
+          handlers.current.onSelect(region.id)
+        })
+        .addTo(group)
+      if (!(editing && chosen && !drawingNow)) continue
+      // The selected region's corners drag.
+      const moved = region.points.map(([x = 0, y = 0]) => ({ x, y }))
+      region.points.forEach(([x = 0, y = 0], index) => {
+        L.marker(toLatLng({ x, y }, height), {
+          icon: L.divIcon({
+            className: '',
+            html: '<span class="block size-3 rounded-full border-2 border-background bg-foreground shadow"></span>',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6],
+          }),
+          title: `Corner ${String(index + 1)} of ${region.label}`,
+          alt: `Corner ${String(index + 1)} of ${region.label}`,
+          draggable: true,
+          autoPanOnFocus: false,
+          zIndexOffset: 1000,
+        })
+          .on('click', (event) => {
+            L.DomEvent.stopPropagation(event)
+          })
+          .on('dragend', (event) => {
+            moved[index] = pointOf((event.target as L.Marker).getLatLng())
+            handlers.current.onReshape?.(region.id, [...moved])
+          })
+          .addTo(group)
+      })
+    }
+    if (drawing !== null && drawing.length > 0) {
+      const line = drawing.map((point) => toLatLng(point, height))
+      L.polyline(line, { color: REGION_COLOR, dashArray: '4 4', interactive: false }).addTo(group)
+      for (const at of line) {
+        L.circleMarker(at, { radius: 4, color: REGION_COLOR, interactive: false }).addTo(group)
+      }
+    }
+    // pointOf reads width and height, which are deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions, selected, editing, drawing, drawingNow, height, width, image])
+
   return (
     <>
       <div
         ref={container}
-        className="size-full bg-muted"
+        // Leaflet owns this element's classes: an effect toggles `lore-drawing`, React never changes them.
+        className="size-full bg-muted [&.lore-drawing]:cursor-crosshair! [&.lore-drawing_.leaflet-interactive]:cursor-crosshair!"
         onDragOver={(event) => {
           if (editing && event.dataTransfer.types.includes(ENTITY_DRAG_TYPE)) event.preventDefault()
         }}

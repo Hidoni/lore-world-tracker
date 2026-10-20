@@ -988,6 +988,35 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
         ),
         'PinWriteResult',
       ),
+    createRegion: async (vault, map, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/maps/maps/{map_id}/regions`, {
+            params: { path: { vault_id: vault, map_id: map } },
+            body,
+          }),
+        ),
+        'RegionWriteResult',
+      ),
+    updateRegion: async (vault, region, body) =>
+      toDomain(
+        await unwrap(
+          client.PATCH(`${V}/m/maps/regions/{region_id}`, {
+            params: { path: { vault_id: vault, region_id: region } },
+            body,
+          }),
+        ),
+        'RegionWriteResult',
+      ),
+    deleteRegion: async (vault, region) =>
+      toDomain(
+        await unwrap(
+          client.DELETE(`${V}/m/maps/regions/{region_id}`, {
+            params: { path: { vault_id: vault, region_id: region } },
+          }),
+        ),
+        'RegionWriteResult',
+      ),
     createLexiconEntry: async (vault, language, body) =>
       toDomain(
         await unwrap(

@@ -1,4 +1,4 @@
-import type { MapDetail, MapPin } from '@/data'
+import type { MapDetail, MapPin, MapRegion } from '@/data'
 
 /** Pins with no target form their own layer. */
 export const LABEL_LAYER = 'label'
@@ -44,6 +44,43 @@ export function pinsToShow(
     const now = there.get(pin.id)
     return { pin: now ?? pin, ghost: now === undefined || now.shown === 'possible' }
   })
+}
+
+/** The layer of every region (they toggle together; not a kind id). */
+export const REGION_LAYER = '#regions'
+
+export interface ShownRegion {
+  region: MapRegion
+  /** Faded: not there at the cursor (ghost mode), or only possibly there. */
+  ghost: boolean
+}
+
+/** The regions to draw: like `pinsToShow`, with all regions in one layer. */
+export function regionsToShow(
+  all: readonly MapRegion[],
+  current: readonly MapRegion[] | null,
+  mode: CursorMode,
+  hiddenLayers: ReadonlySet<string> = new Set(),
+): ShownRegion[] {
+  if (hiddenLayers.has(REGION_LAYER)) return []
+  if (current === null) return all.map((region) => ({ region, ghost: false }))
+  const there = new Map(current.map((region) => [region.id, region]))
+  const base = mode === 'hide' ? current : all
+  return base.map((region) => {
+    const now = there.get(region.id)
+    return {
+      region: now ?? region,
+      ghost: now === undefined || now.shown === 'possible',
+    }
+  })
+}
+
+/**
+ * A region's fill: its own color, else its first controller's (at the cursor, or ever without
+ * one), else its target's; `null` for the default.
+ */
+export function regionColor(region: MapRegion): string | null {
+  return region.color ?? region.controllers[0]?.color ?? region.target?.color ?? null
 }
 
 /** Leaflet's simple CRS has y going up: image pixel `(x, y)` from the top left. */

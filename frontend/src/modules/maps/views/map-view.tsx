@@ -4,6 +4,7 @@ import {
   ExternalLinkIcon,
   MapIcon,
   PencilIcon,
+  PentagonIcon,
   TagIcon,
   XIcon,
 } from 'lucide-react'
@@ -16,12 +17,15 @@ import { SpanDisplay, useEntityAsOf } from '@/core/time'
 import {
   mediaFileUrl,
   useCreatePin,
+  useCreateRegion,
   useEntity,
   useMapDetail,
   useMutations,
   useUpdatePin,
+  useUpdateRegion,
   type MapDetail,
   type MapPin,
+  type MapRegion,
 } from '@/data'
 import { cn } from '@/lib/utils'
 
@@ -30,14 +34,19 @@ import {
   layerOf,
   layersOf,
   pinsToShow,
+  REGION_LAYER,
+  regionColor,
+  regionsToShow,
   trail,
   type CursorMode,
   type ShownPin,
+  type ShownRegion,
 } from '../pins'
 import { AddPinDialog, type PinChoice } from '../edit/add-pin-dialog'
 import { ChildTray } from '../edit/child-tray'
 import { PinEditor } from '../edit/pin-editor'
-import type { CanvasMarker, Point } from './map-canvas'
+import { RegionEditor } from '../edit/region-editor'
+import type { CanvasMarker, CanvasRegion, Point } from './map-canvas'
 
 const MapCanvas = lazy(() => import('./map-canvas'))
 
@@ -52,10 +61,10 @@ export interface MapViewProps {
 }
 
 /**
- * A map with its pins (docs/modules/maps.md, UI: view mode): breadcrumbs of the enclosing maps,
- * layer toggles by kind, and with a time cursor the pins there at that moment (the others hidden
- * or ghosted). Hovering a pin names it; a click opens a popover with "open page" and "drill into
- * map".
+ * A map with its pins and regions (docs/modules/maps.md, UI: view mode): breadcrumbs of the
+ * enclosing maps, layer toggles by kind, and with a time cursor the pins and regions there at that
+ * moment (the others hidden or ghosted). Hovering a pin names it; a click opens a popover with
+ * "open page" and "drill into map" (for a region, who controls it).
  */
 export function MapView({ vault, mapId, onOpenMap, focusPin = null, className }: MapViewProps) {
   const detail = useMapDetail(vault, mapId)
@@ -112,6 +121,10 @@ function LoadedMap({
   const [editing, setEditing] = useState(false)
   const [asList, setAsList] = useState(false)
   const [placing, setPlacing] = useState<Point | null>(null)
+  // A region being drawn: its corners, and the region it replaces the outline of (redrawing).
+  const [drawing, setDrawing] = useState<Point[] | null>(null)
+  const [redrawing, setRedrawing] = useState<MapRegion | null>(null)
+  const [outlined, setOutlined] = useState<Point[] | null>(null)
   const place = useEntity(vault, detail.location_id)
   const dimensionId = place.data?.dimension_id ?? null
   const dimension = useEntity(vault, dimensionId ?? '', {}, { enabled: dimensionId !== null })
@@ -132,6 +145,50 @@ function LoadedMap({
     if (now === undefined) return null
     return pinsToShow(mode === 'ghost' ? (timeline.data?.pins ?? now) : now, now, mode, hidden)
   }, [cursor, editing, detail.pins, current.data, timeline.data, mode, hidden])
+  const shownRegions: ShownRegion[] | null = useMemo(() => {
+    if (!cursor || editing) return regionsToShow(detail.regions, null, mode, hidden)
+    const now = current.data?.regions
+    if (now === undefined) return null
+    return regionsToShow(
+      mode === 'ghost' ? (timeline.data?.regions ?? now) : now,
+      now,
+      mode,
+      hidden,
+    )
+  }, [cursor, editing, detail.regions, current.data, timeline.data, mode, hidden])
+  const createRegion = useCreateRegion(vault, detail.id)
+  const updateRegion = useUpdateRegion(vault)
+  const regionFailed = (error: Error) => {
+    toast.error(`The region wasn't saved: ${error.message}`)
+  }
+  const pointsOf = (points: readonly Point[]) => points.map(({ x, y }) => [x, y])
+  const finishDrawing = () => {
+    if (drawing === null || drawing.length < 3) return
+    if (redrawing !== null) {
+      reshape(redrawing, drawing)
+      setSelected(redrawing.id)
+    } else setOutlined(drawing)
+    setDrawing(null)
+    setRedrawing(null)
+  }
+  const reshape = (region: MapRegion, points: readonly Point[]) => {
+    updateRegion.mutate(
+      { region: region.id, body: { revision: region.revision, points: pointsOf(points) } },
+      { onError: regionFailed },
+    )
+  }
+  const addRegion = (choice: PinChoice, points: readonly Point[]) => {
+    const body = 'target' in choice ? { target_entity_id: choice.target } : { label: choice.label }
+    createRegion.mutate(
+      { ...body, points: pointsOf(points) },
+      {
+        onSuccess: (result) => {
+          setSelected(result.region.id)
+        },
+        onError: regionFailed,
+      },
+    )
+  }
   const createPin = useCreatePin(vault, detail.id)
   const updatePin = useUpdatePin(vault)
   const failed = (error: Error) => {
@@ -158,6 +215,19 @@ function LoadedMap({
     )
   }
   const layers = layersOf([...detail.pins, ...(current.data?.pins ?? [])])
+  if (detail.regions.length > 0 || (current.data?.regions.length ?? 0) > 0)
+    layers.splice(0, 0, REGION_LAYER)
+  const regions: CanvasRegion[] = useMemo(
+    () =>
+      (shownRegions ?? []).map(({ region, ghost }) => ({
+        id: region.id,
+        label: region.display_label,
+        points: region.points,
+        color: regionColor(region),
+        ghost,
+      })),
+    [shownRegions],
+  )
   const markers: CanvasMarker[] = useMemo(
     () =>
       (shown ?? []).map(({ pin, ghost }) => ({
@@ -172,6 +242,7 @@ function LoadedMap({
     [shown, registry],
   )
   const chosen = shown?.find((item) => item.pin.id === selected) ?? null
+  const chosenRegion = shownRegions?.find((item) => item.region.id === selected) ?? null
   const crumbs = trail(detail)
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -215,7 +286,11 @@ function LoadedMap({
                     setHidden(next)
                   }}
                 />
-                {layer === LABEL_LAYER ? 'Labels' : (registry?.kind(layer)?.plural ?? layer)}
+                {layer === LABEL_LAYER
+                  ? 'Labels'
+                  : layer === REGION_LAYER
+                    ? 'Regions'
+                    : (registry?.kind(layer)?.plural ?? layer)}
               </label>
             ))}
           </fieldset>
@@ -229,11 +304,44 @@ function LoadedMap({
             onClick={() => {
               setEditing(!editing)
               setSelected(null)
+              setDrawing(null)
+              setRedrawing(null)
             }}
           >
             <PencilIcon aria-hidden />
-            {editing ? 'Done editing' : 'Edit pins'}
+            {editing ? 'Done editing' : 'Edit map'}
           </Button>
+        )}
+        {editing && drawing === null && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSelected(null)
+              setDrawing([])
+            }}
+          >
+            <PentagonIcon aria-hidden />
+            Draw region
+          </Button>
+        )}
+        {editing && drawing !== null && (
+          <>
+            <Button size="sm" disabled={drawing.length < 3} onClick={finishDrawing}>
+              Finish region
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                if (redrawing !== null) setSelected(redrawing.id)
+                setDrawing(null)
+                setRedrawing(null)
+              }}
+            >
+              Cancel
+            </Button>
+          </>
         )}
         {!editing && (
           <label className="flex items-center gap-1">
@@ -261,12 +369,19 @@ function LoadedMap({
         )}
       </div>
       {editing && (
-        <p className="text-xs text-muted-foreground">
-          Click the map to add a pin, drag pins to move them, click one to edit it.
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {drawing === null
+            ? 'Click the map to add a pin, drag pins to move them, click a pin or a region to edit it (a region’s corners drag).'
+            : `Click the map to add corners (${String(drawing.length)} so far), then finish the region.`}
         </p>
       )}
       {asList && !editing ? (
-        <PinList vault={vault} shown={shown} registry={registry} onOpenMap={onOpenMap} />
+        <>
+          <PinList vault={vault} shown={shown} registry={registry} onOpenMap={onOpenMap} />
+          {shownRegions !== null && shownRegions.length > 0 && (
+            <RegionList vault={vault} shown={shownRegions} />
+          )}
+        </>
       ) : (
         <div className="flex min-h-64 flex-1 gap-3">
           <div className="relative flex-1 overflow-hidden rounded-md border">
@@ -276,6 +391,7 @@ function LoadedMap({
                 width={detail.width}
                 height={detail.height}
                 markers={markers}
+                regions={regions}
                 selected={selected}
                 focus={focusPin}
                 onSelect={setSelected}
@@ -284,6 +400,14 @@ function LoadedMap({
                 onMove={movePin}
                 onDropEntity={(entity, at) => {
                   addPin({ target: entity }, at)
+                }}
+                drawing={drawing}
+                onDraw={(at) => {
+                  setDrawing((corners) => (corners === null ? null : [...corners, at]))
+                }}
+                onReshape={(id, points) => {
+                  const region = detail.regions.find((candidate) => candidate.id === id)
+                  if (region !== undefined) reshape(region, points)
                 }}
               />
             </Suspense>
@@ -294,6 +418,34 @@ function LoadedMap({
                 pin={chosen.pin}
                 dimension={dimensionId}
                 timeline={editTimeline}
+                onClose={() => {
+                  setSelected(null)
+                }}
+              />
+            )}
+            {editing && drawing === null && chosenRegion !== null && (
+              <RegionEditor
+                key={`${chosenRegion.region.id}:${String(chosenRegion.region.revision)}`}
+                vault={vault}
+                region={chosenRegion.region}
+                location={detail.location_id}
+                dimension={dimensionId}
+                timeline={editTimeline}
+                onRedraw={() => {
+                  setRedrawing(chosenRegion.region)
+                  setSelected(null)
+                  setDrawing([])
+                }}
+                onClose={() => {
+                  setSelected(null)
+                }}
+              />
+            )}
+            {!editing && chosenRegion !== null && (
+              <RegionPopover
+                vault={vault}
+                location={detail.location_id}
+                shown={chosenRegion}
                 onClose={() => {
                   setSelected(null)
                 }}
@@ -326,6 +478,20 @@ function LoadedMap({
             </aside>
           )}
         </div>
+      )}
+      {outlined !== null && (
+        <AddPinDialog
+          vault={vault}
+          location={detail.location_id}
+          noun="region"
+          onAdd={(choice) => {
+            addRegion(choice, outlined)
+            setOutlined(null)
+          }}
+          onClose={() => {
+            setOutlined(null)
+          }}
+        />
       )}
       {placing !== null && (
         <AddPinDialog
@@ -499,6 +665,139 @@ function PinPopover({
           </Button>
         )}
       </div>
+    </section>
+  )
+}
+
+/** Who controls a region's place, as links. */
+function Controllers({ vault, region }: { vault: string; region: MapRegion }) {
+  if (region.controllers.length === 0) return null
+  return (
+    <p className="text-xs">
+      Controlled by{' '}
+      {region.controllers.map((controller, index) => (
+        <span key={controller.id}>
+          {index > 0 && ', '}
+          <Link
+            to="/v/$vault/e/$entity"
+            params={{ vault, entity: controller.id }}
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            {controller.name}
+          </Link>
+        </span>
+      ))}
+    </p>
+  )
+}
+
+/** The regions shown, in the list view: by label, with who controls each. */
+function RegionList({ vault, shown }: { vault: string; shown: ShownRegion[] }) {
+  const sorted = [...shown].sort((a, b) =>
+    a.region.display_label.localeCompare(b.region.display_label),
+  )
+  return (
+    <ul aria-label="Regions" className="flex flex-col divide-y rounded-md border text-sm">
+      {sorted.map(({ region, ghost }) => (
+        <li key={region.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+          <PentagonIcon
+            aria-hidden
+            className="size-4 shrink-0"
+            style={{ color: regionColor(region) ?? undefined }}
+          />
+          {region.target !== null ? (
+            <Link
+              to="/v/$vault/e/$entity"
+              params={{ vault, entity: region.target.id }}
+              className="font-medium underline-offset-2 hover:underline"
+            >
+              {region.display_label}
+            </Link>
+          ) : (
+            <span className="font-medium">{region.display_label}</span>
+          )}
+          <span className="text-xs text-muted-foreground">Region</span>
+          {ghost && (
+            <span className="text-xs text-muted-foreground">
+              {region.shown === 'possible' ? 'possibly there' : 'not there at the cursor'}
+            </span>
+          )}
+          <Controllers vault={vault} region={region} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function RegionPopover({
+  vault,
+  location,
+  shown: { region, ghost },
+  onClose,
+}: {
+  vault: string
+  location: string
+  shown: ShownRegion
+  onClose: () => void
+}) {
+  const place = useEntity(vault, location)
+  const dimension = place.data?.dimension_id ?? null
+  const bounded = region.valid_from_t !== null || region.valid_to_t !== null
+  return (
+    <section
+      role="dialog"
+      aria-label={region.display_label}
+      className="absolute top-2 right-2 z-[1000] flex w-72 flex-col gap-2 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-md"
+    >
+      <header className="flex items-start gap-2">
+        <PentagonIcon
+          aria-hidden
+          className="mt-0.5 size-4 shrink-0"
+          style={{ color: regionColor(region) ?? undefined }}
+        />
+        <h3 className="flex-1 font-medium">{region.display_label}</h3>
+        <button type="button" aria-label="Close" onClick={onClose}>
+          <XIcon aria-hidden className="size-4" />
+        </button>
+      </header>
+      {ghost && (
+        <p className="text-xs text-muted-foreground">
+          {region.shown === 'possible'
+            ? 'Possibly there at the cursor.'
+            : 'Not there at the cursor.'}
+        </p>
+      )}
+      <Controllers vault={vault} region={region} />
+      {bounded && dimension !== null && (
+        <p className="text-xs">
+          <SpanDisplay
+            vault={vault}
+            dimension={dimension}
+            start={
+              region.valid_from_t === null
+                ? null
+                : { t: region.valid_from_t, precision: region.valid_from?.precision ?? 'base' }
+            }
+            end={
+              region.valid_to_t === null
+                ? null
+                : { t: region.valid_to_t, precision: region.valid_to?.precision ?? 'base' }
+            }
+            startPoint={region.valid_from}
+            endPoint={region.valid_to}
+          />
+        </p>
+      )}
+      {region.target !== null && (
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/v/$vault/e/$entity" params={{ vault, entity: region.target.id }}>
+              <ExternalLinkIcon aria-hidden />
+              Open page
+            </Link>
+          </Button>
+        </div>
+      )}
     </section>
   )
 }

@@ -126,12 +126,12 @@ Files no page uses for 30 days go to the trash on their own, and leave the trash
 
 ## Maps
 
-Image maps of locations, with pins for places, events, characters or anything else (needs
-Locations and Media).
+Image maps of locations, with pins for places, events, characters or anything else, and regions
+for territories (needs Locations and Media).
 
 - **Add a map:** on a location's page, **New map** in the **Map** panel; name it and pick or
   upload its image. A location can have several maps. **Full screen** opens the map page.
-- **Add pins:** click **Edit pins**, then click the map: **Add a pin** finds an entity by name,
+- **Add pins:** click **Edit map**, then click the map: **Add a pin** finds an entity by name,
   **Create a location here** makes a new child location, or add a label. Drag pins to move them;
   click one to set its label, icon, color, the map it **Drills into**, when it stands, and its
   visibility, or **Remove pin**. The tray of unplaced child locations (**Pin child locations**)
@@ -141,7 +141,12 @@ Locations and Media).
 - **Time cursor:** pins follow it. A pin shows while its target exists (a character between
   birth and death, an event while it happens), unless you give the pin dates of its own. Tick
   **Ghost what isn't there** to see the hidden pins faded instead.
-- **Layers** turn pins on and off by kind; pins without a target form the **Labels** layer.
+- **Regions:** in **Edit map**, click **Draw region**, click the map at each corner, then
+  **Finish region** and pick the place it is (or write a label). A region takes the color of
+  whoever controls its place (a **controls** link from a group, with dates: borders change as
+  power does), unless you give it one. Click a region to edit it, **Redraw** it, or drag its
+  corners. Outside edit mode, clicking a region says who controls it at the cursor.
+- **Layers** turn pins on and off by kind (regions are one layer, **Regions**); pins without a target form the **Labels** layer.
 - **As a list** shows the pins as a list, with whether each is there at the cursor.
 - A pinned entity's page gets a **Show on map** panel that opens the map at its pin.
 

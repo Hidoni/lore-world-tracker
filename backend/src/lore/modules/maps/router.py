@@ -21,6 +21,9 @@ from lore.modules.maps.schemas import (
     PinCreate,
     PinUpdate,
     PinWriteResult,
+    RegionCreate,
+    RegionUpdate,
+    RegionWriteResult,
 )
 from lore.modules.maps.service import Maps
 
@@ -114,6 +117,33 @@ def trash_pin(
     pin_id: IdPath, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
 ) -> PinWriteResult:
     return Maps(VaultContext(vault, session, registry), AUTHOR).trash_pin(pin_id)
+
+
+@router.post("/maps/{map_id}/regions", name="add_region", status_code=201)
+def add_region(
+    map_id: IdPath, body: RegionCreate, vault: WritableVaultDep, session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> RegionWriteResult:  # fmt: skip
+    """A region (#154): a polygon of image pixel coordinates, for an entity (a territory: its
+    location) or a label; a validity needs a timeline of the location's dimension."""
+    request_suppress(session, body.suppress)
+    return Maps(VaultContext(vault, session, registry), AUTHOR).add_region(map_id, body)
+
+
+@router.patch("/regions/{region_id}", name="update_region")
+def update_region(
+    region_id: IdPath, body: RegionUpdate, vault: WritableVaultDep, session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> RegionWriteResult:  # fmt: skip
+    request_suppress(session, body.suppress)
+    return Maps(VaultContext(vault, session, registry), AUTHOR).update_region(region_id, body)
+
+
+@router.delete("/regions/{region_id}", name="trash_region")
+def trash_region(
+    region_id: IdPath, vault: WritableVaultDep, session: SessionDep, registry: ModuleRegistryDep
+) -> RegionWriteResult:
+    return Maps(VaultContext(vault, session, registry), AUTHOR).trash_region(region_id)
 
 
 @router.get("/entities/{entity_id}/pins", name="entity_pins")

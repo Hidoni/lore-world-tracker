@@ -1,7 +1,8 @@
 # Module: `maps` — Interactive maps
 
 > Image-based maps attached to locations, with pins for locations, events or any entity,
-> drill-down into nested maps, and time-aware pins that follow the as-of cursor. Covers R-MAP-1.
+> drill-down into nested maps, time-aware pins that follow the as-of cursor, and regions
+> (territories over time, colored by who controls them). Covers R-MAP-1.
 
 ## Summary
 
@@ -44,11 +45,26 @@ None. Maps belong to locations.
 | `timeline_id` NULL, `overrides_id`, `valid_from/to spec+t`, `time_status` | explicit validity (optional). Without it the pin follows the **target's existence** at the cursor |
 | `revision`, timestamps, `deleted_at` | |
 
+`maps_regions` (#154):
+
+| Column | Notes |
+|--------|-------|
+| `id`, `map_id` | |
+| `target_entity_id` NULL | the place the region is (whose `groups.controls` controllers color it); NULL = label-only region |
+| `label` NULL | defaults to the target's name |
+| `points` JSON | the outline: `[[x, y], …]` image pixels, 3 to 2000 corners, in order |
+| `color` NULL | NULL: the first controller's color, else the target's |
+| `visibility` | |
+| `timeline_id` NULL, `overrides_id`, `valid_from/to spec+t`, `time_status` | explicit validity, as for pins |
+| `revision`, timestamps, `deleted_at` | |
+
 ## API
 
 - `GET|POST /m/maps/maps?location=`, `GET|PATCH|DELETE /m/maps/maps/{id}`
 - `GET /m/maps/maps/{id}?timeline=&at=`: map plus pins visible as of the moment (existence-aware)
 - `POST /m/maps/maps/{id}/pins`, `PATCH|DELETE /m/maps/pins/{id}`
+- `POST /m/maps/maps/{id}/regions`, `PATCH|DELETE /m/maps/regions/{id}` (#154); the map's
+  `regions` come with its pins, each with its `controllers`
 - `GET /m/maps/entities/{id}/pins`: where an entity is pinned (for "show on map")
 
 ## UI
@@ -72,7 +88,7 @@ None. Maps belong to locations.
   are there at the cursor, a link to the pinned entity and "Drill into map".
 - Entity pages of pinned entities get a "Show on map" side panel (one entry per pin) that opens
   the map at the pin; it is left out on entities pinned nowhere.
-- Edit mode (#130; authors, "Edit pins"): every pin of the map shows, whenever it stands, and
+- Edit mode (#130; authors, "Edit map"): every pin of the map shows, whenever it stands, and
   markers don't cluster. A click on the map opens "Add a pin" (an entity found by name, a new
   location created there as a child of the map's location, or a label); pins drag to move; a click
   on a pin opens its editor (label, icon, color, the map it drills into, validity with time point
@@ -80,6 +96,17 @@ None. Maps belong to locations.
   beside the map lists the location's child locations not pinned on it yet: drag one onto the map,
   or place it in the middle. The location panel's "New map" names the map and picks or uploads its
   image (the media module's image picker).
+- Regions (#154) are filled polygons under the pins, in their own color, else their first
+  controller's (who has a `groups.controls` link to the region's place, at the cursor), else the
+  place's. They follow the time cursor like pins (hidden or ghosted: faded and dashed) and toggle
+  together as the **Regions** layer. A click opens a popover: who controls the place (links), the
+  region's dates, "open page". "As a list" lists them after the pins, with their controllers.
+- Region editing (the edit mode, "Edit map"): **Draw region**, click the corners, **Finish
+  region** (3 corners at least), then pick its place or write a label (the "Add a pin" dialog).
+  A click on a region opens its editor (place, label, color, when it stands, visibility,
+  **Redraw** the outline, remove); the selected region's corners drag. Leaflet-geoman was
+  considered and left out: clicks, draggable corner markers and plain polygons cover it without
+  another plugin.
 - Leaflet and its clustering plugin load with the first map shown (frontend.md §12); the canvas
   is `modules/maps/views/map-canvas.tsx`, the pin filtering `modules/maps/pins.ts`.
 
@@ -87,13 +114,13 @@ None. Maps belong to locations.
 
 | Id | Default | Check |
 |----|---------|-------|
-| `maps.pin_target_missing` | warning | pin target trashed/hidden |
+| `maps.pin_target_missing` | warning | pin target trashed/hidden (regions' targets aren't checked) |
 | `maps.pin_outside_map_location` | off | pinned location is not inside the map's location tree |
 
 ## Visibility, publish
 
-Pins are reader-visible iff the pin, the map, the map's location and the target (if any) are
-visible. Publish copies only maps with visible media.
+Pins and regions are reader-visible iff the pin (region), the map, the map's location and the
+target (if any) are visible. A region's controllers are the visible ones only. Publish copies only maps with visible media.
 
 ## Disabling / removal notes
 
@@ -116,6 +143,13 @@ Disabling hides maps and pins. Data and media are kept.
   location's dimension) and, with `at`, only those there then. `drill_map_id` is `child_map_id` or
   the target location's first map (by `sort_key`, then creation); `breadcrumbs` list the first map
   of each ancestor location, outermost first.
+- **Regions** (#154) are checked and stored like pins: corners within the image (`422` path
+  `points.<i>`), a target or a label, a validity in a timeline of the location's dimension
+  (record type `maps.region`, slots `valid_from`/`valid_to`; branches override `valid_to`), else
+  following the target at the cursor. `controllers` are the visible sources of `groups.controls`
+  links to the target (valid at the cursor with `at`, at any time without); maps doesn't depend
+  on groups, so without it they are empty. Trashing a map trashes its regions; purging removes
+  them with their map, target or timeline.
 - **Rules:** `maps.pin_target_missing` also reports a private target on a pin and map that
   aren't private (readers lose the pin).
 - **Purge:** purging an entity removes the pins pointing at it or living in it (a timeline) and
@@ -125,10 +159,11 @@ Disabling hides maps and pins. Data and media are kept.
   copied by the media module's contributor. A map's image is visible to readers at its most
   visible map's level, so a private map sharing a public map's image doesn't hide it.
 - The sample world has a map of Thalassa (pins: the city of Varn drilling into its map, the
-  Sundering, a label) and one of Varn (the Spire, the Old Harbor until the Sundering).
+  Sundering, a label, the Kingdom of Varn as a region) and one of Varn (the Spire, the Old Harbor
+  until the Sundering).
 
 ## Future ideas
 
-Deep-zoom tiling for very large images; polygons/regions for territories over time (linked to
-`groups.controls`); paths/routes for journeys, animated along time or worldlines; distance
+Deep-zoom tiling for very large images; regions that change shape over time (today a new
+outline is a new region with its own validity); paths/routes for journeys, animated along time or worldlines; distance
 measurement using `scale`; fantasy-map generators.
