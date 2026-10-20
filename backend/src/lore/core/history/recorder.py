@@ -38,6 +38,7 @@ from lore.core.history.tables import HistoryTable, Row
 MERGE_WINDOW = timedelta(minutes=2)
 ENTITY_TABLE = "entities"
 UNDO = "undo"
+REFINEMENT = "refinement"  # a base-unit refinement (``lore.core.time.refine``)
 
 _TABLES = "lore_history_tables"
 _PENDING = "lore_history_pending"

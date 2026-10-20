@@ -31,7 +31,7 @@ from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
 from lore.core.history import recorder
 from lore.core.history.compaction import COMPACTION
 from lore.core.history.models import Change, ChangeEntity, Changeset
-from lore.core.history.recorder import record_bulk, recorded_tables, stored_row
+from lore.core.history.recorder import REFINEMENT, record_bulk, recorded_tables, stored_row
 from lore.core.history.schemas import (
     ChangedEntity,
     ChangeOut,
@@ -347,6 +347,18 @@ class HistoryService:
             raise ConflictError("This changeset was already undone.")
         if changeset.origin == COMPACTION:
             raise ConflictError("Compacted history can't be undone.")
+        if changeset.origin == REFINEMENT:
+            raise ConflictError(
+                "A base-unit refinement can't be undone: restore the backup taken before it."
+            )
+        later = select(Changeset.id).where(
+            Changeset.origin == REFINEMENT, Changeset.id > changeset.id
+        )
+        if self.session.scalar(later.limit(1)) is not None:
+            raise ConflictError(
+                "Changes made before a base-unit refinement can't be undone: they hold moments "
+                "in the old unit."
+            )
         return changeset
 
     def revert(self, changeset_id: str) -> RevertResult:

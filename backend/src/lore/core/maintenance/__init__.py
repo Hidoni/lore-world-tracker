@@ -1,14 +1,16 @@
-"""Vault maintenance: health checks, derived-data rebuilds, history compaction and database
-optimization (``persistence-and-migrations.md`` §2, §3.4; the ``lore vault check``, ``reindex``,
-``compact-history`` and ``optimize`` commands).
+"""Vault maintenance: health checks, derived-data rebuilds, history compaction, base-unit
+refinement and database optimization (``persistence-and-migrations.md`` §2, §3.4; the ``lore vault
+check``, ``reindex``, ``compact-history``, ``refine-base-unit`` and ``optimize`` commands).
 """
 
 from lore.core.maintenance.checks import DERIVED_DATA, DerivedDataCheck, Problem
 from lore.core.maintenance.service import (
     CheckReport,
+    Refinement,
     check_vault,
     compact_vault_history,
     optimize_vault,
+    refine_dimension_base_unit,
     reindex_vault,
     run_checks,
 )
@@ -18,9 +20,11 @@ __all__ = [
     "CheckReport",
     "DerivedDataCheck",
     "Problem",
+    "Refinement",
     "check_vault",
     "compact_vault_history",
     "optimize_vault",
+    "refine_dimension_base_unit",
     "reindex_vault",
     "run_checks",
 ]

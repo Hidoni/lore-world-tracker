@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
+from sqlalchemy import or_, select
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
@@ -17,10 +18,15 @@ from sqlalchemy.pool import NullPool
 from lore.core.db import create_vault_engine, optimize, snapshot, vacuum
 from lore.core.db.migrate import SchemaState, SchemaStatus
 from lore.core.db.types import utc_now
+from lore.core.entities.models import Entity
+from lore.core.errors import NotFoundError
 from lore.core.history.compaction import CompactionReport, compact_history
 from lore.core.maintenance.checks import DERIVED_DATA, DerivedDataCheck, Problem
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
+from lore.core.time.cache import CALENDARS, SERIES, WINDOWS
+from lore.core.time.dimensions import DIMENSION
+from lore.core.time.refine import RefineReport, refine_base_unit
 from lore.core.vaults import OpenVault, VaultManager
 from lore.core.vaults.format import DATABASE_NAME
 
@@ -181,6 +187,66 @@ def compact_vault_history(
         else:
             session.commit()
     return report
+
+
+@dataclass(frozen=True)
+class Refinement:
+    """A base-unit refinement's report and the backup taken before it (``None`` on a dry run)."""
+
+    report: RefineReport
+    backup_id: str | None
+
+
+def refine_dimension_base_unit(
+    manager: VaultManager,
+    vault_id: str,
+    dimension: str,
+    factor: int,
+    base_unit: dict[str, str] | None = None,
+    *,
+    dry_run: bool = False,
+) -> Refinement:
+    """Refine a dimension's base unit (``lore.core.time.refine``; ``dimension`` is its id or
+    exact name) in one write transaction, after a backup of the vault (``kind = pre``, reason
+    ``base-unit-refinement``); ``dry_run`` rolls it back and only reports. Consistency findings
+    are recorded, never refusing (``record_only``), and scanned again."""
+    from lore.core.consistency.engine import record_only, scan  # noqa: PLC0415 (import cycle)
+
+    vault = manager.open(vault_id)
+    registry = manager.module_registry
+    assert registry is not None
+    with vault.write_sessions() as session:
+        dimension_id = _dimension_id(session, dimension)
+    backup = None if dry_run else manager.backup_before(vault_id, "base-unit-refinement").id
+    with vault.write_sessions() as session:
+        record_only(session)
+        context = VaultContext(vault, session, registry)
+        report = refine_base_unit(context, dimension_id, factor, base_unit)
+        scan(context)
+        if dry_run:
+            session.rollback()
+            for cache in (CALENDARS, WINDOWS, SERIES):
+                cache.forget_vault(vault.id)
+        else:
+            session.commit()
+    return Refinement(report, backup)
+
+
+def _dimension_id(session: Session, dimension: str) -> str:
+    found = session.scalars(
+        select(Entity.id).where(
+            Entity.kind == DIMENSION,
+            Entity.deleted_at.is_(None),
+            or_(Entity.id == dimension, Entity.name == dimension),
+        )
+    ).all()
+    if len(found) != 1:
+        raise NotFoundError(
+            f"No dimension {dimension!r}."
+            if not found
+            else f"Several dimensions are {dimension!r}."
+        )
+    return found[0]
 
 
 def optimize_vault(vault: OpenVault, *, vacuum_database: bool = False) -> None:

@@ -384,7 +384,7 @@ Mentions of the entity itself and of missing entities aren't recorded (decided 2
 
 ## 7. History: changesets
 
-- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'import'|'migration'|'system'|'undo'|'compaction'),
+- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'import'|'migration'|'system'|'undo'|'compaction'|'refinement'),
   summary, request_id, reverts_changeset_id NULL, reverted_by_changeset_id NULL)`.
 - `changes(id INTEGER PK, changeset_id → changesets, table_name, row_id, op ('insert'|'update'|'delete'),
   before JSON NULL, after JSON NULL)`.
@@ -422,6 +422,10 @@ changeset (origin `undo`, `reverts_changeset_id`; the reverted one gets
 `reverted_by_changeset_id`) and can be undone (redo). Derived data is recomputed by
 `REVERT_HOOKS` after an undo. History of purged entities stays available (decided 2026-10-04).
 History is never shown to readers: on a read-only server the history routes answer `404`.
+
+**Base-unit refinements** (#152, `time-model.md` §3.1): a refinement's changeset (origin
+`refinement`) can't be undone, and neither can any changeset before it (`409 conflict`): their
+rows hold moments in the old unit. The backup taken before the refinement restores them.
 
 **Retention and compaction** (#159): everything is kept by default. `lore vault compact-history
 <vault> --older-than N [--dry-run]` (`lore.core.history.compaction`) replaces the history older

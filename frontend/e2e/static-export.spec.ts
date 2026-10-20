@@ -13,8 +13,12 @@ test('a static export opens from any folder of a plain web server', async ({ pag
   page.on('request', (request) => requests.push(request.url()))
   let data = 0
   page.on('response', (response) => {
+    // A response the reload navigated away from has no body any more: it isn't counted.
     if (response.url().includes('/site/data/'))
-      void response.body().then((body) => (data += body.length))
+      response.body().then(
+        (body) => (data += body.length),
+        () => undefined,
+      )
   })
 
   await page.goto(STATIC_URL)

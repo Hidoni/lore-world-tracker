@@ -9518,7 +9518,7 @@ export interface operations {
                 cursor?: string | null;
                 limit?: number;
                 /** @description Only changesets of these origins (repeatable). */
-                origin?: ("ui" | "api" | "cli" | "import" | "migration" | "system" | "undo" | "compaction")[] | null;
+                origin?: ("ui" | "api" | "cli" | "import" | "migration" | "system" | "undo" | "compaction" | "refinement")[] | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
