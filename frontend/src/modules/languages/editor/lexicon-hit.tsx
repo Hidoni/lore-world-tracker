@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { BookIcon } from 'lucide-react'
 
-import type { SearchHitProps } from '@/core/modules'
+import { LanguageText, type SearchHitProps } from '@/core/modules'
 import { SnippetText } from '@/core/search'
 import { useEntity, type components } from '@/data'
 
@@ -20,7 +20,7 @@ export function LexiconHit({ vault, hit: raw }: SearchHitProps) {
           params={{ vault, module: 'languages', _splat: `${hit.entity_id}/lexicon` }}
           className="font-medium italic hover:underline"
         >
-          {hit.name}
+          <LanguageText vault={vault} language={hit.entity_id} text={hit.name} />
         </Link>
         <span className="text-xs text-muted-foreground">
           Word{language.data ? ` · ${language.data.name}` : ''}

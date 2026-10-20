@@ -11,6 +11,7 @@ import locations from './locations'
 import maps from './maps'
 import media from './media'
 import misc from './misc'
+import scripts from './scripts'
 import species from './species'
 import worldlines from './worldlines'
 
@@ -30,5 +31,6 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   worldlines,
   media,
   maps,
+  scripts,
   customFields,
 ]

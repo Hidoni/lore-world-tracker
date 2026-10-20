@@ -204,6 +204,45 @@ def test_documents_and_svg(library: Library) -> None:
     assert "can't be read" in unreadable.json()["errors"][0]["message"]
 
 
+def sfnt(signature: bytes = b"\x00\x01\x00\x00", tables: int = 1) -> bytes:
+    """A font's sfnt header: the signature, the table count, then a record per table."""
+    return signature + tables.to_bytes(2) + bytes(6) + bytes(16 * tables)
+
+
+def woff(signature: bytes = b"wOF2", extra: int = 32) -> bytes:
+    """A WOFF/WOFF2 header whose length field says the file's length."""
+    length = 12 + extra
+    return signature + b"\x00\x01\x00\x00" + length.to_bytes(4) + bytes(extra)
+
+
+def test_fonts(library: Library) -> None:
+    """Script fonts (#155): woff2, woff, ttf and otf by their bytes, with whole headers; served
+    as attachments (browsers load them with ``@font-face`` all the same)."""
+    for data, name, mime in [
+        (woff(), "runes.woff2", "font/woff2"),
+        (woff(b"wOFF", 40), "runes.woff", "font/woff"),
+        (sfnt(), "runes.ttf", "font/ttf"),
+        (sfnt(b"true", 2), "old.ttf", "font/ttf"),
+        (sfnt(b"OTTO", 3), "runes.otf", "font/otf"),
+    ]:
+        item = library.uploaded(data, name)
+        assert item["mime"] == mime
+        assert item["width"] is None
+        served = library.file(item["id"])
+        assert served.headers["content-type"] == mime
+        assert served.content == data
+        assert library.file(item["id"], size="160").status_code == 422  # no thumbnails
+    # Judged by the bytes, not the name: a PNG named .woff2 is an image.
+    assert library.uploaded(png(), "fake.woff2")["mime"] == "image/png"
+    for damaged in (woff()[:-1], sfnt()[:20], sfnt(tables=0), b"wOF2"):
+        response = library.upload(damaged, "broken.woff2")
+        assert invalid(response) == ["file"]
+    assert "damaged" in library.upload(sfnt()[:20], "broken.ttf").json()["errors"][0]["message"]
+    fonts = library.client.get(f"{library.base}/items", params={"mime": "font/"}).json()
+    assert {item["mime"] for item in fonts["items"]} == {"font/woff2", "font/woff", "font/ttf",
+                                                       "font/otf"}  # fmt: skip
+
+
 def test_svgs_the_sanitizer_cant_read_stay_attachments(
     client: TestClient, library: Library
 ) -> None:

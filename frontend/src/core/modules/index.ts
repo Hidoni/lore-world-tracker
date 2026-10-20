@@ -14,6 +14,7 @@ export {
   usePreloadModules,
   type LazyComponent,
 } from './lazy'
+export { LanguageText } from './language-text'
 export { ModuleGate } from './module-gate'
 export {
   defineModule,
@@ -26,6 +27,7 @@ export {
   type EntityViewProps,
   type FieldEditorExtensionProps,
   type FieldRendererProps,
+  type TextRendererProps,
   type GraphStyles,
   type KindUiConfig,
   type LinkRowProps,

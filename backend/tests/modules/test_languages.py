@@ -36,11 +36,15 @@ def test_kinds_and_link_types(api: LinkApi) -> None:
         "phonology",
         "grammar",
         "code",
+        "scripts.headwords",  # the scripts module's (#155)
     ]
     assert [field["key"] for field in script["fields"]] == [
         "script_type",
         "direction",
         "glyph_count",
+        "scripts.font",
+        "scripts.font_scale",
+        "scripts.sample",
     ]
     keys = {link["key"] for link in registry["link_types"] if link["module"] == "languages"}
     assert keys == {
@@ -102,6 +106,7 @@ def test_family_tree(api: LinkApi) -> None:
 
 def test_disabling_hides_the_family(api: LinkApi) -> None:
     varnish = api.make("language", "Varnish")
+    assert api.modules("scripts", enabled=False).status_code == 200  # it depends on languages
     assert api.modules("languages", enabled=False).status_code == 200
     response = api.client.get(f"{api.base}/m/languages/family-tree")
     problem(response, 404, "module_disabled")

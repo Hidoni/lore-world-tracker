@@ -185,9 +185,13 @@ function FieldRow({
   const [draft, setDraft] = useState<unknown>(value)
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef(false)
-  const renderers = useExtensionRecord('fieldTypeRenderers', vault)
-  const Renderer = renderers[field.type]
-  const ModuleEditor = useExtensionRecord('fieldTypeEditors', vault)[field.type]
+  // A module's renderer or editor of this one field wins over its type's.
+  const fieldRenderers = useExtensionRecord('fieldRenderers', vault)
+  const typeRenderers = useExtensionRecord('fieldTypeRenderers', vault)
+  const fieldEditors = useExtensionRecord('fieldEditors', vault)
+  const typeEditors = useExtensionRecord('fieldTypeEditors', vault)
+  const Renderer = fieldRenderers[field.key] ?? typeRenderers[field.type]
+  const ModuleEditor = fieldEditors[field.key] ?? typeEditors[field.type]
   // Core types have editors; module types bring their own (media, `fieldTypeEditors`).
   const canEditType =
     editable &&

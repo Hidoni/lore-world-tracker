@@ -24,6 +24,9 @@ None. Media items are assets, not entities.
 | `media_refs` (derived) | `media_id`, `entity_id`, `context` (`body`, `field:<key>`, `cover`, `gallery`, `map`, `note`), PK all three, `ON DELETE CASCADE` |
 | `media_gallery` | `id`, `entity_id`, `media_id`, `caption`, `sort_key`, `visibility`, `revision`, timestamps, `deleted_at` |
 
+Accepted files (by their bytes): images (png, jpeg, webp, gif, avif, svg), documents (pdf, text,
+Markdown) and fonts (woff2, woff, ttf, otf; writing systems' fonts, `docs/modules/scripts.md`).
+
 Files: `media/<sha256[0:2]>/<sha256>` inside the vault folder. Thumbnails:
 `media/thumbs/<sha256>_<width>.webp` (160, 480, 1280), generated lazily with Pillow and
 regenerable.

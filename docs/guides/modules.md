@@ -107,7 +107,8 @@ creates a child of any kind.
 
 ## Media: images and attachments
 
-Upload images (PNG, JPEG, WebP, GIF, AVIF) and documents (PDF, text, Markdown) into the vault.
+Upload images (PNG, JPEG, WebP, GIF, AVIF) and documents (PDF, text, Markdown) into the vault,
+and fonts (WOFF2, WOFF, TTF, OTF) for your scripts.
 
 - **In a page:** paste or drop an image into the editor, or choose **Image** in the `/` menu.
   Click the image to set its caption, alt text and width (**Small**, **Medium**, **Large**,
@@ -123,6 +124,19 @@ Upload images (PNG, JPEG, WebP, GIF, AVIF) and documents (PDF, text, Markdown) i
 
 Files no page uses for 30 days go to the trash on their own, and leave the trash after another
 30.
+
+## Script fonts
+
+Show a conlang's words in its own script (needs Languages and Media).
+
+- **Give a writing system a font:** on its page, **Edit Font** in the **Script font** section,
+  then **Choose a font** and pick a font file from the library or upload one (WOFF2, WOFF, TTF
+  or OTF). Set the **Font size** (in percent) and a **Sample** to show in the **Script sample**
+  panel.
+- **Headwords:** a language written in that script (**written in** link) shows its lexicon
+  headwords, its words in pages and its search results in the font, right to left if the writing
+  system's direction is right to left. Set the language's **Headwords** to **Plain text** to turn
+  it off. If a language is written in several scripts, the first one with a font is used.
 
 ## Maps
 
