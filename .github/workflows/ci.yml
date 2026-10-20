@@ -34,7 +34,11 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen --directory backend
+      # Ubuntu 26.04 mounts /tmp in RAM (tmpfs): the suite's thousands of test vaults filled it
+      # until the runner was shut down mid-run. Keep pytest's tmp_path on disk.
       - run: make check-backend
+        env:
+          TMPDIR: ${{ runner.temp }}
 
   frontend:
     name: frontend
