@@ -20,6 +20,7 @@ from lore.core.maintenance import (
     check_vault,
     compact_vault_history,
     optimize_vault,
+    refine_dimension_base_unit,
     reindex_vault,
 )
 from lore.core.markdown.export import Audience, FolderSink, export_vault_markdown
@@ -373,6 +374,56 @@ def vault_compact_history(
         f"{verb} {report.changesets} changesets ({report.changes} changes) older than "
         f"{older_than} days into {report.snapshots} snapshots ({report.snapshot_changes} changes)"
     )
+
+
+@vault_app.command("refine-base-unit")
+def vault_refine_base_unit(
+    vault: VaultArgument,
+    dimension: Annotated[str, typer.Option(help="The dimension, by id or exact name.")],
+    factor: Annotated[
+        int, typer.Option(min=2, help="New base units per old one (seconds → ms: 1000).")
+    ],
+    unit: Annotated[
+        str | None,
+        typer.Option(
+            help="The new unit's names, 'singular,plural,abbr' (e.g. 'millisecond,"
+            "milliseconds,ms'); default: the names stay."
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option(help="Only report what would change; change nothing.")
+    ] = False,
+) -> None:
+    """Refine a dimension's base unit: multiply every moment, base duration, interval and the
+    calendars' finest units by FACTOR, so dates stay the same and finer moments fit between
+    them. A backup is taken first; the change, and the changes saved before it, can't be undone
+    (restore the backup instead)."""
+    names = None
+    if unit is not None:
+        parts = [part.strip() for part in unit.split(",")]
+        if len(parts) != 3 or not all(parts):  # noqa: PLR2004 (singular, plural, abbr)
+            typer.echo("--unit takes 'singular,plural,abbr'.", err=True)
+            raise typer.Exit(2)
+        names = dict(zip(("singular", "plural", "abbr"), parts, strict=True))
+    manager = _vault_manager()
+    try:
+        found = refine_dimension_base_unit(
+            manager, manager.resolve(vault).id, dimension, factor, names, dry_run=dry_run
+        )
+    except LoreError as exc:
+        _fail(exc)
+    finally:
+        manager.close()
+    report = found.report
+    verb = "would rewrite" if dry_run else "rewrote"
+    tables = ", ".join(f"{count} {table}" for table, count in sorted(report.rewritten.items()))
+    typer.echo(f"{verb} {tables or 'nothing'}; D is now {report.duration}")
+    typer.echo(
+        f"resolved {report.slots} slots again; event slots that don't resolve: "
+        f"{report.problems_before} before, {report.problems_after} after"
+    )
+    if found.backup_id is not None:
+        typer.echo(f"backup taken before: {found.backup_id}")
 
 
 @vault_app.command("optimize")

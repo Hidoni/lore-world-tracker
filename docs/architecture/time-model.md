@@ -91,9 +91,8 @@ Rules:
   anchor and sync point in the dimension stays within `[0, new D]`. The service reports the
   offending records otherwise.
 - Renaming the base unit is cosmetic.
-- **Refining the base unit** (e.g. seconds → milliseconds, multiplying every moment by 1000) is
-  a post-MVP maintenance tool (`M13`). It must rewrite absolute anchors, base durations,
-  recurrence intervals and calendar leaf counts atomically.
+- **Refining the base unit** (e.g. seconds → milliseconds, multiplying every moment by 1000):
+  §3.1.
 - **R-DIM-5:** events cannot be created in a dimension that has no calendar. The dimension wizard
   creates the first calendar (usually from a preset).
 - Creating a dimension also creates its **prime timeline** (named "Prime") in the same
@@ -135,6 +134,41 @@ Rules:
 Every dimension also has a **virtual "Absolute" calendar** (id `absolute`, not stored). It
 displays raw base units (`t = 1,234,567 s`, with scientific notation for huge values) and accepts
 absolute input. It does **not** satisfy R-DIM-5.
+
+
+### 3.1 Refining the base unit (#152)
+
+`lore vault refine-base-unit <vault> --dimension D --factor K [--unit singular,plural,abbr]
+[--dry-run]` (`lore.core.time.refine`, ADR 0018) makes a dimension's base unit `K` times finer
+(`K ≥ 2`): seconds → milliseconds is `K = 1000`. Dates don't change; every moment becomes
+`K` times larger, so `K - 1` new moments fit between two old ones.
+
+- **Rewritten**, for the records whose time resolves in the dimension (each slot provider's
+  dimension or timeline column; an entity's own time-point fields by its home dimension, a fact's
+  by its timeline):
+  - time point and end specs: absolute anchors' `t`, base offsets of relative anchors, base
+    duration ends, uncertainty range ends (§5.4b) and frozen anchors (§7.3);
+  - documents holding time points or base durations: entity fields and bodies (`timeRef`
+    nodes), fact values, per-timeline notes;
+  - recurrence rules: an interval rule's `every`, the time points of limits and exclusions,
+    their resolved anchors, series bounds and materialized occurrences' original starts;
+  - calendar definitions: the finest level's counts (base units per unit), absolute anchors and
+    overlay periods, and their resolved anchors;
+  - `D`, and the unit's names when given; correspondence rates (B units per A unit: divided by
+    `K` when the dimension is A, multiplied when it is B) and worldline segment rates (the same,
+    with the personal clock dimension as B);
+  - every stored moment (`*_t`), so a slot that no longer resolves keeps a last good moment in
+    the new unit.
+- **Unchanged:** calendar dates and fields, calendar durations, cycles, precisions. A point at
+  precision `base` was exact to the old unit and is now exact to the new one.
+- Pending proposals (§7.4) of the dimension's calendars and series are dropped. Every slot of the
+  vault is then resolved again (`rebuild_time`), and the consistency findings scanned again.
+- One write transaction, one changeset with origin `refinement`, after an automatic backup
+  (kind `pre`, reason `base-unit-refinement`). It **can't be undone**, nor can any changeset
+  saved before it (their rows hold moments in the old unit): restore the backup instead.
+  `--dry-run` reports the counts and rolls back.
+- Rich text of module records (lexicon entry notes) isn't rewritten: an absolute `timeRef` there
+  keeps its old moment.
 
 ## 4. Timelines and branches (alternate timelines)
 
@@ -1008,7 +1042,7 @@ the Portal shows "Concurrently in Dreamrealm: Year 1, Day 1".
 ## 14. Deferred / future
 
 - ~~Explicit uncertainty ranges~~: done (§5.4b, #151; the picker in #400).
-- Base-unit refinement tool (§3).
+- ~~Base-unit refinement tool~~: done (§3.1, #152).
 - Per-timeline calendar variants (eras that differ by branch). For now calendars are
   dimension-level, and their anchors resolve in the **prime** timeline.
 - Time zones / local times (a calendar regime offset per location).

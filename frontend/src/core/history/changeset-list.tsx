@@ -29,6 +29,7 @@ export const ORIGIN_LABEL: Record<string, string> = {
   system: 'System',
   undo: 'Undo',
   compaction: 'Compacted',
+  refinement: 'Unit refinement',
 }
 
 /** What an undo refused, in words (`409 revert_conflict`: changed rows or broken rules). */
@@ -85,7 +86,9 @@ function ChangesetRow({
   const revert = useRevertChange(vault)
   const undone = item.reverted_by_changeset_id !== null
   // compacted history (snapshots of old changes, data-model.md §7) can't be undone
-  const undoable = !undone && item.origin !== 'compaction'
+  // Compacted history and base-unit refinements can't be undone (older changesets either: the
+  // server says so).
+  const undoable = !undone && item.origin !== 'compaction' && item.origin !== 'refinement'
   const when = new Date(item.updated_at).toLocaleString()
   const problem = revert.isError ? revertProblem(revert.error) : null
   return (

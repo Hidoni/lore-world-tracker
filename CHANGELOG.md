@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Base-unit refinement** (#152): `lore vault refine-base-unit <vault> --dimension D --factor K
+  [--unit millisecond,milliseconds,ms] [--dry-run]` makes a dimension's base unit K times finer
+  (seconds → milliseconds) without moving any date: moments, base durations, intervals, the
+  calendars' finest units and rates are rewritten in one step after a backup. It shows in History
+  as “Unit refinement”; it and the changes saved before it can't be undone (restore the backup).
 - **History compaction** (#159): `lore vault compact-history <vault> --older-than N
   [--dry-run]` replaces the history older than N days with one snapshot per entity (its net
   change over that period) to bound storage. Snapshots show as “Compacted” in the history and
