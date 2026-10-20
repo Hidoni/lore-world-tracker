@@ -23,7 +23,9 @@ env:
 jobs:
   backend:
     name: backend
-    runs-on: ubuntu-latest
+    # Pinned: on the ubuntu-26.04 image (ubuntu-latest from 2026-10-19) the runner is shut down
+    # during the suite (#405).
+    runs-on: ubuntu-24.04
     # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
     # Keep this about twice the job's time.
     timeout-minutes: 16
@@ -34,11 +36,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen --directory backend
-      # Ubuntu 26.04 mounts /tmp in RAM (tmpfs): the suite's thousands of test vaults filled it
-      # until the runner was shut down mid-run. Keep pytest's tmp_path on disk.
       - run: make check-backend
-        env:
-          TMPDIR: ${{ runner.temp }}
 
   frontend:
     name: frontend
