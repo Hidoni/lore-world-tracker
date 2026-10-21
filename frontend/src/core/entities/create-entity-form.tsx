@@ -20,14 +20,11 @@ import { FieldEditor, fieldsSchema, PLACEHOLDER_TYPES, type FieldDef } from '@/c
 import { useKindRegistry, type Kind } from '@/core/registry'
 import { fieldErrors, useCreateEntity, useEntities } from '@/data'
 
+import { creatableKinds } from './create-entity-dialog'
+
 const MULTIVERSAL = ''
 const SELECT_CLASS =
   'h-9 w-full rounded-md border bg-transparent px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
-
-/** Kinds a user creates through this dialog: system kinds (dimensions, calendars…) have wizards. */
-export function creatableKinds(kinds: readonly Kind[]): Kind[] {
-  return kinds.filter((kind) => !kind.capabilities.is_system)
-}
 
 function ParentPicker({
   vault,
