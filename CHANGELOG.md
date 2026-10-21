@@ -85,6 +85,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Initial bundle budget** (#413): the CI check of the shell's initial JS had measured nothing
+  since asset URLs became relative (#380), and the shell had grown to 420 kB against its 400 kB
+  budget. The check reads relative URLs and fails when it finds no scripts; the static export's
+  data source and the create-entity dialog now load on demand, bringing the shell back to
+  387 kB.
 - **Settings navigation** (#384): on a module's or another settings page, "General" no longer
   also says it is the current page.
 - Recurring events could show a wrong occurrence count until the server restarted, after
