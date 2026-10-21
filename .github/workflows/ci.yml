@@ -27,6 +27,8 @@ jobs:
     # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
     # Keep this about twice the job's time.
     timeout-minutes: 16
+    env:
+      UV_PYTHON_PREFERENCE: only-managed
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -46,6 +48,8 @@ jobs:
           for f in memory.max memory.high memory.swap.max memory.current memory.peak pids.max cpu.max; do echo "$f=$(cat $cg/$f 2>/dev/null)"; done
           systemctl show hosted-compute-agent.service -p MemoryMax -p MemoryHigh -p TasksMax -p ManagedOOMMemoryPressure -p OOMPolicy || true
           sysctl vm.overcommit_memory vm.swappiness || true
+          /usr/bin/python3.14 -c 'import sys,sqlite3;print(sys.version, sqlite3.sqlite_version)' || true
+          uv run --directory backend python -c 'import sys,sqlite3;print(sys.version, sys.executable, sqlite3.sqlite_version)'
       - name: make check-backend (with monitor, #405 temporary)
         run: |
           (while sleep 10; do
