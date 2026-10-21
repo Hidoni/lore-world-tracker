@@ -19,6 +19,11 @@ env:
   # `uv run` must never re-lock in CI: a stale uv.lock fails instead of silently updating.
   UV_FROZEN: '1'
   FORCE_COLOR: '1'
+  # uv's own CPython build, never the runner's. ubuntu-26.04 ships Python 3.14 (GCC build, SQLite
+  # 3.46), which uv would otherwise pick up: with it the pytest workers grew to about 4.5 GB each,
+  # filled the 16 GB runner and the OOM kill stopped the runner mid-suite (#405). uv's build
+  # (SQLite 3.53, the one local development uses) peaks under 8 GB in total.
+  UV_PYTHON_PREFERENCE: only-managed
 
 jobs:
   backend:
@@ -27,8 +32,6 @@ jobs:
     # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
     # Keep this about twice the job's time.
     timeout-minutes: 16
-    env:
-      UV_PYTHON_PREFERENCE: only-managed
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -36,36 +39,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen --directory backend
-      - name: Runner diagnostics (#405, temporary)
-        run: |
-          cat /etc/os-release | head -2; nproc; free -m; swapon --show; df -h / /tmp
-          systemctl is-active systemd-oomd || true
-          oomctl 2>/dev/null | head -40 || true
-          cat /proc/pressure/memory || true
-          systemctl show actions.runner.* -p ControlGroup -p ManagedOOMMemoryPressure -p ManagedOOMSwap 2>/dev/null || true
-          cat /proc/self/cgroup
-          cg=/sys/fs/cgroup$(cut -d: -f3 /proc/self/cgroup)
-          for f in memory.max memory.high memory.swap.max memory.current memory.peak pids.max cpu.max; do echo "$f=$(cat $cg/$f 2>/dev/null)"; done
-          systemctl show hosted-compute-agent.service -p MemoryMax -p MemoryHigh -p TasksMax -p ManagedOOMMemoryPressure -p OOMPolicy || true
-          sysctl vm.overcommit_memory vm.swappiness || true
-          /usr/bin/python3.14 -c 'import sys,sqlite3;print(sys.version, sqlite3.sqlite_version)' || true
-          uv run --directory backend python -c 'import sys,sqlite3;print(sys.version, sys.executable, sqlite3.sqlite_version)'
-      - name: make check-backend (with monitor, #405 temporary)
-        run: |
-          (while sleep 10; do
-             echo "::group::monitor $(date +%T)"
-             free -m | sed -n 2,3p; head -1 /proc/pressure/memory; head -1 /proc/pressure/io
-             cg=/sys/fs/cgroup$(cut -d: -f3 /proc/self/cgroup); echo "cg current=$(cat $cg/memory.current) events: $(tr '\n' ' ' < $cg/memory.events 2>/dev/null)"
-             df -m / /tmp | tail -2
-             ps -eo rss,comm --sort=-rss | head -6
-             echo "::endgroup::"
-           done) >&2 &
-          make check-backend
-      - name: After (#405 temporary)
-        if: always()
-        run: |
-          sudo journalctl -u systemd-oomd --no-pager | tail -40 || true
-          sudo dmesg | tail -40 || true
+      - run: make check-backend
 
   frontend:
     name: frontend
