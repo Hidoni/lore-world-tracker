@@ -355,7 +355,12 @@ export class CompiledCalendar {
 }
 
 export type DateErrorCode =
-  'invalid_date' | 'reform_gap' | 'reform_ambiguous' | 'unknown_cycle' | 'unknown_overlay'
+  | 'invalid_date'
+  | 'reform_gap'
+  | 'reform_ambiguous'
+  | 'unknown_cycle'
+  | 'unknown_overlay'
+  | 'unknown_marker'
 
 /** A date the calendar can't resolve. `level` names the offending level, if any. */
 export class DateError extends Error {

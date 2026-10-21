@@ -38,6 +38,7 @@ import {
   CyclesEditor,
   DefinitionPointField,
   ErasEditor,
+  MarkersEditor,
   OverlaysEditor,
   RegimesEditor,
   type TimeScope,
@@ -228,6 +229,7 @@ function Editor({
             <CyclesEditor {...props} />
             <ErasEditor {...props} scope={scope} />
             <OverlaysEditor {...props} scope={scope} dayLength={dayLength} />
+            <MarkersEditor {...props} />
             <FormatsEditor {...props} calendar={calendar} sampleAt={sampleAt} />
             <DisplayEditor {...props} />
           </TabsContent>

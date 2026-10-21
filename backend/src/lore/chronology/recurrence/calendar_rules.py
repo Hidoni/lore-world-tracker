@@ -24,6 +24,7 @@ from lore.chronology.calendar.compiled import (
 )
 from lore.chronology.calendar.convert import Overflow, resolve_child
 from lore.chronology.calendar.cycles import regime_cycle_value
+from lore.chronology.calendar.markers import range_of
 from lore.chronology.calendar.units import (
     REGULAR,
     UnitFilter,
@@ -56,6 +57,9 @@ from lore.chronology.schema import (
     InFilter,
     LevelFreq,
     LevelSelector,
+    MarkerFilter,
+    MarkerMatch,
+    MarkerSelector,
     ModFilter,
     NotFilter,
     PeriodFilter,
@@ -108,6 +112,10 @@ def _single(rule: CalendarRule, levels: Sequence[str], period: int) -> bool:
             nth = selector.cycle.nth
             if len(selector.cycle.values) != 1 or nth is None or len(nth) != 1:
                 return False
+        if isinstance(selector, MarkerSelector):  # a parent holds at most one range start
+            nth = selector.marker.nth
+            if nth is None or len(nth) != 1:
+                return False
         above = level
     return True
 
@@ -137,6 +145,10 @@ class _Checker:
 
     def cycle(self, cycle_id: str) -> CompiledCycle | None:
         return next((c for c in self.regime.cycles if c.id == cycle_id), None)
+
+    def marker(self, marker_id: str, path: str) -> None:
+        if all(item.id != marker_id for item in self.calendar.definition.markers):
+            self.error("rule.unknown_marker", path, f"no marker {marker_id!r}")
 
     def slots(self, level: int) -> set[str]:
         """Slot ids of the children at ``level`` in any template of the regime."""
@@ -183,7 +195,7 @@ class _Checker:
         self.time(deepest)
         return self.errors
 
-    def filter(
+    def filter(  # noqa: PLR0912 (one case per filter type)
         self, item: PeriodFilter, path: str, period: int, rounds: CompiledCycle | None
     ) -> None:
         if isinstance(item, ModFilter):
@@ -203,6 +215,11 @@ class _Checker:
                 self.error("rule.bad_filter", path + "/cycle", "not a cycle of the period level")
                 return
             self.cycle_values(cycle, item.in_, path + "/in")
+        elif isinstance(item, MarkerFilter):
+            if rounds is not None:
+                self.error("rule.bad_filter", path, "cycle rounds have no unit to place")
+                return
+            self.marker(item.marker, path + "/marker")
         elif isinstance(item, AllFilter | AnyFilter):
             items = item.all if isinstance(item, AllFilter) else item.any
             member = "all" if isinstance(item, AllFilter) else "any"
@@ -241,6 +258,14 @@ class _Checker:
             for j, nth in enumerate(selector.cycle.nth or ()):
                 if nth == "0":
                     self.error("rule.bad_nth", f"{path}/cycle/nth/{j}", "nth counts from 1 or -1")
+        elif isinstance(selector, MarkerSelector):
+            if rounds is not None:
+                self.error("rule.bad_selector_level", path + "/marker", "not in a round")
+                return
+            self.marker(selector.marker.id, path + "/marker/id")
+            for j, nth in enumerate(selector.marker.nth or ()):
+                if nth == "0":
+                    self.error("rule.bad_nth", f"{path}/marker/nth/{j}", "nth counts from 1 or -1")
 
     def time(self, deepest: int) -> None:
         if self.rule.time is None:
@@ -302,6 +327,7 @@ class CalendarPlan(Plan):
         self.p0 = self._period_of(counted)
         self.start_index = counted - self._first_counted(self.p0)
         """For rounds: the series start's index in its round (``select: null``)."""
+        self.marker_ranges: dict[tuple[str, int], tuple[int, int] | None] = {}
         self.per_period = self._per_period()
         """Positions per period when constant (``None``: they vary)."""
 
@@ -343,7 +369,7 @@ class CalendarPlan(Plan):
         """
         rule = self.rule
         cyclic = rule.select is not None and any(
-            isinstance(selector, CycleSelector) for selector in rule.select.path
+            isinstance(selector, CycleSelector | MarkerSelector) for selector in rule.select.path
         )
         if self.rounds is not None or rule.filters or cyclic:
             return None
@@ -519,7 +545,9 @@ class CalendarPlan(Plan):
     def _passes(self, period: int, unit: _Unit) -> bool:
         return all(self._filter(f, period, unit) for f in self.rule.filters)
 
-    def _filter(self, item: PeriodFilter, period: int, unit: _Unit) -> bool:
+    def _filter(  # noqa: PLR0911 (one case per filter type)
+        self, item: PeriodFilter, period: int, unit: _Unit
+    ) -> bool:
         if isinstance(item, ModFilter):
             value = period if item.of == "ordinal" else self._number(unit)[0]
             return floor_mod(value, int(item.mod)) == int(item.eq)
@@ -532,12 +560,36 @@ class CalendarPlan(Plan):
             return found is not None and any(
                 _cycle_index(cycle, v) == found.index for v in item.in_
             )
+        if isinstance(item, MarkerFilter):
+            return self._in_marker(item.marker, unit.start)
         if isinstance(item, AllFilter):
             return all(self._filter(f, period, unit) for f in item.all)
         if isinstance(item, AnyFilter):
             return any(self._filter(f, period, unit) for f in item.any)
         assert isinstance(item, NotFilter)
         return not self._filter(item.not_, period, unit)
+
+    # markers (§2.2, §2.3; chronology-engine §3.12), in the series start's regime
+
+    def _year(self, t: int) -> int:
+        return self.regime.year_of_rel(t - self.regime.epoch)
+
+    def _marker_range(self, marker_id: str, year: int) -> tuple[int, int] | None:
+        key = (marker_id, year)
+        if key not in self.marker_ranges:
+            if len(self.marker_ranges) > COUNTER_CACHE * 64:
+                self.marker_ranges.clear()
+            item = next(m for m in self.calendar.definition.markers if m.id == marker_id)
+            self.marker_ranges[key] = range_of(self.calendar, item, year, self.regime.id)
+        return self.marker_ranges[key]
+
+    def _in_marker(self, marker_id: str, t: int) -> bool:
+        year = self._year(t)
+        for candidate in (year, year - 1):
+            bounds = self._marker_range(marker_id, candidate)
+            if bounds is not None and bounds[0] <= t < bounds[1]:
+                return True
+        return False
 
     def _passes_round(self, item: PeriodFilter, period: int) -> bool:
         """Rounds: ``mod`` filters (number = ordinal = the round ordinal) and combinations."""
@@ -590,6 +642,7 @@ class CalendarPlan(Plan):
                 {index for v in selector.values if (index := _round_index(cycle, v)) is not None}
             )
         else:
+            assert isinstance(selector, CycleSelector)  # marker selectors aren't in rounds
             match = selector.cycle
             other = next(c for c in self.regime.cycles if c.id == match.id)
             first = self._first_counted(period)
@@ -654,6 +707,8 @@ class CalendarPlan(Plan):
         runs = self._runs(unit, level)
         if isinstance(selector, CycleSelector):
             return self._cycle_children(runs, selector.cycle)
+        if isinstance(selector, MarkerSelector):
+            return self._marker_children(unit, runs, selector.marker)
         regular = [run for run in runs if not run.segment.intercalary]
         total = sum(run.segment.count for run in regular)
         if isinstance(selector, AllSelector):
@@ -695,6 +750,43 @@ class CalendarPlan(Plan):
                 chosen[unit.start] = unit
                 if len(chosen) > MAX_POSITIONS:
                     raise RecurrenceError("rule.too_many_positions", "too many positions")
+        return [chosen[start] for start in sorted(chosen)]
+
+    def _marker_children(self, unit: _Unit, runs: list[_Run], match: MarkerMatch) -> list[_Unit]:
+        """For each range of the marker starting inside ``unit``, the units of ``runs`` (every
+        unit of the level in it, intercalary ones too) starting in the range and inside
+        ``unit``; ``nth`` per range."""
+        end = unit.start + unit.template.length
+        chosen: dict[int, _Unit] = {}
+        for year in range(self._year(unit.start), self._year(end - 1) + 1):
+            bounds = self._marker_range(match.id, year)
+            if bounds is None or not unit.start <= bounds[0] < end:
+                continue
+            low, high = bounds[0], min(bounds[1], end)
+            spans: list[tuple[_Run, int, int]] = []  # (run, first, last) units inside [low, high)
+            for run in runs:
+                size = run.segment.child_length
+                first = max(0, -floor_div(run.start - low, size))
+                last = min(run.segment.count - 1, -floor_div(run.start - high, size) - 1)
+                if first <= last:
+                    spans.append((run, first, last))
+            total = sum(last - first + 1 for _, first, last in spans)
+            if match.nth is None:
+                if total + len(chosen) > MAX_POSITIONS:
+                    raise RecurrenceError("rule.too_many_positions", "too many positions")
+                indexes: Sequence[int] = range(total)
+            else:
+                indexes = [n - 1 if n > 0 else total + n for n in map(int, match.nth)]
+            for wanted in indexes:
+                if not 0 <= wanted < total:
+                    continue
+                index = wanted
+                for run, first, last in spans:
+                    if index <= last - first:
+                        found = self._unit_at(run, first + index)
+                        chosen[found.start] = found
+                        break
+                    index -= last - first + 1
         return [chosen[start] for start in sorted(chosen)]
 
     # finer positions (§2.4)

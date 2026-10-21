@@ -33,6 +33,7 @@ from lore.chronology.calendar.formatting import (
     format_date,
     format_span,
 )
+from lore.chronology.calendar.markers import marker_range, markers_at
 from lore.chronology.calendar.overlays import OverlayValue, next_phase_at, overlay_phase
 from lore.chronology.calendar.units import (
     REGULAR,
@@ -79,6 +80,8 @@ __all__ = [
     "from_fields",
     "from_ordinal",
     "is_uniform",
+    "marker_range",
+    "markers_at",
     "next_phase_at",
     "normalize_fields",
     "options",

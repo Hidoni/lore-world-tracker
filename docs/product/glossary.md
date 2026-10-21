@@ -36,7 +36,7 @@ term, add it here in the same PR.
 | **Lineage** | The chain of timelines from a timeline up to the prime timeline, with the cut-off moment for each ancestor. |
 | **Override** | A record in a branch that replaces, within that branch and its descendants, an inherited record that spans the branch point. |
 | **Calendar** | An interpretation ("lens") of a dimension's absolute time into human-readable dates. Calendars never own time; they convert. |
-| **Calendar definition** | The schema-versioned JSON document describing a calendar: levels, templates, patterns, cycles, eras, regimes, overlays, formats. |
+| **Calendar definition** | The schema-versioned JSON document describing a calendar: levels, templates, patterns, cycles, eras, regimes, overlays, markers, formats. |
 | **Level** | A named unit size in a calendar's hierarchy (second, minute, hour, day, month, year, …). Levels are strictly nested. |
 | **Template** | A concrete layout of one unit at a level as an ordered list of child units at the level below. |
 | **Top level / top unit** | The coarsest level; its units form an infinite sequence indexed by an integer (`n`), e.g. years. |
@@ -46,6 +46,7 @@ term, add it here in the same PR.
 | **Era** | A display-level year-numbering segment (e.g. BC/AD, "Third Age", reign eras). |
 | **Regime** | A calendar structure valid from a moment on. Several regimes model **calendar reforms**. |
 | **Overlay** | A cycle with a rational period displayed alongside dates without affecting them (moons, seasons). |
+| **Marker** (annual marker) | A named part of every year in a calendar, from a date to another without the year (seasons, festival weeks); recurring events can fall on its first or last day or on every day in it (#156). |
 | **Date fields** | The structured form of a moment in a calendar (`{year, month, day, hour, …}` plus derived cycle/era/overlay info). |
 | **Precision** | The calendar level to which a time point is known (e.g. `year`). The stored moment is the start of that unit; display is at that level. |
 | **Approximate (circa)** | Flag marking a time point as uncertain ("c. 1023"). |

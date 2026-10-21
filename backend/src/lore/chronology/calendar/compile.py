@@ -121,6 +121,7 @@ class _Compiler:
         self.check_time_points()
         self.check_eras()
         self.check_overlays()
+        self.check_markers()
         self.cycle_anchors: dict[int, dict[int, tuple[int, int]]] = {}
         compiled = [
             self.compile_regime(i, regime) for i, regime in enumerate(self.definition.regimes)
@@ -246,6 +247,25 @@ class _Compiler:
                     path = pointer("overlays", i, "phases", k, "from")
                     self.error("overlay.phases_unsorted", path, "phases start at 0, increase, < 1")
                 previous = (a, b)
+
+    def check_markers(self) -> None:
+        """§3.12: unique ids; fields from the level below the top down, without gaps."""
+        levels = [level.id for level in self.definition.levels]
+        seen: set[str] = set()
+        for i, item in enumerate(self.definition.markers):
+            if item.id in seen:
+                self.error("marker.duplicate_id", pointer("markers", i, "id"), "duplicate id")
+            seen.add(item.id)
+            for side, fields in (("from", item.from_), ("to", item.to)):
+                indexes = sorted((levels.index(k) for k in fields if k in levels), reverse=True)
+                top = len(levels) - 1
+                expected = list(range(top - 1, top - 1 - len(fields), -1))
+                if len(indexes) != len(fields) or indexes != expected:
+                    self.error(
+                        "marker.invalid_fields",
+                        pointer("markers", i, side),
+                        "fields go from the level below the top down, without gaps",
+                    )
 
     def time_points(self) -> Iterator[tuple[str, TimePoint | DefinitionTimePoint]]:
         for r, regime in enumerate(self.definition.regimes):

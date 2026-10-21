@@ -173,6 +173,18 @@ alignment fields are invalid).
   `phase` (`ceil` of the exact instant), or `{"error": "unknown_overlay"}` /
   `{"error": "invalid_date"}` (a phase outside `[0, 1)`)
 
+### `marker_range` (§3.12, §8)
+
+- input: `{"marker": "<marker id>", "year": "<Y>"}`
+- expected: `{"start": "<moment>", "end": "<moment>"}`: the marker's range `[a, b)` in year `Y`, or
+  `null` when that year has none, or `{"error": "unknown_marker"}`
+
+### `markers_at` (§3.12, §8)
+
+- input: `{"t": "<moment>"}`
+- expected: `{"markers": ["<marker id>", …]}`: the markers whose range contains `t`, in
+  definition order
+
 ### `add` (§9.2)
 
 - input: `{"t": "<moment>", "duration": Duration, "overflow": "constrain" | "reject" | absent}`
@@ -249,6 +261,9 @@ calendar-free files. Occurrences are `{"key": "<k or k.j>", "start": "<moment>",
 - `occurrence_number`: ctx + `{"key": "<key>"}` → `{"number": "<n>"}` (1-based among the
   occurrences that happen) or `{"error": "not_found"}`
 - `occurrence_at`: ctx + `{"t": "<moment>"}` → `{"key": "<key>" | null}` (recurrence.md §4)
+
+Rules may be calendar, interval or overlay rules (#156: `kind: overlay` uses the file's calendar
+for its overlay).
 
 Errors also include `rule.too_complex_to_count` (§5.4) and `rule.too_many_positions` (§2.3).
 

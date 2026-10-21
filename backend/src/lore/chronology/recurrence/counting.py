@@ -25,6 +25,7 @@ from lore.chronology.schema import (
     CycleFilter,
     CycleSelector,
     InFilter,
+    MarkerFilter,
     ModFilter,
     NotFilter,
     PeriodFilter,
@@ -127,6 +128,8 @@ class Counter:
                 raise TooComplex("an `in` filter on year numbers is not periodic")
         elif isinstance(item, CycleFilter):
             cycles.add(item.cycle)
+        elif isinstance(item, MarkerFilter):
+            pass  # marker ranges repeat with the top pattern, like everything structural
         elif isinstance(item, AllFilter | AnyFilter):
             for child in item.all if isinstance(item, AllFilter) else item.any:
                 self._filter_needs(child, needs, cycles, units, size)

@@ -28,7 +28,7 @@ export function OccurrenceRefLabel({
   const rule = time?.recurrence ?? null
   if (rule !== null && time?.startT != null && dimension !== null) {
     const calendar =
-      rule.kind === 'calendar'
+      rule.kind !== 'interval'
         ? (lenses.find((candidate) => candidate.id === rule.calendar_id)?.calendar ?? null)
         : null
     try {

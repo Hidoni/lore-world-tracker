@@ -10,10 +10,14 @@ Count limits, exclusions, occurrence numbers and window counts use the counting 
 :class:`.plan.Plan` (``recurrence.md`` §5.4).
 """
 
+import math
 import re
 from dataclasses import dataclass
+from fractions import Fraction
 
 from lore.chronology.calendar.compile import ValidationError
+from lore.chronology.calendar.compiled import CompiledCalendar, DateError
+from lore.chronology.calendar.overlays import find_overlay, period_of
 from lore.chronology.numbers import floor_div
 from lore.chronology.recurrence.calendar_rules import CalendarPlan, calendar_rule_errors
 from lore.chronology.recurrence.plan import (
@@ -33,11 +37,12 @@ from lore.chronology.schema import (
     InstantEnd,
     IntervalRule,
     NeverLimit,
+    OverlayRule,
     UnknownEnd,
     UntilLimit,
 )
 
-type Rule = CalendarRule | IntervalRule
+type Rule = CalendarRule | IntervalRule | OverlayRule
 
 _KEY = re.compile(r"0|[1-9][0-9]*")
 _SUB_KEY = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
@@ -122,11 +127,39 @@ def _structural_errors(rule: Rule, ctx: RecurrenceContext) -> list[ValidationErr
                 )
         if begin is not None and to is not None and to < begin:
             errors.append(_error("rule.bad_exclusion", f"/exclusions/{i}", "to is before from"))
+    return errors + _kind_errors(rule, ctx)
+
+
+def _kind_errors(rule: Rule, ctx: RecurrenceContext) -> list[ValidationError]:
+    """The errors of a calendar or overlay rule's own members."""
     if isinstance(rule, CalendarRule):
         if ctx.calendar is None:
-            errors.append(_error("rule.unknown_calendar", "/calendar_id", "no calendar given"))
-        else:
-            errors += calendar_rule_errors(rule, ctx.calendar, ctx.series_start)
+            return [_error("rule.unknown_calendar", "/calendar_id", "no calendar given")]
+        return calendar_rule_errors(rule, ctx.calendar, ctx.series_start)
+    if isinstance(rule, OverlayRule):
+        return _overlay_rule_errors(rule, ctx.calendar)
+    return []
+
+
+def _overlay_rule_errors(
+    rule: OverlayRule, calendar: CompiledCalendar | None
+) -> list[ValidationError]:
+    """§2, §9: the calendar's overlay, a phase in ``[0, 1)``, at least one base unit per step."""
+    if calendar is None:
+        return [_error("rule.unknown_calendar", "/calendar_id", "no calendar given")]
+    errors: list[ValidationError] = []
+    num, den = rule.phase.as_pair()
+    if not 0 <= num < den:
+        errors.append(_error("rule.bad_phase", "/phase", "a phase lies in [0, 1)"))
+    try:
+        overlay, _ = find_overlay(calendar, rule.overlay)
+    except DateError:
+        errors.append(_error("rule.unknown_overlay", "/overlay", f"no overlay {rule.overlay!r}"))
+        return errors
+    if period_of(overlay) * int(rule.interval) < 1:
+        errors.append(
+            _error("rule.overlay_too_fast", "/interval", "occurrences must be a base unit apart")
+        )
     return errors
 
 
@@ -177,6 +210,46 @@ class _IntervalPlan(Plan):
         return i - 1, 0, self.ctx.series_start + (i - 1) * self.every
 
 
+class _OverlayPlan(Plan):
+    """§2 overlay rules: occurrence ``k`` starts at ``ceil(x(n0 + k·interval))``, where
+    ``x(n) = epoch + (n + phase)·period`` and ``n0`` is the first phase instant whose moment is at
+    or after the series start (§5.4: counted in closed form)."""
+
+    def __init__(
+        self, rule: OverlayRule, ctx: RecurrenceContext, calendar: CompiledCalendar, last: int
+    ) -> None:
+        super().__init__(ctx, last)
+        overlay, self.epoch = find_overlay(calendar, rule.overlay)
+        self.period = period_of(overlay)
+        self.phase = Fraction(*rule.phase.as_pair())
+        self.interval = int(rule.interval)
+        self.n0 = self._last_instant_before(ctx.series_start) + 1
+
+    def _last_instant_before(self, t: int) -> int:
+        """The last ``n`` whose moment ``ceil(x(n))`` is before ``t`` (``x(n) ≤ t - 1``)."""
+        return math.floor((t - 1 - self.epoch) / self.period - self.phase)
+
+    def _start(self, k: int) -> int:
+        n = self.n0 + k * self.interval
+        return math.ceil(self.epoch + (n + self.phase) * self.period)
+
+    def positions(self, k: int) -> list[int | None]:
+        return [self._start(k)]
+
+    def k_range(self, low: int, high: int) -> tuple[int, int]:
+        return self.count_before(low), self.count_before(high + 1) - 1
+
+    @property
+    def dense(self) -> bool:
+        return True
+
+    def count_before(self, t: int) -> int:
+        return max(0, floor_div(self._last_instant_before(t) - self.n0, self.interval) + 1)
+
+    def position(self, i: int) -> tuple[int, int, int] | None:
+        return i - 1, 0, self._start(i - 1)
+
+
 def _plan(rule: Rule, ctx: RecurrenceContext) -> Plan:
     errors = [e for e in _structural_errors(rule, ctx) if e.severity == "error"]
     if errors:
@@ -187,6 +260,9 @@ def _plan(rule: Rule, ctx: RecurrenceContext) -> Plan:
     plan: Plan
     if isinstance(rule, IntervalRule):
         plan = _IntervalPlan(rule, ctx, last)
+    elif isinstance(rule, OverlayRule):
+        assert ctx.calendar is not None
+        plan = _OverlayPlan(rule, ctx, ctx.calendar, last)
     else:
         assert ctx.calendar is not None
         plan = CalendarPlan(rule, ctx, ctx.calendar, last)
@@ -241,7 +317,7 @@ def expand(
     if periods <= 0:
         return Expansion([], False, None)
     if periods > max(ITERATE_LIMIT, TRUNCATE_FACTOR * max_items) or (
-        isinstance(plan, _IntervalPlan) and periods > TRUNCATE_FACTOR * max_items
+        isinstance(plan, _IntervalPlan | _OverlayPlan) and periods > TRUNCATE_FACTOR * max_items
     ):
         return Expansion([], True, _count(plan, w0, w1, k_lo, k_hi)[0])
     items: list[Occurrence] = []

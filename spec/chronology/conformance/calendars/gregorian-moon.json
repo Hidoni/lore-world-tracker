@@ -1,5 +1,5 @@
 {
-  "description": "gregorian-seconds plus two overlays: a moon with the mean synodic month (25,514,428/10 s = 29.530588 days) whose epoch is the reference new moon of 6 January 2000 18:14 UTC, with eight named phases (New Moon also from 15/16), and seasons with the tropical year (365.24219 days) from the March equinox of 20 March 2000 07:35 UTC. The model is exact and rational; it is not real astronomy.",
+  "description": "gregorian-seconds plus two overlays: a moon with the mean synodic month (25,514,428/10 s = 29.530588 days) whose epoch is the reference new moon of 6 January 2000 18:14 UTC, with eight named phases (New Moon also from 15/16), and seasons with the tropical year (365.24219 days) from the March equinox of 20 March 2000 07:35 UTC. The model is exact and rational; it is not real astronomy. Annual markers (#156): spring from 20 March to 21 June (numbers), winter from 21 December to 20 March (slot ids, wrapping into the next year) and leap-eve from day 30 of February (constrained to its last day) to 1 March.",
   "definition": {
     "schema_version": 1,
     "levels": [
@@ -431,6 +431,44 @@
             }
           }
         ]
+      }
+    ],
+    "markers": [
+      {
+        "id": "spring",
+        "name": "Spring",
+        "from": {
+          "month": "3",
+          "day": "20"
+        },
+        "to": {
+          "month": "6",
+          "day": "21"
+        }
+      },
+      {
+        "id": "winter",
+        "name": "Winter",
+        "from": {
+          "month": "dec",
+          "day": "21"
+        },
+        "to": {
+          "month": "mar",
+          "day": "20"
+        }
+      },
+      {
+        "id": "leap_eve",
+        "name": "Leap eve",
+        "from": {
+          "month": "2",
+          "day": "30"
+        },
+        "to": {
+          "month": "3",
+          "day": "1"
+        }
       }
     ]
   },

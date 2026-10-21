@@ -1075,3 +1075,109 @@ describe('edge cases', () => {
     SLOW,
   )
 })
+
+// --- overlay rules and annual markers (#156) -----------------------------------------------------
+
+describe('overlay rules and annual markers', () => {
+  const MOON = calendarOf('gregorian-moon')
+  const start = fromFields(MOON, { year: '2000', month: 'jan', day: '1', hour: '9' }, 'hour')
+  const codes = (members: Members, cal: CompiledCalendar | null = MOON): [string, string][] =>
+    validateRule(rule(members), context(start, { calendar: cal }))
+      .filter((e) => e.severity === 'error')
+      .map((e) => [e.code, e.path])
+  const half = { num: '1', den: '2' }
+
+  test('overlay rules need the overlay, a phase in [0, 1) and a base unit per step', () => {
+    expect(codes({ kind: 'overlay', overlay: 'moon', phase: half })).toEqual([])
+    expect(codes({ kind: 'overlay', overlay: 'moon', phase: half }, null)).toEqual([
+      ['rule.unknown_calendar', '/calendar_id'],
+    ])
+    expect(codes({ kind: 'overlay', overlay: 'sun', phase: half })).toEqual([
+      ['rule.unknown_overlay', '/overlay'],
+    ])
+    for (const phase of [
+      { num: '1', den: '1' },
+      { num: '-1', den: '2' },
+    ]) {
+      expect(codes({ kind: 'overlay', overlay: 'moon', phase })).toEqual([
+        ['rule.bad_phase', '/phase'],
+      ])
+    }
+    const { definition, context: ctx } = load('gregorian-moon')
+    const tick = {
+      id: 'tick',
+      name: 'Tick',
+      period: { num: '1', den: '3' },
+      epoch: { anchor: { kind: 'absolute', t: '0' }, precision: 'base' },
+      phases: [{ name: 'Tick', from: { num: '0', den: '1' } }],
+    }
+    const fast = compiled(
+      patched(definition, { '/overlays/-': tick }),
+      patched(ctx, { '/resolved/~1overlays~12~1epoch': '0' }),
+    )
+    const zero = { num: '0', den: '1' }
+    expect(codes({ kind: 'overlay', overlay: 'tick', phase: zero, interval: '2' }, fast)).toEqual([
+      ['rule.overlay_too_fast', '/interval'],
+    ])
+    expect(codes({ kind: 'overlay', overlay: 'tick', phase: zero, interval: '3' }, fast)).toEqual(
+      [],
+    )
+  })
+
+  test('marker filters and selectors name markers of the calendar', () => {
+    expect(codes({ freq: { level: 'day' }, filters: [{ marker: 'summer' }] })).toEqual([
+      ['rule.unknown_marker', '/filters/0/marker'],
+    ])
+    expect(codes({ freq: { level: 'day' }, filters: [{ not: { marker: 'summer' } }] })).toEqual([
+      ['rule.unknown_marker', '/filters/0/not/marker'],
+    ])
+    const unknown = { level: 'day', marker: { id: 'summer', nth: ['1'] } }
+    expect(codes({ freq: { level: 'year' }, select: { path: [unknown] } })).toEqual([
+      ['rule.unknown_marker', '/select/path/0/marker/id'],
+    ])
+    const zeroth = { level: 'day', marker: { id: 'spring', nth: ['0'] } }
+    expect(codes({ freq: { level: 'year' }, select: { path: [zeroth] } })).toEqual([
+      ['rule.bad_nth', '/select/path/0/marker/nth/0'],
+    ])
+  })
+
+  test('marker rules in rounds are invalid', () => {
+    const { definition, context: ctx } = load('gregorian-week')
+    const marker = { id: 'spring', name: 'Spring', from: { month: '3' }, to: { month: '6' } }
+    const week = compiled(patched(definition, { '/markers': [marker] }), ctx)
+    const at = (members: Members): [string, string][] =>
+      validateRule(
+        rule({ freq: { cycle: 'week' }, ...members }),
+        context(g(2000, 'jan', 3), {
+          calendar: week,
+        }),
+      ).map((e) => [e.code, e.path])
+    expect(at({ filters: [{ marker: 'spring' }] })).toEqual([['rule.bad_filter', '/filters/0']])
+    expect(at({ select: { path: [{ level: 'day', marker: { id: 'spring' } }] } })).toEqual([
+      ['rule.bad_selector_level', '/select/path/0/marker'],
+    ])
+  })
+
+  test(
+    'marker rule keys and far counting',
+    () => {
+      const ctx = context(start, { calendar: MOON })
+      const first = rule({
+        freq: { level: 'year' },
+        select: { path: [{ level: 'day', marker: { id: 'spring', nth: ['1'] } }] },
+      })
+      expect(occurrence(first, ctx, '2').key).toBe('2')
+      expect(occurrenceNumber(first, ctx, '100000')).toBe(100_001n)
+      const every = rule({
+        freq: { level: 'year' },
+        select: { path: [{ level: 'day', marker: { id: 'spring' } }] },
+      })
+      expect(occurrence(every, ctx, '0.92').start).toBe(
+        fromFields(MOON, { year: '2000', month: 'jun', day: '20', hour: '9' }, 'hour'),
+      )
+      expect(errorCode(() => occurrence(every, ctx, '0.93'))).toBe('not_found')
+      expect(occurrenceNumber(every, ctx, '1000.0')).toBe(1000n * 93n + 1n)
+    },
+    SLOW,
+  )
+})

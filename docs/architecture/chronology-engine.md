@@ -79,7 +79,7 @@ section that relate parts to each other are checked by compilation (§11). Struc
   `^[a-z][a-z0-9_]*$`; slot ids (named children) and regime ids match `^[a-z][a-z0-9_-]*$`. Names
   are 1–200 characters.
 - Optional members have defaults: `numbering_start` 1, `intercalary` false, `cycle_excluded` [],
-  `exceptions` [], `cycles` [], `eras` [], `overlays` [], cycle `mode` `"continuous"`,
+  `exceptions` [], `cycles` [], `eras` [], `overlays` [], `markers` [], cycle `mode` `"continuous"`,
   `number_start` 1, `anchor.index` 0, era `abbr_position` `"suffix"`, and the `display` values
   shown in §3.11.
 
@@ -90,6 +90,7 @@ section that relate parts to each other are checked by compilation (§11). Struc
   "regimes":  [Regime, …],         // ≥ 1; regime 0 has "starts_at": null
   "eras":     [Era, …],            // optional
   "overlays": [Overlay, …],        // optional
+  "markers":  [Marker, …],         // optional: annual markers, seasons (§3.12)
   "formats":  Formats,             // optional; defaults generated
   "display":  DisplayOptions       // optional
 }
@@ -401,6 +402,30 @@ Examples: `15 March 2024` (day), `March 2024`, `2024`, `15 March 2024, 14:30`,
 `15 October AD 1582`, `3 Wayeb 0` (an intercalary month of five numbered days),
 `22 August 3.169 × 10^92`.
 
+### 3.12 Annual markers (seasons)
+
+```jsonc
+{ "id": "spring", "name": "Spring",
+  "from": { "month": "3", "day": "20" },     // fields below the top level: numbers or slot ids
+  "to":   { "month": "6", "day": "21" } }    // exclusive
+```
+
+A marker (#156) names a part of every year: seasons, festival weeks, "the long nights". Its range
+in year `Y` is `[a, b)`, where `a` is the start of `from` in `Y` and `b` the start of `to` in `Y`,
+or in `Y + 1` when that is not after `a` (a winter from 21 December to 20 March wraps; `to` equal
+to `from` is the whole year from `from`). Markers never affect date structure, like overlays;
+unlike overlays they follow the calendar's own years (a lunisolar leap year lengthens its
+spring).
+
+- `from` and `to` name a contiguous run of levels from the level below the top down (`{month,
+  day}`, or `{month}` for whole months); their values are regular numbers or slot ids. Each is
+  resolved with `from_fields({year: Y, …}, precision = its deepest level, overflow:
+  "constrain")` (§5.7), so day 31 of a 30-day month is its last day. A year where either side
+  can't be resolved (`invalid_date`, a reform gap or an ambiguous reform year) has no range.
+- Ids match `^[a-z][a-z0-9_]*$` and are unique (`marker.duplicate_id`); at most 1000 markers.
+  Fields that skip a level, start below the top level's child, include the top level or name an
+  unknown level are `marker.invalid_fields` (at `…/from` or `…/to`).
+
 ## 4. Compilation
 
 ```
@@ -633,6 +658,14 @@ Overlay details (Python: `lore.chronology.calendar.overlays`, TS: `overlayPhase`
   it, else the first moment after the next instant (at most one base unit past it).
 - An unknown overlay id is the error `unknown_overlay`.
 
+Markers (§3.12; Python: `lore.chronology.calendar.markers`, TS: `markersAt`, `markerRange`):
+
+- `marker_range(marker_id, Y)` → `{start, end}` (`[a, b)` of year `Y`), or `null` when the year has
+  none.
+- `markers_at(t)` → the ids of the markers whose range contains `t`, in definition order: the range
+  of the year containing `t`, or the previous year's range running into it.
+- An unknown marker id is the error `unknown_marker`.
+
 ## 9. Arithmetic
 
 ### 9.1 Uniform levels
@@ -756,7 +789,8 @@ one):
 `alignment.self_reference`, `cycle.unknown_level`, `cycle.names_length_mismatch`,
 `cycle.bad_reset_level`, `cycle.anchor_invalid`, `era.start_not_increasing`,
 `era.local_anchor_uses_era`, `regime.first_has_start`, `regime.start_not_increasing`,
-`regime.duplicate_id`, `overlay.bad_period`, `overlay.phases_unsorted`, `format.unknown_token`,
+`regime.duplicate_id`, `marker.duplicate_id`, `marker.invalid_fields` (§3.12),
+`overlay.bad_period`, `overlay.phases_unsorted`, `format.unknown_token`,
 `anchor.unresolved` (a non-local time point without a resolved value in the context; absolute
 anchors need one too, so the engine takes every moment from the context),
 `template.unknown_cycle` (a `cycle_excluded` id that is not a cycle of the regime),

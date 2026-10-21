@@ -553,8 +553,10 @@ Recurrence (`core/events/recurrence/`, #79; recurrence.md §2, §7, §8, §10):
   engine). It isn't shown for materialized occurrences, which can't recur.
   - **Presets** are built from the series start (`rule-model.ts`, `presetRule`): every year on
     this date (`select: null`), every month on this day, the nth weekday of the month (a
-    continuous cycle at the day level), every week on these days (a cycle's rounds), and every N
-    base units. Each has an "every N" step. Opening a series picks the preset its rule matches
+    continuous cycle at the day level), every week on these days (a cycle's rounds), every time
+    an overlay reaches a named phase (an `overlay` rule, #156; the default phase is the named one
+    holding the series start), the first or last day of a marker every year (a marker selector at
+    the day-like level, #156), and every N base units. Each has an "every N" step. Opening a series picks the preset its rule matches
     (`detectPreset`; stored defaults are ignored), else Advanced.
   - **Advanced** mode: the period (a level or a continuous cycle) and interval, filters (every
     Nth by number or ordinal, by number or slot, by cycle value; each can be negated), the

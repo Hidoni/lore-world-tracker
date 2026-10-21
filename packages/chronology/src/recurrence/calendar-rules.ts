@@ -24,6 +24,7 @@ import {
 } from '../calendar/compiled'
 import { type Overflow, findChild } from '../calendar/convert'
 import { regimeCycleValue } from '../calendar/cycles'
+import { rangeOf } from '../calendar/markers'
 import {
   REGULAR,
   type UnitFilter,
@@ -33,7 +34,13 @@ import {
   unitsPerPeriod,
 } from '../calendar/units'
 import { floorDiv, floorMod } from '../numbers'
-import type { CalendarRule, CycleMatch, LevelSelector, PeriodFilter } from '../schema.gen'
+import type {
+  CalendarRule,
+  CycleMatch,
+  LevelSelector,
+  MarkerMatch,
+  PeriodFilter,
+} from '../schema.gen'
 import { type Counter, TooComplex, counterFor } from './counting'
 import {
   COUNTER_CACHE,
@@ -83,6 +90,8 @@ function single(rule: CalendarRule, levels: readonly string[], period: number): 
       const nth = selector.cycle.nth
       if (selector.cycle.values.length !== 1 || nth?.length !== 1) return false
     }
+    // A parent holds at most one range start of a marker.
+    if ('marker' in selector && selector.marker.nth?.length !== 1) return false
     above = level
   }
   return true
@@ -124,6 +133,12 @@ class Checker {
 
   error(code: string, path: string, message: string): void {
     this.errors.push({ code, path, message, severity: 'error' })
+  }
+
+  marker(markerId: string, path: string): void {
+    if (!(this.calendar.definition.markers ?? []).some((item) => item.id === markerId)) {
+      this.error('rule.unknown_marker', path, `no marker ${markerId}`)
+    }
   }
 
   /** Slot ids of the children at `level` in any template of the regime. */
@@ -203,6 +218,12 @@ class Checker {
           this.error('rule.unknown_slot', `${path}/in/${j}`, 'unknown slot')
         }
       })
+    } else if ('marker' in item) {
+      if (rounds !== null) {
+        this.error('rule.bad_filter', path, 'cycle rounds have no unit to place')
+        return
+      }
+      this.marker(item.marker, path + '/marker')
     } else if ('all' in item || 'any' in item) {
       const member = 'all' in item ? 'all' : 'any'
       const items = 'all' in item ? item.all : item.any
@@ -255,6 +276,16 @@ class Checker {
       ;(selector.cycle.nth ?? []).forEach((nth, j) => {
         if (nth === '0')
           this.error('rule.bad_nth', `${path}/cycle/nth/${j}`, 'nth counts from 1 or -1')
+      })
+    } else if ('marker' in selector) {
+      if (rounds !== null) {
+        this.error('rule.bad_selector_level', path + '/marker', 'not in a round')
+        return
+      }
+      this.marker(selector.marker.id, path + '/marker/id')
+      ;(selector.marker.nth ?? []).forEach((nth, j) => {
+        if (nth === '0')
+          this.error('rule.bad_nth', `${path}/marker/nth/${j}`, 'nth counts from 1 or -1')
       })
     }
   }
@@ -329,6 +360,7 @@ export class CalendarPlan extends Plan {
   /** Positions per period when constant (`null`: they vary). */
   readonly perPeriod: bigint | null
   counter: Counter | null | typeof UNSET = UNSET
+  readonly markerRanges = new Map<string, readonly [bigint, bigint] | null>()
   readonly #cacheKey: string
 
   constructor(
@@ -414,7 +446,9 @@ export class CalendarPlan extends Plan {
    */
   #perPeriod(): bigint | null {
     const rule = this.rule
-    const cyclic = (rule.select?.path ?? []).some((selector) => 'cycle' in selector)
+    const cyclic = (rule.select?.path ?? []).some(
+      (selector) => 'cycle' in selector || 'marker' in selector,
+    )
     if (this.rounds !== null || (rule.filters ?? []).length > 0 || cyclic) return null
     if (unitsPerPeriod(this.regime, this.level, this.top) === 0n) return null
     const counts = new Set<bigint>()
@@ -617,9 +651,32 @@ export class CalendarPlan extends Plan {
       const [number, slot] = this.#number(unit)
       return item.in.some((v) => (isNumber(v) ? BigInt(v) === number : v === slot))
     }
+    if ('marker' in item) return this.#inMarker(item.marker, unit.start)
     if ('all' in item) return item.all.every((f) => this.#filter(f, period, unit))
     if ('any' in item) return item.any.some((f) => this.#filter(f, period, unit))
     return !this.#filter(item.not, period, unit)
+  }
+
+  // markers (§2.2, §2.3; chronology-engine §3.12), in the series start's regime
+
+  #markerRange(markerId: string, year: bigint): readonly [bigint, bigint] | null {
+    const key = `${markerId}\u0000${year}`
+    if (!this.markerRanges.has(key)) {
+      if (this.markerRanges.size > COUNTER_CACHE * 64) this.markerRanges.clear()
+      const item = defined(
+        (this.calendar.definition.markers ?? []).find((marker) => marker.id === markerId),
+      )
+      this.markerRanges.set(key, rangeOf(this.calendar, item, year, this.regime.id))
+    }
+    return this.markerRanges.get(key) ?? null
+  }
+
+  #inMarker(markerId: string, t: bigint): boolean {
+    const year = this.regime.yearOf(t)
+    return [year, year - 1n].some((candidate) => {
+      const bounds = this.#markerRange(markerId, candidate)
+      return bounds !== null && bounds[0] <= t && t < bounds[1]
+    })
   }
 
   /** Rounds: `mod` filters (number = ordinal = the round ordinal) and combinations. */
@@ -673,7 +730,7 @@ export class CalendarPlan extends Plan {
       for (const v of selector.values) found.add(defined(roundIndex(cycle, v))) // validated
       indexes = [...found].sort((a, b) => a - b)
     } else {
-      const match = selector.cycle
+      const match = (selector as { cycle: CycleMatch }).cycle // marker selectors aren't in rounds
       const other = defined(findCycle(this.regime, match.id))
       const units = Array.from({ length }, (_, i) => this.#unit(first + BigInt(i)))
       const values = units.map((u) => regimeCycleValue(this.top, this.regime, other, u.start))
@@ -741,6 +798,7 @@ export class CalendarPlan extends Plan {
   #selectChildren(unit: Unit, selector: LevelSelector, level: number): Unit[] {
     const runs = this.#runs(unit, level)
     if ('cycle' in selector) return this.#cycleChildren(runs, selector.cycle)
+    if ('marker' in selector) return this.#markerChildren(unit, runs, selector.marker)
     const regular = runs.filter((run) => !run.segment.intercalary)
     const total = regular.reduce((sum, run) => sum + run.segment.count, 0n)
     if ('all' in selector) {
@@ -785,6 +843,52 @@ export class CalendarPlan extends Plan {
         const unit = this.#unitAt(run, i)
         chosen.set(unit.start, unit)
         if (BigInt(chosen.size) > MAX_POSITIONS) throw tooManyPositions()
+      }
+    }
+    return [...chosen.keys()].sort(byTime).map((start) => defined(chosen.get(start)))
+  }
+
+  /** For each range of the marker starting inside `unit`, the units of `runs` (every unit of the
+   * level in it, intercalary ones too) starting in the range and inside `unit`; `nth` per range. */
+  #markerChildren(unit: Unit, runs: Run[], match: MarkerMatch): Unit[] {
+    const end = unit.start + unit.template.length
+    const chosen = new Map<bigint, Unit>()
+    for (let year = this.regime.yearOf(unit.start); year <= this.regime.yearOf(end - 1n); year++) {
+      const bounds = this.#markerRange(match.id, year)
+      if (bounds === null || bounds[0] < unit.start || bounds[0] >= end) continue
+      const low = bounds[0]
+      const high = bounds[1] < end ? bounds[1] : end
+      // (run, first, last) units inside [low, high)
+      const spans: [Run, bigint, bigint][] = []
+      for (const run of runs) {
+        const size = run.segment.childLength
+        const firstUnit = -floorDiv(run.start - low, size)
+        const lastUnit = -floorDiv(run.start - high, size) - 1n
+        const first = firstUnit > 0n ? firstUnit : 0n
+        const last = lastUnit < run.segment.count - 1n ? lastUnit : run.segment.count - 1n
+        if (first <= last) spans.push([run, first, last])
+      }
+      const total = spans.reduce((sum, [, first, last]) => sum + last - first + 1n, 0n)
+      let indexes: bigint[]
+      if (match.nth == null) {
+        if (total + BigInt(chosen.size) > MAX_POSITIONS) throw tooManyPositions()
+        indexes = Array.from({ length: Number(total) }, (_, i) => BigInt(i))
+      } else {
+        indexes = match.nth.map((value) => {
+          const n = BigInt(value)
+          return n > 0n ? n - 1n : total + n
+        })
+      }
+      for (let index of indexes) {
+        if (index < 0n || index >= total) continue
+        for (const [run, first, last] of spans) {
+          if (index <= last - first) {
+            const found = this.#unitAt(run, first + index)
+            chosen.set(found.start, found)
+            break
+          }
+          index -= last - first + 1n
+        }
       }
     }
     return [...chosen.keys()].sort(byTime).map((start) => defined(chosen.get(start)))

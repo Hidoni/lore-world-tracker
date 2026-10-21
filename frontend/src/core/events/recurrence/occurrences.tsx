@@ -60,7 +60,7 @@ export function OccurrencesSection({
   let to: bigint | null = null
   if (rule !== null && from !== null && dimension !== null && time.startT !== null) {
     const calendar =
-      rule.kind === 'calendar'
+      rule.kind !== 'interval'
         ? (lenses.find((candidate) => candidate.id === rule.calendar_id)?.calendar ?? null)
         : null
     try {

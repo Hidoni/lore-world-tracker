@@ -112,6 +112,7 @@ class Compiler {
     this.checkTimePoints()
     this.checkEras()
     this.checkOverlays()
+    this.checkMarkers()
     const compiled = this.definition.regimes.map((regime, r) => this.compileRegime(r, regime))
     this.checkFormats()
     if (this.errors.length > 0) return sortedErrors(this.errors)
@@ -214,6 +215,37 @@ class Compiler {
       }
       if (era.numbering.direction === 'backward' && i === eras.length - 1) {
         this.error('era.backward_without_end', path, 'a backward era counts down to the next era')
+      }
+    })
+  }
+
+  /** §3.12: unique ids; fields from the level below the top down, without gaps. */
+  checkMarkers(): void {
+    const levels = this.definition.levels.map((level) => level.id)
+    const top = levels.length - 1
+    const seen = new Set<string>()
+    ;(this.definition.markers ?? []).forEach((item, i) => {
+      if (seen.has(item.id)) {
+        this.error('marker.duplicate_id', pointer('markers', i, 'id'), 'duplicate id')
+      }
+      seen.add(item.id)
+      for (const [name, fields] of [
+        ['from', item.from],
+        ['to', item.to],
+      ] as const) {
+        const keys = Object.keys(fields)
+        const indexes = keys
+          .filter((key) => levels.includes(key))
+          .map((key) => levels.indexOf(key))
+          .sort((a, b) => b - a)
+        const expected = keys.map((_, j) => top - 1 - j)
+        if (indexes.length !== keys.length || indexes.some((index, j) => index !== expected[j])) {
+          this.error(
+            'marker.invalid_fields',
+            pointer('markers', i, name),
+            'fields go from the level below the top down, without gaps',
+          )
+        }
       }
     })
   }

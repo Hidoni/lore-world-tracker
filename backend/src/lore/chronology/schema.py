@@ -504,6 +504,16 @@ class Overlay(_Model):
     phases: Annotated[list[Phase], Field(min_length=1, max_length=1000)]
 
 
+class Marker(_Model):
+    """A named part of every year, e.g. a season (chronology-engine §3.12): ``[from, to)`` of
+    each year, wrapping into the next year when ``to`` is not after ``from``."""
+
+    id: LevelId
+    name: Name
+    from_: DateFields = Field(alias="from")
+    to: DateFields
+
+
 FormatPattern = Annotated[str, StringConstraints(min_length=1, max_length=1000)]
 
 
@@ -534,6 +544,7 @@ class CalendarDefinition(_Model):
     regimes: Annotated[list[Regime], Field(min_length=1, max_length=100)]
     eras: Annotated[list[Era], Field(max_length=1000)] = []
     overlays: Annotated[list[Overlay], Field(max_length=100)] = []
+    markers: Annotated[list[Marker], Field(max_length=1000)] = []
     formats: Formats | None = None
     display: DisplayOptions | None = None
 
@@ -608,6 +619,10 @@ class CycleFilter(_Model):
     in_: Annotated[list[FieldValue], Field(min_length=1, max_length=10_000)] = Field(alias="in")
 
 
+class MarkerFilter(_Model):
+    marker: LevelId
+
+
 class AllFilter(_Model):
     all: Annotated[list[PeriodFilter], Field(min_length=1)]
 
@@ -620,7 +635,9 @@ class NotFilter(_Model):
     not_: PeriodFilter = Field(alias="not")
 
 
-type PeriodFilter = ModFilter | InFilter | CycleFilter | AllFilter | AnyFilter | NotFilter
+type PeriodFilter = (
+    ModFilter | InFilter | CycleFilter | MarkerFilter | AllFilter | AnyFilter | NotFilter
+)
 """Which periods qualify (recurrence §2.2)."""
 
 
@@ -645,7 +662,17 @@ class AllSelector(_Model):
     all: Literal[True]
 
 
-type LevelSelector = ValuesSelector | CycleSelector | AllSelector
+class MarkerMatch(_Model):
+    id: LevelId
+    nth: Annotated[list[SignedIntStr], Field(min_length=1, max_length=1000)] | None = None
+
+
+class MarkerSelector(_Model):
+    level: LevelId
+    marker: MarkerMatch
+
+
+type LevelSelector = ValuesSelector | CycleSelector | AllSelector | MarkerSelector
 
 
 class Selector(_Model):
@@ -709,7 +736,22 @@ class IntervalRule(_Model):
     exclusions: Annotated[list[Exclusion], Field(max_length=10_000)] = []
 
 
-type RecurrenceRule = Annotated[CalendarRule | IntervalRule, Field(discriminator="kind")]
+class OverlayRule(_Model):
+    """Every time an overlay of a calendar reaches a phase (recurrence §2, #156)."""
+
+    schema_version: SchemaVersion1 = 1
+    kind: Literal["overlay"]
+    calendar_id: RecordId
+    overlay: LevelId
+    phase: Rational
+    interval: PositiveIntStr = "1"
+    limit: Limit
+    exclusions: Annotated[list[Exclusion], Field(max_length=10_000)] = []
+
+
+type RecurrenceRule = Annotated[
+    CalendarRule | IntervalRule | OverlayRule, Field(discriminator="kind")
+]
 
 
 # --- correspondences -----------------------------------------------------------------------------

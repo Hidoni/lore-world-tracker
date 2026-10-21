@@ -187,6 +187,11 @@ in bulk, so a festival can repeat every year until the end of a dimension billio
 - **Every year on this date**, **Every month on this day**, **Every month on this weekday (e.g.
   the second Tuesday)**, **Every week on these days** (pick the **Days**), each with an **Every N**
   step;
+- **Every time a moon (or another overlay) reaches a phase**: pick the **Phase** (every Full
+  Moon), and with **Every N**, every Nth time (every third New Moon). It needs a calendar with
+  overlays;
+- **Every year on the first or last day of a season**: pick **first day** or **last day** and the
+  **Season**, for calendars with markers (the first day of spring);
 - **Every N base units**, independent of any calendar (a comet every 75.3 years, exactly).
 
 When the dimension has several calendars, choose which one the rule follows. Pick **Advanced** for

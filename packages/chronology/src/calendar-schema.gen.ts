@@ -246,6 +246,13 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
         "maxItems": 100,
         "type": "array"
       },
+      "markers": {
+        "items": {
+          "$ref": "#/$defs/Marker"
+        },
+        "maxItems": 1000,
+        "type": "array"
+      },
       "formats": {
         "anyOf": [
           {
@@ -837,6 +844,58 @@ export const CALENDAR_SCHEMA_DEFS: Readonly<Record<string, unknown>> = {
     "required": [
       "kind",
       "fields"
+    ],
+    "type": "object"
+  },
+  "Marker": {
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "name": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "from": {
+        "maxProperties": 20,
+        "minProperties": 1,
+        "patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          }
+        },
+        "propertyNames": {
+          "maxLength": 64
+        },
+        "type": "object"
+      },
+      "to": {
+        "maxProperties": 20,
+        "minProperties": 1,
+        "patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "maxLength": 1001,
+            "pattern": "^(0|-?[1-9][0-9]*|[a-z][a-z0-9_-]*)$",
+            "type": "string"
+          }
+        },
+        "propertyNames": {
+          "maxLength": 64
+        },
+        "type": "object"
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "from",
+      "to"
     ],
     "type": "object"
   },
