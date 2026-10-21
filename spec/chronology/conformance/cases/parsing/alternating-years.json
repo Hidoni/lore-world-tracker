@@ -1,0 +1,110 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the alternating-years calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "alternating-years",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/alternating-years.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "worked-example-second",
+      "op": "parse",
+      "input": {
+        "text": "12 Frostfall 1023, 14:00:00"
+      },
+      "expected": {
+        "fields": {
+          "year": "1023",
+          "month": "frostfall",
+          "day": "12",
+          "hour": "14",
+          "minute": "0",
+          "second": "0"
+        },
+        "era": null,
+        "precision": "second",
+        "approximate": false,
+        "t": "435000008080524000"
+      },
+      "note": "formatting/alternating-years.json#worked-example-second at second"
+    },
+    {
+      "id": "worked-example-day",
+      "op": "parse",
+      "input": {
+        "text": "12 Frostfall 1023"
+      },
+      "expected": {
+        "fields": {
+          "year": "1023",
+          "month": "frostfall",
+          "day": "12"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "435000008080473600"
+      },
+      "note": "formatting/alternating-years.json#worked-example-day at day"
+    },
+    {
+      "id": "even-year-month",
+      "op": "parse",
+      "input": {
+        "text": "Ash 2"
+      },
+      "expected": {
+        "fields": {
+          "year": "2",
+          "month": "ash"
+        },
+        "era": null,
+        "precision": "month",
+        "approximate": false,
+        "t": "435000000010540800"
+      },
+      "note": "formatting/alternating-years.json#even-year-month at month"
+    },
+    {
+      "id": "moment-zero",
+      "op": "parse",
+      "input": {
+        "text": "1 Thawing -55,024,286,581, 18:40"
+      },
+      "expected": {
+        "fields": {
+          "year": "-55024286581",
+          "month": "thawing",
+          "day": "1",
+          "hour": "18",
+          "minute": "40"
+        },
+        "era": null,
+        "precision": "minute",
+        "approximate": false,
+        "t": "0"
+      },
+      "note": "formatting/alternating-years.json#moment-zero at minute"
+    },
+    {
+      "id": "huge-year",
+      "op": "parse",
+      "input": {
+        "text": "3 Ash 1.265 × 10^93"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "formatting/alternating-years.json#huge-year"
+    },
+    {
+      "id": "ten-pow-105",
+      "op": "parse",
+      "input": {
+        "text": "1.391 × 10^98"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "formatting/alternating-years.json#ten-pow-105"
+    }
+  ]
+}

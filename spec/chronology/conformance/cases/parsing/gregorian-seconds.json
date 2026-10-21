@@ -1,0 +1,487 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the gregorian-seconds calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "gregorian-seconds",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/gregorian-seconds.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "second",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024, 12:34:56"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29",
+          "hour": "12",
+          "minute": "34",
+          "second": "56"
+        },
+        "era": null,
+        "precision": "second",
+        "approximate": false,
+        "t": "100000762525296"
+      },
+      "note": "formatting/gregorian-seconds.json#second at second"
+    },
+    {
+      "id": "minute",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024, 12:34"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29",
+          "hour": "12",
+          "minute": "34"
+        },
+        "era": null,
+        "precision": "minute",
+        "approximate": false,
+        "t": "100000762525240"
+      },
+      "note": "formatting/gregorian-seconds.json#minute at minute"
+    },
+    {
+      "id": "hour-single-clock-component",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024, 12 h"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29",
+          "hour": "12"
+        },
+        "era": null,
+        "precision": "hour",
+        "approximate": false,
+        "t": "100000762523200"
+      },
+      "note": "formatting/gregorian-seconds.json#hour-single-clock-component at hour"
+    },
+    {
+      "id": "day",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "100000762480000"
+      },
+      "note": "formatting/gregorian-seconds.json#day at day"
+    },
+    {
+      "id": "month",
+      "op": "parse",
+      "input": {
+        "text": "February 2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb"
+        },
+        "era": null,
+        "precision": "month",
+        "approximate": false,
+        "t": "100000760060800"
+      },
+      "note": "formatting/gregorian-seconds.json#month at month"
+    },
+    {
+      "id": "year",
+      "op": "parse",
+      "input": {
+        "text": "2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "100000757382400"
+      },
+      "note": "formatting/gregorian-seconds.json#year at year"
+    },
+    {
+      "id": "clock-padding",
+      "op": "parse",
+      "input": {
+        "text": "15 June 1987, 08:30:01"
+      },
+      "expected": {
+        "fields": {
+          "year": "1987",
+          "month": "jun",
+          "day": "15",
+          "hour": "8",
+          "minute": "30",
+          "second": "1"
+        },
+        "era": null,
+        "precision": "second",
+        "approximate": false,
+        "t": "99999604059401"
+      },
+      "note": "formatting/gregorian-seconds.json#clock-padding at second"
+    },
+    {
+      "id": "unix-epoch",
+      "op": "parse",
+      "input": {
+        "text": "1 January 1970, 00:00:00"
+      },
+      "expected": {
+        "fields": {
+          "year": "1970",
+          "month": "jan",
+          "day": "1",
+          "hour": "0",
+          "minute": "0",
+          "second": "0"
+        },
+        "era": null,
+        "precision": "second",
+        "approximate": false,
+        "t": "99999053315200"
+      },
+      "note": "formatting/gregorian-seconds.json#unix-epoch at second"
+    },
+    {
+      "id": "year-zero",
+      "op": "parse",
+      "input": {
+        "text": "31 December 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "dec",
+          "day": "31"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "99936917632000"
+      },
+      "note": "formatting/gregorian-seconds.json#year-zero at day"
+    },
+    {
+      "id": "negative-year",
+      "op": "parse",
+      "input": {
+        "text": "1 March -1"
+      },
+      "expected": {
+        "fields": {
+          "year": "-1",
+          "month": "mar",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "99936859657600"
+      },
+      "note": "formatting/gregorian-seconds.json#negative-year at day"
+    },
+    {
+      "id": "negative-year-grouped",
+      "op": "parse",
+      "input": {
+        "text": "24 February -3,166,874"
+      },
+      "expected": {
+        "fields": {
+          "year": "-3166874",
+          "month": "feb",
+          "day": "24"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "-51200"
+      },
+      "note": "formatting/gregorian-seconds.json#negative-year-grouped at day"
+    },
+    {
+      "id": "year-9999",
+      "op": "parse",
+      "input": {
+        "text": "31 December 9999, 23:59"
+      },
+      "expected": {
+        "fields": {
+          "year": "9999",
+          "month": "dec",
+          "day": "31",
+          "hour": "23",
+          "minute": "59"
+        },
+        "era": null,
+        "precision": "minute",
+        "approximate": false,
+        "t": "100252455615940"
+      },
+      "note": "formatting/gregorian-seconds.json#year-9999 at minute"
+    },
+    {
+      "id": "scientific-year",
+      "op": "parse",
+      "input": {
+        "text": "22 August 3.169 × 10^92"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "formatting/gregorian-seconds.json#scientific-year"
+    },
+    {
+      "id": "circa-day",
+      "op": "parse",
+      "input": {
+        "text": "c. 29 February 2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": true,
+        "t": "100000762480000"
+      },
+      "note": "formatting/gregorian-seconds.json#circa-day at day"
+    },
+    {
+      "id": "circa-year",
+      "op": "parse",
+      "input": {
+        "text": "c. 2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": true,
+        "t": "100000757382400"
+      },
+      "note": "formatting/gregorian-seconds.json#circa-year at year"
+    },
+    {
+      "id": "extra-spaces-and-case",
+      "op": "parse",
+      "input": {
+        "text": "  29   february  2024 "
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "100000762480000"
+      },
+      "note": "case and whitespace are ignored"
+    },
+    {
+      "id": "month-only-numbers",
+      "op": "parse",
+      "input": {
+        "text": "29 2 2024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "2",
+          "day": "29"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "100000762480000"
+      },
+      "note": "a named level also accepts its number"
+    },
+    {
+      "id": "slot-id",
+      "op": "parse",
+      "input": {
+        "text": "29 feb 2024, 12:34"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29",
+          "hour": "12",
+          "minute": "34"
+        },
+        "era": null,
+        "precision": "minute",
+        "approximate": false,
+        "t": "100000762525240"
+      },
+      "note": "slot ids match like names"
+    },
+    {
+      "id": "ungrouped-negative",
+      "op": "parse",
+      "input": {
+        "text": "24 February -3166874"
+      },
+      "expected": {
+        "fields": {
+          "year": "-3166874",
+          "month": "feb",
+          "day": "24"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "-51200"
+      },
+      "note": "grouping is optional"
+    },
+    {
+      "id": "minus-sign",
+      "op": "parse",
+      "input": {
+        "text": "1 March −1"
+      },
+      "expected": {
+        "fields": {
+          "year": "-1",
+          "month": "mar",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "99936859657600"
+      },
+      "note": "the minus sign reads like a hyphen"
+    },
+    {
+      "id": "grouped-short-year",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2,024"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "100000762480000"
+      },
+      "note": "a grouped number is accepted even where format writes it plain"
+    },
+    {
+      "id": "not-a-leap-year",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2023"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "from_fields rejects day 29"
+    },
+    {
+      "id": "day-out-of-range",
+      "op": "parse",
+      "input": {
+        "text": "30 February 2024"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "from_fields rejects day 30"
+    },
+    {
+      "id": "second-out-of-range",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024, 12:34:60"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "from_fields rejects second 60"
+    },
+    {
+      "id": "scientific",
+      "op": "parse",
+      "input": {
+        "text": "22 August 3.169 × 10^92"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "scientific notation is not parsed (it isn’t exact)"
+    },
+    {
+      "id": "iso-style",
+      "op": "parse",
+      "input": {
+        "text": "2024-02-29"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "not one of the calendar’s patterns"
+    },
+    {
+      "id": "unknown-month",
+      "op": "parse",
+      "input": {
+        "text": "29 Brumaire 2024"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "no such slot"
+    },
+    {
+      "id": "empty",
+      "op": "parse",
+      "input": {
+        "text": "   "
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "nothing to parse"
+    }
+  ]
+}

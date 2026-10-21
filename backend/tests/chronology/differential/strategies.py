@@ -575,6 +575,27 @@ def _overlay(draw: st.DrawFn, calendar: Calendar) -> Json:
 
 
 @st.composite
+def _parse(draw: st.DrawFn, calendar: Calendar) -> Json:
+    """Text ``format`` wrote (round trips), sometimes cased, spaced or cut short (§10.1)."""
+    t = str(draw(calendar.moments()))
+    precision = draw(st.sampled_from([*calendar.levels, "base"]))
+    found = run_op(
+        "format", calendar.document, {"t": t, "precision": precision, "approximate": False}
+    )
+    text: str = found.get("text", "")
+    edit = draw(st.integers(0, 4))
+    if edit == 1:
+        text = text.upper()
+    elif edit == 2:
+        text = "  " + text.replace(" ", "   ") + " "
+    elif edit == 3 and text:
+        text = text[: draw(st.integers(0, len(text) - 1))]
+    elif edit == 4:
+        text = "c. " + text
+    return _case("parse", {"text": text})
+
+
+@st.composite
 def calendar_ops(draw: st.DrawFn, calendar: Calendar) -> Json:
     """One op on ``calendar``."""
     t = st.builds(str, calendar.moments())
@@ -604,6 +625,7 @@ def calendar_ops(draw: st.DrawFn, calendar: Calendar) -> Json:
             _display_point(calendar),
         ),
         _recurrence(calendar),
+        _parse(calendar),
     ]
     if calendar.cycles:
         choices.append(

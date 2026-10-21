@@ -1,0 +1,95 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the intercalary-day calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "intercalary-day",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/intercalary-day.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "regular-day",
+      "op": "parse",
+      "input": {
+        "text": "30 Second 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "second",
+          "day": "30"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "59"
+      },
+      "note": "formatting/intercalary-day.json#regular-day at day"
+    },
+    {
+      "id": "midyear",
+      "op": "parse",
+      "input": {
+        "text": "Midyear's Day Second 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "second",
+          "day": "midyear"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "60"
+      },
+      "note": "formatting/intercalary-day.json#midyear at day"
+    },
+    {
+      "id": "next-year",
+      "op": "parse",
+      "input": {
+        "text": "1 First 1"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "first",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "91"
+      },
+      "note": "formatting/intercalary-day.json#next-year at day"
+    },
+    {
+      "id": "intercalary-slot-id",
+      "op": "parse",
+      "input": {
+        "text": "midyear second 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "second",
+          "day": "midyear"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "60"
+      },
+      "note": "slot ids of an intercalary unit"
+    },
+    {
+      "id": "intercalary-has-no-number",
+      "op": "parse",
+      "input": {
+        "text": "31 Second 0"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "the intercalary day has no number"
+    }
+  ]
+}

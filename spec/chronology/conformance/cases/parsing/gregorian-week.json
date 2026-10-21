@@ -1,0 +1,47 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the gregorian-week calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "gregorian-week",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/gregorian-week.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "y2k",
+      "op": "parse",
+      "input": {
+        "text": "1 January 2000"
+      },
+      "expected": {
+        "fields": {
+          "year": "2000",
+          "month": "jan",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "100000000000000"
+      },
+      "note": "formatting/gregorian-week.json#y2k at day"
+    },
+    {
+      "id": "leap-day-2024",
+      "op": "parse",
+      "input": {
+        "text": "29 February 2024, 12 h"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "feb",
+          "day": "29",
+          "hour": "12"
+        },
+        "era": null,
+        "precision": "hour",
+        "approximate": false,
+        "t": "100000762523200"
+      },
+      "note": "formatting/gregorian-week.json#leap-day-2024 at hour"
+    }
+  ]
+}

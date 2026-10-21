@@ -222,6 +222,15 @@ alignment fields are invalid).
   (`display` absent = the default options)
 - expected: `{"text": "t = <number> <abbr>"}`
 
+### `parse` (§10.1)
+
+- input: `{"text": "<string>"}`
+- expected: `{"fields": {"<level id>": "<number or slot id>", …}, "era": "<era id>" | null,
+  "precision": "<level id>" | "base", "approximate": bool, "t": "<moment>"}` (`fields` from the
+  top level down to `precision`, the year era-relative when `era` is set; `t` the start of the
+  unit, or the exact moment at `base`), or `{"error": "invalid_date"}` when no pattern gives a
+  valid date
+
 ### `preset_instantiate` (§13), calendar-free
 
 - input: `{"preset": "<preset id>", "seconds_per_base_unit": Rational, "origin": "<moment>" | absent}`

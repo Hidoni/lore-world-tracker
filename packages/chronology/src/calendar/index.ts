@@ -66,3 +66,4 @@ export {
   formatSpan,
 } from './formatting'
 export { type Piece, PatternError, type Token, parsePattern } from './formats'
+export { MATCH_LIMIT, type ParsedDate, parseDate, parsedDateToJson } from './parsing'

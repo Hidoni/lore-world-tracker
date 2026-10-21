@@ -34,6 +34,11 @@ _MINUS = "\u2212"
 _ORDINAL = ("st", "nd", "rd", "th")
 
 
+def _digits(text: str) -> bool:
+    """ASCII digits only (``str.isdigit`` accepts ``²``, which ``int`` refuses)."""
+    return text != "" and all("0" <= char <= "9" for char in text)
+
+
 @dataclass(frozen=True, slots=True)
 class ParsedDate:
     fields: dict[str, str]
@@ -146,7 +151,7 @@ def _number_at(text: str, pos: int, group: str) -> list[int]:
     if i < len(text) and text[i] in ("-", _MINUS):
         i += 1
     digits = i
-    while digits < len(text) and text[digits].isdigit():
+    while digits < len(text) and _digits(text[digits]):
         digits += 1
     if digits == i:
         return []
@@ -163,7 +168,7 @@ def _number_at(text: str, pos: int, group: str) -> list[int]:
 def _three_digits(text: str, pos: int) -> bool:
     chunk = text[pos : pos + 3]
     after = text[pos + 3 : pos + 4]
-    return len(chunk) == 3 and chunk.isdigit() and not after.isdigit()  # noqa: PLR2004
+    return len(chunk) == 3 and _digits(chunk) and not _digits(after)  # noqa: PLR2004
 
 
 def _number_value(text: str, group: str) -> str:
@@ -238,7 +243,7 @@ class _Matcher:
         overlay = token.id or ""
         if token.attr == "fraction":
             chunk = self.text[pos : pos + 4]
-            ok = len(chunk) == 4 and chunk.startswith("0.") and chunk[2:].isdigit()  # noqa: PLR2004
+            ok = len(chunk) == 4 and chunk.startswith("0.") and _digits(chunk[2:])  # noqa: PLR2004
             fraction = [(("overlay.fraction", overlay, chunk), pos + 4)] if ok else []
             return [*fraction, (None, pos)]
         names = [
@@ -263,7 +268,7 @@ class _Matcher:
                 stack += [(index + 1, end, captures) for end in reversed(ends)]
             elif isinstance(element, str):
                 if self.lower.startswith(element, pos):
-                    stack.append((index + 1, pos + 1, captures))
+                    stack.append((index + 1, pos + len(element), captures))
             else:
                 options = self.alternatives(element, pos)
                 for capture, end in reversed(options):

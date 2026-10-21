@@ -1,0 +1,51 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the gregorian-moon calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "gregorian-moon",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/gregorian-moon.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "moon-epoch",
+      "op": "parse",
+      "input": {
+        "text": "6 January 2000, 18:14"
+      },
+      "expected": {
+        "fields": {
+          "year": "2000",
+          "month": "jan",
+          "day": "6",
+          "hour": "18",
+          "minute": "14"
+        },
+        "era": null,
+        "precision": "minute",
+        "approximate": false,
+        "t": "100000000497640"
+      },
+      "note": "formatting/gregorian-moon.json#moon-epoch at minute"
+    },
+    {
+      "id": "2024",
+      "op": "parse",
+      "input": {
+        "text": "15 March 2024, 12:30:05"
+      },
+      "expected": {
+        "fields": {
+          "year": "2024",
+          "month": "mar",
+          "day": "15",
+          "hour": "12",
+          "minute": "30",
+          "second": "5"
+        },
+        "era": null,
+        "precision": "second",
+        "approximate": false,
+        "t": "100000763821005"
+      },
+      "note": "formatting/gregorian-moon.json#2024 at second"
+    }
+  ]
+}

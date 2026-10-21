@@ -1,0 +1,645 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the formats-showcase calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "formats-showcase",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/formats-showcase.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "day-custom",
+      "op": "parse",
+      "input": {
+        "text": "Restday, 5 Fro 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10454745600"
+      },
+      "note": "formatting/formats-showcase.json#day-custom at day"
+    },
+    {
+      "id": "minute-custom",
+      "op": "parse",
+      "input": {
+        "text": "5 Frostfall 1 AF, 14:05"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5",
+          "hour": "14",
+          "minute": "5"
+        },
+        "era": "af",
+        "precision": "minute",
+        "approximate": false,
+        "t": "10454796300"
+      },
+      "note": "formatting/formats-showcase.json#minute-custom at minute"
+    },
+    {
+      "id": "hour-every-token",
+      "op": "parse",
+      "input": {
+        "text": "Re/5/2/2/2 005 frostfall 01/1st 1 14th hour, {7} First Quarter 0.45"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5",
+          "hour": "14"
+        },
+        "era": null,
+        "precision": "hour",
+        "approximate": false,
+        "t": "10454796000"
+      },
+      "note": "formatting/formats-showcase.json#hour-every-token at hour"
+    },
+    {
+      "id": "month-custom",
+      "op": "parse",
+      "input": {
+        "text": "Frostfall 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall"
+        },
+        "era": "af",
+        "precision": "month",
+        "approximate": false,
+        "t": "10454400000"
+      },
+      "note": "formatting/formats-showcase.json#month-custom at month"
+    },
+    {
+      "id": "year-ordinal-pad",
+      "op": "parse",
+      "input": {
+        "text": "Year 1st of the After the Founding (001)"
+      },
+      "expected": {
+        "fields": {
+          "year": "1"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10454400000"
+      },
+      "note": "formatting/formats-showcase.json#year-ordinal-pad at year"
+    },
+    {
+      "id": "base-custom-pattern",
+      "op": "parse",
+      "input": {
+        "text": "5 Frostfall 1 AF, 14:05 + 7 s"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5",
+          "hour": "14",
+          "minute": "5"
+        },
+        "era": "af",
+        "precision": "base",
+        "approximate": false,
+        "t": "10454796307"
+      },
+      "note": "formatting/formats-showcase.json#base-custom-pattern at base"
+    },
+    {
+      "id": "circa-custom",
+      "op": "parse",
+      "input": {
+        "text": "ca. Restday, 5 Fro 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": true,
+        "t": "10454745600"
+      },
+      "note": "formatting/formats-showcase.json#circa-custom at day"
+    },
+    {
+      "id": "unnamed-month-fallbacks",
+      "op": "parse",
+      "input": {
+        "text": "Re/5/3/3/3 010 3 03/3rd 2 0th hour, {0} New Moon 0.10"
+      },
+      "expected": {
+        "fields": {
+          "year": "2",
+          "month": "3",
+          "day": "10",
+          "hour": "0"
+        },
+        "era": null,
+        "precision": "hour",
+        "approximate": false,
+        "t": "10470902400"
+      },
+      "note": "formatting/formats-showcase.json#unnamed-month-fallbacks at hour"
+    },
+    {
+      "id": "unnamed-month-abbr",
+      "op": "parse",
+      "input": {
+        "text": "Restday, 10 3 2 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "2",
+          "month": "3",
+          "day": "10"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10470902400"
+      },
+      "note": "formatting/formats-showcase.json#unnamed-month-abbr at day"
+    },
+    {
+      "id": "unnamed-month-name",
+      "op": "parse",
+      "input": {
+        "text": "3 2 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "2",
+          "month": "3"
+        },
+        "era": "af",
+        "precision": "month",
+        "approximate": false,
+        "t": "10470124800"
+      },
+      "note": "formatting/formats-showcase.json#unnamed-month-name at month"
+    },
+    {
+      "id": "no-abbr-falls-back-to-name",
+      "op": "parse",
+      "input": {
+        "text": "Moonday, 6 Thawing 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "thawing",
+          "day": "6"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10457424000"
+      },
+      "note": "formatting/formats-showcase.json#no-abbr-falls-back-to-name at day"
+    },
+    {
+      "id": "intercalary-day-format",
+      "op": "parse",
+      "input": {
+        "text": "Midyear's Day, 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "midyear",
+          "day": "1"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10459584000"
+      },
+      "note": "formatting/formats-showcase.json#intercalary-day-format at day"
+    },
+    {
+      "id": "intercalary-month-format",
+      "op": "parse",
+      "input": {
+        "text": "Midyear's Day (Mid) 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "midyear"
+        },
+        "era": "af",
+        "precision": "month",
+        "approximate": false,
+        "t": "10459584000"
+      },
+      "note": "formatting/formats-showcase.json#intercalary-month-format at month"
+    },
+    {
+      "id": "intercalary-without-format",
+      "op": "parse",
+      "input": {
+        "text": "Midyear's Day AF 1, 09:00"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "midyear",
+          "day": "1",
+          "hour": "9",
+          "minute": "0"
+        },
+        "era": "af",
+        "precision": "minute",
+        "approximate": false,
+        "t": "10459616400"
+      },
+      "note": "formatting/formats-showcase.json#intercalary-without-format at minute"
+    },
+    {
+      "id": "intercalary-without-format-hour",
+      "op": "parse",
+      "input": {
+        "text": "Midyear's Day AF 1, 9 h"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "midyear",
+          "day": "1",
+          "hour": "9"
+        },
+        "era": "af",
+        "precision": "hour",
+        "approximate": false,
+        "t": "10459616400"
+      },
+      "note": "formatting/formats-showcase.json#intercalary-without-format-hour at hour"
+    },
+    {
+      "id": "excluded-cycle-in-regular-pattern",
+      "op": "parse",
+      "input": {
+        "text": "Moonday, 1 3 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "3",
+          "day": "1"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10459670400"
+      },
+      "note": "formatting/formats-showcase.json#excluded-cycle-in-regular-pattern at day"
+    },
+    {
+      "id": "year-zero",
+      "op": "parse",
+      "input": {
+        "text": "Year 1st of the Before the Founding (000)"
+      },
+      "expected": {
+        "fields": {
+          "year": "0"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10443945600"
+      },
+      "note": "formatting/formats-showcase.json#year-zero at year"
+    },
+    {
+      "id": "year-minus-5",
+      "op": "parse",
+      "input": {
+        "text": "Year 6th of the Before the Founding (-005)"
+      },
+      "expected": {
+        "fields": {
+          "year": "-5"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10391673600"
+      },
+      "note": "formatting/formats-showcase.json#year-minus-5 at year"
+    },
+    {
+      "id": "ordinal-2",
+      "op": "parse",
+      "input": {
+        "text": "Year 2nd of the After the Founding (002)"
+      },
+      "expected": {
+        "fields": {
+          "year": "2"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10464854400"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-2 at year"
+    },
+    {
+      "id": "ordinal-3",
+      "op": "parse",
+      "input": {
+        "text": "Year 3rd of the After the Founding (003)"
+      },
+      "expected": {
+        "fields": {
+          "year": "3"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10475308800"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-3 at year"
+    },
+    {
+      "id": "ordinal-11",
+      "op": "parse",
+      "input": {
+        "text": "Year 11th of the After the Founding (011)"
+      },
+      "expected": {
+        "fields": {
+          "year": "11"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10558944000"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-11 at year"
+    },
+    {
+      "id": "ordinal-12",
+      "op": "parse",
+      "input": {
+        "text": "Year 12th of the After the Founding (012)"
+      },
+      "expected": {
+        "fields": {
+          "year": "12"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10569398400"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-12 at year"
+    },
+    {
+      "id": "ordinal-13",
+      "op": "parse",
+      "input": {
+        "text": "Year 13th of the After the Founding (013)"
+      },
+      "expected": {
+        "fields": {
+          "year": "13"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10579852800"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-13 at year"
+    },
+    {
+      "id": "ordinal-21",
+      "op": "parse",
+      "input": {
+        "text": "Year 21st of the After the Founding (021)"
+      },
+      "expected": {
+        "fields": {
+          "year": "21"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10663488000"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-21 at year"
+    },
+    {
+      "id": "ordinal-22",
+      "op": "parse",
+      "input": {
+        "text": "Year 22nd of the After the Founding (022)"
+      },
+      "expected": {
+        "fields": {
+          "year": "22"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10673942400"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-22 at year"
+    },
+    {
+      "id": "ordinal-23",
+      "op": "parse",
+      "input": {
+        "text": "Year 23rd of the After the Founding (023)"
+      },
+      "expected": {
+        "fields": {
+          "year": "23"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "10684396800"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-23 at year"
+    },
+    {
+      "id": "ordinal-111",
+      "op": "parse",
+      "input": {
+        "text": "Year 111th of the After the Founding (111)"
+      },
+      "expected": {
+        "fields": {
+          "year": "111"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "11604384000"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-111 at year"
+    },
+    {
+      "id": "ordinal-1012",
+      "op": "parse",
+      "input": {
+        "text": "Year 1012th of the After the Founding (1012)"
+      },
+      "expected": {
+        "fields": {
+          "year": "1012"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "21023798400"
+      },
+      "note": "formatting/formats-showcase.json#ordinal-1012 at year"
+    },
+    {
+      "id": "grouped-5-digits",
+      "op": "parse",
+      "input": {
+        "text": "Year 12.345th of the After the Founding (12.345)"
+      },
+      "expected": {
+        "fields": {
+          "year": "12345"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "139503513600"
+      },
+      "note": "formatting/formats-showcase.json#grouped-5-digits at year"
+    },
+    {
+      "id": "grouped-8-digits",
+      "op": "parse",
+      "input": {
+        "text": "Year 12.345.678th of the After the Founding (12.345.678)"
+      },
+      "expected": {
+        "fields": {
+          "year": "12345678"
+        },
+        "era": null,
+        "precision": "year",
+        "approximate": false,
+        "t": "129077100028800"
+      },
+      "note": "formatting/formats-showcase.json#grouped-8-digits at year"
+    },
+    {
+      "id": "scientific-9-digits",
+      "op": "parse",
+      "input": {
+        "text": "Year 1.23 × 10^8 of the After the Founding (1.23 × 10^8)"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "formatting/formats-showcase.json#scientific-9-digits"
+    },
+    {
+      "id": "wrong-weekday",
+      "op": "parse",
+      "input": {
+        "text": "Moonday, 5 Fro 1 AF"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "5 Frostfall 1 is a Restday (cycles at the precision must agree)"
+    },
+    {
+      "id": "weekday-abbr",
+      "op": "parse",
+      "input": {
+        "text": "Re, 5 Fro 1 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5"
+        },
+        "era": "af",
+        "precision": "day",
+        "approximate": false,
+        "t": "10454745600"
+      },
+      "note": "{cycle.week} matches abbreviations too"
+    },
+    {
+      "id": "circa-custom-prefix",
+      "op": "parse",
+      "input": {
+        "text": "CA. 5 Frostfall 1 AF, 14:05"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "frostfall",
+          "day": "5",
+          "hour": "14",
+          "minute": "5"
+        },
+        "era": "af",
+        "precision": "minute",
+        "approximate": true,
+        "t": "10454796300"
+      },
+      "note": "the display.circa prefix, any case"
+    },
+    {
+      "id": "grouped-custom-separator",
+      "op": "parse",
+      "input": {
+        "text": "Frostfall 12.345 AF"
+      },
+      "expected": {
+        "fields": {
+          "year": "12345",
+          "month": "frostfall"
+        },
+        "era": "af",
+        "precision": "month",
+        "approximate": false,
+        "t": "139503513600"
+      },
+      "note": "display.digit_group is \".\""
+    },
+    {
+      "id": "default-circa-not-recognized",
+      "op": "parse",
+      "input": {
+        "text": "c. Frostfall 1 AF"
+      },
+      "expected": {
+        "error": "invalid_date"
+      },
+      "note": "only this calendar’s prefix (\"ca. \") counts"
+    }
+  ]
+}
