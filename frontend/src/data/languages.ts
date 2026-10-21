@@ -7,7 +7,7 @@ import type { Domain } from './domain'
 import { invalidateAffected } from './invalidate'
 import { keys } from './keys'
 import type { Query } from './source'
-import { staticFileUrl } from './static-modules'
+import { staticFileUrl } from './static-files'
 
 type Schemas = components['schemas']
 

@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 
 import { AppProviders } from '@/app/providers'
 import { createAppRouter } from '@/app/router'
-import { createStaticDataSource, createStaticFetch, loadStaticFiles, staticConfig } from '@/data'
+import { loadStaticDataSource, loadStaticFiles, staticConfig, type DataSource } from '@/data'
 import { initTheme } from '@/lib/theme'
 
 import '@/styles/globals.css'
@@ -18,16 +18,12 @@ const root = element
 // A static export (`lore vault export-static`) reads its files and routes by the URL's hash, so
 // any static host serves it from any folder (ADR 0016).
 const exported = staticConfig()
-if (exported) {
-  // The export's answers by API URL, for checking an export against the server (e2e).
-  Object.assign(window, { loreStaticFetch: createStaticFetch(exported.dataUrl) })
-}
 
-function render() {
+function render(staticSource?: DataSource) {
   createRoot(root).render(
     <StrictMode>
-      {exported ? (
-        <AppProviders dataSource={createStaticDataSource(exported)} mutations={null}>
+      {staticSource ? (
+        <AppProviders dataSource={staticSource} mutations={null}>
           <RouterProvider router={createAppRouter(createHashHistory())} />
         </AppProviders>
       ) : (
@@ -39,6 +35,15 @@ function render() {
   )
 }
 
-// The export's downloads (media files, CSVs) are listed before the first link to one is drawn.
-if (exported) void loadStaticFiles(exported.dataUrl, exported.vault).then(render)
-else render()
+if (exported) {
+  // The export's data source is loaded only here (frontend.md §12), and its downloads (media
+  // files, CSVs) are listed before the first link to one is drawn.
+  void Promise.all([
+    loadStaticDataSource(),
+    loadStaticFiles(exported.dataUrl, exported.vault),
+  ]).then(([{ createStaticDataSource, createStaticFetch }]) => {
+    // The export's answers by API URL, for checking an export against the server (e2e).
+    Object.assign(window, { loreStaticFetch: createStaticFetch(exported.dataUrl) })
+    render(createStaticDataSource(exported))
+  })
+} else render()

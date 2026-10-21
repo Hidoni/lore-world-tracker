@@ -101,7 +101,7 @@ describe('misc module', () => {
     ).toEqual([' Artifact', ' Event', ' Misc entry'])
     await userEvent.click(within(menu).getByRole('menuitem', { name: 'Artifact' }))
     const dialog = await screen.findByRole('dialog', { name: 'New artifact' })
-    expect(within(dialog).getByRole('radio', { name: 'Time Travel' })).toBeChecked()
+    expect(await within(dialog).findByRole('radio', { name: 'Time Travel' })).toBeChecked()
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Hourglass')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
     await waitFor(() => {

@@ -69,13 +69,9 @@ export {
   useRevertChange,
 } from './history'
 export { createHttpDataSource, createHttpMutations } from './http'
-export {
-  createStaticDataSource,
-  createStaticFetch,
-  staticConfig,
-  type StaticConfig,
-} from './static'
-export { loadStaticFiles } from './static-modules'
+export { loadStaticFiles, staticConfig, type StaticConfig } from './static-files'
+/** The static export's data source, loaded only by a static export (frontend.md §12). */
+export const loadStaticDataSource = () => import('./static')
 export { affectedKeys, invalidateAffected } from './invalidate'
 export { keys } from './keys'
 export {

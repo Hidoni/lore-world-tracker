@@ -160,7 +160,8 @@ front fails there.
 
 `npm run check:bundle -w @lore/web` (`frontend/scripts/check-bundle.ts`, part of
 `make check-frontend` and so of CI) sums the gzipped JS that `dist/index.html` loads before
-anything else and fails above 400 kB.
+anything else and fails above 400 kB. It also fails when it finds no scripts in `index.html`:
+from #380 (relative asset URLs) to #413 it matched none and passed every build.
 
 ### 4.0 Results
 
@@ -255,7 +256,7 @@ scan takes 1.27 s (0.8 there), and a cold window over 1/10 of the bulk 160 ms (9
 | Entity page interactive, in the app: Aetheria / Ilsa the Tidebound        | 167 / 439 ms (Ilsa: 560 before the reads)  | 108 / 327 ms measured | < 300 ms    | met after #363: Ilsa 441 → 243 ms here (`small`), about 220 ms on the reference |
 | Entity page, full load (cold cache): Aetheria / Ilsa                      | 956 / 1,381 ms (Ilsa: 3,128 before)        |                       | –           |                    |
 | Timeline pan/zoom, 1,074 items on screen (`large` and `small`)            | 59.8 fps, frames 16.7 ms (p95 16.8)        |                       | 60 fps      | met                |
-| Initial JS of the shell                                                   | 387 kB gzip (514 before #144)              |                       | < 400 kB    | met                |
+| Initial JS of the shell                                                   | 387 kB gzip (514 before #144; 420 → 387 in #413) |                       | < 400 kB    | met                |
 
 What changed in #144:
 

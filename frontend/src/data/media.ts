@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { readerUrl, type components } from '@/api'
 
 import { useDataSource, useRequiredMutations } from './context'
-import { staticFileUrl } from './static-modules'
+import { staticFileUrl } from './static-files'
 import type { Domain } from './domain'
 import { keys } from './keys'
 import type { Query } from './source'

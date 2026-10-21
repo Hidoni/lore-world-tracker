@@ -101,7 +101,7 @@ describe('sidebar', () => {
     fireEvent.contextMenu(await within(sidebar()).findByRole('link', { name: 'Treasury' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'New child…' }))
     const dialog = await screen.findByRole('dialog', { name: 'New artifact' })
-    expect(within(dialog).getByRole('radio', { name: 'Treasury' })).toBeChecked()
+    expect(await within(dialog).findByRole('radio', { name: 'Treasury' })).toBeChecked()
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Scepter')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
     await waitFor(() => {

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import { ApiError } from '@/api'
 
-import { createStaticDataSource, createStaticFetch, staticConfig } from './static'
+import { createStaticDataSource, createStaticFetch } from './static'
+import { staticConfig } from './static-files'
 import { pick } from './static-entities'
 
 const VAULT = 'v-atlas'

@@ -1065,7 +1065,11 @@ Implementation (#144):
 - **Initial bundle.** TipTap (the editor and every editor extension a module contributes:
   `editorExtensions` are loaders, `() => import(…)`), the timeline view, the settings pages and
   every module panel and page are separate chunks. The shell loads 387 kB of JS (gzip; it was 514
-  before #144).
+  before #144). #413 kept it there after the static export and later features had grown it to
+  420 kB: the static export's data source (`data/static.ts`, `loadStaticDataSource`) loads only
+  in a static export (what the app needs before it, `staticConfig` and the downloads list, is in
+  `data/static-files.ts`), and the create-entity dialog (react-hook-form, zod, the field
+  editors) loads when first opened (`CreateEntityDialog` is a `lazyComponent`).
 - **Lazy components** (`lazyComponent` in `core/modules`): the way modules declare panels, header
   media, dimension sections and timeline layers. Until its code arrives one renders through
   Suspense; once loaded it renders at once, so a page doesn't wait for React's delay before
