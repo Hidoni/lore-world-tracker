@@ -17,6 +17,11 @@ updates:
     groups:
       npm:
         patterns: ['*']
+    ignore:
+      # typescript-eslint 8.72 requires typescript <6.1. Unblocked by the first typescript-eslint
+      # release whose peer range allows TypeScript 7 (#384).
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

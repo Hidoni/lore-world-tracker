@@ -46,12 +46,26 @@ if (typeof window !== 'undefined') {
   )
 }
 
+// Requests a test leaves running (a save on unmount) are answered by that test's handlers: msw 3
+// resolves them after the next test's handlers are in place otherwise.
+const pending = new Set<string>()
+server.events.on('request:start', ({ requestId }) => pending.add(requestId))
+server.events.on('request:end', ({ requestId }) => pending.delete(requestId))
+
+async function settled(): Promise<void> {
+  for (let tick = 0; tick < 100; tick++) {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    if (pending.size === 0) return
+  }
+}
+
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' })
+  server.listen({ onUnhandledFrame: 'error' })
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  await settled()
   server.resetHandlers()
   if (typeof localStorage !== 'undefined') localStorage.clear()
   if (typeof sessionStorage !== 'undefined') sessionStorage.clear()

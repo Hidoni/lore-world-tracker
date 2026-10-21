@@ -64,7 +64,7 @@ Implementation (#109, `backend/src/lore/modules/graph/`):
 
 ## UI
 
-- **Global graph page** (`/m/graph`): sigma.js v3 (WebGL) + graphology. ForceAtlas2 runs in a web
+- **Global graph page** (`/m/graph`): sigma.js v4 (WebGL) + graphology. ForceAtlas2 runs in a web
   worker, with start/stop and "freeze". Node color = kind color, size = degree. Edge style by
   category (family, social, spatial, causal, mention, hierarchy). Hovering highlights neighbors.
   Click shows a preview in the right panel, double-click opens the page. Search highlights and
@@ -88,7 +88,7 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
     the filters. `center` and `depth` are set in local mode.
   - With the time cursor at a moment, the request also gets its `timeline` and `at`.
   - Orphans (nodes without edges) are hidden on the client.
-- **Drawing:** a graphology multi-graph drawn by sigma.js 3 (WebGL).
+- **Drawing:** a graphology multi-graph drawn by sigma.js 4 (WebGL).
   - Node color is the kind's color. A module's `graphStyles.nodes[kind]` overrides it, and its
     `size` is the base size. Node size grows with the square root of the degree.
   - Edge color is the module's `graphStyles.edges[link type]`, else the link type's registry
@@ -107,7 +107,7 @@ Implementation of the global graph (#110, `frontend/src/modules/graph/`):
   inferred settings). It starts by itself when some node has no known position and stops after
   2 to 15 s, depending on size. "Layout" and "Stop" run it again or stop it. "Freeze" stops it
   and keeps the positions. Edges stay drawn while the camera moves: sigma's `hideEdgesOnMove`
-  fully refreshes the graph after every drag (sigma 3.0.2), a stall at 10k nodes, and a GPU
+  fully refreshed the graph after every drag (sigma 3.0.2), a stall at 10k nodes, and a GPU
   draws 50k edges well within a frame.
   - New nodes start on a golden-angle spiral.
   - Positions are cached in `localStorage` per vault and filter set (`lore.graph.layout.*`),

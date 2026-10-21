@@ -39,6 +39,8 @@ export function SettingsPage({ vault, page }: { vault: string; page: string }) {
             key={candidate.id}
             to="/v/$vault/settings/$"
             params={{ vault, _splat: candidate.id }}
+            // Only the page itself: General's `settings/` is a prefix of every other page.
+            activeOptions={{ exact: true }}
             aria-current={candidate.id === page ? 'page' : undefined}
             className={cn(
               'rounded-md px-2 py-1.5 text-sm hover:bg-accent',

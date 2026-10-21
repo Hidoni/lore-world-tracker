@@ -353,6 +353,8 @@ Generated from the backlog at planning time. **GitHub is the source of truth for
 | #162 | M13-16 | Deep-zoom tiling for very large map images | M | P2 | #146 |
 | #379 | M13-17 | Dimension wizard: design a custom first calendar instead of picking a preset | M | P2 | – |
 | #391 | M13-18 | Make the scheduler failure tests pass when the suite runs as root | S | P3 | – |
+| #384 | M13-19 | Migrate the frontend dependencies to their latest major versions (eslint 10, sigma 4, msw 3; TypeScript 7 waits on typescript-eslint) | L | P2 | – |
+| #413 | M13-20 | Initial bundle budget check measures nothing since #380; bring the shell under 400 kB | M | P2 | – |
 
 ## Requirement traceability
 

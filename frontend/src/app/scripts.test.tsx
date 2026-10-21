@@ -129,6 +129,8 @@ describe('script fonts', () => {
     // jsdom has no layout: give the lexicon's scroller a size so the virtualizer renders rows.
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(480)
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(960)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(480)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(960)
   })
   afterEach(() => {
     vi.restoreAllMocks()

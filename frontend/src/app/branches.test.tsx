@@ -343,7 +343,8 @@ describe('events in a branch', () => {
     })
     await render('/v/v1/e/ev-reign?tl=b1')
     const found = await status()
-    expect(within(found).getByText('Changed in Survives')).toBeInTheDocument()
+    // The status shows the inherited version until the branch's diff has loaded.
+    expect(await within(found).findByText('Changed in Survives', {}, WAIT)).toBeInTheDocument()
     expect(within(found).getByText(/ends t = 250 s instead of t = 300 s/)).toBeInTheDocument()
     await userEvent.click(within(found).getByRole('button', { name: /Revert/ }))
     await waitFor(() => {

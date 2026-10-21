@@ -102,7 +102,8 @@ describe('vault home', () => {
   it('links to each dimension, and readers get no create button', async () => {
     serveVault()
     await renderApp('/v/v1', undefined, { readOnly: true })
-    const list = await screen.findByRole('region', { name: 'Dimensions' })
+    // The page's list, not the sidebar's section of the same name.
+    const list = await within(screen.getByRole('main')).findByRole('region', { name: 'Dimensions' })
     expect(await within(list).findByRole('link', { name: 'Aetheria' })).toHaveAttribute(
       'href',
       '/v/v1/d/d1',

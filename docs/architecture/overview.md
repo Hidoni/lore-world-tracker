@@ -43,7 +43,7 @@ every change must respect. Detailed specs live in the sibling documents (see the
 | Client state | Zustand (UI prefs, time context) + URL search params | |
 | Forms | react-hook-form + zod (schemas generated from field definitions) | |
 | Rich text | TipTap v3 (ProseMirror) | JSON documents stored server-side. |
-| Graph view | sigma.js v3 + graphology (+ ForceAtlas2 in a web worker) | |
+| Graph view | sigma.js v4 + graphology (+ ForceAtlas2 in a web worker) | |
 | Structured diagrams | React Flow (@xyflow/react) + elkjs layouts (family trees: relatives-tree, ADR-0015) | causality DAG, family tree, org chart. |
 | Maps | Leaflet (CRS.Simple image maps) + react-leaflet | |
 | Timeline view | custom React/SVG component on top of `@lore/chronology` viewport math | no off-the-shelf lib supports BigInt time. |

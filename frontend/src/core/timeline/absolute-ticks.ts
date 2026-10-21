@@ -28,15 +28,11 @@ export function absoluteTicks(
   // The smallest step whose pixel spacing is at least `minSpacing`: span · minSpacing / width.
   const needed =
     (v.span * BigInt(Math.ceil(minSpacing * 1024))) / BigInt(Math.round(v.widthPx * 1024))
-  let step = 1n
   let power = 1n
-  for (;;) {
-    const candidate = [1n, 2n, 5n].map((m) => m * power).find((value) => value >= needed)
-    if (candidate !== undefined) {
-      step = candidate
-      break
-    }
-    power *= 10n
+  let step: bigint | undefined
+  while (step === undefined) {
+    step = [1n, 2n, 5n].map((m) => m * power).find((value) => value >= needed)
+    if (step === undefined) power *= 10n
   }
   const majorStep = power * 10n
   const end = v.start + v.span

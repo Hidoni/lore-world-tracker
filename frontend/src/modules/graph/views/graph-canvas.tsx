@@ -29,7 +29,7 @@ const DIMMED = '#cbd5e1'
  * Above this many edges a graph is large: hovering highlights the neighborhood without dimming the
  * rest, so that only the neighborhood is redrawn (dimming means running the reducers over every
  * node and edge: a visible stall at 10k nodes). Edges stay drawn while the camera moves: sigma's
- * `hideEdgesOnMove` fully refreshes the graph after every drag, a worse stall.
+ * `hideEdgesOnMove` fully refreshes the graph after every drag, a worse stall (sigma 3).
  */
 const LARGE_GRAPH_EDGES = 2000
 
@@ -139,23 +139,29 @@ export default function GraphCanvas({
     let renderer: Sigma
     try {
       renderer = new Sigma(graph, container.current, {
-        labelRenderedSizeThreshold: 6,
-        zIndex: true,
-        nodeReducer: (node, data) => {
+        // Sigma draws by zIndex within a depth layer; the hovered node goes on top by itself.
+        settings: { labelRenderedSizeThreshold: 6, enableCameraMouseRotation: false },
+        nodeReducer: (node) => {
           const { hovered, highlighted, selected } = state.current
           const near = hovered === null || node === hovered || graph.areNeighbors(node, hovered)
           const found = highlighted === null || highlighted.has(node)
           if (node === selected || node === state.current.linking) {
-            return { ...data, highlighted: true, zIndex: 2 }
+            // Drawn like the hovered node: on top, with its label on a backdrop.
+            return {
+              depth: 'topNodes',
+              zIndex: 2,
+              labelVisibility: 'visible',
+              backdropVisibility: 'visible',
+            }
           }
-          if ((!near && !large) || !found) return { ...data, color: DIMMED, label: '', zIndex: 0 }
-          return { ...data, zIndex: 1, forceLabel: hovered !== null && near }
+          if ((!near && !large) || !found) return { color: DIMMED, label: null, zIndex: 0 }
+          return { zIndex: 1, ...(hovered !== null && near && { labelVisibility: 'visible' }) }
         },
         edgeReducer: (edge, data) => {
           const { hovered } = state.current
-          if (hovered === null) return data
-          if (graph.hasExtremity(edge, hovered)) return { ...data, size: Number(data.size) + 1 }
-          return large ? data : { ...data, hidden: true }
+          if (hovered === null) return {}
+          if (graph.hasExtremity(edge, hovered)) return { size: data.size + 1 }
+          return large ? {} : { visibility: 'hidden' }
         },
       })
     } catch (error) {
@@ -200,14 +206,14 @@ export default function GraphCanvas({
     const drag = new LinkDrag()
     const endDrag = (): void => {
       state.current.linking = null
-      renderer.getCamera().enable()
+      renderer.getCamera().enabled = true
       if (container.current !== null) container.current.style.cursor = ''
       renderer.refresh({ skipIndexation: true })
     }
     renderer.on('downNode', ({ node, event }) => {
       if (callbacks.current.onLink !== undefined && drag.down(node, event.original.altKey)) {
         state.current.linking = node
-        renderer.getCamera().disable()
+        renderer.getCamera().enabled = false
         if (container.current !== null) container.current.style.cursor = 'crosshair'
         renderer.refresh({ skipIndexation: true })
       }

@@ -8,7 +8,7 @@
 
 React 19 · TypeScript (strict, `noUncheckedIndexedAccess`) · Vite · TanStack Router (code-based
 route tree) · TanStack Query · Zustand · Tailwind CSS v4 · shadcn/ui (Radix) · lucide-react ·
-sonner (toasts) · cmdk (command palette) · react-hook-form + zod · TipTap v3 · sigma.js v3 +
+sonner (toasts) · cmdk (command palette) · react-hook-form + zod · TipTap v3 · sigma.js v4 +
 graphology (+ ForceAtlas2 worker) · @xyflow/react + elkjs · Leaflet + react-leaflet · dnd-kit ·
 TanStack Virtual · openapi-typescript + openapi-fetch · Vitest + Testing Library + MSW ·
 Playwright.
@@ -59,8 +59,11 @@ boundary that silently stops matching fails the test suite.
 `@lore/chronology` is consumed from source (its `exports` points at `src/index.ts`, see
 `packages/chronology/README.md`), so no build step runs before the frontend.
 
-TypeScript is pinned to `~6.0` because typescript-eslint supports `<6.1`. ESLint stays on 9
-until eslint-plugin-jsx-a11y supports 10.
+TypeScript is pinned to `~6.0` because typescript-eslint supports `<6.1` (Dependabot ignores
+TypeScript 7 until a typescript-eslint release allows it, `.github/dependabot.yml`). The a11y
+rules come from `eslint-plugin-jsx-a11y-x`, the maintained fork of eslint-plugin-jsx-a11y (whose
+last release allows only ESLint ≤ 9), with the same recommended rule set under the `jsx-a11y-x/`
+prefix.
 
 ## 3. App shell
 

@@ -228,6 +228,8 @@ describe('entity lists', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(640)
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(960)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(640)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(960)
   })
   afterEach(() => {
     vi.restoreAllMocks()

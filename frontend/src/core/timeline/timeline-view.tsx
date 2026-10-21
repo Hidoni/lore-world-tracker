@@ -981,14 +981,14 @@ function Timeline({
       )}
       <div className="flex items-start gap-3">
         {/* A custom keyboard widget: `application` hands the keys to it (frontend.md §9.6). */}
-        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+        {/* eslint-disable-next-line jsx-a11y-x/no-noninteractive-element-interactions */}
         <div
           ref={ref}
           role="application"
           aria-label="Timeline"
           aria-roledescription="timeline"
           // Keyboard: +/− zoom, Home fits the dimension, ←/→ pan (Shift: further), G goes to a date.
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex
           tabIndex={0}
           onKeyDown={onKeyDown}
           className="relative flex min-w-0 flex-1 flex-col gap-1 rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring"
