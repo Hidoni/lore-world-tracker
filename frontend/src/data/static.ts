@@ -13,6 +13,7 @@ import { MODULE_HANDLERS } from './static-modules'
 import { SEARCH_HANDLERS } from './static-search'
 import { TIME_HANDLERS } from './static-time'
 import { WINDOW_HANDLERS } from './static-windows'
+import type { StaticConfig } from './static-files'
 import type { DataSource } from './source'
 
 /**
@@ -28,20 +29,6 @@ import type { DataSource } from './source'
 const API_PREFIX = '/api/v1/'
 /** Query parameters that don't change a static answer (a static export is always read as a reader). */
 const IGNORED_PARAMS = new Set(['as_reader'])
-
-export interface StaticConfig {
-  /** Where the `data/` folder is, relative to the page (`data/`). */
-  dataUrl: string
-  /** The exported vault's id. */
-  vault: string
-}
-
-/** The static export's configuration from `index.html`, or `null` when the app runs on a server. */
-export function staticConfig(doc: Document = document): StaticConfig | null {
-  const meta = doc.querySelector<HTMLMetaElement>('meta[name="lore-static"]')
-  if (!meta) return null
-  return { dataUrl: meta.content || 'data/', vault: meta.dataset.vault ?? '' }
-}
 
 function problem(
   status: number,
