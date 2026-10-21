@@ -19,6 +19,12 @@ uv run tools/backlog.py show 42                         # issue + blocker status
 Without the helper: `gh issue list -R Hidoni/lore-world-tracker --milestone "<title>" --state open`
 and check the "Blocked by" list in each body.
 
+**Claude Code cloud sessions** can't reach GitHub's GraphQL API (the session proxy answers
+403), and most `gh issue`/`gh pr` subcommands (`list`, `view`, `edit`, `create`, `checks`,
+`merge`) use it. The helper sticks to REST, so it works there. Elsewhere use `gh api
+repos/Hidoni/lore-world-tracker/...` or the GitHub MCP tools. Page with `?per_page=100&page=N`:
+`gh api --paginate` follows `repositories/{id}/...` links, which the proxy also refuses.
+
 Preference order: lowest milestone first (M0 → M13), then `priority:P0` → `P1` → `P2`, then
 lowest issue number. Work on M13 (post-MVP) only when the product owner asks.
 

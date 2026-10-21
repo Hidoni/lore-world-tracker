@@ -14,7 +14,8 @@ Usage (from the repo root):
 "Ready" = open, not labeled status:in-progress / status:needs-decision / status:blocked,
 and every issue listed on the body's "Blocked by:" line is closed. Ordering: milestone
 number, then priority label (P0 < P1 < P2), then issue number. Requires the `gh` CLI.
-See docs/plan/workflow.md.
+Only REST calls (`gh api repos/...`) are used: Claude Code cloud sessions block GitHub's
+GraphQL API, which `gh issue list/edit` rely on. See docs/plan/workflow.md.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ STATUS_LABELS = {"status:in-progress", "status:needs-decision", "status:blocked"
 BLOCKED_RE = re.compile(r"^Blocked by:\s*(.+)$", re.MULTILINE)
 MILESTONE_RE = re.compile(r"^M(\d+)\b")
 PRIORITY_ORDER = {"priority:P0": 0, "priority:P1": 1, "priority:P2": 2}
+PAGE_SIZE = 100
 
 
 def gh(*args: str) -> str:
@@ -43,17 +45,40 @@ def gh(*args: str) -> str:
         sys.exit(f"gh {' '.join(args)} failed:\n{exc.stderr}")
 
 
+def api(path: str, *args: str) -> object:
+    return json.loads(gh("api", f"repos/{REPO}/{path}", *args) or "null")
+
+
 def load_issues() -> dict[int, dict]:
-    raw = gh(
-        "issue", "list", "-R", REPO, "--state", "all", "--limit", "1000",
-        "--json", "number,title,state,labels,milestone,body,url",
-    )
+    # Pages are requested by number: `gh api --paginate` follows GitHub's Link header, whose
+    # `repositories/{id}/...` URLs the cloud sessions' proxy refuses.
     issues = {}
-    for item in json.loads(raw):
-        item["labels"] = {label["name"] for label in item["labels"]}
-        item["blockers"] = blockers_from_body(item.get("body") or "")
-        issues[item["number"]] = item
-    return issues
+    page = 1
+    while True:
+        items = api(f"issues?state=all&per_page={PAGE_SIZE}&page={page}")
+        assert isinstance(items, list)
+        for item in items:
+            if "pull_request" not in item:
+                issue = normalize(item)
+                issues[issue["number"]] = issue
+        if len(items) < PAGE_SIZE:
+            return issues
+        page += 1
+
+
+def normalize(item: dict) -> dict:
+    """A REST issue in the shape the commands use (states OPEN/CLOSED, label name set)."""
+    body = item.get("body") or ""
+    return {
+        "number": item["number"],
+        "title": item["title"],
+        "state": item["state"].upper(),
+        "labels": {label["name"] for label in item["labels"]},
+        "milestone": item.get("milestone"),
+        "body": body,
+        "url": item["html_url"],
+        "blockers": blockers_from_body(body),
+    }
 
 
 def blockers_from_body(body: str) -> list[int]:
@@ -130,16 +155,20 @@ def cmd_claim(args: argparse.Namespace) -> None:
     if not args.force and not is_ready(issue, issues):
         sys.exit(f"#{args.number} is not ready (use `show` to see why, or --force).")
     today = dt.date.today().isoformat()
-    gh("issue", "edit", str(args.number), "-R", REPO, "--add-label", "status:in-progress")
-    gh("issue", "comment", str(args.number), "-R", REPO, "--body",
-       f"Claimed by an agent session on {today}. A claim without a linked branch/PR activity "
-       f"for 48 hours is stale (see docs/plan/workflow.md §2).")
+    api(f"issues/{args.number}/labels", "-X", "POST", "-f", "labels[]=status:in-progress")
+    comment(args.number,
+            f"Claimed by an agent session on {today}. A claim without a linked branch/PR activity "
+            f"for 48 hours is stale (see docs/plan/workflow.md §2).")
     print(f"claimed #{args.number}: {issue['title']}")
 
 
+def comment(number: int, body: str) -> None:
+    api(f"issues/{number}/comments", "-X", "POST", "-f", f"body={body}")
+
+
 def cmd_unclaim(args: argparse.Namespace) -> None:
-    gh("issue", "edit", str(args.number), "-R", REPO, "--remove-label", "status:in-progress")
-    gh("issue", "comment", str(args.number), "-R", REPO, "--body", "Claim released.")
+    api(f"issues/{args.number}/labels/status:in-progress", "-X", "DELETE")
+    comment(args.number, "Claim released.")
     print(f"unclaimed #{args.number}")
 
 
