@@ -12,6 +12,8 @@ permissions:
 
 env:
   UV_FROZEN: '1'
+  # uv's own CPython build, never the runner's, as in ci.yml (#405).
+  UV_PYTHON_PREFERENCE: only-managed
   FORCE_COLOR: '1'
 
 jobs:

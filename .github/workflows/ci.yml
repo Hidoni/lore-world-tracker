@@ -19,13 +19,16 @@ env:
   # `uv run` must never re-lock in CI: a stale uv.lock fails instead of silently updating.
   UV_FROZEN: '1'
   FORCE_COLOR: '1'
+  # uv's own CPython build, never the runner's. ubuntu-26.04 ships Python 3.14 (GCC build, SQLite
+  # 3.46), which uv would otherwise pick up: with it the pytest workers grew to about 4.5 GB each,
+  # filled the 16 GB runner and the OOM kill stopped the runner mid-suite (#405). uv's build
+  # (SQLite 3.53, the one local development uses) peaks under 8 GB in total.
+  UV_PYTHON_PREFERENCE: only-managed
 
 jobs:
   backend:
     name: backend
-    # Pinned: on the ubuntu-26.04 image (ubuntu-latest from 2026-10-19) the runner is shut down
-    # during the suite (#405).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
     # Keep this about twice the job's time.
     timeout-minutes: 16
