@@ -41,7 +41,7 @@ export function SidebarResizer() {
 
   return (
     // A focusable separator is the ARIA "window splitter" pattern: it is interactive.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line jsx-a11y-x/no-noninteractive-element-interactions
     <div
       role="separator"
       aria-orientation="vertical"
@@ -49,7 +49,7 @@ export function SidebarResizer() {
       aria-valuenow={width}
       aria-valuemin={SIDEBAR_MIN}
       aria-valuemax={SIDEBAR_MAX}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- window splitter (see above)
+      // eslint-disable-next-line jsx-a11y-x/no-noninteractive-tabindex -- window splitter (see above)
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}

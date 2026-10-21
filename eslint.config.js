@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import js from '@eslint/js'
 import boundaries from 'eslint-plugin-boundaries'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
+import jsxA11y from 'eslint-plugin-jsx-a11y-x'
 import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
@@ -57,7 +57,7 @@ export default tseslint.config(
   // --- frontend (@lore/web) ---
   {
     files: ['frontend/**/*.{ts,tsx}'],
-    extends: [jsxA11y.flatConfigs.recommended],
+    extends: [jsxA11y.configs.recommended],
     plugins: {
       'react-hooks': reactHooks,
       boundaries,

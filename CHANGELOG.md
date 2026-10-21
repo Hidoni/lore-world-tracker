@@ -75,8 +75,18 @@ All notable changes to this project are documented here. The format follows
   `media` fields), as a sanitized copy without scripts, event handlers, links or anything that
   loads from elsewhere. SVGs the sanitizer can't read are refused on upload.
 
+### Changed
+
+- **Frontend dependencies** (#384): every frontend and `@lore/chronology` dependency is on its
+  latest release, including sigma 4 (the graph page), msw 3 (tests), ESLint 10 (with
+  `eslint-plugin-jsx-a11y-x`, the maintained fork of eslint-plugin-jsx-a11y, same rules), marked 18
+  and @hookform/resolvers 6. TypeScript stays on 6.0 until typescript-eslint supports 7; Dependabot
+  skips that major until then.
+
 ### Fixed
 
+- **Settings navigation** (#384): on a module's or another settings page, "General" no longer
+  also says it is the current page.
 - Recurring events could show a wrong occurrence count until the server restarted, after
   several requests computed it at once: the counting caches shared by the server's threads are
   now locked (found by the static export parity test).

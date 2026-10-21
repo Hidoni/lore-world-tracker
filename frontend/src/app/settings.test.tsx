@@ -293,9 +293,14 @@ describe('module settings pages', () => {
     const nav = await screen.findByRole('navigation', { name: 'Settings' })
     await userEvent.click(within(nav).getByRole('link', { name: 'Map tiles' }))
     expect(await screen.findByText('Tile server URL')).toBeInTheDocument()
-    expect(within(nav).getByRole('link', { name: 'Map tiles' })).toHaveAttribute(
+    // The page's own navigation (leaving the index route renders a new one).
+    const current = screen.getByRole('navigation', { name: 'Settings' })
+    expect(within(current).getByRole('link', { name: 'Map tiles' })).toHaveAttribute(
       'aria-current',
       'page',
+    )
+    expect(within(current).getByRole('link', { name: 'General' })).not.toHaveAttribute(
+      'aria-current',
     )
   })
 })
