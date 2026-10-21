@@ -1,0 +1,173 @@
+{
+  "description": "Annual markers (chronology-engine §3.12, §8): ranges per year with numbers, slot ids, wrapping into the next year and constrained fields, and markers_at with the previous year's range.",
+  "calendar": "gregorian-moon",
+  "generated": false,
+  "verification": "Python datetime (proleptic Gregorian; 2000-01-01 = t 10^14); a day past the month's end is its last day; to not after from wraps into the next year.",
+  "cases": [
+    {
+      "id": "range-spring-2000",
+      "op": "marker_range",
+      "input": {
+        "marker": "spring",
+        "year": "2000"
+      },
+      "expected": {
+        "start": "100000006825600",
+        "end": "100000014860800"
+      }
+    },
+    {
+      "id": "range-winter-2000",
+      "op": "marker_range",
+      "input": {
+        "marker": "winter",
+        "year": "2000"
+      },
+      "expected": {
+        "start": "100000030672000",
+        "end": "100000038361600"
+      }
+    },
+    {
+      "id": "range-leap-eve-2000",
+      "op": "marker_range",
+      "input": {
+        "marker": "leap_eve",
+        "year": "2000"
+      },
+      "expected": {
+        "start": "100000005097600",
+        "end": "100000005184000"
+      }
+    },
+    {
+      "id": "range-leap-eve-2001",
+      "op": "marker_range",
+      "input": {
+        "marker": "leap_eve",
+        "year": "2001"
+      },
+      "expected": {
+        "start": "100000036633600",
+        "end": "100000036720000"
+      }
+    },
+    {
+      "id": "range-winter-1999",
+      "op": "marker_range",
+      "input": {
+        "marker": "winter",
+        "year": "1999"
+      },
+      "expected": {
+        "start": "99999999049600",
+        "end": "100000006825600"
+      }
+    },
+    {
+      "id": "range-unknown",
+      "op": "marker_range",
+      "input": {
+        "marker": "summer",
+        "year": "2000"
+      },
+      "expected": {
+        "error": "unknown_marker"
+      }
+    },
+    {
+      "id": "at-april",
+      "op": "markers_at",
+      "input": {
+        "t": "100000007862400"
+      },
+      "expected": {
+        "markers": [
+          "spring"
+        ]
+      }
+    },
+    {
+      "id": "at-january-previous-winter",
+      "op": "markers_at",
+      "input": {
+        "t": "100000031968000"
+      },
+      "expected": {
+        "markers": [
+          "winter"
+        ]
+      }
+    },
+    {
+      "id": "at-last-second-of-winter",
+      "op": "markers_at",
+      "input": {
+        "t": "100000006825599"
+      },
+      "expected": {
+        "markers": [
+          "winter"
+        ]
+      }
+    },
+    {
+      "id": "at-first-second-of-spring",
+      "op": "markers_at",
+      "input": {
+        "t": "100000006825600"
+      },
+      "expected": {
+        "markers": [
+          "spring"
+        ]
+      }
+    },
+    {
+      "id": "at-leap-day",
+      "op": "markers_at",
+      "input": {
+        "t": "100000005140800"
+      },
+      "expected": {
+        "markers": [
+          "winter",
+          "leap_eve"
+        ]
+      }
+    },
+    {
+      "id": "at-common-february-28",
+      "op": "markers_at",
+      "input": {
+        "t": "100000036676800"
+      },
+      "expected": {
+        "markers": [
+          "winter",
+          "leap_eve"
+        ]
+      }
+    },
+    {
+      "id": "at-july",
+      "op": "markers_at",
+      "input": {
+        "t": "100000015724800"
+      },
+      "expected": {
+        "markers": []
+      }
+    },
+    {
+      "id": "at-end-of-spring",
+      "op": "markers_at",
+      "input": {
+        "t": "100000014860800"
+      },
+      "expected": {
+        "markers": []
+      }
+    }
+  ]
+}

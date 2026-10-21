@@ -688,3 +688,109 @@ def test_cycle_filters_count_like_enumeration() -> None:
     for k in range(3000):
         assert counter.count(k) == running
         running += plan._period_count(k)
+
+
+# --- overlay rules and annual markers (#156) -----------------------------------------------------
+
+MOON = compiled("gregorian-moon")
+
+
+def test_overlay_and_marker_validation_errors() -> None:
+    def codes(calendar: CompiledCalendar | None = MOON, **members: Any) -> list[tuple[str, str]]:
+        found = RULE.validate_python({"limit": {"kind": "never"}, "calendar_id": "cal"} | members)
+        start = from_fields(MOON, {"year": "2000", "month": "jan", "day": "1"}, "day")
+        return [
+            (e.code, e.path)
+            for e in validate_rule(found, context(start, calendar))
+            if e.severity == "error"
+        ]
+
+    half = {"num": "1", "den": "2"}
+    assert codes(kind="overlay", overlay="moon", phase=half) == []
+    assert codes(None, kind="overlay", overlay="moon", phase=half) == [
+        ("rule.unknown_calendar", "/calendar_id")
+    ]
+    assert codes(kind="overlay", overlay="sun", phase=half) == [
+        ("rule.unknown_overlay", "/overlay")
+    ]
+    assert codes(kind="overlay", overlay="moon", phase={"num": "1", "den": "1"}) == [
+        ("rule.bad_phase", "/phase")
+    ]
+    assert codes(kind="overlay", overlay="moon", phase={"num": "-1", "den": "2"}) == [
+        ("rule.bad_phase", "/phase")
+    ]
+    tick = {
+        "id": "tick", "name": "Tick", "period": {"num": "1", "den": "3"},
+        "epoch": {"anchor": {"kind": "absolute", "t": "0"}, "precision": "base"},
+        "phases": [{"name": "Tick", "from": {"num": "0", "den": "1"}}],
+    }  # fmt: skip
+    document = json.loads((CONFORMANCE / "calendars" / "gregorian-moon.json").read_text())
+    document["definition"]["overlays"].append(tick)
+    document["context"]["resolved"]["/overlays/2/epoch"] = "0"
+    fast = validate_calendar(document["definition"], document["context"])
+    assert isinstance(fast, CompiledCalendar)
+    zero = {"num": "0", "den": "1"}
+    assert codes(fast, kind="overlay", overlay="tick", phase=zero, interval="2") == [
+        ("rule.overlay_too_fast", "/interval")
+    ]
+    assert codes(fast, kind="overlay", overlay="tick", phase=zero, interval="3") == []
+
+    calendar_rule: dict[str, Any] = {"kind": "calendar"}
+    assert codes(**calendar_rule, freq={"level": "day"}, filters=[{"marker": "summer"}]) == [
+        ("rule.unknown_marker", "/filters/0/marker")
+    ]
+    assert codes(
+        **calendar_rule, freq={"level": "day"}, filters=[{"not": {"marker": "summer"}}]
+    ) == [("rule.unknown_marker", "/filters/0/not/marker")]
+    selector = {"level": "day", "marker": {"id": "summer", "nth": ["1"]}}
+    assert codes(**calendar_rule, freq={"level": "year"}, select={"path": [selector]}) == [
+        ("rule.unknown_marker", "/select/path/0/marker/id")
+    ]
+    zeroth = {"level": "day", "marker": {"id": "spring", "nth": ["0"]}}
+    assert codes(**calendar_rule, freq={"level": "year"}, select={"path": [zeroth]}) == [
+        ("rule.bad_nth", "/select/path/0/marker/nth/0")
+    ]
+
+
+def test_marker_rules_in_rounds_are_invalid() -> None:
+    document = json.loads((CONFORMANCE / "calendars" / "gregorian-week.json").read_text())
+    document["definition"]["markers"] = [
+        {"id": "spring", "name": "Spring", "from": {"month": "3"}, "to": {"month": "6"}}
+    ]
+    week = validate_calendar(document["definition"], document["context"])
+    assert isinstance(week, CompiledCalendar)
+
+    def codes(**members: Any) -> list[tuple[str, str]]:
+        found = rule(freq={"cycle": "week"}, **members)
+        return [(e.code, e.path) for e in validate_rule(found, context(g(2000, "jan", 3), week))]
+
+    assert codes(filters=[{"marker": "spring"}]) == [("rule.bad_filter", "/filters/0")]
+    selector = {"level": "day", "marker": {"id": "spring"}}
+    assert codes(select={"path": [selector]}) == [
+        ("rule.bad_selector_level", "/select/path/0/marker")
+    ]
+
+
+def test_marker_rule_keys_and_counting() -> None:
+    """A marker selector with one nth is a single-position rule (k keys); without, k.j keys.
+    Counting a far occurrence number uses super-periods (the marker repeats with the pattern)."""
+    start = from_fields(MOON, {"year": "2000", "month": "jan", "day": "1", "hour": "9"}, "hour")
+    first = RULE.validate_python({
+        "kind": "calendar", "calendar_id": "cal", "freq": {"level": "year"},
+        "limit": {"kind": "never"},
+        "select": {"path": [{"level": "day", "marker": {"id": "spring", "nth": ["1"]}}]},
+    })  # fmt: skip
+    ctx = context(start, MOON)
+    assert occurrence(first, ctx, "2").key == "2"
+    assert occurrence_number(first, ctx, "100000") == 100_001
+    every = RULE.validate_python({
+        "kind": "calendar", "calendar_id": "cal", "freq": {"level": "year"},
+        "limit": {"kind": "never"},
+        "select": {"path": [{"level": "day", "marker": {"id": "spring"}}]},
+    })  # fmt: skip
+    assert occurrence(every, ctx, "0.92").start == from_fields(
+        MOON, {"year": "2000", "month": "jun", "day": "20", "hour": "9"}, "hour"
+    )
+    with pytest.raises(RecurrenceError):
+        occurrence(every, ctx, "0.93")
+    assert occurrence_number(every, ctx, "1000.0") == 1000 * 93 + 1

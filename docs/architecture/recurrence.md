@@ -48,6 +48,17 @@ filter `of` `"number"`).
   "exclusions": [ … ]
 }
 
+// Overlay rule: every time an overlay reaches a phase (#156)
+{
+  "kind": "overlay",
+  "calendar_id": "01a0…",                                   // the calendar holding the overlay
+  "overlay": "moon",                                        // the overlay's id
+  "phase": { "num": "1", "den": "2" },                      // a phase in [0, 1), e.g. a phase's `from`
+  "interval": "1",                                          // every Nth time (≥ 1)
+  "limit": Limit,
+  "exclusions": [ … ]
+}
+
 // Limit
 { "kind": "never" } | { "kind": "count", "count": "100" } | { "kind": "until", "until": TimePoint }
 ```
@@ -66,6 +77,15 @@ resolved by the server and passed as `resolved["/exclusions/<i>/from"]` and `…
 `anchor.unresolved`). `to < from` is `rule.bad_exclusion`; `to = from` excludes nothing.
 Overlapping ranges merge. An excluded occurrence has no occurrence (`occurrence(key)` is
 `not_found`), no number, and isn't counted by `series_bounds` or `count_in_window`.
+
+**Overlay rules** (#156: "every full moon"). The overlay reaches `phase` at the exact instants
+`x(n) = epoch + (n + phase)·period` (`chronology-engine.md` §3.9, §8); an occurrence starts at
+`ceil(x(n))`, the moment `next_phase_at` gives. The first occurrence is at the first such moment
+at or after the series start (`n0`), then every `interval`-th one: occurrence `k` is at
+`ceil(x(n0 + k·interval))`. Occurrences have no time of day of their own. The overlay must step
+at least one base unit per occurrence (`period · interval ≥ 1`, else
+`rule.overlay_too_fast`): no two occurrences start at the same moment. Regimes and eras don't
+apply (overlays ignore them).
 
 ### 2.1 Periods
 
@@ -98,6 +118,7 @@ the series and start a new one in the new regime.
 { "mod": "2", "eq": "1", "of": "number" | "ordinal" }   // e.g. odd years: of=number (astronomical Y for the top level)
 { "in": ["3", "frostfall"] }                             // period's number or slot id ∈ list
 { "cycle": "week", "in": ["moonday"] }                   // for unit periods at a cycle's level: cycle value ∈ list
+{ "marker": "spring" }                                   // the period's unit starts inside an annual marker (#156)
 { "all": [F, …] } | { "any": [F, …] } | { "not": F }
 ```
 
@@ -113,6 +134,10 @@ numbering can differ from astronomical parity. The UI explains which one it uses
   decision 2026-10-02: ids survive renaming the display names) or by the cycle number `n`
   (`index + number_start`); unknown values are `rule.unknown_slot`. An excluded unit has no value
   and never matches.
+- `marker`: the period's unit starts inside one of the marker's ranges
+  (`chronology-engine.md` §3.12: the range of the year it starts in, or the previous year's
+  range running into it). An unknown marker is `rule.unknown_marker`. "Every day of spring" is
+  `freq day` with `{marker: spring}`.
 - Cycle rounds have no number or slot: only `mod`, `all`, `any` and `not` apply to them
   (`rule.bad_filter`).
 
@@ -127,6 +152,8 @@ numbering can differ from astronomical parity. The UI explains which one it uses
 { "level": "day",   "cycle": { "id": "week", "values": ["moonday"], "nth": ["1", "-1"] } }
                                                           // units whose cycle value matches; optional nth within the parent
 { "level": "day",   "all": true }                         // every regular unit
+{ "level": "day",   "marker": { "id": "spring", "nth": ["1"] } }
+                                                          // units inside an annual marker (#156); optional nth
 ```
 
 - **Levels.** The first selector of a level period is at any level below the period; each next
@@ -148,6 +175,13 @@ numbering can differ from astronomical parity. The UI explains which one it uses
   **per value** (product decision, 2026-10-02, like RFC 5545 `BYDAY=1MO,1FR`): `nth: ["1"]` with
   `values: [moonday, fireday]` is the first Moonday and the first Fireday. `"0"` is
   `rule.bad_nth`; an `nth` beyond the matches selects nothing.
+- **Marker matches** (#156: "the first day of spring") pick, for each range of the marker
+  (`chronology-engine.md` §3.12) that **starts inside the parent**, the units of the level inside
+  the parent whose start lies in the range; `nth` counts them per range (negative from the end;
+  `"0"` is `rule.bad_nth`). A range belongs to the parent it starts in, and positions never leave
+  the parent: the last day of a winter running into the next year is the last day of the year
+  when the parent is that year. Unknown markers are `rule.unknown_marker`; a marker selector can't
+  be the first selector of a cycle round (`rule.bad_selector_level`).
 - Duplicate positions count once; positions are time-ordered, and `j` (§3) is the index in that
   order. A period may hold at most 100,000 positions (`rule.too_many_positions`).
 
@@ -168,6 +202,10 @@ Examples:
 | First and last Moonday of the year | `freq year`, `select {path:[{level:day, cycle:{id:week, values:[moonday], nth:["1","-1"]}}]}` |
 | Fridays the 13th | `freq day`, `filters [{cycle:week, in:[fireday]}, {in:["13"]}]` |
 | A comet every 2,397,422,120 s | `kind interval`, `every 2397422120` |
+| Every full moon | `kind overlay`, `overlay moon`, `phase 1/2` |
+| Every third new moon | `kind overlay`, `overlay moon`, `phase 0`, `interval 3` |
+| The first day of spring, every year | `freq year`, `select {path:[{level:day, marker:{id:spring, nth:["1"]}}]}` |
+| Every day of spring | `freq day`, `filters [{marker:spring}]` |
 
 `select: null` with `missing: "skip"` mirrors RFC 5545. A series starting on 29 February
 recurs only in leap years. `missing: "constrain"` uses the constrain semantics of
@@ -200,7 +238,10 @@ start is the start of that finer position (precision = the series start's precis
   syntactically: every selector has one value (a number, or a slot id at the level directly below
   the previous selector or the period: slot ids are unique only within one template), a cycle
   match has one value and one `nth`, and there is no `all`. Otherwise the key is `k.j`, where `j` is the 0-based time-ordered index inside the period.
-  Interval rules: `k = (t − series_start) / every`.
+  Interval rules: `k = (t − series_start) / every`. Overlay rules: `k` counts the phase instants
+  from the first one at or after the series start, in steps of `interval`. A marker match is a
+  single position when it has one `nth` value (a parent holds at most one range start, ranges
+  being yearly).
 - Keys are stable under edits that do not change the period structure (renaming, changing the
   duration, moving the time of day). Edits that change the structure trigger reconciliation (§8).
 - Periods rejected by filters or with no selected positions **consume** their `k`. Keys can
@@ -295,6 +336,13 @@ ends of the exclusion ranges; occurrence numbers and window counts follow, and t
 next occurrences are `position(G(t) + 1)` / `position(G(t + 1))`, skipping exclusion ranges.
 
 - **Interval rules:** `G(t) = max(0, ⌈(t − series_start) / every⌉)`.
+- **Overlay rules:** `ceil(x(n)) < t ⇔ x(n) ≤ t − 1`, so
+  `G(t) = max(0, ⌊((t − 1 − epoch)/period − phase − n0) / interval⌋ + 1)`, exact rationals; the
+  `i`-th position is `ceil(x(n0 + (i − 1)·interval))`. Windows map to `k` the same way. Overlay
+  rules are always countable and need no super-period.
+- **Marker filters and selectors** make a rule depend on where the marker ranges fall, which
+  repeats with the calendar's top pattern (the ranges are resolved from fields per year): they
+  add nothing to the super-period of §5.4 beyond `P`.
 - **Calendar rules:** `G(t) = S(k_t) + ` the positions of `t`'s own period before `t`, where
   `S(k)` sums the positions of periods `0 … k−1`.
   - **Constant periods.** Without filters, cycle selectors or rounds, a period's positions depend
@@ -498,7 +546,10 @@ above is silent):
 `validate_rule` errors: `rule.unknown_calendar`, `rule.bad_freq_level`,
 `rule.cycle_not_continuous`, `rule.bad_interval`, `rule.bad_filter`, `rule.bad_selector_level`
 (each selector strictly finer than the previous one or the period, §2.3), `rule.unknown_slot`,
-`rule.bad_nth`, `rule.bad_time_fields`, `rule.until_before_start`, `rule.too_complex_to_count`,
+`rule.bad_nth`, `rule.bad_time_fields`, `rule.unknown_marker` (a marker filter or selector naming
+no marker of the calendar), `rule.unknown_overlay` and `rule.bad_phase` (an overlay rule's
+overlay, and a phase outside `[0, 1)`), `rule.overlay_too_fast` (`period · interval < 1` base
+unit), `rule.until_before_start`, `rule.too_complex_to_count`,
 `rule.series_end_not_duration` (series `end` must be duration/instant/unknown),
 `rule.bad_exclusion` (an exclusion ending before it starts),
 `rule.series_start_not_occurrence` (warning: the series start doesn't match the rule; the first
@@ -515,7 +566,8 @@ unresolved `limit.until` is `anchor.unresolved`. Engines refuse to evaluate a ru
 ## 10. UI notes (for M5)
 
 - The recurrence editor offers presets (yearly on this date, monthly on this day, weekly on these
-  days, every N base units…) and an advanced mode exposing filters and selectors.
+  days, every full moon, the first day of a season, every N base units…) and an advanced mode
+  exposing filters and selectors.
 - It always shows a live preview of the next 10 occurrences (`next_occurrences`) and a
   natural-language summary ("Every year on 1 Frostfall, odd years only, until the Fall of the
   Empire").

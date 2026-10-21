@@ -13,7 +13,12 @@ from typing import Literal
 from lore.chronology.schema import CalendarDefinition, CompileContext
 
 type DateErrorCode = Literal[
-    "invalid_date", "reform_gap", "reform_ambiguous", "unknown_cycle", "unknown_overlay"
+    "invalid_date",
+    "reform_gap",
+    "reform_ambiguous",
+    "unknown_cycle",
+    "unknown_overlay",
+    "unknown_marker",
 ]
 
 _NUMBER = re.compile(r"-?[0-9]+")

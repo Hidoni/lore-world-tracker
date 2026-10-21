@@ -11,9 +11,10 @@ export type Template = UniformTemplate | SequenceTemplate
 export type SequenceChild = NamedChild | RunChild
 export type YearPattern = FixedPattern | CyclePattern | RulesPattern
 export type Predicate = ModPredicate | AllPredicate | AnyPredicate | NotPredicate
-export type RecurrenceRule = CalendarRule | IntervalRule
-export type PeriodFilter = ModFilter | InFilter | CycleFilter | AllFilter | AnyFilter | NotFilter
-export type LevelSelector = ValuesSelector | CycleSelector | AllSelector
+export type RecurrenceRule = CalendarRule | IntervalRule | OverlayRule
+export type PeriodFilter =
+  ModFilter | InFilter | CycleFilter | MarkerFilter | AllFilter | AnyFilter | NotFilter
+export type LevelSelector = ValuesSelector | CycleSelector | AllSelector | MarkerSelector
 export type Limit = NeverLimit | CountLimit | UntilLimit
 
 /**
@@ -307,6 +308,10 @@ export interface CalendarDefinition {
    * @maxItems 100
    */
   overlays?: Overlay[]
+  /**
+   * @maxItems 1000
+   */
+  markers?: Marker[]
   formats?: Formats | null
   display?: DisplayOptions | null
 }
@@ -544,6 +549,20 @@ export interface Phase {
   from: Rational
 }
 /**
+ * A named part of every year, e.g. a season (chronology-engine §3.12): ``[from, to)`` of
+ * each year, wrapping into the next year when ``to`` is not after ``from``.
+ */
+export interface Marker {
+  id: string
+  name: string
+  from: {
+    [k: string]: string | undefined
+  }
+  to: {
+    [k: string]: string | undefined
+  }
+}
+/**
  * Format patterns by precision level id, plus ``intercalary`` overrides (§3.11).
  */
 export interface Formats {
@@ -658,6 +677,9 @@ export interface CycleFilter {
    * @maxItems 10000
    */
   in: [string, ...string[]]
+}
+export interface MarkerFilter {
+  marker: string
 }
 export interface AllFilter {
   /**
@@ -932,6 +954,14 @@ export interface AllSelector {
   level: string
   all: true
 }
+export interface MarkerSelector {
+  level: string
+  marker: MarkerMatch
+}
+export interface MarkerMatch {
+  id: string
+  nth?: [string, ...string[]] | null
+}
 export interface TimeOfDay {
   fields: {
     [k: string]: string | undefined
@@ -963,6 +993,22 @@ export interface IntervalRule {
   schema_version?: 1
   kind: 'interval'
   every: string
+  limit: Limit
+  /**
+   * @maxItems 10000
+   */
+  exclusions?: Exclusion[]
+}
+/**
+ * Every time an overlay of a calendar reaches a phase (recurrence §2, #156).
+ */
+export interface OverlayRule {
+  schema_version?: 1
+  kind: 'overlay'
+  calendar_id: string
+  overlay: string
+  phase: Rational
+  interval?: string
   limit: Limit
   /**
    * @maxItems 10000

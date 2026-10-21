@@ -24,6 +24,7 @@ from lore.chronology.calendar.formatting import (
     format_date,
     format_span,
 )
+from lore.chronology.calendar.markers import marker_range, markers_at
 from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.correspondence import (
@@ -90,6 +91,8 @@ OPS = NUMBER_OPS | frozenset(
         "era_of",
         "overlay_phase",
         "next_phase_at",
+        "marker_range",
+        "markers_at",
         "add",
         "diff",
         "format",
@@ -188,6 +191,11 @@ def _from_fields(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
 
 def _bounds(bounds: Bounds) -> dict[str, str]:
     return {"start": str(bounds.start), "end": str(bounds.end)}
+
+
+def _marker_range(calendar: CalendarFile | None, d: dict[str, Any]) -> dict[str, str] | None:
+    found = marker_range(_compiled(calendar), d["marker"], int(d["year"]))
+    return None if found is None else {"start": str(found[0]), "end": str(found[1])}
 
 
 def _ordinal(calendar: CalendarFile | None, d: dict[str, Any]) -> Any:
@@ -336,6 +344,8 @@ HANDLERS: dict[str, Handler] = {
     "next_phase_at": lambda c, d: {
         "t": str(next_phase_at(_compiled(c), int(d["t"]), d["overlay"], _rational(d["phase"])))
     },
+    "marker_range": _marker_range,
+    "markers_at": lambda c, d: {"markers": markers_at(_compiled(c), int(d["t"]))},
     "era_of": _era_of,
     "from_ordinal": lambda c, d: _bounds(from_ordinal(_compiled(c), d["level"], int(d["ordinal"]))),
     "add": _add,

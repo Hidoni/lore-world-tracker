@@ -426,6 +426,21 @@ describe('calendar editor', () => {
     await userEvent.click(within(overlays).getByRole('button', { name: 'Overlay' }))
     expect(within(overlays).getAllByRole('listitem').length).toBeGreaterThan(0)
 
+    // Markers: spring, from 20 March to 21 June.
+    const markers = screen.getByRole('region', { name: 'Markers' })
+    await userEvent.click(within(markers).getByRole('button', { name: 'Marker' }))
+    const marker = within(markers).getByRole('listitem', { name: 'Marker season' })
+    await replace(within(marker).getByRole('textbox', { name: 'Marker name' }), 'Spring')
+    await userEvent.selectOptions(
+      within(marker).getByRole('combobox', { name: 'Marker precision' }),
+      'day',
+    )
+    await replace(within(marker).getByRole('textbox', { name: 'Marker from month' }), '3')
+    await replace(within(marker).getByRole('textbox', { name: 'Marker from day' }), '20')
+    await replace(within(marker).getByRole('textbox', { name: 'Marker until month' }), '6')
+    await replace(within(marker).getByRole('textbox', { name: 'Marker until day' }), '21')
+    expect(within(preview).getByText('The calendar compiles.')).toBeInTheDocument()
+
     // Formats: suggestions while typing a token, an unknown token is an error.
     const formats = screen.getByRole('region', { name: 'Formats' })
     const day = within(formats).getByRole('textbox', { name: 'day format' })
@@ -460,6 +475,7 @@ describe('calendar editor', () => {
       regimes: { cycles?: { id: string; level: string }[] }[]
       eras?: unknown[]
       overlays?: unknown[]
+      markers?: unknown[]
       formats?: Record<string, string>
     }
     expect(json.regimes).toHaveLength(2)
@@ -469,6 +485,14 @@ describe('calendar editor', () => {
     expect(json.eras).toHaveLength(3)
     // Gregorian has two overlays (the moon and the seasons) and the new one.
     expect(json.overlays).toHaveLength(3)
+    expect(json.markers).toEqual([
+      {
+        id: 'season',
+        name: 'Spring',
+        from: { month: '3', day: '20' },
+        to: { month: '6', day: '21' },
+      },
+    ])
     expect(json.formats).toEqual({ sol: '{sol}' })
   }, 30_000)
 })

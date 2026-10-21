@@ -135,6 +135,8 @@ export class Counter {
     } else if ('in' in item) {
       if (plan.level === plan.top)
         throw new TooComplex('an `in` filter on year numbers is not periodic')
+    } else if ('marker' in item) {
+      // marker ranges repeat with the top pattern, like everything structural
     } else if ('all' in item || 'any' in item) {
       for (const child of 'all' in item ? item.all : item.any) {
         this.#filterNeeds(child, found, cycles, units, size)

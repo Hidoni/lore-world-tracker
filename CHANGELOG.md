@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Recurrence by moon phase and seasons** (#156): a recurring event can repeat every time a
+  calendar's overlay reaches a phase ("every full moon", "every third new moon"). Calendars can
+  have **markers**, named parts of every year such as seasons (from 20 March to 21 June, or a
+  winter running into the next year); recurring events can fall on a marker's first or last day
+  ("the first day of spring") or on every day in it. Both chronology engines, the conformance
+  vectors, the calendar editor and the recurrence editor support them.
 - **Script fonts** (#155): the new `scripts` module lets a writing system have a font (WOFF2,
   WOFF, TTF or OTF, uploaded to the media library), a size and a sample. Lexicon headwords, words
   in pages and lexicon search results of languages written in it show in that font (right to

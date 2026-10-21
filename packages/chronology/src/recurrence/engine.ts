@@ -11,9 +11,21 @@
  * Count limits, exclusions, occurrence numbers and window counts use the counting primitives of
  * `Plan` (recurrence.md §5.4).
  */
-import { defined } from '../calendar/compiled'
-import { floorDiv } from '../numbers'
-import type { IntervalRule, RecurrenceRule } from '../schema.gen'
+import { type CompiledCalendar, DateError, defined } from '../calendar/compiled'
+import { overlayOf, periodOf } from '../calendar/overlays'
+import {
+  type BigRational,
+  floorDiv,
+  parseRational,
+  rationalAdd,
+  rationalCompare,
+  rationalDiv,
+  rationalFloor,
+  rationalFromInt,
+  rationalMul,
+  rationalSub,
+} from '../numbers'
+import type { IntervalRule, OverlayRule, RecurrenceRule } from '../schema.gen'
 import { CalendarPlan, calendarRuleErrors } from './calendar-rules'
 import {
   ITERATE_LIMIT,
@@ -122,6 +134,34 @@ function structuralErrors(rule: RecurrenceRule, ctx: RecurrenceContext): RuleVal
     } else {
       errors.push(...calendarRuleErrors(rule, ctx.calendar, ctx.seriesStart))
     }
+  } else if (rule.kind === 'overlay') {
+    errors.push(...overlayRuleErrors(rule, ctx.calendar ?? null))
+  }
+  return errors
+}
+
+/** §2, §9: the calendar's overlay, a phase in `[0, 1)`, at least one base unit per step. */
+function overlayRuleErrors(
+  rule: OverlayRule,
+  calendar: CompiledCalendar | null,
+): RuleValidationError[] {
+  if (calendar === null) return [error('rule.unknown_calendar', '/calendar_id', 'no calendar given')]
+  const errors: RuleValidationError[] = []
+  const num = BigInt(rule.phase.num)
+  if (num < 0n || num >= BigInt(rule.phase.den)) {
+    errors.push(error('rule.bad_phase', '/phase', 'a phase lies in [0, 1)'))
+  }
+  let overlay
+  try {
+    ;[overlay] = overlayOf(calendar, rule.overlay)
+  } catch (thrown) {
+    if (!(thrown instanceof DateError)) throw thrown
+    errors.push(error('rule.unknown_overlay', '/overlay', `no overlay ${rule.overlay}`))
+    return errors
+  }
+  const step = rationalMul(periodOf(overlay), rationalFromInt(BigInt(rule.interval ?? '1')))
+  if (rationalCompare(step, rationalFromInt(1n)) < 0) {
+    errors.push(error('rule.overlay_too_fast', '/interval', 'occurrences must be a base unit apart'))
   }
   return errors
 }
@@ -177,6 +217,67 @@ class IntervalPlan extends Plan {
   }
 }
 
+function ceil(a: BigRational): bigint {
+  return -rationalFloor({ num: -a.num, den: a.den })
+}
+
+/**
+ * §2 overlay rules: occurrence `k` starts at `ceil(x(n0 + k·interval))`, where
+ * `x(n) = epoch + (n + phase)·period` and `n0` is the first phase instant whose moment is at or
+ * after the series start (§5.4: counted in closed form).
+ */
+class OverlayPlan extends Plan {
+  readonly epoch: bigint
+  readonly period: BigRational
+  readonly phase: BigRational
+  readonly interval: bigint
+  readonly n0: bigint
+
+  constructor(rule: OverlayRule, ctx: RecurrenceContext, calendar: CompiledCalendar, last: bigint) {
+    super(ctx, last)
+    const [overlay, epoch] = overlayOf(calendar, rule.overlay)
+    this.epoch = epoch
+    this.period = periodOf(overlay)
+    this.phase = parseRational(rule.phase.num, rule.phase.den)
+    this.interval = BigInt(rule.interval ?? '1')
+    this.n0 = this.lastInstantBefore(ctx.seriesStart) + 1n
+  }
+
+  /** The last `n` whose moment `ceil(x(n))` is before `t` (`x(n) ≤ t − 1`). */
+  lastInstantBefore(t: bigint): bigint {
+    const turns = rationalDiv(rationalFromInt(t - 1n - this.epoch), this.period)
+    return rationalFloor(rationalSub(turns, this.phase))
+  }
+
+  start(k: bigint): bigint {
+    const n = this.n0 + k * this.interval
+    return ceil(
+      rationalAdd(
+        rationalFromInt(this.epoch),
+        rationalMul(rationalAdd(rationalFromInt(n), this.phase), this.period),
+      ),
+    )
+  }
+
+  positions(k: bigint): (bigint | null)[] {
+    return [this.start(k)]
+  }
+
+  kRange(low: bigint, high: bigint): readonly [bigint, bigint] {
+    return [this.countBefore(low), this.countBefore(high + 1n) - 1n]
+  }
+
+  readonly dense = true
+
+  countBefore(t: bigint): bigint {
+    return max(0n, floorDiv(this.lastInstantBefore(t) - this.n0, this.interval) + 1n)
+  }
+
+  position(i: bigint): Position {
+    return [i - 1n, 0, this.start(i - 1n)]
+  }
+}
+
 function plan(rule: RecurrenceRule, ctx: RecurrenceContext): Plan {
   const errors = structuralErrors(rule, ctx).filter((e) => e.severity === 'error')
   if (errors.length > 0) {
@@ -187,7 +288,9 @@ function plan(rule: RecurrenceRule, ctx: RecurrenceContext): Plan {
   const found =
     rule.kind === 'interval'
       ? new IntervalPlan(rule, ctx, last)
-      : new CalendarPlan(rule, ctx, defined(ctx.calendar), last)
+      : rule.kind === 'overlay'
+        ? new OverlayPlan(rule, ctx, defined(ctx.calendar), last)
+        : new CalendarPlan(rule, ctx, defined(ctx.calendar), last)
   const ranges = (rule.exclusions ?? [])
     .map((_, i): [bigint, bigint] => [
       defined(resolvedAt(ctx, `/exclusions/${i}/from`)),
@@ -241,7 +344,8 @@ export function expand(
   if (periods <= 0n) return { items: [], truncated: false, estimatedCount: null }
   if (
     periods > max(ITERATE_LIMIT, TRUNCATE_FACTOR * most) ||
-    (found instanceof IntervalPlan && periods > TRUNCATE_FACTOR * most)
+    ((found instanceof IntervalPlan || found instanceof OverlayPlan) &&
+      periods > TRUNCATE_FACTOR * most)
   ) {
     return { items: [], truncated: true, estimatedCount: count(found, w0, w1, kLo, kHi).count }
   }

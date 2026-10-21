@@ -2,6 +2,7 @@ import type {
   Cycle,
   DefinitionTimePoint,
   Era,
+  Marker,
   Overlay,
   Phase,
   Rational,
@@ -1049,6 +1050,166 @@ export function OverlaysEditor({
       >
         <PlusIcon aria-hidden /> Overlay
       </Button>
+    </section>
+  )
+}
+
+// --- markers -------------------------------------------------------------------------------------
+
+/**
+ * Annual markers (§3.12, #156): named parts of every year, seasons for instance, from a date
+ * without its year to another (exclusive; a `to` not after `from` runs into the next year). The
+ * fields go from the level below the year down to the chosen precision; values are numbers or
+ * slot ids, and a day past the month's end is its last day.
+ */
+export function MarkersEditor({ definition, errors, onChange }: StructureProps) {
+  const markers = definition.markers ?? []
+  // Coarse to fine, without the top level (the year comes from the year the range is in).
+  const levels = [...levelsOf(definition)].reverse().slice(1)
+  const set = (next: Marker[]) => {
+    onChange(
+      edit(definition, (draft) => {
+        if (next.length === 0) delete draft.markers
+        else draft.markers = next
+      }),
+    )
+  }
+  const update = (index: number, marker: Marker) => {
+    set(markers.map((old, at) => (at === index ? marker : old)))
+  }
+  /** Fields down to `depth` levels below the year, keeping the values set. */
+  const resized = (fields: Marker['from'], depth: number): Marker['from'] =>
+    Object.fromEntries(
+      levels
+        .slice(0, depth)
+        .map((level) => [level.id, fields[level.id] ?? String(level.numbering_start ?? 1)]),
+    )
+  return (
+    <section aria-label="Markers" className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">Markers</h3>
+      <p className="text-xs text-muted-foreground">
+        Named parts of every year, such as seasons. Recurring events can fall on their first or last
+        day, or on every day in them.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {markers.map((marker, index) => {
+          const at = `/markers/${index}`
+          const depth = Math.max(1, Object.keys(marker.from).length)
+          return (
+            <li
+              key={index}
+              aria-label={`Marker ${marker.id}`}
+              className="flex flex-col gap-2 rounded-md border p-2 text-sm"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <PathInput
+                  path={`${at}/id`}
+                  aria-label="Marker id"
+                  className="w-24"
+                  value={marker.id}
+                  onChange={(event) => {
+                    update(index, { ...marker, id: event.target.value })
+                  }}
+                />
+                <PathInput
+                  path={`${at}/name`}
+                  aria-label="Marker name"
+                  className="w-40"
+                  value={marker.name}
+                  onChange={(event) => {
+                    update(index, { ...marker, name: event.target.value })
+                  }}
+                />
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  down to the
+                  <select
+                    aria-label="Marker precision"
+                    className={SELECT_CLASS}
+                    value={String(depth)}
+                    onChange={(event) => {
+                      const next = Number(event.target.value)
+                      update(index, {
+                        ...marker,
+                        from: resized(marker.from, next),
+                        to: resized(marker.to, next),
+                      })
+                    }}
+                  >
+                    {levels.map((level, levelIndex) => (
+                      <option key={level.id} value={String(levelIndex + 1)}>
+                        {level.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex-1" />
+                <IconButton
+                  label={`Remove marker ${marker.id}`}
+                  onClick={() => {
+                    set(markers.filter((_, other) => other !== index))
+                  }}
+                >
+                  <Trash2Icon />
+                </IconButton>
+              </div>
+              {(['from', 'to'] as const).map((side) => (
+                <div key={side} className="flex flex-wrap items-center gap-2">
+                  <span className="w-12 text-muted-foreground">
+                    {side === 'from' ? 'From' : 'Until'}
+                  </span>
+                  {levels.slice(0, depth).map((level) => (
+                    <PathInput
+                      key={level.id}
+                      path={`${at}/${side}/${level.id}`}
+                      aria-label={`Marker ${side === 'from' ? 'from' : 'until'} ${level.label}`}
+                      placeholder={level.label}
+                      className="w-24"
+                      value={marker[side][level.id] ?? ''}
+                      onChange={(event) => {
+                        update(index, {
+                          ...marker,
+                          [side]: { ...marker[side], [level.id]: event.target.value.trim() },
+                        })
+                      }}
+                    />
+                  ))}
+                  {side === 'to' && (
+                    <span className="text-xs text-muted-foreground">(not included)</span>
+                  )}
+                </div>
+              ))}
+              <FieldErrors errors={errors} path={at} />
+            </li>
+          )
+        })}
+      </ul>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        disabled={levels.length === 0}
+        onClick={() => {
+          const first = levels[0]
+          if (first === undefined) return
+          const start = String(first.numbering_start ?? 1)
+          set([
+            ...markers,
+            {
+              id: freshId(
+                markers.map((marker) => marker.id),
+                'season',
+              ),
+              name: 'Season',
+              from: { [first.id]: start },
+              to: { [first.id]: start },
+            },
+          ])
+        }}
+      >
+        <PlusIcon aria-hidden /> Marker
+      </Button>
+      <FieldErrors errors={errors} path="/markers" />
     </section>
   )
 }

@@ -93,7 +93,11 @@ The **Structure** tab has these sections:
   abbreviation before or after the year.
 - **Overlays**: astronomical cycles shown next to dates without changing them, such as moons or
   seasons. Give the period in base units (or use the helper in days), when **Phase 0 begins at**,
-  and the phases.
+  and the phases. Recurring events can follow them ("every full moon").
+- **Markers**: named parts of every year, such as seasons or festival weeks, from a date to
+  another (the end is not included; an end before the start runs into the next year, like a winter
+  from 21 December to 20 March). Choose the precision (month or day), then the dates without the
+  year. Recurring events can fall on a marker's first or last day, or on every day in it.
 - **Formats** and **Display**: how dates are written at each level, the circa prefix, digit
   grouping and how huge numbers are shortened.
 

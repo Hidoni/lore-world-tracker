@@ -1,5 +1,6 @@
 import {
   type CalendarRule,
+  type CompiledCalendar,
   type Cycle,
   type EndSpec,
   type Exclusion,
@@ -37,6 +38,9 @@ import {
   detectPreset,
   presetRule,
   ruleTimePoints,
+  markersOf,
+  overlaysOf,
+  rationalKey,
   summarize,
   type PresetId,
   type PresetOptions,
@@ -51,6 +55,8 @@ const PRESET_LABELS: Record<PresetId, string> = {
   monthly: 'Every month on this day',
   nth_weekday: 'Every month on this weekday (e.g. the second Tuesday)',
   weekly: 'Every week on these days',
+  phase: 'Every time a moon (or another overlay) reaches a phase',
+  marker: 'Every year on the first or last day of a season',
   interval: 'Every N base units',
   custom: 'Advanced',
 }
@@ -583,6 +589,38 @@ function AdvancedEditor({
       {jsonError !== null && <p className="text-destructive">Not valid JSON: {jsonError}</p>}
     </details>
   )
+  if (rule.kind === 'overlay') {
+    return (
+      <div className="flex flex-col gap-3">
+        {calendar !== null && (
+          <PhaseFields
+            calendar={calendar}
+            overlay={rule.overlay}
+            phase={rationalKey(rule.phase)}
+            onChange={(overlay, phase) => {
+              const [num = '0', den = '1'] = phase.split('/')
+              onChange({ ...rule, overlay, phase: { num, den } })
+            }}
+          />
+        )}
+        <div className="flex items-center gap-2 text-sm">
+          Every
+          <Input
+            aria-label="Interval"
+            className="h-8 w-16"
+            value={rule.interval ?? '1'}
+            onChange={(event) => {
+              const interval = event.target.value.trim()
+              onChange({ ...rule, interval: interval === '' ? '1' : interval })
+            }}
+          />
+          time(s)
+        </div>
+        {exclusions}
+        {jsonEditor}
+      </div>
+    )
+  }
   if (rule.kind === 'interval' || calendar === null) {
     return (
       <div className="flex flex-col gap-3">
@@ -801,11 +839,133 @@ function WeekdayPicker({
 function presetOptionsOf(rule: RecurrenceRule | null): PresetOptions {
   if (rule === null) return {}
   if (rule.kind === 'interval') return { every: rule.every }
-  const selector = rule.select?.path[0]
-  return {
-    ...(rule.interval === undefined ? {} : { every: rule.interval }),
-    ...(selector !== undefined && 'cycle' in selector ? { weekdays: selector.cycle.values } : {}),
+  const every = rule.interval === undefined ? {} : { every: rule.interval }
+  if (rule.kind === 'overlay') {
+    return { ...every, overlay: rule.overlay, phase: rationalKey(rule.phase) }
   }
+  const selector = rule.select?.path[0]
+  const nth = selector !== undefined && 'marker' in selector ? selector.marker.nth : undefined
+  return {
+    ...every,
+    ...(selector !== undefined && 'cycle' in selector ? { weekdays: selector.cycle.values } : {}),
+    ...(selector !== undefined && 'marker' in selector
+      ? { marker: selector.marker.id, ...(nth?.length === 1 ? { nth: nth[0] } : {}) }
+      : {}),
+  }
+}
+
+/** An overlay and one of its named phases (the phase rule's "every full moon"). */
+function PhaseFields({
+  calendar,
+  overlay,
+  phase,
+  onChange,
+}: {
+  calendar: CompiledCalendar
+  overlay: string
+  phase: string
+  onChange: (overlay: string, phase: string) => void
+}) {
+  const overlays = overlaysOf(calendar)
+  const chosen = overlays.find((each) => each.id === overlay) ?? overlays[0]
+  const phases = chosen?.phases ?? []
+  const named = phases.some((each) => rationalKey(each.from) === phase)
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <label className="flex items-center gap-1">
+        Phase
+        <select
+          aria-label="Phase"
+          className={SELECT}
+          value={phase}
+          onChange={(event) => {
+            onChange(chosen?.id ?? overlay, event.target.value)
+          }}
+        >
+          {!named && <option value={phase}>{phase}</option>}
+          {phases.map((each, index) => (
+            <option
+              key={`${String(index)}:${rationalKey(each.from)}`}
+              value={rationalKey(each.from)}
+            >
+              {each.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {overlays.length > 1 && (
+        <label className="flex items-center gap-1">
+          of
+          <select
+            aria-label="Overlay"
+            className={SELECT}
+            value={chosen?.id ?? overlay}
+            onChange={(event) => {
+              const next = overlays.find((each) => each.id === event.target.value)
+              onChange(
+                event.target.value,
+                rationalKey(next?.phases[0]?.from ?? { num: '0', den: '1' }),
+              )
+            }}
+          >
+            {overlays.map((each) => (
+              <option key={each.id} value={each.id}>
+                {each.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </div>
+  )
+}
+
+/** A marker and its first or last day (the marker preset: "the first day of spring"). */
+function MarkerFields({
+  calendar,
+  marker,
+  nth,
+  onChange,
+}: {
+  calendar: CompiledCalendar
+  marker: string | undefined
+  nth: string | undefined
+  onChange: (marker: string, nth: string) => void
+}) {
+  const markers = markersOf(calendar)
+  const chosen = markers.find((each) => each.id === marker) ?? markers[0]
+  if (chosen === undefined) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      On the
+      <select
+        aria-label="Which day"
+        className={SELECT}
+        value={nth ?? '1'}
+        onChange={(event) => {
+          onChange(chosen.id, event.target.value)
+        }}
+      >
+        <option value="1">first day</option>
+        <option value="-1">last day</option>
+      </select>
+      of
+      <select
+        aria-label="Season"
+        className={SELECT}
+        value={chosen.id}
+        onChange={(event) => {
+          onChange(event.target.value, nth ?? '1')
+        }}
+      >
+        {markers.map((each) => (
+          <option key={each.id} value={each.id}>
+            {each.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
 }
 
 /**
@@ -838,7 +998,7 @@ export function RecurrenceEditor({
   const id = useId()
   const calendars = lenses.filter((lens) => lens.calendar !== null)
   const [calendarId, setCalendarId] = useState<string | null>(
-    value?.kind === 'calendar'
+    value?.kind === 'calendar' || value?.kind === 'overlay'
       ? value.calendar_id
       : (calendars.find((lens) => lens.id === dimension.defaultCalendarId)?.id ??
           calendars[0]?.id ??
@@ -900,7 +1060,10 @@ export function RecurrenceEditor({
           seriesStart: startT,
           end: seriesEnd,
           dimensionDuration: dimension.duration,
-          calendar: value?.kind === 'calendar' ? (lens?.calendar ?? null) : null,
+          calendar:
+            value?.kind === 'calendar' || value?.kind === 'overlay'
+              ? (lens?.calendar ?? null)
+              : null,
           resolved,
         }
   let problems: RuleValidationError[] = []
@@ -982,7 +1145,7 @@ export function RecurrenceEditor({
                 </option>
               ))}
             </select>
-            {calendars.length > 1 && value.kind === 'calendar' && (
+            {calendars.length > 1 && value.kind !== 'interval' && (
               <>
                 <label htmlFor={`${id}-calendar`}>in</label>
                 <select
@@ -1017,7 +1180,13 @@ export function RecurrenceEditor({
                 }}
               />
               <span>
-                {mode === 'yearly' ? 'year(s)' : mode === 'weekly' ? 'week(s)' : 'month(s)'}
+                {mode === 'yearly' || mode === 'marker'
+                  ? 'year(s)'
+                  : mode === 'weekly'
+                    ? 'week(s)'
+                    : mode === 'phase'
+                      ? 'time(s)'
+                      : 'month(s)'}
               </span>
             </div>
           )}
@@ -1034,6 +1203,26 @@ export function RecurrenceEditor({
               }
               onChange={(weekdays) => {
                 setOptions({ ...options, weekdays })
+              }}
+            />
+          )}
+          {mode === 'phase' && value.kind === 'overlay' && scope.calendar !== null && (
+            <PhaseFields
+              calendar={scope.calendar}
+              overlay={value.overlay}
+              phase={rationalKey(value.phase)}
+              onChange={(overlay, phase) => {
+                setOptions({ ...options, overlay, phase })
+              }}
+            />
+          )}
+          {mode === 'marker' && scope.calendar !== null && (
+            <MarkerFields
+              calendar={scope.calendar}
+              marker={options.marker}
+              nth={options.nth}
+              onChange={(marker, nth) => {
+                setOptions({ ...options, marker, nth })
               }}
             />
           )}

@@ -1,0 +1,1090 @@
+{
+  "description": "Recurrence by overlay phase (overlay rules: every full moon, every third new moon; exclusions, limits, counting far away) and by annual markers (the first day of spring, winter's first and last day in its year, every day of spring, leap eve with constrained fields).",
+  "calendar": "gregorian-moon",
+  "generated": false,
+  "verification": "Brute force: overlay instants ceil(epoch + (n + phase) * period) with Fraction, stepping n; marker days with Python datetime (2000-01-01 = t 10^14), ranges as in markers/gregorian-moon.json; keys counted from the series start's period.",
+  "cases": [
+    {
+      "id": "full-moons-q1-2000",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000000000",
+          "100000007862400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000001773362",
+            "end": "100000001773362"
+          },
+          {
+            "key": "1",
+            "start": "100000004324805",
+            "end": "100000004324805"
+          },
+          {
+            "key": "2",
+            "start": "100000006876247",
+            "end": "100000006876247"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "full moon = phase 1/2; occurrences at ceil(epoch + (n + 1/2) * period)"
+    },
+    {
+      "id": "full-moons-a-day-long-overlap",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "window": [
+          "100000006879847",
+          "100000006883447"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "2",
+            "start": "100000006876247",
+            "end": "100000006962647"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "an occurrence starting before the window still overlaps it"
+    },
+    {
+      "id": "full-moons-count-12",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "12"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000001773362",
+        "last_start": "100000029839233",
+        "last_end": "100000029925633",
+        "count": "12"
+      }
+    },
+    {
+      "id": "full-moons-never",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000001773362",
+        "last_start": null,
+        "last_end": null,
+        "count": null
+      }
+    },
+    {
+      "id": "full-moon-key-300",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "300"
+      },
+      "expected": {
+        "key": "300",
+        "start": "100000767206202",
+        "end": "100000767206202"
+      }
+    },
+    {
+      "id": "full-moon-key-leading-zero",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "07"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "full-moons-excluded",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000004324805"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000006876248"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/exclusions/0/from": "100000004324805",
+          "/exclusions/0/to": "100000006876248"
+        },
+        "window": [
+          "100000000000000",
+          "100000007862400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000001773362",
+            "end": "100000001773362"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      }
+    },
+    {
+      "id": "full-moon-number-after-exclusion",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000004324805"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000006876248"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/exclusions/0/from": "100000004324805",
+          "/exclusions/0/to": "100000006876248"
+        },
+        "key": "5"
+      },
+      "expected": {
+        "number": "4"
+      },
+      "note": "keys 1 and 2 are excluded"
+    },
+    {
+      "id": "full-moon-excluded-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "exclusions": [
+            {
+              "from": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000004324805"
+                },
+                "precision": "base"
+              },
+              "to": {
+                "anchor": {
+                  "kind": "absolute",
+                  "t": "100000006876248"
+                },
+                "precision": "base"
+              }
+            }
+          ]
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/exclusions/0/from": "100000004324805",
+          "/exclusions/0/to": "100000006876248"
+        },
+        "key": "2"
+      },
+      "expected": {
+        "error": "not_found"
+      }
+    },
+    {
+      "id": "full-moon-at-start",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "t": "100000011979133"
+      },
+      "expected": {
+        "key": "4"
+      }
+    },
+    {
+      "id": "full-moon-at-inside-day",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "t": "100000012065532"
+      },
+      "expected": {
+        "key": "4"
+      }
+    },
+    {
+      "id": "full-moon-at-after-day",
+      "op": "occurrence_at",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "duration",
+          "duration": {
+            "kind": "base",
+            "units": "86400"
+          }
+        },
+        "resolved": {},
+        "t": "100000012065533"
+      },
+      "expected": {
+        "key": null
+      }
+    },
+    {
+      "id": "full-moons-far-century-count",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100220898707200",
+          "100224054380800"
+        ]
+      },
+      "expected": {
+        "count": "1237",
+        "exact": true
+      },
+      "note": "brute force over n in the window"
+    },
+    {
+      "id": "full-moons-far-century-truncated",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "never"
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100220898707200",
+          "100224054380800"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [],
+        "truncated": true,
+        "estimated_count": "1237"
+      }
+    },
+    {
+      "id": "every-third-new-moon",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "0",
+            "den": "1"
+          },
+          "limit": {
+            "kind": "never"
+          },
+          "interval": "3"
+        },
+        "series_start": "100000000497640",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000497640",
+          "100000031114955"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000000497640",
+            "end": "100000000497640"
+          },
+          {
+            "key": "1",
+            "start": "100000008151969",
+            "end": "100000008151969"
+          },
+          {
+            "key": "2",
+            "start": "100000015806297",
+            "end": "100000015806297"
+          },
+          {
+            "key": "3",
+            "start": "100000023460626",
+            "end": "100000023460626"
+          },
+          {
+            "key": "4",
+            "start": "100000031114954",
+            "end": "100000031114954"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "the epoch is a new moon: the series start is the first occurrence"
+    },
+    {
+      "id": "full-moons-start-after-instant",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "count",
+            "count": "1"
+          }
+        },
+        "series_start": "100000001773363",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000004324805",
+        "last_start": "100000004324805",
+        "last_end": "100000004324805",
+        "count": "1"
+      }
+    },
+    {
+      "id": "full-moons-until-inclusive",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "overlay",
+          "calendar_id": "cal",
+          "overlay": "moon",
+          "phase": {
+            "num": "1",
+            "den": "2"
+          },
+          "limit": {
+            "kind": "until",
+            "until": {
+              "anchor": {
+                "kind": "absolute",
+                "t": "100000024736347"
+              },
+              "precision": "base"
+            }
+          }
+        },
+        "series_start": "100000000000000",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {
+          "/limit/until": "100000024736347"
+        }
+      },
+      "expected": {
+        "first_start": "100000001773362",
+        "last_start": "100000024736347",
+        "last_end": "100000024736347",
+        "count": "10"
+      }
+    },
+    {
+      "id": "first-day-of-spring",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "year"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "marker": {
+                  "id": "spring",
+                  "nth": [
+                    "1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000000000",
+          "100000126230400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000006858000",
+            "end": "100000006858000"
+          },
+          {
+            "key": "1",
+            "start": "100000038394000",
+            "end": "100000038394000"
+          },
+          {
+            "key": "2",
+            "start": "100000069930000",
+            "end": "100000069930000"
+          },
+          {
+            "key": "3",
+            "start": "100000101466000",
+            "end": "100000101466000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "09:00 from the series start; the first day of the range starting in each year"
+    },
+    {
+      "id": "first-day-of-spring-far-key",
+      "op": "occurrence",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "year"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "marker": {
+                  "id": "spring",
+                  "nth": [
+                    "1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "7999"
+      },
+      "expected": {
+        "key": "7999",
+        "start": "100252430851600",
+        "end": "100252430851600"
+      }
+    },
+    {
+      "id": "winter-first-and-last-day-in-year",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "year"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "marker": {
+                  "id": "winter",
+                  "nth": [
+                    "1",
+                    "-1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000000000",
+          "100000063158400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000030704400",
+            "end": "100000030704400"
+          },
+          {
+            "key": "0.1",
+            "start": "100000031568400",
+            "end": "100000031568400"
+          },
+          {
+            "key": "1.0",
+            "start": "100000062240400",
+            "end": "100000062240400"
+          },
+          {
+            "key": "1.1",
+            "start": "100000063104400",
+            "end": "100000063104400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "a winter belongs to the year it starts in, and positions never leave the period: its last day there is 31 December"
+    },
+    {
+      "id": "every-day-of-spring-across-the-end",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "day"
+          },
+          "filters": [
+            {
+              "marker": "spring"
+            }
+          ]
+        },
+        "series_start": "100000014720400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000014720400",
+          "100000038534400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0",
+            "start": "100000014720400",
+            "end": "100000014720400"
+          },
+          {
+            "key": "1",
+            "start": "100000014806800",
+            "end": "100000014806800"
+          },
+          {
+            "key": "274",
+            "start": "100000038394000",
+            "end": "100000038394000"
+          },
+          {
+            "key": "275",
+            "start": "100000038480400",
+            "end": "100000038480400"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "spring ends before 21 June; days outside it consume their keys"
+    },
+    {
+      "id": "winter-days-count-100",
+      "op": "series_bounds",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "count",
+            "count": "100"
+          },
+          "freq": {
+            "level": "day"
+          },
+          "filters": [
+            {
+              "marker": "winter"
+            }
+          ]
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {}
+      },
+      "expected": {
+        "first_start": "100000000032400",
+        "last_start": "100000032432400",
+        "last_end": "100000032432400",
+        "count": "100"
+      },
+      "note": "1 January 2000 lies in the winter that started in 1999; 2000 is a leap year"
+    },
+    {
+      "id": "leap-eve-every-day",
+      "op": "expand",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "year"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "marker": {
+                  "id": "leap_eve"
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000000000",
+          "100000063158400"
+        ],
+        "max_items": 100
+      },
+      "expected": {
+        "items": [
+          {
+            "key": "0.0",
+            "start": "100000005130000",
+            "end": "100000005130000"
+          },
+          {
+            "key": "1.0",
+            "start": "100000036666000",
+            "end": "100000036666000"
+          }
+        ],
+        "truncated": false,
+        "estimated_count": null
+      },
+      "note": "day 30 of February is its last day; no nth: every day of the range, keys k.j"
+    },
+    {
+      "id": "first-day-of-spring-far-count",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "year"
+          },
+          "select": {
+            "path": [
+              {
+                "level": "day",
+                "marker": {
+                  "id": "spring",
+                  "nth": [
+                    "1"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100220898707200",
+          "100224054380800"
+        ]
+      },
+      "expected": {
+        "count": "100",
+        "exact": true
+      }
+    },
+    {
+      "id": "spring-days-four-years",
+      "op": "count_in_window",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "day"
+          },
+          "filters": [
+            {
+              "marker": "spring"
+            }
+          ]
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "window": [
+          "100000000000000",
+          "100000126230400"
+        ]
+      },
+      "expected": {
+        "count": "372",
+        "exact": true
+      },
+      "note": "93 days each year (20 March to 20 June)"
+    },
+    {
+      "id": "spring-day-number",
+      "op": "occurrence_number",
+      "input": {
+        "rule": {
+          "kind": "calendar",
+          "calendar_id": "cal",
+          "limit": {
+            "kind": "never"
+          },
+          "freq": {
+            "level": "day"
+          },
+          "filters": [
+            {
+              "marker": "spring"
+            }
+          ]
+        },
+        "series_start": "100000000032400",
+        "end": {
+          "kind": "instant"
+        },
+        "resolved": {},
+        "key": "1186"
+      },
+      "expected": {
+        "number": "292"
+      }
+    }
+  ]
+}

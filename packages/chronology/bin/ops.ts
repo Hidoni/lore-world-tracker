@@ -30,6 +30,8 @@ import {
   toFields,
   unitBounds,
   validateCalendar,
+  markerRange,
+  markersAt,
 } from '../src/calendar'
 import {
   compose,
@@ -113,6 +115,8 @@ export const OPS = [
   'era_of',
   'overlay_phase',
   'next_phase_at',
+  'marker_range',
+  'markers_at',
   'add',
   'diff',
   'format',
@@ -349,6 +353,11 @@ export const HANDLERS: Partial<Record<Op, Handler>> = {
     const origin = BigInt((d.origin ?? '0') as string)
     return { definition: instantiatePreset(preset, rat(d.seconds_per_base_unit), { origin }) }
   },
+  marker_range: (calendar, d) => {
+    const found = markerRange(compiled(calendar), str(d, 'marker'), BigInt(str(d, 'year')))
+    return found === null ? null : { start: found.start.toString(), end: found.end.toString() }
+  },
+  markers_at: (calendar, d) => ({ markers: markersAt(compiled(calendar), BigInt(str(d, 't'))) }),
   next_phase_at: (calendar, d) => {
     const t = nextPhaseAt(compiled(calendar), BigInt(str(d, 't')), str(d, 'overlay'), rat(d.phase))
     return { t: t.toString() }

@@ -41,6 +41,7 @@ export {
 } from './convert'
 export { type CycleValue, cycleValue } from './cycles'
 export { type EraValue, eraOf, eraValueToJson } from './eras'
+export { markerRange, markersAt } from './markers'
 export { type OverlayValue, nextPhaseAt, overlayPhase, overlayValueToJson } from './overlays'
 export {
   type Bounds,

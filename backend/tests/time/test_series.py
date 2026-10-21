@@ -450,3 +450,48 @@ def test_dense_windows_become_bands(api: LinkApi, world: dict[str, Any]) -> None
     assert yearly["id"] in {band["entity_id"] for band in page["series_bands"]}
     # Zoomed in, the same series are occurrences.
     assert len(window(api, world, 0, 50 * DAY, px=1000)["items"]) == 41
+
+
+# --- overlay rules and annual markers (#156) -----------------------------------------------
+
+
+def test_overlay_and_marker_rules(api: LinkApi) -> None:
+    """Every full moon of the calendar's moon (an overlay rule), and the first day of a marker every
+    year: stored, bounded, expanded and windowed like other rules."""
+    definition = {
+        **MONTHS,
+        "overlays": [{
+            "id": "moon", "name": "Moon", "period": {"num": str(29 * DAY), "den": "1"},
+            "epoch": at(0), "phases": [{"name": "New", "from": {"num": "0", "den": "1"}},
+                                       {"name": "Full", "from": {"num": "1", "den": "2"}}],
+        }],
+        "markers": [{"id": "thaw", "name": "Thaw", "from": {"month": "3", "day": "5"},
+                     "to": {"month": "4", "day": "1"}}],
+    }  # fmt: skip
+    world = make_world(api, definition=definition)
+    calendar_id = world["calendar"]["id"]
+    full = {"kind": "overlay", "calendar_id": calendar_id, "overlay": "moon",
+            "phase": {"num": "1", "den": "2"}, "limit": count(3)}  # fmt: skip
+    moons = series(api, world, full, name="Full moon", start=at(0))
+    half = 29 * DAY // 2
+    assert starts(api, moons, 0, 10 * 29 * DAY) == [half, half + 29 * DAY, half + 58 * DAY]
+    assert bounds(api, moons) == (str(half), str(half + 58 * DAY))
+    assert ext_of(api, moons)["recurrence"]["kind"] == "overlay"
+
+    thaw = {"path": [{"level": "day", "marker": {"id": "thaw", "nth": ["1"]}}]}
+    first_thaw = series(api, world, calendar_rule(world, "year", select=thaw), name="Thaw day")
+    year = 12 * MONTH
+    expected = [2 * MONTH + 4 * DAY + k * year for k in range(3)]
+    assert starts(api, first_thaw, 0, 3 * year) == expected
+    names = [item["name"] for item in window(api, world, 0, 3 * year)["items"]]
+    assert names.count("Thaw day") == 3
+
+    bad = {**full, "overlay": "sun"}
+    response = api.create("event", "Sun", dimension_id=world["dimension"]["id"],
+                          ext={"start": at(0), "recurrence": bad})  # fmt: skip
+    assert invalid(response) == ["ext.recurrence.overlay"]
+    unknown = {"path": [{"level": "day", "marker": {"id": "frost"}}]}
+    frost = calendar_rule(world, "year", select=unknown)
+    response = api.create("event", "Frost", dimension_id=world["dimension"]["id"],
+                          ext={"start": at(0), "recurrence": frost})  # fmt: skip
+    assert invalid(response) == ["ext.recurrence.select.path.0.marker.id"]

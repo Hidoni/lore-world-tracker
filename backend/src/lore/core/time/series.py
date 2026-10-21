@@ -46,6 +46,7 @@ from lore.chronology.schema import (
     EndSpec,
     IntervalRule,
     NeverLimit,
+    OverlayRule,
     RecurrenceRule,
     TimePoint,
     UntilLimit,
@@ -72,7 +73,7 @@ UNTIL_POINTER = "/limit/until"
 RULE_SLOT = "recurrence"
 """The slot name violations of the rule itself are reported under."""
 
-type Rule = CalendarRule | IntervalRule
+type Rule = CalendarRule | IntervalRule | OverlayRule
 _RULE: TypeAdapter[Rule] = TypeAdapter(RecurrenceRule)
 
 
@@ -283,7 +284,7 @@ class RuleProblem:
 
 def calendar_of(rule: Rule | None, end: EndSpec) -> tuple[str | None, str]:
     """The calendar the engine needs and the path naming it."""
-    if isinstance(rule, CalendarRule):
+    if isinstance(rule, CalendarRule | OverlayRule):
         return rule.calendar_id, "/calendar_id"
     if isinstance(end, DurationEnd) and isinstance(end.duration, CalendarDuration):
         return end.duration.calendar_id, "/end/duration/calendar_id"
@@ -311,7 +312,7 @@ def recurrence_context(
             )  # fmt: skip
         calendar = found
     if (
-        isinstance(rule, CalendarRule)
+        isinstance(rule, CalendarRule | OverlayRule)
         and isinstance(end, DurationEnd)
         and isinstance(end.duration, CalendarDuration)
         and end.duration.calendar_id != rule.calendar_id

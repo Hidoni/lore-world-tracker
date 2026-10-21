@@ -5,15 +5,19 @@ import {
   type Cycle,
   type LevelSelector,
   type Limit,
+  type Marker,
+  type Overlay,
   type PeriodFilter,
   type RecurrenceRule,
   type TimePoint,
   formatInteger,
+  overlayPhase,
   toFields,
 } from '@lore/chronology'
 
 /** The presets of the recurrence editor (recurrence.md §10); `custom` is the advanced mode. */
-export type PresetId = 'yearly' | 'monthly' | 'nth_weekday' | 'weekly' | 'interval' | 'custom'
+export type PresetId =
+  'yearly' | 'monthly' | 'nth_weekday' | 'weekly' | 'phase' | 'marker' | 'interval' | 'custom'
 
 /** What presets and summaries read: the rule's calendar and the series start. */
 export interface RuleScope {
@@ -125,6 +129,22 @@ function dayCycle(calendar: CompiledCalendar): Cycle | null {
   return continuousCycles(calendar).find((cycle) => cycle.level === day) ?? null
 }
 
+/** The calendar's overlays (moons, seasons) and annual markers (#156). */
+export function overlaysOf(calendar: CompiledCalendar): readonly Overlay[] {
+  return calendar.definition.overlays ?? []
+}
+
+export function markersOf(calendar: CompiledCalendar): readonly Marker[] {
+  return calendar.definition.markers ?? []
+}
+
+/** The level a marker preset picks units of: the day-like level (the third from the top),
+ * else the finest level above the base. */
+function markerLevel(calendar: CompiledCalendar): string | null {
+  const levels = levelsDown(calendar)
+  return levels[2] ?? levels[1] ?? null
+}
+
 /** Which presets this calendar supports (`interval` and `custom` always). */
 export function availablePresets(scope: RuleScope): PresetId[] {
   const calendar = scope.calendar
@@ -134,16 +154,42 @@ export function availablePresets(scope: RuleScope): PresetId[] {
   if (levels >= 3) found.push('monthly')
   if (levels >= 3 && dayCycle(calendar) !== null) found.push('nth_weekday')
   if (continuousCycles(calendar).length > 0) found.push('weekly')
+  if (overlaysOf(calendar).length > 0) found.push('phase')
+  if (markersOf(calendar).length > 0 && markerLevel(calendar) !== null) found.push('marker')
   found.push('interval', 'custom')
   return found
+}
+
+/** A rational as `num/den` (phases in presets). */
+export function rationalKey(value: { num: string; den: string }): string {
+  return `${value.num}/${value.den}`
+}
+
+/** The named phase of an overlay containing the series start (its `from`), else the first. */
+function startPhase(calendar: CompiledCalendar, overlay: Overlay, start: bigint | null): string {
+  const first = overlay.phases[0]
+  if (start === null) return rationalKey(first.from)
+  try {
+    const name = overlayPhase(calendar, start, overlay.id).name
+    return rationalKey((overlay.phases.find((phase) => phase.name === name) ?? first).from)
+  } catch {
+    return rationalKey(first.from)
+  }
 }
 
 export interface PresetOptions {
   /** Weekly: the cycle values (default: the start's). */
   weekdays?: readonly string[]
-  /** Every N periods (yearly, monthly, weekly) or base units (interval). */
+  /** Every N periods (yearly, monthly, weekly), phase instants (phase) or base units (interval). */
   every?: string
   limit?: Limit
+  /** Phase: the overlay (default: the first) and the phase as `num/den` (default: the named
+   * phase holding the series start). */
+  overlay?: string
+  phase?: string
+  /** Marker: its id (default: the first) and which day of it (`1`: the first, `-1`: the last). */
+  marker?: string
+  nth?: string
 }
 
 /**
@@ -163,6 +209,22 @@ export function presetRule(
     return { kind: 'interval', every: options.every ?? '86400', limit }
   }
   const { calendar, calendarId, start } = scope
+  if (preset === 'phase' && calendar !== null && calendarId !== null) {
+    const overlay =
+      overlaysOf(calendar).find((each) => each.id === options.overlay) ?? overlaysOf(calendar)[0]
+    if (overlay === undefined) return null
+    const [num = '0', den = '1'] = (options.phase ?? startPhase(calendar, overlay, start)).split(
+      '/',
+    )
+    return {
+      kind: 'overlay',
+      calendar_id: calendarId,
+      overlay: overlay.id,
+      phase: { num, den },
+      ...(every === '1' ? {} : { interval: every }),
+      limit,
+    }
+  }
   if (calendar === null || calendarId === null || start === null) return null
   const levels = levelsDown(calendar)
   const parts = startParts(calendar, start)
@@ -227,6 +289,16 @@ export function presetRule(
         },
       }
     }
+    case 'marker': {
+      const marker =
+        markersOf(calendar).find((each) => each.id === options.marker) ?? markersOf(calendar)[0]
+      const level = markerLevel(calendar)
+      if (top === undefined || marker === undefined || level === null) return null
+      return {
+        ...base({ level: top }),
+        select: { path: [{ level, marker: { id: marker.id, nth: [options.nth ?? '1'] } }] },
+      }
+    }
     default:
       return null
   }
@@ -236,6 +308,9 @@ export function presetRule(
 export function detectPreset(rule: RecurrenceRule, scope: RuleScope): PresetId {
   if (rule.kind === 'interval') {
     return (rule.exclusions ?? []).length === 0 ? 'interval' : 'custom'
+  }
+  if (rule.kind === 'overlay') {
+    return (rule.exclusions ?? []).length === 0 ? 'phase' : 'custom'
   }
   const plain =
     (rule.filters ?? []).length === 0 &&
@@ -250,6 +325,16 @@ export function detectPreset(rule: RecurrenceRule, scope: RuleScope): PresetId {
   for (const preset of ['yearly', 'monthly', 'nth_weekday'] as const) {
     const candidate = presetRule(preset, scope, options)
     if (candidate !== null && sameRule(candidate, rule)) return preset
+  }
+  const first = rule.select?.path[0]
+  if (rule.select?.path.length === 1 && first !== undefined && 'marker' in first) {
+    const nth = first.marker.nth
+    const candidate = presetRule('marker', scope, {
+      ...options,
+      marker: first.marker.id,
+      ...(nth?.length === 1 ? { nth: nth[0] } : {}),
+    })
+    if (candidate !== null && sameRule(candidate, rule)) return 'marker'
   }
   if ('cycle' in rule.freq) {
     const selector = rule.select?.path[0]
@@ -319,10 +404,20 @@ function valueText(definition: CalendarDefinition, level: string, value: string)
   return slotName(definition, level, value)
 }
 
+function markerName(calendar: CompiledCalendar, id: string): string {
+  return markersOf(calendar).find((marker) => marker.id === id)?.name ?? id
+}
+
 function selectorText(calendar: CompiledCalendar, selector: LevelSelector): string {
   const definition = calendar.definition
   const label = plural(definition, selector.level, 1)
   if ('all' in selector) return `every ${label}`
+  if ('marker' in selector) {
+    const name = markerName(calendar, selector.marker.id)
+    const nth = selector.marker.nth
+    if (nth == null || nth.length === 0) return `every ${label} of ${name}`
+    return `the ${list(nth.map(nthWord))} ${label} of ${name}`
+  }
   if ('cycle' in selector) {
     const cycle = allCycles(calendar).find((each) => each.id === selector.cycle.id)
     const names = selector.cycle.values.map((value) =>
@@ -353,6 +448,7 @@ function filterText(calendar: CompiledCalendar, filter: PeriodFilter, unit: stri
     )}`
   }
   if ('in' in filter) return `only ${unit}s ${list(filter.in, 'or')}`
+  if ('marker' in filter) return `only in ${markerName(calendar, filter.marker)}`
   if ('all' in filter)
     return filter.all.map((inner) => filterText(calendar, inner, unit)).join(', ')
   if ('any' in filter) {
@@ -400,6 +496,17 @@ export function summarize(
     const n = BigInt(rule.every)
     const unit = n === 1n ? scope.baseUnit.singular : scope.baseUnit.plural
     parts.push(`Every ${formatInteger(n)} ${unit.toLowerCase()}`)
+  } else if (rule.kind === 'overlay') {
+    const calendar = scope.calendar
+    const overlay =
+      calendar === null ? undefined : overlaysOf(calendar).find((each) => each.id === rule.overlay)
+    const key = rationalKey(rule.phase)
+    const named = overlay?.phases.find((phase) => rationalKey(phase.from) === key)?.name
+    const what = named ?? `phase ${key} of ${overlay?.name ?? rule.overlay}`
+    const interval = rule.interval ?? '1'
+    const every = interval === '1' ? 'Every' : `Every ${nthWord(interval)}`
+    if (named === undefined) parts.push(`${every} time it is ${what}`)
+    else parts.push(`${every} ${named}${overlay === undefined ? '' : ` (${overlay.name})`}`)
   } else {
     const calendar = scope.calendar
     if (calendar === null) return 'A rule in a calendar this page can’t read.'
