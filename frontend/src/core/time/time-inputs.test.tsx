@@ -110,6 +110,35 @@ describe('TimePointPicker', () => {
     expect(screen.getByTestId('time-preview')).toHaveTextContent('t = ')
   })
 
+  it('fills the fields from a typed date', async () => {
+    render(<Picker />)
+    const typed = screen.getByRole('textbox', { name: 'Type a date' })
+    await userEvent.type(typed, 'c. 12 frostfall 1023 AF')
+    expect(emitted()).toEqual({
+      anchor: {
+        kind: 'calendar',
+        calendar_id: 'alternating-years',
+        era: 'af',
+        fields: { year: '1023', month: 'frostfall', day: '12' },
+      },
+      precision: 'day',
+      approximate: true,
+    })
+    expect(select('Precision')).toHaveValue('day')
+    expect(select('Era')).toHaveValue('af')
+    expect(select('month')).toHaveValue('frostfall')
+    expect(screen.getByRole('checkbox', { name: 'Circa (approximate)' })).toBeChecked()
+    await userEvent.clear(typed)
+    await userEvent.type(typed, 'Ash 2')
+    expect(emitted()).toMatchObject({ anchor: { fields: { year: '2', month: 'ash' } } })
+    expect(emitted()).toMatchObject({ precision: 'month', approximate: false })
+    await userEvent.type(typed, ' and more')
+    expect(typed).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('Not a date of Alternating years')).toBeInTheDocument()
+    // The last date read stays.
+    expect(emitted()).toMatchObject({ anchor: { fields: { year: '2', month: 'ash' } } })
+  })
+
   it('hides the levels finer than the precision', async () => {
     render(<Picker />)
     expect(screen.getByRole('textbox', { name: 'year' })).toBeInTheDocument()

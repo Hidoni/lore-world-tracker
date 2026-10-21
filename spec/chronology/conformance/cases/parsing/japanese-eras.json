@@ -1,0 +1,49 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the japanese-eras calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "japanese-eras",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/japanese-eras.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "showa-64",
+      "op": "parse",
+      "input": {
+        "text": "7 January 64 S, 23:59:59"
+      },
+      "expected": {
+        "fields": {
+          "year": "64",
+          "month": "jan",
+          "day": "7",
+          "hour": "23",
+          "minute": "59",
+          "second": "59"
+        },
+        "era": "showa",
+        "precision": "second",
+        "approximate": false,
+        "t": "99999653535999"
+      },
+      "note": "formatting/japanese-eras.json#showa-64 at second"
+    },
+    {
+      "id": "heisei-1",
+      "op": "parse",
+      "input": {
+        "text": "8 January 1 H"
+      },
+      "expected": {
+        "fields": {
+          "year": "1",
+          "month": "jan",
+          "day": "8"
+        },
+        "era": "heisei",
+        "precision": "day",
+        "approximate": false,
+        "t": "99999653536000"
+      },
+      "note": "formatting/japanese-eras.json#heisei-1 at day"
+    }
+  ]
+}

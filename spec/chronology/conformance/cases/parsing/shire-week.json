@@ -1,0 +1,46 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the shire-week calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "shire-week",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/shire-week.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "overlithe",
+      "op": "parse",
+      "input": {
+        "text": "Overlithe 4"
+      },
+      "expected": {
+        "fields": {
+          "year": "4",
+          "month": "overlithe",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "10001278"
+      },
+      "note": "formatting/shire-week.json#overlithe at day"
+    },
+    {
+      "id": "lithe2",
+      "op": "parse",
+      "input": {
+        "text": "2 Lithe 4"
+      },
+      "expected": {
+        "fields": {
+          "year": "4",
+          "month": "lithe2",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "10001279"
+      },
+      "note": "formatting/shire-week.json#lithe2 at day"
+    }
+  ]
+}

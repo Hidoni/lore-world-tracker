@@ -1,0 +1,64 @@
+{
+  "description": "Parsing typed dates (chronology-engine §10.1) in the cycles-showcase calendar: the texts of the formatting vectors read back, plus spacing, case, alternative names, eras and failures.",
+  "calendar": "cycles-showcase",
+  "generated": true,
+  "verification": "Expected values produced by the engine and reviewed: each text taken from formatting/cycles-showcase.json must give back that case’s precision and the start of the unit containing its moment (the formatting moment itself where it is a unit start), with the fields the text names; extra cases were checked by hand against the §10.1 rules.",
+  "cases": [
+    {
+      "id": "first-day",
+      "op": "parse",
+      "input": {
+        "text": "1 1 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "1",
+          "day": "1"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "1000000"
+      },
+      "note": "formatting/cycles-showcase.json#first-day at day"
+    },
+    {
+      "id": "wayeb",
+      "op": "parse",
+      "input": {
+        "text": "3 Wayeb 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "wayeb",
+          "day": "3"
+        },
+        "era": null,
+        "precision": "day",
+        "approximate": false,
+        "t": "1000362"
+      },
+      "note": "formatting/cycles-showcase.json#wayeb at day"
+    },
+    {
+      "id": "wayeb-month",
+      "op": "parse",
+      "input": {
+        "text": "Wayeb 0"
+      },
+      "expected": {
+        "fields": {
+          "year": "0",
+          "month": "wayeb"
+        },
+        "era": null,
+        "precision": "month",
+        "approximate": false,
+        "t": "1000360"
+      },
+      "note": "formatting/cycles-showcase.json#wayeb-month at month"
+    }
+  ]
+}

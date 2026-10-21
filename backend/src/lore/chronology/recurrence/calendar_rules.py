@@ -7,8 +7,9 @@ then the finer fields from ``time`` or the series start, re-applied like calenda
 """
 
 from collections import OrderedDict
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
+from typing import Concatenate
 
 from lore.chronology.calendar.arithmetic import descend, reapply
 from lore.chronology.calendar.compile import ValidationError, pointer
@@ -65,6 +66,19 @@ from lore.chronology.schema import (
     PeriodFilter,
     ValuesSelector,
 )
+
+
+def _locked[**P, R](
+    method: Callable[Concatenate[CalendarPlan, P], R],
+) -> Callable[Concatenate[CalendarPlan, P], R]:
+    """Runs ``method`` holding the regime's lock: the prefixes and counters it reads and extends
+    are shared by every plan of the regime, on any thread."""
+
+    def locked(self: CalendarPlan, /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with self.regime.lock:
+            return method(self, *args, **kwargs)
+
+    return locked
 
 
 class _Unset:
@@ -424,6 +438,7 @@ class CalendarPlan(Plan):
     def _period_count(self, k: int) -> int:
         return sum(p is not None for p in self.positions(k))
 
+    @_locked
     def _enumerated(self, k: int) -> int:
         """``S(k)`` by enumerating periods, with the prefix kept on the regime (per rule and
         series start) so repeated queries near the start stay cheap."""
@@ -442,6 +457,7 @@ class CalendarPlan(Plan):
         count: int = prefix[k]
         return count
 
+    @_locked
     def _counter(self, *, build: bool = True) -> Counter | None:
         """The super-period counter, cached on the regime (per rule and series start)."""
         if isinstance(self.counter, _Unset):
@@ -461,6 +477,7 @@ class CalendarPlan(Plan):
         assert not isinstance(self.counter, _Unset)
         return self.counter
 
+    @_locked
     def _count_periods(self, k: int) -> int:
         """``S(k)``: positions in periods ``0 … k-1``. Small ``k`` are enumerated (cheaper than
         a super-period), large ones counted (``rule.too_complex_to_count`` if impossible)."""
@@ -493,6 +510,7 @@ class CalendarPlan(Plan):
                     return k, j, start
         raise AssertionError("unreachable")  # pragma: no cover
 
+    @_locked
     def _period_holding(self, i: int) -> int | None:
         """The period of the ``i``-th position (1-based)."""
         if self.per_period is not None:

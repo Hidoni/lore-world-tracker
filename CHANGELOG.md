@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Typed dates** (#157): the date picker's **Date** tab takes a typed date ("12 Frostfall
+  1023 AF", "c. 15 mar 2024, 14:30") and fills in its fields. Both chronology engines read dates
+  with the calendar's own formats in reverse (`parse_date` / `parseDate`, chronology-engine.md
+  §10.1), checked by new conformance vectors (`cases/parsing/`) and differential testing.
 - **Recurrence by moon phase and seasons** (#156): a recurring event can repeat every time a
   calendar's overlay reaches a phase ("every full moon", "every third new moon"). Calendars can
   have **markers**, named parts of every year such as seasons (from 20 March to 21 June, or a
@@ -73,6 +77,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Recurring events could show a wrong occurrence count until the server restarted, after
+  several requests computed it at once: the counting caches shared by the server's threads are
+  now locked (found by the static export parity test).
 - **Vault picker for readers** (#373): a read-only server no longer shows the create, rename,
   trash and migrate buttons.
 

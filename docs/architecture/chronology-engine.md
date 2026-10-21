@@ -770,7 +770,50 @@ Python: `lore.chronology.calendar.arithmetic` (`is_uniform`, `add`, `diff` retur
 - The **Absolute** virtual calendar formats as `t = <format_integer(t)> <abbr>` with the base unit's
   abbreviation (`t = 1,234 s`: unlike date numbers, every number is grouped) and the default
   `display` options unless the caller passes others (`format_absolute`).
-- **Text parsing** of formatted dates is post-MVP. MVP input uses structured pickers.
+- **Text parsing** (#157): `parse(text)`, below.
+
+### 10.1 `parse(text)` → date
+
+Typed text ("12 Frostfall 1023 AF", "15 Mar 2024, 14:30", "c. 44 BC") becomes the fields of a
+calendar anchor, using the calendar's own formats in reverse. Python:
+`lore.chronology.calendar.parse_date`; TS: `parseDate`.
+
+- **Result:** `{fields, era, precision, approximate, t}`: `fields` from the top level down to
+  `precision` (numbers or slot ids, the year era-relative when `era` is set), the era id or
+  `null`, the precision (a level id, or `base`), whether the text had the circa prefix, and the
+  resolved moment. No match is the error `invalid_date`.
+- **Normalizing:** the text is trimmed and its runs of whitespace become one space; a leading
+  `display.circa` prefix (compared without case, its own spaces optional) makes the date
+  approximate. Comparisons ignore case (`lower()` / `toLowerCase()`).
+- **Patterns,** tried in this order, the first that gives a valid date winning: for each
+  precision from the finest to the top (`base` first when its pattern differs from level 0's,
+  §10), the pattern `format` would use for a regular date, then the one for an intercalary date
+  (§3.11; skipped when it is the same). A generated default is used without its only-child
+  omissions, and with its year as `{year}` (no eras), or as either `{era_year} {era}` or
+  `{era} {era_year}`.
+- **Matching** a pattern: a space in a literal matches any number of spaces (empty values
+  collapse them), any other literal character matches itself. Tokens match:
+  - `{<level>}` (any modifier): a number, or nothing (an intercalary unit has no number, and a
+    unit can be left out). `{<level>.name}`, `.abbr`, `.id`: any slot name, abbreviation or id of
+    that level (in any template or regime), whichever was written, or a number.
+  - `{year}`, `{era_year}`, `{base}`: a number. `{era}`, `{era.name}`: an era's abbreviation or
+    name, or nothing. `{cycle.…}` and `{overlay.…}`: one of their names,
+    abbreviations or numbers (`.fraction`: `0.dd`), or nothing; they don't make the result
+    (cycles are checked against it, below).
+  - A number is an optional sign (`-` or `−`) and digits, plain or grouped with
+    `display.digit_group`; `:ordinal` tokens may have an English ordinal suffix. Scientific
+    notation is not parsed (it isn't exact).
+  - Alternatives are tried longest first and matching backtracks, so the first full match of
+    the pattern that makes a valid date is taken (at most 1,000 matches per pattern).
+- **Valid date:** the matched fields agree with each other (a level matched twice must have
+  the same value), every level from the top down to the precision is known (a missing level is
+  filled when its unit is its parent's only child, like the omitted day of Midyear's Day), the
+  year is era-relative when an era matched, else astronomical (`15 March 2024` is the
+  astronomical year 2024, AD 2024 in the Gregorian presets), `from_fields(…, overflow: "reject")` accepts the fields,
+  `{base}` is below the level-0 unit's length (it makes the moment at precision `base` only;
+  elsewhere it just has to match), and every cycle token of a level at or above the
+  precision matched the value `to_fields` gives at the moment ("Friday, 15 March 2024" must be a
+  Friday). Finer cycles and overlays change within the unit: they only have to match.
 
 ## 11. Validation errors
 
@@ -979,7 +1022,7 @@ spec/chronology/conformance/
 
 Case kinds (`op`): `validate`, `to_fields`, `from_fields`, `unit_bounds`, `ordinal`,
 `from_ordinal`, `cycle_value`, `era_of`, `overlay_phase`, `add`, `diff`, `format`,
-`format_span`, `format_absolute`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
+`format_span`, `format_absolute`, `parse`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
 `occurrence_number` / `occurrence_at`
 (`recurrence.md`), `map` / `compose` (correspondences), `preset_instantiate`. Expected values are exact.
 Errors are `{"error": "<code>"}`.

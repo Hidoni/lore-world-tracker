@@ -14,6 +14,8 @@ import {
   type DisplayPoint,
   formatAbsolute,
   formatDate,
+  parseDate,
+  parsedDateToJson,
   formatBetween,
   formatSpan,
   eraOf,
@@ -123,6 +125,7 @@ export const OPS = [
   'format_span',
   'format_between',
   'format_absolute',
+  'parse',
   'preset_instantiate',
   'expand',
   'series_bounds',
@@ -339,6 +342,7 @@ export const HANDLERS: Partial<Record<Op, Handler>> = {
   format_span: (calendar, d) => ({
     text: formatSpan(compiled(calendar), displayPoint(d.start), displayPoint(d.end)),
   }),
+  parse: (calendar, d) => parsedDateToJson(parseDate(compiled(calendar), str(d, 'text'))),
   format_absolute: (_, d) => {
     const display = d.display ?? null
     const approximate = (d.approximate ?? false) as boolean

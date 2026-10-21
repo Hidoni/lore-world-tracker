@@ -26,6 +26,7 @@ from lore.chronology.calendar.formatting import (
 )
 from lore.chronology.calendar.markers import marker_range, markers_at
 from lore.chronology.calendar.overlays import next_phase_at, overlay_phase
+from lore.chronology.calendar.parsing import parse_date
 from lore.chronology.calendar.units import Bounds, from_ordinal, ordinal, unit_bounds
 from lore.chronology.correspondence import (
     Correspondence,
@@ -99,6 +100,7 @@ OPS = NUMBER_OPS | frozenset(
         "format_span",
         "format_between",
         "format_absolute",
+        "parse",
         "preset_instantiate",
         "expand",
         "series_bounds",
@@ -370,6 +372,7 @@ HANDLERS: dict[str, Handler] = {
         "text": format_span(_compiled(c), _display_point(d["start"]), _display_point(d["end"]))
     },
     "format_absolute": _format_absolute,
+    "parse": lambda c, d: parse_date(_compiled(c), d["text"]).as_json(),
     "preset_instantiate": _preset_instantiate,
     "options": lambda c, d: {
         "options": options_json(options(_compiled(c), d["fields"], d["level"]))

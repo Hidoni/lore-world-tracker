@@ -5,6 +5,7 @@ lookups are logarithmic (binary searches over prefix sums), never loops over yea
 """
 
 import re
+import threading
 from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -196,6 +197,9 @@ class CompiledRegime:
     cycles: tuple[CompiledCycle, ...] = ()
     cache: dict[object, object] = field(default_factory=dict, repr=False, compare=False)
     """Derived structures computed on first use (unit counts per level and filter, #12)."""
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
+    """Held while ``cache`` entries that grow in place (recurrence prefixes and counters) are
+    read or extended: a server answers requests on several threads."""
 
     def _cumulative(self, year: int) -> int:
         """``cum(Y) = Σ_{Y_e < Y} Δ_e - Σ_{Y_e < 0} Δ_e``."""

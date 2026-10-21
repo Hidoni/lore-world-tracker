@@ -44,7 +44,7 @@ export function displayOptions(options: DisplayOptions | null | undefined): Disp
 
 // --- calendar layout (cached per compiled calendar) ----------------------------------------------
 
-interface Layout {
+export interface Layout {
   readonly display: Display
   /** Levels with named slots in some template of some regime. */
   readonly named: ReadonlySet<number>
@@ -57,7 +57,7 @@ interface Layout {
 
 const LAYOUTS = new WeakMap<CompiledCalendar, Layout>()
 
-function layoutOf(calendar: CompiledCalendar): Layout {
+export function layoutOf(calendar: CompiledCalendar): Layout {
   const cached = LAYOUTS.get(calendar)
   if (cached !== undefined) return cached
   const templates = calendar.regimes.flatMap((regime) => [...regime.templates.values()])

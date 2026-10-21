@@ -3,6 +3,7 @@
 import json
 import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ from lore.chronology.recurrence import (
 )
 from lore.chronology.recurrence.calendar_rules import CalendarPlan
 from lore.chronology.schema import CalendarRule, EndSpec, RecurrenceRule
+from tests.chronology.ops import run_op
 
 CONFORMANCE = Path(__file__).resolve().parents[3] / "spec" / "chronology" / "conformance"
 RULE: TypeAdapter[RecurrenceRule] = TypeAdapter(RecurrenceRule)
@@ -794,3 +796,31 @@ def test_marker_rule_keys_and_counting() -> None:
     with pytest.raises(RecurrenceError):
         occurrence(every, ctx, "0.93")
     assert occurrence_number(every, ctx, "1000.0") == 1000 * 93 + 1
+
+
+def test_counting_is_thread_safe() -> None:
+    """The prefixes and counters cached on a regime are shared by every thread of a server: the
+    recurrence vectors answer the same when run concurrently on freshly compiled calendars (a
+    race once cached a wrong count, seen by the static export parity test)."""
+    ops = {"count_in_window", "expand", "series_bounds", "occurrence_number", "occurrence_at"}
+    files = sorted((CONFORMANCE / "cases" / "recurrence").glob("*.json"))
+    cases = [
+        (document["calendar"], case)
+        for document in (json.loads(path.read_text()) for path in files)
+        if document["calendar"] is not None
+        for case in document["cases"]
+        if case["op"] in ops
+    ]
+    assert len(cases) > 50
+    for _ in range(3):
+        # Fresh documents compile fresh calendars (run_op compiles once per document object).
+        documents: dict[str, Any] = {
+            name: json.loads((CONFORMANCE / "calendars" / f"{name}.json").read_text())
+            for name in {name for name, _ in cases}
+        }
+        work = [(documents[name], case) for name, case in cases for _ in range(4)]
+        with ThreadPoolExecutor(8) as pool:
+            found = list(pool.map(lambda job: run_op(job[1]["op"], job[0], job[1]["input"]), work))
+        wrong = [case["id"] for (_, case), result in zip(work, found, strict=True)
+                 if result != case["expected"]]  # fmt: skip
+        assert wrong == []

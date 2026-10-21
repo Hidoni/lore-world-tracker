@@ -54,6 +54,12 @@ class _Layout:
 
 
 @lru_cache(maxsize=64)
+def layout_of(calendar: CompiledCalendar) -> _Layout:
+    """The calendar's display options and the shape of its generated formats (cached)."""
+    return _layout(calendar)
+
+
+@lru_cache(maxsize=64)
 def _layout(calendar: CompiledCalendar) -> _Layout:
     definition = calendar.definition
     named = frozenset(

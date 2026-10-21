@@ -2,14 +2,17 @@ import {
   type CompiledCalendar,
   DateError,
   formatAbsolute,
+  formatDate,
   formatMoment,
   fromFields,
   options as unitOptions,
+  parseDate,
   type SlotRef,
   type TimePoint,
 } from '@lore/chronology'
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react'
 
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { BigNumberInput } from './big-number-input'
@@ -71,6 +74,40 @@ function dateProblem(error: unknown): string {
     return error.code === 'invalid_date' && error.level !== null ? `${base} (${error.level})` : base
   }
   throw error
+}
+
+/**
+ * The draft of typed text (chronology-engine.md §10.1): its era, precision, fields and circa, or
+ * `null` when it isn't a date of the calendar. An exact moment (`… + 7 s`) keeps its finest
+ * level only: calendar anchors stop at the levels.
+ */
+function typedDraft(
+  calendar: CompiledCalendar,
+  text: string,
+): Pick<Draft, 'era' | 'regime' | 'precision' | 'fields' | 'approximate'> | null {
+  try {
+    const found = parseDate(calendar, text)
+    const precision = found.precision === 'base' ? (calendar.levels[0] ?? null) : found.precision
+    return {
+      era: found.era,
+      regime: null,
+      precision,
+      fields: { ...found.fields },
+      approximate: found.approximate,
+    }
+  } catch (error) {
+    if (error instanceof DateError) return null
+    throw error
+  }
+}
+
+/** A date of the calendar to show how dates are typed ("e.g. 12 Frostfall 1023"). */
+function example(calendar: CompiledCalendar, t: bigint, precision: string): string {
+  try {
+    return `e.g. ${formatDate(calendar, t, precision)}`
+  } catch {
+    return ''
+  }
 }
 
 function levelLabel(calendar: CompiledCalendar, id: string): string {
@@ -272,6 +309,8 @@ function PointPicker({
 }) {
   const relativeAllowed = vault !== undefined
   const [draft, setDraft] = useState(() => draftOf(value, lenses, dimension.defaultCalendarId))
+  /** The "Type a date" text, and whether it reads as a date of the calendar. */
+  const [typed, setTyped] = useState({ text: '', ok: true })
   const id = useId()
   const calendars = lenses.filter((lens) => lens.calendar !== null)
   /** The draft's calendar; none picked yet (the calendars loaded after the picker opened): the
@@ -383,6 +422,7 @@ function PointPicker({
                 onKeyDown={confirmOnEnter}
                 value={lens?.id ?? ''}
                 onChange={(event) => {
+                  setTyped({ text: '', ok: true })
                   update({
                     calendarId: event.target.value,
                     era: null,
@@ -399,6 +439,41 @@ function PointPicker({
                 ))}
               </select>
             </Row>
+            {calendar !== null && (
+              <Row label="Type a date" htmlFor={`${id}-typed`}>
+                <Input
+                  id={`${id}-typed`}
+                  value={typed.text}
+                  placeholder={example(
+                    calendar,
+                    resolved.t ?? dimension.present ?? 0n,
+                    draft.precision ?? order.at(-1) ?? 'base',
+                  )}
+                  aria-describedby={`${id}-typed-hint`}
+                  aria-invalid={!typed.ok}
+                  onChange={(event) => {
+                    const text = event.target.value
+                    const parsed = text.trim() === '' ? null : typedDraft(calendar, text)
+                    setTyped({ text, ok: text.trim() === '' || parsed !== null })
+                    if (parsed !== null) update(parsed)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      confirm()
+                    }
+                  }}
+                />
+                <p
+                  id={`${id}-typed-hint`}
+                  className={`mt-1 text-xs ${typed.ok ? 'text-muted-foreground' : 'text-destructive'}`}
+                >
+                  {typed.ok
+                    ? 'As the calendar writes dates; fills in the fields below'
+                    : `Not a date of ${lens?.name ?? 'this calendar'}`}
+                </p>
+              </Row>
+            )}
             {calendar !== null && calendar.eras.length > 0 && (
               <Row label="Era" htmlFor={`${id}-era`}>
                 <select

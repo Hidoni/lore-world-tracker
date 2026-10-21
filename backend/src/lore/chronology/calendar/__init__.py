@@ -35,6 +35,7 @@ from lore.chronology.calendar.formatting import (
 )
 from lore.chronology.calendar.markers import marker_range, markers_at
 from lore.chronology.calendar.overlays import OverlayValue, next_phase_at, overlay_phase
+from lore.chronology.calendar.parsing import ParsedDate, parse_date
 from lore.chronology.calendar.units import (
     REGULAR,
     Bounds,
@@ -61,6 +62,7 @@ __all__ = [
     "Duration",
     "Ordinal",
     "OverlayValue",
+    "ParsedDate",
     "RangeOption",
     "SlotOption",
     "UnitFilter",
@@ -87,6 +89,7 @@ __all__ = [
     "options",
     "ordinal",
     "overlay_phase",
+    "parse_date",
     "to_fields",
     "unit_bounds",
     "validate_calendar",
