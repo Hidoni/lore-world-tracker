@@ -23,9 +23,7 @@ env:
 jobs:
   backend:
     name: backend
-    # Pinned: on the ubuntu-26.04 image (ubuntu-latest from 2026-10-19) the runner is shut down
-    # during the suite (#405).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # pytest runs in parallel (one worker per CPU, #307): the job took 7 m 41 s on 2026-10-16.
     # Keep this about twice the job's time.
     timeout-minutes: 16
@@ -36,7 +34,29 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --frozen --directory backend
-      - run: make check-backend
+      - name: Runner diagnostics (#405, temporary)
+        run: |
+          cat /etc/os-release | head -2; nproc; free -m; swapon --show; df -h / /tmp
+          systemctl is-active systemd-oomd || true
+          oomctl 2>/dev/null | head -40 || true
+          cat /proc/pressure/memory || true
+          systemctl show actions.runner.* -p ControlGroup -p ManagedOOMMemoryPressure -p ManagedOOMSwap 2>/dev/null || true
+          cat /proc/self/cgroup
+          ls /etc/systemd/oomd.conf.d /usr/lib/systemd/oomd.conf.d 2>/dev/null; cat /etc/systemd/oomd.conf 2>/dev/null | grep -v '^#' || true
+      - name: make check-backend (with monitor, #405 temporary)
+        run: |
+          (while sleep 10; do
+             echo "::group::monitor $(date +%T)"
+             free -m | sed -n 2,3p; head -1 /proc/pressure/memory; head -1 /proc/pressure/io
+             ps -eo rss,comm --sort=-rss | head -6
+             echo "::endgroup::"
+           done) >&2 &
+          make check-backend
+      - name: After (#405 temporary)
+        if: always()
+        run: |
+          sudo journalctl -u systemd-oomd --no-pager | tail -40 || true
+          sudo dmesg | tail -40 || true
 
   frontend:
     name: frontend
