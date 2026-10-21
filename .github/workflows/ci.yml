@@ -42,12 +42,17 @@ jobs:
           cat /proc/pressure/memory || true
           systemctl show actions.runner.* -p ControlGroup -p ManagedOOMMemoryPressure -p ManagedOOMSwap 2>/dev/null || true
           cat /proc/self/cgroup
-          ls /etc/systemd/oomd.conf.d /usr/lib/systemd/oomd.conf.d 2>/dev/null; cat /etc/systemd/oomd.conf 2>/dev/null | grep -v '^#' || true
+          cg=/sys/fs/cgroup$(cut -d: -f3 /proc/self/cgroup)
+          for f in memory.max memory.high memory.swap.max memory.current memory.peak pids.max cpu.max; do echo "$f=$(cat $cg/$f 2>/dev/null)"; done
+          systemctl show hosted-compute-agent.service -p MemoryMax -p MemoryHigh -p TasksMax -p ManagedOOMMemoryPressure -p OOMPolicy || true
+          sysctl vm.overcommit_memory vm.swappiness || true
       - name: make check-backend (with monitor, #405 temporary)
         run: |
           (while sleep 10; do
              echo "::group::monitor $(date +%T)"
              free -m | sed -n 2,3p; head -1 /proc/pressure/memory; head -1 /proc/pressure/io
+             cg=/sys/fs/cgroup$(cut -d: -f3 /proc/self/cgroup); echo "cg current=$(cat $cg/memory.current) events: $(tr '\n' ' ' < $cg/memory.events 2>/dev/null)"
+             df -m / /tmp | tail -2
              ps -eo rss,comm --sort=-rss | head -6
              echo "::endgroup::"
            done) >&2 &
