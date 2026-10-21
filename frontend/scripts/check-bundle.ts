@@ -11,8 +11,15 @@ const BUDGET_KB = 400
 const dist = fileURLToPath(new URL('../dist/', import.meta.url))
 const html = readFileSync(path.join(dist, 'index.html'), 'utf8')
 const scripts = new Set(
-  [...html.matchAll(/(?:src|href)="\/?(assets\/[^"]+\.js)"/g)].map((match) => match[1] ?? ''),
+  [...html.matchAll(/(?:src|href)="(?:\.?\/)?(assets\/[^"]+\.js)"/g)].map(
+    (match) => match[1] ?? '',
+  ),
 )
+if (scripts.size === 0) {
+  // A pattern that matches nothing would pass every build (#413): fail instead.
+  console.error('No scripts found in dist/index.html: the check measured nothing.')
+  process.exit(1)
+}
 let total = 0
 const sizes: [number, string][] = []
 for (const file of scripts) {
