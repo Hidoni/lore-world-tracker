@@ -51,4 +51,19 @@ test('E1: wizard → event with a calendar date → timeline and event page', as
   await ranged.getByRole('link', { name: 'Founding of Varn' }).click()
   await expect(page.getByRole('heading', { name: 'Founding of Varn', level: 1 })).toBeVisible()
   await expect(page.getByRole('main')).toContainText('between AD 1020 and 1025')
+
+  // A typed date (chronology-engine.md §10.1), circa.
+  await page.goto(`${lore.url()}/d/${dimension}`)
+  await page.getByRole('main').getByRole('link', { name: 'Event outline' }).click()
+  await page.getByRole('button', { name: 'New event' }).click()
+  const battle = page.getByRole('dialog', { name: 'New event' })
+  await battle.getByLabel('Name').fill('Battle of the Ford')
+  const start = battle.getByRole('group', { name: 'Start' })
+  await start.getByLabel('Type a date').fill('c. 14 oct 1066 ad')
+  await expect(start.getByLabel('Precision')).toHaveValue('day')
+  await expect(start).toContainText('c. 14 October AD 1066')
+  await battle.getByRole('button', { name: 'Create event' }).click()
+  await expect(page.getByRole('row', { name: 'Battle of the Ford' })).toContainText(
+    'c. 14 October AD 1066',
+  )
 })

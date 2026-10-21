@@ -26,10 +26,10 @@ raw number of base units). The date picker's **Date**, **Relative** and **Absolu
 between them.
 
 On the **Date** tab you can also **type a date** the way the calendar writes it: "12 Frostfall
-1023 AF", "15 mar 2024, 14:30", "c. 44 BC". Lore reads it with the calendar's own formats (**Formats** in §3),
-fills in the era, precision and fields, and ticks **Circa** for the circa prefix. Case and extra
-spaces don't matter, and month or day names, abbreviations and numbers all work. A text that
-names no date of the calendar is flagged and leaves the fields as they were.
+1023 AF", "15 mar 2024, 14:30", "c. 44 BC". Lore reads it with the calendar's own formats
+(**Formats** in §3), fills in the era, precision and fields, and ticks **Circa** for the circa
+prefix. Case and extra spaces don't matter, and month or day names, abbreviations and numbers all
+work. A text that names no date of the calendar is flagged and leaves the fields as they were.
 
 ## 1. Start from a preset
 

@@ -1022,7 +1022,7 @@ spec/chronology/conformance/
 
 Case kinds (`op`): `validate`, `to_fields`, `from_fields`, `unit_bounds`, `ordinal`,
 `from_ordinal`, `cycle_value`, `era_of`, `overlay_phase`, `add`, `diff`, `format`,
-`format_span`, `format_absolute`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
+`format_span`, `format_absolute`, `parse`, `options`, `next_phase_at`, `expand` / `series_bounds` / `occurrence` / `count_in_window` /
 `occurrence_number` / `occurrence_at`
 (`recurrence.md`), `map` / `compose` (correspondences), `preset_instantiate`. Expected values are exact.
 Errors are `{"error": "<code>"}`.
