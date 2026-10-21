@@ -34,7 +34,10 @@ export function overlayValueToJson(value: OverlayValue): Record<string, unknown>
 }
 
 /** The overlay with its resolved epoch; `unknown_overlay` if the calendar has none. */
-export function overlayOf(calendar: CompiledCalendar, overlayId: string): readonly [Overlay, bigint] {
+export function overlayOf(
+  calendar: CompiledCalendar,
+  overlayId: string,
+): readonly [Overlay, bigint] {
   const overlays = calendar.definition.overlays ?? []
   const index = overlays.findIndex((overlay) => overlay.id === overlayId)
   if (index < 0) throw new DateError('unknown_overlay', `no overlay ${overlayId}`)

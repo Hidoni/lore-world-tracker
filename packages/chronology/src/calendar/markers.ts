@@ -29,12 +29,10 @@ function side(
     Object.keys(fields).sort((a, b) => levels.indexOf(a) - levels.indexOf(b))[0],
   )
   try {
-    return fromFields(
-      calendar,
-      { ...fields, [defined(levels.at(-1))]: String(year) },
-      precision,
-      { overflow: 'constrain', ...(regime === null ? {} : { regime }) },
-    )
+    return fromFields(calendar, { ...fields, [defined(levels.at(-1))]: String(year) }, precision, {
+      overflow: 'constrain',
+      ...(regime === null ? {} : { regime }),
+    })
   } catch (error) {
     if (error instanceof DateError) return null
     throw error

@@ -145,7 +145,8 @@ function overlayRuleErrors(
   rule: OverlayRule,
   calendar: CompiledCalendar | null,
 ): RuleValidationError[] {
-  if (calendar === null) return [error('rule.unknown_calendar', '/calendar_id', 'no calendar given')]
+  if (calendar === null)
+    return [error('rule.unknown_calendar', '/calendar_id', 'no calendar given')]
   const errors: RuleValidationError[] = []
   const num = BigInt(rule.phase.num)
   if (num < 0n || num >= BigInt(rule.phase.den)) {
@@ -161,7 +162,9 @@ function overlayRuleErrors(
   }
   const step = rationalMul(periodOf(overlay), rationalFromInt(BigInt(rule.interval ?? '1')))
   if (rationalCompare(step, rationalFromInt(1n)) < 0) {
-    errors.push(error('rule.overlay_too_fast', '/interval', 'occurrences must be a base unit apart'))
+    errors.push(
+      error('rule.overlay_too_fast', '/interval', 'occurrences must be a base unit apart'),
+    )
   }
   return errors
 }
