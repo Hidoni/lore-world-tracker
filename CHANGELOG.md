@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Tabs and split panes** (#160): open several entities, timelines and graphs side by side. The
+  main area has tabs and up to four resizable panes, each with its own history.
+  Alt-click a link to open it in a new tab, Alt+Shift-click to open it to the right, or use the
+  tab strip, the sidebar's context menu and the command palette. The layout is remembered per
+  vault in the browser.
 - **Typed dates** (#157): the date picker's **Date** tab takes a typed date ("12 Frostfall
   1023 AF", "c. 15 mar 2024, 14:30") and fills in its fields. Both chronology engines read dates
   with the calendar's own formats in reverse (`parse_date` / `parseDate`, chronology-engine.md

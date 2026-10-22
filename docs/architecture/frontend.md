@@ -25,6 +25,7 @@ frontend/src/
     registry/       # kind/field/link-type registry (server registry merged with module UI configs)
     modules/        # defineModule, module activation, extension-point registries
     shell/          # top bar, sidebar navigation, right panel, command palette
+    workspace/      # tabs and panes side by side in the main area
     entities/       # generic entity page, create dialogs, lists, trash
     fields/         # field renderers/editors per type, temporal field history UI
     links/          # relations panel, add-link dialog, backlinks/mentions
@@ -75,7 +76,7 @@ prefix.
   (top-level events by time, lazily expandable into sub-events), one section per enabled kind
   (tree by `parent_id`), misc tree, pinned, recent. Multiversal entities appear with a badge in
   every dimension.
-- **Main area:** the current route.
+- **Main area:** the workspace: panes side by side, each with tabs (below).
 - **Right panel (context, collapsible):** backlinks and mentions, local graph (graph module),
   document outline, consistency findings for the current entity, history, and the as-of summary.
 - Mobile/reader: the sidebar becomes a drawer, the right panel moves below content, the top bar's
@@ -96,6 +97,36 @@ selector are described in §8. API errors become `sonner` toasts
 through the `QueryClient` caches (`app/query-client.ts`); a query or mutation that shows its error
 itself passes `meta: { toast: false }`. Every route gets the default error boundary
 (`app/route-error.tsx`) and unknown paths a 404 page.
+
+Workspace (`core/workspace/`, #160): in a vault the main area holds up to four **panes** side by
+side (stacked below `md`), each with a strip of **tabs**, so entities, timelines and graphs can be
+open together. A tab is a page of the vault (its path and search, `/v/<vault>/e/<id>?tab=…`,
+including the time context `tl`/`at`/`cal`), titled from its route: the entity's name (with
+"· Timeline", "· Events" or "· Causality" for those views), the kind's plural, or the page's name.
+
+- **The main pane** is the first one. It renders the app router's route, and its shown tab
+  follows the address bar: following a link moves that tab, and a page another of its tabs
+  already shows switches to that tab (so Back after switching tabs switches back). Showing,
+  opening or closing a tab there navigates. The top bar's time controls, the context panel, the
+  sidebar and the command palette work on the main pane.
+- **Other panes** each run their own router over the same route tree, in memory
+  (`PaneRouterContext`, created in `app/router.tsx`; inside a pane the root route renders without
+  the shell, `useInPane`). Links in a pane navigate that pane. A page keeps the time context in its tab's search
+  (`?tl=`, `?at=`, `?cal=`); without one it uses the remembered values, like the main pane. Closing the main pane makes the next one the main pane, and the
+  address bar follows its tab.
+- **Opening things:** the strip's **+** opens the vault home in a new tab, **Open to the right**
+  opens the shown page in a new pane after this one (at four panes, as a new tab of the next
+  pane), and **Close pane** closes all its tabs. A tab closes from its × or a middle click (the
+  last tab of the last pane stays); closing the shown tab shows its right neighbour. Alt-click on
+  any link of the vault opens it in a new tab of the link's pane (sidebar links: the main pane),
+  Alt+Shift-click in a pane to the right. Sidebar entities have **Open in a new tab** and **Open
+  to the right** in their context menu, and the palette has "Open this page in a new tab", "Open
+  this page to the right", "Close this tab" and "Close the other panes".
+- **Sizes:** the border between two panes is a window splitter (drag, or ← → by 5 %); a pane keeps
+  at least 15 % of the width.
+- The workspace persists per vault and browser in `localStorage` (`lore.workspace.<vault>`: panes,
+  their tabs and shares); one that doesn't parse starts over with one tab. Opening the app at a
+  URL shows that page in the main pane (in the tab that has it, or the shown tab).
 
 Sidebar navigation (`core/navigation/`, #65):
 

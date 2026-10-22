@@ -31,6 +31,7 @@ import { FindingsBadge } from '@/core/consistency'
 import { CreateEntityDialog } from '@/core/entities/create-entity-dialog'
 import { KindIcon, useKindRegistry, type Kind, type KindRegistry } from '@/core/registry'
 import { certaintyProps, useExistenceQuery } from '@/core/time'
+import { useOpenIn } from '@/core/workspace'
 import {
   useDeleteEntity,
   useMutations,
@@ -493,6 +494,7 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
   const [action, setAction] = useState<'rename' | 'child' | null>(null)
   const params = useParams({ strict: false })
   const pinned = usePlaceList('pinned', vault).some((place) => place.id === node.id)
+  const openIn = useOpenIn(vault)
   const trash = useDeleteEntity(vault)
   const restore = useRestoreEntity(vault)
   const rename = useUpdateLatest(vault)
@@ -599,6 +601,21 @@ function TreeRow({ node, ...props }: LevelProps & { node: TreeNode }) {
               Rename…
             </ContextMenuItem>
           )}
+          <ContextMenuItem
+            onSelect={() => {
+              openIn.newTab(`/v/${vault}/e/${node.id}`)
+            }}
+          >
+            Open in a new tab
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              openIn.toTheRight(`/v/${vault}/e/${node.id}`)
+            }}
+          >
+            Open to the right
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => {
               togglePin(vault, { id: node.id, name: node.name, kind: node.kind })

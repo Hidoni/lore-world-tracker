@@ -34,13 +34,14 @@ export function useEntity(
   vault: string,
   id: string,
   query: Query<'entities_get'> = {},
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; toast?: boolean } = {},
 ) {
   const source = useDataSource()
   return useQuery({
     queryKey: keys.entity(vault, id, query),
     queryFn: () => source.entity(vault, id, query),
     enabled: options.enabled ?? true,
+    ...(options.toast === false ? { meta: { toast: false } } : {}),
   })
 }
 

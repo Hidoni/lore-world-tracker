@@ -17,6 +17,7 @@ import { revertProblem } from '@/core/history'
 import { useExtensionList } from '@/core/modules'
 import { usePlaceList } from '@/core/navigation'
 import { useKindRegistry } from '@/core/registry'
+import { useOpenIn, useWorkspace } from '@/core/workspace'
 import { useDataSource, useEntities, useMutations, useQuickSearch, useRevertChange } from '@/data'
 import { useTheme } from '@/lib/theme'
 
@@ -87,6 +88,64 @@ export function CommandPalette() {
   )
 }
 
+/** The workspace's commands: tabs and panes (frontend.md §3), for the page the palette opened on. */
+function workspaceCommands(
+  vault: string,
+  href: string,
+  openIn: ReturnType<typeof useOpenIn>,
+  close: () => void,
+): Entry[] {
+  const run = (action: () => void) => () => {
+    close()
+    action()
+  }
+  const workspace = useWorkspace.getState().byVault[vault]
+  const main = workspace?.panes[0]
+  const others = workspace?.panes.slice(1) ?? []
+  return [
+    {
+      id: 'workspace:new-tab',
+      title: 'Open this page in a new tab',
+      keywords: ['tab', 'duplicate', 'workspace'],
+      run: run(() => {
+        openIn.newTab(href)
+      }),
+    },
+    {
+      id: 'workspace:split',
+      title: 'Open this page to the right',
+      keywords: ['split', 'pane', 'side by side', 'workspace'],
+      run: run(() => {
+        openIn.toTheRight(href)
+      }),
+    },
+    ...(main !== undefined && main.tabs.length > 1
+      ? [
+          {
+            id: 'workspace:close-tab',
+            title: 'Close this tab',
+            keywords: ['tab', 'workspace'],
+            run: run(() => {
+              useWorkspace.getState().closeTab(vault, main.id, main.active)
+            }),
+          },
+        ]
+      : []),
+    ...(others.length > 0
+      ? [
+          {
+            id: 'workspace:close-others',
+            title: 'Close the other panes',
+            keywords: ['pane', 'split', 'workspace'],
+            run: run(() => {
+              for (const pane of others) useWorkspace.getState().closePane(vault, pane.id)
+            }),
+          },
+        ]
+      : []),
+  ]
+}
+
 function Palette({
   vault,
   close,
@@ -113,6 +172,7 @@ function Palette({
   const theme = useTheme()
   const source = useDataSource()
   const revert = useRevertChange(vault)
+  const openIn = useOpenIn(vault)
   const q = query.trim()
 
   const go = (run: () => Promise<void>) => () => {
@@ -227,6 +287,7 @@ function Palette({
           },
         ]
       : []),
+    ...workspaceCommands(vault, router.state.location.href, openIn, close),
     {
       id: 'theme',
       title: theme.resolved === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme',
