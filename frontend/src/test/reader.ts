@@ -24,7 +24,9 @@ export function editingControls(root: HTMLElement = document.body): string[] {
   const actions = [
     ...screen.queryAllByRole('button', { hidden: false }),
     ...screen.queryAllByRole('menuitem', { hidden: false }),
-  ].filter((element) => root.contains(element))
+  ]
+    // The workspace's tabs are named after pages ("Trash"), and its buttons only arrange them.
+    .filter((element) => root.contains(element) && element.closest('[data-tab-strip]') === null)
   for (const element of actions) {
     const name = (element.getAttribute('aria-label') ?? element.textContent).trim()
     if (EDITING.test(name) && !READER_CONVENIENCES.has(name)) found.push(describe(element))

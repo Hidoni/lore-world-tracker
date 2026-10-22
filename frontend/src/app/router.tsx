@@ -6,13 +6,13 @@ import {
   Outlet,
   type RouterHistory,
 } from '@tanstack/react-router'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useCallback } from 'react'
 
 import { FindingsPage, type FindingsParams } from '@/core/consistency'
 import { EntityListPage, EntityPage, TrashPage } from '@/core/entities'
 import { CausalityPage, EventOutline } from '@/core/events'
 import { ChangesPage } from '@/core/history'
-import { ModuleGate, type ModuleDefinition } from '@/core/modules'
+import { ModuleGate, useModuleDefinitions, type ModuleDefinition } from '@/core/modules'
 import { SearchPage, type SearchParams } from '@/core/search'
 import {
   AuthorOnly,
@@ -23,6 +23,7 @@ import {
   VaultScope,
 } from '@/core/shell'
 import { CalendarEditor, DimensionOverview, NewCalendar } from '@/core/time'
+import { PaneRouterContext, useInPane } from '@/core/workspace'
 import { moduleDefinitions } from '@/modules'
 
 import { NotFoundPage, RouteError } from './route-error'
@@ -42,13 +43,33 @@ const TimelineView = lazy(() =>
   import('@/core/timeline/timeline-view').then((loaded) => ({ default: loaded.TimelineView })),
 )
 
+/**
+ * The shell around the routes, and the routers of the workspace's other panes (frontend.md §3):
+ * the same routes in memory, rendered without the shell.
+ */
+function Root() {
+  const definitions = useModuleDefinitions()
+  const inPane = useInPane()
+  const createPaneRouter = useCallback(
+    (href: string) => {
+      const history = createMemoryHistory({ initialEntries: [href] })
+      return { router: createAppRouter(history, definitions), history }
+    },
+    [definitions],
+  )
+  if (inPane) return <Outlet />
+  return (
+    <PaneRouterContext value={createPaneRouter}>
+      <ShellLayout>
+        <Outlet />
+      </ShellLayout>
+    </PaneRouterContext>
+  )
+}
+
 const rootRoute = createRootRoute({
   validateSearch: (search) => globalSearchSchema.parse(search),
-  component: () => (
-    <ShellLayout>
-      <Outlet />
-    </ShellLayout>
-  ),
+  component: Root,
 })
 
 const pickerRoute = createRoute({

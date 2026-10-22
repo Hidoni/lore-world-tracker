@@ -149,7 +149,7 @@ describe('sidebar', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Pin'])
+    ).toEqual(['Open in a new tab', 'Open to the right', 'Pin'])
   })
 })
 

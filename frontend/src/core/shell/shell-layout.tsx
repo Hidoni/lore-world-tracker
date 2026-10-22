@@ -4,6 +4,8 @@ import type { ReactNode } from 'react'
 import { BacklinksPanel } from '@/core/links'
 import { CommandPalette, ShortcutsDialog } from '@/core/palette'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { Workspace } from '@/core/workspace'
+import { cn } from '@/lib/utils'
 
 import { useShell } from './shell-store'
 import { SidebarResizer } from './sidebar-resizer'
@@ -27,9 +29,10 @@ function ContextPanel() {
 /**
  * The app shell (frontend.md §3): top bar, resizable and collapsible sidebar, main area and a
  * collapsible context panel. Below `md` the sidebar is a drawer and the context panel follows the
- * content.
+ * content. In a vault, the main area is the workspace: tabs and panes side by side.
  */
 export function ShellLayout({ children }: { children: ReactNode }) {
+  const { vault } = useParams({ strict: false })
   const sidebarOpen = useShell((state) => state.sidebarOpen)
   const sidebarWidth = useShell((state) => state.sidebarWidth)
   const rightPanelOpen = useShell((state) => state.rightPanelOpen)
@@ -64,9 +67,12 @@ export function ShellLayout({ children }: { children: ReactNode }) {
         <main
           id="main"
           tabIndex={-1}
-          className="min-w-0 flex-1 focus:outline-none md:overflow-auto"
+          className={cn(
+            'min-w-0 flex-1 focus:outline-none',
+            vault === undefined ? 'md:overflow-auto' : 'md:overflow-hidden',
+          )}
         >
-          {children}
+          {vault === undefined ? children : <Workspace vault={vault}>{children}</Workspace>}
         </main>
         {rightPanelOpen && (
           <aside

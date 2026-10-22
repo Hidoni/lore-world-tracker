@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { act, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 
 import { AppProviders } from '@/app/providers'
 import { createHttpDataSource, keys } from '@/data'
@@ -11,6 +11,7 @@ import type { ModuleDefinition } from '@/core/modules'
 import { usePlaces } from '@/core/navigation/places'
 import { usePalette } from '@/core/palette'
 import { useShell } from '@/core/shell'
+import { useWorkspace } from '@/core/workspace'
 
 /** The app renders once the server says whether it is read-only (`ReaderModeProvider`). */
 export async function prefetchMeta(queryClient: QueryClient): Promise<void> {
@@ -21,16 +22,19 @@ export async function prefetchMeta(queryClient: QueryClient): Promise<void> {
 }
 
 /**
- * Renders the whole app (providers, router, shell) at `path`, with `@/modules` or `modules`;
- * `readOnly` provides no `Mutations` (reader mode).
+ * Renders the whole app (providers, router, shell) at `path`, with `@/modules` or `modules`, in
+ * place of an app rendered before; `readOnly` provides no `Mutations` (reader mode).
  */
 export async function renderApp(
   path = '/',
   modules?: readonly ModuleDefinition[],
   options: { readOnly?: boolean } = {},
 ) {
+  // One app at a time: an app left mounted would follow the next one's workspace.
+  cleanup()
   useShell.getState().reload()
   usePlaces.getState().reload()
+  useWorkspace.getState().reload()
   usePalette.setState({ open: false, shortcutsOpen: false })
   useSaveAnyway.setState({ pending: null })
   const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }), modules)

@@ -46,6 +46,15 @@ export const SHORTCUT_GROUPS: readonly { title: string; shortcuts: readonly Shor
     ],
   },
   {
+    title: 'Tabs and panes',
+    shortcuts: [
+      { keys: 'Alt click a link', action: 'Open it in a new tab' },
+      { keys: 'Alt Shift click a link', action: 'Open it in a pane to the right' },
+      { keys: 'Middle click a tab', action: 'Close it' },
+      { keys: '← → on a pane border', action: 'Resize the panes' },
+    ],
+  },
+  {
     title: 'Writing',
     shortcuts: [
       { keys: '[[ or @', action: 'Link an entity' },

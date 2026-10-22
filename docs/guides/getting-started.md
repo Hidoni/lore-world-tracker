@@ -95,6 +95,17 @@ The dimension's page shows its time spec, its calendars, its timelines and recen
 - **Display** menu: **Theme** (Light, Dark, System) and **Reading font** (Sans-serif, Serif).
   These are kept in your browser.
 
+### Tabs and panes
+
+Pages open in **tabs** above the page. Click **+** for a new tab, or **Alt**-click any link to open
+it in one. To see two pages side by side, click **Open to the right** (the two columns next to
+**+**), **Alt+Shift**-click a link, or right-click an entity in the sidebar and pick **Open to
+the right**. You can have up to four panes; drag the line between two panes to resize them.
+Links in a pane open in that pane. The first pane is the one the sidebar, the top bar and the
+address bar work with; a page opened to the right keeps the time cursor it had, so after picking
+a moment, opening a place to the right and picking another moment, you see the place at both. Your tabs and panes are kept in your browser, per
+vault.
+
 ### The time cursor
 
 Lore shows the world **as of** a moment. The time cursor in the top bar is **Present** (the
