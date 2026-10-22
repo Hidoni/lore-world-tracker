@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from lore.core.db.base import Visibility
 from lore.core.errors import InvalidInputError
+from lore.modules.media import storage
 from lore.modules.media.models import MediaItem, MediaRef
 from lore.modules.media.refs import DERIVED
 
@@ -89,4 +90,10 @@ def exists(session: Session, media_id: str) -> bool:
     )
 
 
-__all__ = ["MediaInfo", "exists", "info", "reference", "unreference"]
+def tile_levels(width: int, height: int) -> int | None:
+    """A raster image of this size shown as tiles (#162, ``GET /m/media/items/{id}/tiles/…``):
+    its coarsest tile level; ``None`` for one shown whole (``MediaItemOut.tile_levels``)."""
+    return storage.tile_levels(width, height) if storage.tiled(width, height) else None
+
+
+__all__ = ["MediaInfo", "exists", "info", "reference", "tile_levels", "unreference"]

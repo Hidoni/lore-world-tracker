@@ -28,8 +28,8 @@ Accepted files (by their bytes): images (png, jpeg, webp, gif, avif, svg), docum
 Markdown) and fonts (woff2, woff, ttf, otf; writing systems' fonts, `docs/modules/scripts.md`).
 
 Files: `media/<sha256[0:2]>/<sha256>` inside the vault folder. Thumbnails:
-`media/thumbs/<sha256>_<width>.webp` (160, 480, 1280), generated lazily with Pillow and
-regenerable.
+`media/thumbs/<sha256>_<width>.webp` (160, 480, 1280), generated lazily with libvips and
+regenerable. Tiles of large images (#162): `media/tiles/<sha256>/<level>/<x>_<y>.webp`, regenerable.
 
 ## API
 
@@ -41,6 +41,8 @@ regenerable.
   (the library's "replace file").
 - `GET /m/media/items/{id}/file?size=160|480|1280|original`: streams the file. `ETag` = sha256,
   `Cache-Control: private, max-age=31536000, immutable`, plus the safe headers from `security.md`.
+- `GET /m/media/items/{id}/tiles/{level}/{x}/{y}` (#162): a deep-zoom tile of a raster image
+  (WebP), cached and visible like the file.
 - Gallery: `GET|POST /m/media/entities/{id}/gallery`, `PATCH|DELETE /m/media/gallery/{item_id}`.
 - Cover: set via the generic entity PATCH (`cover_media_id`). The module validates the id.
 
@@ -155,7 +157,27 @@ Removal requires an export of `media/`.
   picker, editor, covers, galleries, `media` fields) from the one sanitized file, without
   `srcset`; the maps picker offers raster images only (`rasterOnly`), as a map needs a size.
 
+## Implementation notes (#162, deep zoom)
+
+- **Decoding** moved from Pillow to libvips (`pyvips` with its bundled library,
+  `pyvips[binary]`: no system package). It decodes streaming, so the pixel limit rose from 50 to
+  400 megapixels (a 16k by 16k map is 268); uploads are still capped by `LORE_MAX_UPLOAD_MB`.
+  Each type is decoded by its own loader, failing on truncated files. Thumbnails keep the stored
+  orientation (no EXIF rotation, matching the recorded size), as before.
+- **Tiles** (`storage.tile`): level `k` is the image shrunk `2^k` times (`ceil(width / 2^k)` by
+  `ceil(height / 2^k)`), cut into 256 px tiles from the top left (the last column and row
+  narrower); the coarsest level (`tile_levels`) fits in one tile. The first tile requested makes
+  the whole pyramid in one pass (libvips `dzsave`, into a temporary folder renamed into place,
+  one build per image at a time); a vault folder that can't be written makes the requested tile
+  alone, in memory (slow: the publish step makes pyramids in advance). Replacing or purging the
+  file leaves or removes its pyramid with its thumbnails.
+- **Which images are tiled:** any raster image has tiles, but clients use them only for images
+  whose longer side is above 8,192 px (`MediaItemOut.tile_levels`, null otherwise: about the
+  largest image browsers and mobile GPUs take whole). Maps carry the same `tile_levels`.
+- **Publish** makes and copies the pyramids of the reader-visible tiled images. A **static
+  export** has no tiles (its files are copied by route and query): maps show the image whole
+  there.
+
 ## Future ideas
 
-Audio (pronunciations for lexicon entries), PDF previews, image annotations, deep-zoom tiling
-(shared with maps).
+Audio (pronunciations for lexicon entries), PDF previews, image annotations.

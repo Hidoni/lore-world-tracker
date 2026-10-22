@@ -56,6 +56,18 @@ export function mediaFileUrl(
   )
 }
 
+/**
+ * A Leaflet URL template of a raster image's deep-zoom tiles (#162; `{level}`: the image shrunk
+ * `2^level` times, `{x}`/`{y}`: the tile's column and row), or `null` in a static export, which
+ * has the image whole only.
+ */
+export function mediaTileUrl(vault: string, media: string): string | null {
+  if (staticFileUrl(`m/media/items/${media}/file`) !== null) return null
+  return readerUrl(
+    `/api/v1/vaults/${encodeURIComponent(vault)}/m/media/items/${encodeURIComponent(media)}/tiles/{level}/{x}/{y}`,
+  )
+}
+
 /** The library (one page: `limit` items, newest first). */
 export function useMediaItems(
   vault: string,

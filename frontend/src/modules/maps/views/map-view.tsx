@@ -16,6 +16,7 @@ import { iconFor, useKindRegistry, type KindRegistry } from '@/core/registry'
 import { SpanDisplay, useEntityAsOf } from '@/core/time'
 import {
   mediaFileUrl,
+  mediaTileUrl,
   useCreatePin,
   useCreateRegion,
   useEntity,
@@ -46,7 +47,7 @@ import { AddPinDialog, type PinChoice } from '../edit/add-pin-dialog'
 import { ChildTray } from '../edit/child-tray'
 import { PinEditor } from '../edit/pin-editor'
 import { RegionEditor } from '../edit/region-editor'
-import type { CanvasMarker, CanvasRegion, Point } from './map-canvas'
+import type { CanvasMarker, CanvasRegion, CanvasTiles, Point } from './map-canvas'
 
 const MapCanvas = lazy(() => import('./map-canvas'))
 
@@ -80,6 +81,24 @@ export function MapView({ vault, mapId, onOpenMap, focusPin = null, className }:
       className={className}
     />
   )
+}
+
+/**
+ * What the canvas draws: the image whole, or (#162) a large one's tiles over its 1280 px
+ * thumbnail (a static export has no tiles: the image whole there).
+ */
+function canvasImage(
+  vault: string,
+  detail: MapDetail,
+): { image: string; tiles: CanvasTiles | null } {
+  const url = detail.tile_levels === null ? null : mediaTileUrl(vault, detail.media_id)
+  if (url === null || detail.tile_levels === null) {
+    return { image: mediaFileUrl(vault, detail.media_id), tiles: null }
+  }
+  return {
+    image: mediaFileUrl(vault, detail.media_id, '1280'),
+    tiles: { url, levels: detail.tile_levels },
+  }
 }
 
 function pinIcon(pin: MapPin, registry: KindRegistry | undefined) {
@@ -387,7 +406,7 @@ function LoadedMap({
           <div className="relative flex-1 overflow-hidden rounded-md border">
             <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading map…</p>}>
               <MapCanvas
-                image={mediaFileUrl(vault, detail.media_id)}
+                {...canvasImage(vault, detail)}
                 width={detail.width}
                 height={detail.height}
                 markers={markers}

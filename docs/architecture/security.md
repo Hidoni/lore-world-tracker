@@ -54,8 +54,9 @@ headers → request context → host check → CORS (optional) → mutation guar
 - Uploads: an allowlist of MIME types (images: png, jpeg, webp, gif, avif; documents: pdf, txt,
   md; fonts: woff2, woff, ttf, otf, for the scripts module, with whole headers). Type is verified
   by magic bytes, and images are
-  decoded with Pillow (the dimension limit protects against decompression bombs: images above 50
-  megapixels are refused before decoding). Files are stored by SHA-256 and never by user-provided
+  decoded with libvips (pyvips; streaming, with the loader of the type their bytes say; the
+  dimension limit protects against decompression bombs: images above 400 megapixels are refused
+  before decoding). Files are stored by SHA-256 and never by user-provided
   names; the uploaded name is kept for display only, reduced to its last path component. Text
   files must be UTF-8 without NUL bytes (`lore.modules.media.storage`).
 - SVG (#161): shown inline only as sanitized by `lore.modules.media.svg`. Uploads must parse with

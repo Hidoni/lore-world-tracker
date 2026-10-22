@@ -25,6 +25,11 @@ class MediaItemOut(BaseModel):
     size: int
     width: int | None
     height: int | None
+    tile_levels: int | None = Field(
+        description="An image shown as tiles (#162: its longer side is above 8,192 px): its "
+        "coarsest tile level (`GET …/tiles/{level}/{x}/{y}`, level 0 being the full size). Null "
+        "for an image shown whole and for other files."
+    )
     alt: str
     caption: str
     revision: int

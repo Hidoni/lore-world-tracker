@@ -32,6 +32,10 @@ class MapRecord(BaseModel):
     description: str
     width: int
     height: int
+    tile_levels: int | None = Field(
+        description="A large image shown as tiles (#162): its coarsest tile level "
+        "(`GET /m/media/items/{media_id}/tiles/{level}/{x}/{y}`); null for one shown whole."
+    )
     scale: Scale | None
     sort_key: str | None
     visibility: Visibility

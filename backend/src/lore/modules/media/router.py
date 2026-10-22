@@ -215,6 +215,43 @@ def get_file(
     return Response(content=served.data, media_type=served.mime, headers=headers)
 
 
+@router.get(
+    "/items/{media_id}/tiles/{level}/{x}/{y}",
+    name="tile",
+    response_class=Response,
+    responses={200: {"content": {"image/webp": {}}, "description": "The tile (WebP)."}},
+)
+def get_tile(
+    *,
+    media_id: IdPath,
+    level: Annotated[int, Path(ge=0, le=64, description="The image shrunk 2^level times.")],
+    x: Annotated[int, Path(ge=0, description="The tile's column, from the left.")],
+    y: Annotated[int, Path(ge=0, description="The tile's row, from the top.")],
+    request: Request,
+    vault: VaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+    policy: PolicyDep,
+) -> Response:
+    """A deep-zoom tile of a raster image (#162; ``docs/modules/media.md``): 256 px square
+    (smaller at the right and bottom edges), WebP, cached like files (``ETag``: the hash and the
+    tile). The first tile requested makes the image's whole pyramid. Tiles the image doesn't have
+    are ``404``; files that aren't raster images ``422``."""
+    served = _media(vault, session, registry, policy).tile(media_id, level, x, y)
+    etag = f'"{served.item.sha256}-tile-{level}-{x}-{y}"'
+    headers = {
+        "ETag": etag,
+        "Cache-Control": CACHE,
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": CSP,
+    }
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    if served.path is not None:
+        return FileResponse(served.path, media_type=served.mime, headers=headers)
+    return Response(content=served.data, media_type=served.mime, headers=headers)
+
+
 # --- galleries ------------------------------------------------------------------------------
 
 

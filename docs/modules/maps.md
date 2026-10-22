@@ -74,6 +74,12 @@ None. Maps belong to locations.
   centered). Drilling into a map of another location from the panel opens the page.
 - Leaflet with `CRS.Simple` and an image overlay (bounds = image size). Markers use kind icons
   and colors. Clustering kicks in when crowded.
+- Deep zoom (#162): a map whose image's longer side is above 8,192 px (`tile_levels` not null)
+  is drawn as the media module's tiles (a Leaflet tile layer: zoom `z ≤ 0` shows tile level
+  `-z`, closer zooms enlarge level 0) over the image's 1280 px thumbnail, shown while tiles load.
+  The CRS puts the image's top left at the origin of Leaflet's pixel grid (transformation
+  `(1, 0, -1, height)`), so tiles line up with Leaflet's; the furthest zoom out reaches the
+  coarsest level. A static export shows the image whole.
 - View mode: hover shows a tooltip, click opens a popover (name, summary, dates, "open page",
   "drill into map"). Breadcrumbs show nested maps (continent → country → city).
 - Edit mode: click to add a pin (entity search with "create location here"), drag to move,
@@ -164,6 +170,6 @@ Disabling hides maps and pins. Data and media are kept.
 
 ## Future ideas
 
-Deep-zoom tiling for very large images; regions that change shape over time (today a new
+Regions that change shape over time (today a new
 outline is a new region with its own validity); paths/routes for journeys, animated along time or worldlines; distance
 measurement using `scale`; fantasy-map generators.

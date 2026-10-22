@@ -49,6 +49,30 @@ describe('map canvas', () => {
     expect(onSelect).toHaveBeenLastCalledWith(null)
   })
 
+  it('draws a large image as deep-zoom tiles over its small copy (#162)', async () => {
+    const { container } = render(
+      <MapCanvas
+        image="/small.webp"
+        tiles={{ url: '/tiles/{level}/{x}/{y}', levels: 2 }}
+        width={1000}
+        height={800}
+        markers={[]}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    expect(container.querySelector('img.leaflet-image-layer')).toHaveAttribute('src', '/small.webp')
+    // 1000 by 800 fitted into 500 by 400: zoom -1, the image shrunk twice, so level 1, whose
+    // 500 by 400 pixels are 2 by 2 tiles (and none beyond the image).
+    await waitFor(() => {
+      expect(container.querySelectorAll('img.leaflet-tile')).toHaveLength(4)
+    })
+    const sources = [...container.querySelectorAll('img.leaflet-tile')].map((tile) =>
+      tile.getAttribute('src'),
+    )
+    expect(sources.sort()).toEqual(['/tiles/1/0/0', '/tiles/1/0/1', '/tiles/1/1/0', '/tiles/1/1/1'])
+  })
+
   it('draws regions under the pins, drags the selected one’s corners, adds corners while drawing', async () => {
     const regions: CanvasRegion[] = [
       { id: 'r1', label: 'Varn', points: [[0, 0], [100, 0], [100, 100]], color: '#0e7490', ghost: false },

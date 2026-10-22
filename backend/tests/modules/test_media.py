@@ -170,8 +170,8 @@ def test_oversized_files_and_decompression_bombs_are_refused(library: Library) -
     too_big = library.upload(b"a" * ((1 << 20) + 1), "big.txt")
     assert invalid(too_big) == ["file"]
     assert too_big.json()["errors"][0]["code"] == "too_large"
-    # A 10,000 by 10,000 image compresses to almost nothing but would need 100 megapixels.
-    bomb = png(10_000, 10_000, mode="1")
+    # A 25,000 by 25,000 image compresses to almost nothing but would need 625 megapixels.
+    bomb = png(25_000, 25_000, mode="1")
     assert len(bomb) < (1 << 20)
     refused = library.upload(bomb, "bomb.png")
     assert invalid(refused) == ["file"]
@@ -298,6 +298,68 @@ def test_files_are_served_with_safe_headers_and_thumbnails(
     path = storage.thumb_path(vault_path(client, library), item["sha256"], 160)
     assert path.is_file()  # made once, then served from disk
     assert library.file(item["id"], size="999").status_code == 422
+
+
+def tile_size(response: Any) -> tuple[int, int]:
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "image/webp"
+    with Image.open(io.BytesIO(response.content)) as made:
+        size: tuple[int, int] = made.size
+        return size
+
+
+def test_large_images_are_tiled(client: TestClient, library: Library) -> None:
+    """Deep zoom (#162): images whose longer side is above 8,192 px are shown as tiles; level
+    ``k`` is the image shrunk ``2^k`` times, the coarsest fitting in one 256 px tile."""
+    small = library.uploaded(png(1000, 500))
+    assert small["tile_levels"] is None
+    large = library.uploaded(png(9000, 300, color="navy"))
+    # 9000 → 4500 → 2250 → 1125 → 563 → 282 → 141: six halvings to fit in a tile.
+    assert large["tile_levels"] == 6
+    assert storage.tile_levels(256, 10) == 0
+    assert storage.tile_levels(257, 10) == 1
+
+    def tile(media_id: str, level: int, x: int, y: int, **headers: str) -> Any:
+        return client.get(f"{library.base}/items/{media_id}/tiles/{level}/{x}/{y}",
+                          headers=headers)  # fmt: skip
+
+    full = tile(large["id"], 0, 35, 1)  # the bottom right tile: 9000 - 35 * 256, 300 - 256
+    assert tile_size(full) == (40, 44)
+    assert full.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert full.headers["x-content-type-options"] == "nosniff"
+    assert tile(large["id"], 0, 35, 1, **{"If-None-Match": full.headers["etag"]}).status_code == 304
+    assert tile_size(tile(large["id"], 3, 4, 0)) == (1125 - 4 * 256, 38)
+    assert tile_size(tile(large["id"], 6, 0, 0)) == (141, 5)
+    # The first tile made the whole pyramid, on disk.
+    path = vault_path(client, library)
+    assert storage.tile_path(path, large["sha256"], 6, 0, 0).is_file()
+    assert storage.tile_path(path, large["sha256"], 1, 17, 0).is_file()
+    # Tiles the image doesn't have; files that aren't raster images.
+    for level, x, y in ((7, 0, 0), (0, 36, 0), (0, 0, 2), (6, 1, 0)):
+        assert tile(large["id"], level, x, y).status_code == 404
+    seal = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "seal.svg")
+    assert seal["tile_levels"] is None
+    assert invalid(tile(seal["id"], 0, 0, 0)) == ["media_id"]
+    # An image shown whole has tiles all the same.
+    assert tile_size(tile(small["id"], 0, 3, 1)) == (1000 - 3 * 256, 244)
+    storage.remove(path, large["sha256"])  # purging an item removes its tiles too
+    assert not storage.tiles_path(path, large["sha256"]).exists()
+    assert media_api.tile_levels(9000, 300) == 6
+    assert media_api.tile_levels(8192, 8192) is None
+
+
+def test_tiles_of_a_vault_that_cant_be_written_are_made_alone(
+    client: TestClient, library: Library, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    large = library.uploaded(png(9000, 300, color="olive"))
+
+    def unwritable(vault_path: Path, sha256: str) -> None:
+        raise PermissionError(vault_path)
+
+    monkeypatch.setattr(storage, "pyramid", unwritable)
+    made = client.get(f"{library.base}/items/{large['id']}/tiles/2/8/0")
+    assert tile_size(made) == (2250 - 8 * 256, 75)
+    assert not storage.tiles_path(vault_path(client, library), large["sha256"]).exists()
 
 
 # --- references -----------------------------------------------------------------------------------
@@ -429,16 +491,21 @@ def test_publishing_copies_only_what_readers_see(
     secret = library.uploaded(png(color="black"))
     shown = library.uploaded(png(500, 300, color="yellow"))
     seal = library.uploaded(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>', "seal.svg")
+    large = library.uploaded(png(9000, 300, color="maroon"))
     library.api.make("misc", "Diary", body=doc(block("private", image(secret["id"])),
-                                               image(shown["id"]), image(seal["id"])))  # fmt: skip
+                                               image(shown["id"]), image(seal["id"]),
+                                               image(large["id"])))  # fmt: skip
     vault = client.app.state.vaults.open(library.api.vault)  # type: ignore[attr-defined]
     registry = client.app.state.registry  # type: ignore[attr-defined]
     target = tmp_path / "published"
     with vault.sessions() as session:
         copied = copy_visible_media(VaultContext(vault, session, registry), target)
-    assert copied == sorted([shown["id"], seal["id"]])
+    assert copied == sorted([shown["id"], seal["id"], large["id"]])
     assert storage.file_path(target, shown["sha256"]).is_file()
     assert storage.thumb_path(target, shown["sha256"], 160).is_file()
+    # Large images' tiles too (#162), and only theirs.
+    assert storage.tile_path(target, large["sha256"], 6, 0, 0).is_file()
+    assert not storage.tiles_path(target, shown["sha256"]).exists()
     # A reader-side server may not be able to write the sanitized copy: it is made in advance.
     assert storage.safe_svg_path(target, seal["sha256"]).is_file()
     assert not storage.file_path(target, secret["sha256"]).exists()
