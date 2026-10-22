@@ -1996,6 +1996,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/branches/timelines/{timeline_id}/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Timeline Propose
+         * @description Preview moving a branch under another timeline (`reparent`) or merging it into its parent
+         *     (`merge`, ``time-model.md`` §4.7): the records it moves or changes, the parent's records after
+         *     the branch point (each kept or discarded on apply), the timelines and entities that move and
+         *     the branch points pinned. Kept for an hour. ``404`` for a missing or trashed branch, ``422``
+         *     for a prime or an invalid new parent, ``409 occurrence_key_conflict`` when a series has an
+         *     occurrence materialized in both timelines.
+         */
+        post: operations["branches_timeline_propose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/branches/timelines/{timeline_id}/proposals/{proposal_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Timeline Apply
+         * @description Apply a branch proposal as one changeset (one undo). ``409 proposal_stale`` when the
+         *     timelines or their records changed since the preview; ``404`` for an expired proposal.
+         */
+        post: operations["branches_timeline_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/correspondences": {
         parameters: {
             query?: never;
@@ -2703,6 +2749,23 @@ export interface components {
              */
             caption?: string;
         };
+        /** BranchApplied */
+        BranchApplied: {
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "reparent" | "merge";
+            /** Moved */
+            moved: number;
+            /** Discarded */
+            discarded: number;
+            /** Timelines */
+            timelines: number;
+            /** Pinned */
+            pinned: number;
+            affected: components["schemas"]["Affected"];
+        };
         /** BranchCreate */
         BranchCreate: {
             /**
@@ -2746,6 +2809,173 @@ export interface components {
             inherited_spanning: components["schemas"]["DiffRecord"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /** BranchProposalApply */
+        BranchProposalApply: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /**
+             * Strategies
+             * @description Conflicts by key: `keep` or `discard`.
+             */
+            strategies?: {
+                [key: string]: "keep" | "discard";
+            };
+            /**
+             * Default Strategy
+             * @description For conflicts without a strategy (where possible).
+             * @default keep
+             * @enum {string}
+             */
+            default_strategy?: "keep" | "discard";
+        };
+        /** BranchProposalIn */
+        BranchProposalIn: {
+            /**
+             * Suppress
+             * @description Findings this write declares intentional (from a `422 consistency_error`): they are suppressed in the same changeset. Hard rules can't be suppressed.
+             */
+            suppress?: components["schemas"]["SuppressItem"][];
+            /**
+             * Operation
+             * @description `reparent`: move the branch under `parent_timeline_id`; `merge`: merge it into its parent (`time-model.md` §4.7).
+             * @enum {string}
+             */
+            operation: "reparent" | "merge";
+            /** @description `reparent` only: the new parent, a timeline of the dimension. */
+            parent_timeline_id?: components["schemas"]["EntityId"] | null;
+        };
+        /** BranchProposalOut */
+        BranchProposalOut: {
+            /** Id */
+            id: string;
+            /** Timeline Id */
+            timeline_id: string;
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "reparent" | "merge";
+            /**
+             * Parent Timeline Id
+             * @description The new parent, or the parent merged into.
+             */
+            parent_timeline_id: string;
+            /** Base Revision */
+            base_revision: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Records
+             * @description The branch's records the operation moves or changes (at most 200; the summary counts them all).
+             */
+            records: components["schemas"]["BranchRecord"][];
+            /**
+             * Conflicts
+             * @description Merging: the parent's live records starting at or after the branch point, each kept or discarded.
+             */
+            conflicts: components["schemas"]["BranchRecord"][];
+            /** Timelines */
+            timelines: components["schemas"]["TimelineMove"][];
+            /**
+             * Entities
+             * @description Entities whose origin timeline changes.
+             */
+            entities: components["schemas"]["OriginChange"][];
+            /**
+             * Pinned
+             * @description Branches whose branch point is pinned to its moment (anchored to records their parent would no longer see).
+             */
+            pinned: components["schemas"]["NamedTimeline"][];
+            /**
+             * Siblings
+             * @description Merging: the parent's other branches after the branch point, which will inherit merged records.
+             */
+            siblings: components["schemas"]["NamedTimeline"][];
+            summary: components["schemas"]["BranchProposalSummary"];
+        };
+        /** BranchProposalSummary */
+        BranchProposalSummary: {
+            /** Records */
+            records: number;
+            /** By Action */
+            by_action: {
+                [key: string]: number;
+            };
+            /** Conflicts */
+            conflicts: number;
+            /** Timelines */
+            timelines: number;
+            /** Entities */
+            entities: number;
+            /** Pinned */
+            pinned: number;
+            /** Notes Moved */
+            notes_moved: number;
+            /** Notes Kept */
+            notes_kept: number;
+            /**
+             * Hidden References
+             * @description Re-parenting: slots of the branch's records anchored to records it no longer sees.
+             */
+            hidden_references: number;
+        };
+        /** BranchRecord */
+        BranchRecord: {
+            /**
+             * Record Type
+             * @description `event`, `fact`, `link`, `segment` or a module's.
+             */
+            record_type: string;
+            /**
+             * Id
+             * @description The row.
+             */
+            id: string;
+            /**
+             * Entity Id
+             * @description The entity the row belongs to.
+             */
+            entity_id: string | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Override
+             * @description Whether the row is an override.
+             */
+            override: boolean;
+            /** Start T */
+            start_t: MomentString | null;
+            /** End T */
+            end_t: MomentString | null;
+            /**
+             * Action
+             * @description Records of the branch: `move` (to the parent), `replace` (the parent's own override is reverted, this one moves), `apply` (the parent's record takes its changes), `rehome` (the override moves to the parent); re-parenting: `drop`.
+             */
+            action?: string | null;
+            /**
+             * Key
+             * @description Conflicts: the key strategies use.
+             */
+            key?: string | null;
+            /**
+             * Strategies
+             * @description Conflicts: `keep`, and `discard` where possible.
+             */
+            strategies?: string[] | null;
+            /** Default Strategy */
+            default_strategy?: string | null;
         };
         /**
          * CalendarAnchor
@@ -5916,6 +6146,13 @@ export interface components {
             /** Modules */
             modules: components["schemas"]["ModuleState"][];
         };
+        /** NamedTimeline */
+        NamedTimeline: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+        };
         /**
          * NewBranch
          * @description A branch created for the arrival (the `branches` module must be on).
@@ -6075,6 +6312,18 @@ export interface components {
              * @description Its own members (`member_of`), not its sub-groups'.
              */
             member_count: number;
+        };
+        /** OriginChange */
+        OriginChange: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /**
+             * To Origin Id
+             * @description Null: shown in every timeline.
+             */
+            to_origin_id: string | null;
         };
         /** OverrideCreate */
         OverrideCreate: {
@@ -7422,6 +7671,17 @@ export interface components {
             departure_event_id?: string | null;
             /** Arrival Event Id */
             arrival_event_id?: string | null;
+        };
+        /** TimelineMove */
+        TimelineMove: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** From Parent Id */
+            from_parent_id: string | null;
+            /** To Parent Id */
+            to_parent_id: string;
         };
         /** TimelineNode */
         TimelineNode: {
@@ -12290,6 +12550,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BranchDiff"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_timeline_propose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                timeline_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchProposalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchProposalOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    branches_timeline_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                timeline_id: string;
+                /** @description The proposal. */
+                proposal_id: string;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchProposalApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchApplied"];
                 };
             };
             /** @description Problem */

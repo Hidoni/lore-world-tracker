@@ -48,6 +48,26 @@ export const MOMENT_SHAPES: Readonly<Record<string, MomentShape>> = {
       }
     }
   },
+  "BranchProposalOut": {
+    "o": {
+      "records": {
+        "a": {
+          "r": "BranchRecord"
+        }
+      },
+      "conflicts": {
+        "a": {
+          "r": "BranchRecord"
+        }
+      }
+    }
+  },
+  "BranchRecord": {
+    "o": {
+      "start_t": "m",
+      "end_t": "m"
+    }
+  },
   "CalendarProposalItem": {
     "o": {
       "old_t": "m",

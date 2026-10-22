@@ -275,8 +275,13 @@ class TimeWriter:
             for node in self.index.dependents_of_record(record_type, record_id)
         }
         dependents.update(self.index.dependents_of(CalendarNode(entity_id)))
+        return self.freeze(d for d in dependents if (d.type, d.id) not in own)
+
+    def freeze(self, nodes: Iterable[SlotNode]) -> int:
+        """``freeze_dependents`` for the given slots: each becomes an ``absolute`` anchor at its
+        last resolved moment (``frozen_from`` keeps the old spec). Returns how many were."""
         frozen = 0
-        for node in sorted(d for d in dependents if (d.type, d.id) not in own):
+        for node in sorted(set(nodes)):
             if self.slots.get(node.type) is None:
                 continue  # a record type nobody registers any more: nothing to freeze
             key = SlotKey(node.id, node.slot)

@@ -24,3 +24,4 @@ status to `Superseded by ADR-XXXX`). Use `0000-template.md`.
 | [0016](0016-static-export.md) | The static export answers reads from recorded API responses | Accepted |
 | [0017](0017-mcp-in-process.md) | An opt-in MCP module served by the Lore server | Accepted |
 | [0018](0018-base-unit-refinement.md) | Base-unit refinement rewrites the dimension in place and closes its history | Accepted |
+| [0019](0019-branch-merge.md) | Merging a branch combines it into its parent, with a choice per conflicting record | Accepted |
