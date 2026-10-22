@@ -109,9 +109,10 @@ All notable changes to this project are documented here. The format follows
   387 kB.
 - **Settings navigation** (#384): on a module's or another settings page, "General" no longer
   also says it is the current page.
-- Recurring events could show a wrong occurrence count until the server restarted, after
-  several requests computed it at once: the counting caches shared by the server's threads are
-  now locked (found by the static export parity test).
+- **Occurrence counts under load** (#403): recurring events could show a wrong occurrence count
+  until the server restarted, after several requests computed it at once (a timeline band of 1368
+  for a series of 1904). The counting caches shared by the server's threads are now locked
+  (#411), and a test counts a series from many threads at once.
 - **Vault picker for readers** (#373): a read-only server no longer shows the create, rename,
   trash and migrate buttons.
 

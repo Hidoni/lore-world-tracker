@@ -2,6 +2,8 @@
 
 import json
 import math
+import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -824,3 +826,44 @@ def test_counting_is_thread_safe() -> None:
         wrong = [case["id"] for (_, case), result in zip(work, found, strict=True)
                  if result != case["expected"]]  # fmt: skip
         assert wrong == []
+
+
+def test_concurrent_counts_of_a_series_agree() -> None:
+    """Threads that count a series at once on a fresh calendar all find what enumerating it does,
+    and leave the shared prefix right for later counts (#403: before the regime lock of #411, the
+    read-only server answered 1368 for a market it listed 1904 times, until it restarted)."""
+    start, until = g(2000, "jan", 3), g(2018, "jun", 30)
+    exclusion = (g(2010, "mar", 1), g(2010, "apr", 12))
+    market = rule(
+        freq={"cycle": "week"},
+        select={"path": [_day(["mon", "sat"])]},
+        limit=UNTIL,
+        exclusions=[{"from": UNTIL["until"], "to": UNTIL["until"], "note": "Closed"}],
+    )
+    resolved = {"/limit/until": until, "/exclusions/0/from": exclusion[0],
+                "/exclusions/0/to": exclusion[1]}  # fmt: skip
+    whole = (0, D + 1)
+
+    def ctx(calendar: CompiledCalendar) -> RecurrenceContext:
+        return RecurrenceContext(start, end(), D, calendar, resolved)
+
+    listed = expand(market, ctx(compiled("gregorian-week")), whole, 10_000)
+    assert not listed.truncated
+    assert len(listed.items) == 1918
+    switch = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)  # threads switch often: a race shows on almost every run
+    try:
+        for _ in range(3):
+            shared = ctx(compiled("gregorian-week"))  # no cached prefixes or counters
+            barrier = threading.Barrier(8)
+
+            def count(_: int, shared: RecurrenceContext = shared,
+                      barrier: threading.Barrier = barrier) -> int:  # fmt: skip
+                barrier.wait()
+                return count_in_window(market, shared, whole)[0]
+
+            with ThreadPoolExecutor(8) as pool:
+                assert set(pool.map(count, range(8))) == {1918}
+            assert count_in_window(market, shared, whole) == (1918, True)
+    finally:
+        sys.setswitchinterval(switch)
