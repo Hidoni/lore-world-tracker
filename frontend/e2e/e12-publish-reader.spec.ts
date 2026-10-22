@@ -62,15 +62,15 @@ test('E12: publish a snapshot → the reader instance: no edit UI, no private da
   const seen: string[] = []
   const check = async (where: string) => {
     await page.waitForLoadState('networkidle')
-    const editing = await page
-      .getByRole('button')
-      .evaluateAll(
-        (buttons, pattern) =>
-          buttons
-            .map((b) => b.getAttribute('aria-label') ?? b.textContent.trim())
-            .filter((label) => new RegExp(pattern, 'i').test(label)),
-        EDITING.source,
-      )
+    const editing = await page.getByRole('button').evaluateAll(
+      (buttons, pattern) =>
+        buttons
+          // The workspace's tab strip only arranges pages (frontend.md §3).
+          .filter((b) => b.closest('[data-tab-strip]') === null)
+          .map((b) => b.getAttribute('aria-label') ?? b.textContent.trim())
+          .filter((label) => new RegExp(pattern, 'i').test(label)),
+      EDITING.source,
+    )
     expect(editing, `${where}: editing controls`).toEqual([])
     seen.push(await page.content())
   }

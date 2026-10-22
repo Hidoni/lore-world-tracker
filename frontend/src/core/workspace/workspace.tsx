@@ -132,7 +132,7 @@ function TabStrip({
   const only = workspace.panes.length === 1 && pane.tabs.length === 1
   const shown = pane.tabs.find((tab) => tab.id === pane.active)
   return (
-    <div data-tab-strip className="flex h-9 shrink-0 items-stretch border-b bg-muted/40">
+    <div data-tab-strip className="hidden h-9 shrink-0 items-stretch border-b bg-muted/40 md:flex">
       <ul
         aria-label={index === 0 ? 'Tabs' : `Tabs of pane ${String(index + 1)}`}
         className="flex min-w-0 flex-1 overflow-x-auto"
@@ -299,8 +299,9 @@ export function Workspace({ vault, children }: { vault: string; children: ReactN
               aria-label={index === 0 ? 'Main pane' : `Pane ${String(index + 1)}`}
               data-pane={pane?.id}
               className={cn(
-                'flex min-h-0 min-w-0 flex-col md:basis-0',
-                index > 0 && 'border-t md:border-t-0',
+                'min-h-0 min-w-0 flex-col md:basis-0',
+                // Narrow screens show the main pane alone, without tabs.
+                index === 0 ? 'flex' : 'hidden md:flex',
               )}
               style={{ flexGrow: workspace?.sizes[index] ?? 1 }}
             >

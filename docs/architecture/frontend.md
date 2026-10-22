@@ -99,7 +99,7 @@ itself passes `meta: { toast: false }`. Every route gets the default error bound
 (`app/route-error.tsx`) and unknown paths a 404 page.
 
 Workspace (`core/workspace/`, #160): in a vault the main area holds up to four **panes** side by
-side (stacked below `md`), each with a strip of **tabs**, so entities, timelines and graphs can be
+side, each with a strip of **tabs** (below `md` only the main pane shows, without its tabs), so entities, timelines and graphs can be
 open together. A tab is a page of the vault (its path and search, `/v/<vault>/e/<id>?tab=…`,
 including the time context `tl`/`at`/`cal`), titled from its route: the entity's name (with
 "· Timeline", "· Events" or "· Causality" for those views), the kind's plural, or the page's name.
