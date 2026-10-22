@@ -1,11 +1,21 @@
-import { Link } from '@tanstack/react-router'
-import { ChevronRightIcon, EyeIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { ChevronRightIcon, EyeIcon, GitMergeIcon, MoveRightIcon } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import type { EntityViewProps } from '@/core/modules'
 import { lineageOf, MomentDisplay, useTimeContext } from '@/core/time'
-import { useBranchDiff, useEntity, useTimelines, type DiffRecord, type TimelineNode } from '@/data'
+import {
+  useBranchDiff,
+  useEntity,
+  useMutations,
+  useTimelines,
+  type DiffRecord,
+  type TimelineNode,
+} from '@/data'
+
+import { BranchChangeDialog, type BranchChange } from './branch-change-dialog'
 
 /** How many records of each kind of difference the summary lists. */
 const SHOWN = 8
@@ -92,6 +102,9 @@ export function TimelinePanel({ vault, entityId }: EntityViewProps) {
   const lineage = lineageOf(nodes, entityId)
   const isBranch = node !== null && !node.is_prime
   const diff = useBranchDiff(vault, isBranch ? entityId : null)
+  const editable = useMutations() !== null
+  const navigate = useNavigate()
+  const [change, setChange] = useState<BranchChange | null>(null)
   if (tree.isPending || entity.isPending) {
     return <p className="text-sm text-muted-foreground">Loading…</p>
   }
@@ -127,6 +140,28 @@ export function TimelinePanel({ vault, entityId }: EntityViewProps) {
           ))}
         </nav>
         <div className="flex-1" />
+        {isBranch && editable && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setChange('reparent')
+              }}
+            >
+              <MoveRightIcon aria-hidden /> Move under…
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setChange('merge')
+              }}
+            >
+              <GitMergeIcon aria-hidden /> Merge into parent…
+            </Button>
+          </>
+        )}
         {!viewed && time.dimensionId === dimensionId && (
           <Button
             variant="outline"
@@ -181,6 +216,32 @@ export function TimelinePanel({ vault, entityId }: EntityViewProps) {
           )}
         </Row>
       </dl>
+      {change !== null && node.parent_timeline_id !== null && (
+        <BranchChangeDialog
+          vault={vault}
+          dimension={dimensionId}
+          timeline={node}
+          parentId={node.parent_timeline_id}
+          nodes={nodes}
+          change={change}
+          onClose={() => {
+            setChange(null)
+          }}
+          onDone={(done, parentId) => {
+            setChange(null)
+            const parent = find(nodes, parentId)?.name ?? 'its parent'
+            if (done === 'merge') {
+              toast.success(`Merged “${node.name}” into “${parent}”`, {
+                description: 'Undo it from History.',
+              })
+              if (viewed) time.setTimeline(parentId)
+              void navigate({ to: '/v/$vault/e/$entity', params: { vault, entity: parentId } })
+            } else {
+              toast.success(`Moved “${node.name}” under “${parent}”`)
+            }
+          }}
+        />
+      )}
       {isBranch && diff.data !== undefined && (
         <div className="flex flex-col gap-3">
           <DiffList vault={vault} title="Created in this branch" records={diff.data.created} />

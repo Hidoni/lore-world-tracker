@@ -526,6 +526,14 @@ Implementation (`core/time/`, #72):
   overrides it, Revert removes the override). Facts lists in a branch ask for that timeline (the
   values it sees); link lists without a cursor drop the links the branch overrides. Inherited
   events can't be edited from a branch (their time would change in every timeline sharing them).
+- **Re-parenting and merging** (#158, `modules/branches/views/branch-change-dialog.tsx`): a
+  branch's timeline page offers **Move under…** (pick the new parent among the dimension's other
+  timelines, then preview) and **Merge into parent…** (previewed right away). The dialog lists the
+  branch's records and what happens to each, the parent's own records after the branch point with
+  a Keep/Discard choice, the branches and branch points that move or get pinned, and the notes;
+  **Move**/**Merge** applies the proposal (one undo), and a stale or expired preview offers
+  "Preview again". After a merge the parent's page opens (and the parent becomes the viewed
+  timeline if the branch was).
 - **Calendars:** `useDimensionCalendars` loads the dimension's calendar entities (their `ext`:
   definition, `definition_revision`, `resolved_anchors`). `compiledCalendar` compiles one with
   `@lore/chronology` (`resolved_anchors` is `CompileContext.resolved`) and caches it by id,

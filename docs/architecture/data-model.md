@@ -288,12 +288,12 @@ timestamps.
 
 ### 5.9 `proposals`
 
-Short-lived impact previews (`time-model.md` §7.4, `recurrence.md` §8):
-`id, kind ('calendar'|'recurrence'), target_id, payload JSON, impact JSON, base_revision,
+Short-lived impact previews (`time-model.md` §4.7, §7.4, `recurrence.md` §8):
+`id, kind ('calendar'|'recurrence'|'branch'), target_id, payload JSON, impact JSON, base_revision,
 created_at, expires_at`. Purged on startup and hourly (when a vault opens, and by the
 maintenance scheduler for open vaults). Not recorded in history; an applied proposal is deleted.
-`payload` is the request (the definition, or the rule, start and end); `impact` the preview's
-items (and, for calendars, the fingerprint stale detection compares and `unmoved`, the keys of the
+`payload` is the request (the definition; the rule, start and end; a branch operation); `impact`
+the preview's items (and, for branches, the plan stale detection compares; for calendars, the fingerprint stale detection compares and `unmoved`, the keys of the
 items it breaks without moving them).
 
 ## 6. Links, facts and mentions

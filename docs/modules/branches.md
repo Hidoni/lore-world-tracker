@@ -94,6 +94,19 @@ Core tables only (`timelines`, override rows in time-bound tables, `entity_timel
   the note filtered. Module entity panels gained `useShown` for this.
 - e2e E7.
 
+### Implemented (#158)
+
+- **Re-parenting and merging** (`time-model.md` §4.7, ADR-0019): `POST
+  /m/branches/timelines/{id}/proposals {operation: reparent|merge}` previews and `…/apply` applies
+  (`lore.core.time.branch_ops`). Re-parenting moves a branch (with its descendants) under another
+  timeline of its dimension and drops the overrides of records it no longer inherits. Merging moves
+  a branch's records into its parent, merges its overrides there, keeps or discards each of the
+  parent's own records after the branch point (`keep`/`discard`), moves its child branches,
+  branch-only entities and notes, and trashes the emptied branch. Branch points that would depend
+  on records their parent no longer sees are pinned to their moment.
+- The timeline page has **Move under…** and **Merge into parent…** (`frontend.md`, Branches): a
+  dialog shows the preview and, for a merge, a keep/discard choice per conflicting record.
+
 ## UI
 
 - **Timeline switcher** in the top bar (tree of timelines per dimension, with the branch point
@@ -128,5 +141,4 @@ are hidden (data preserved). Branch-only entities are hidden too.
 
 ## Future ideas
 
-Re-parenting branches, merging a branch back ("canonize"), per-branch calendar variants, branch
-comparison reports.
+Per-branch calendar variants, branch comparison reports.

@@ -68,3 +68,44 @@ test('E7: branch from an event → override a spanning war → compare lanes sho
   const widths = await Promise.all([branchWar.boundingBox(), primeWar.boundingBox()])
   expect(widths[0]?.width ?? 0).toBeLessThan(widths[1]?.width ?? 0)
 })
+
+// Merging (time-model.md §4.7): the branch's records join the parent, and the parent's own record
+// after the branch point is discarded on the preview.
+test('E7: merge a branch into its parent, discarding a record of the parent', async ({
+  page,
+  lore,
+}) => {
+  const dimension = await createGregorianDimension(page, lore, 'Aetheria')
+  const prime = (
+    (await lore.entity(dimension)) as unknown as { ext: { prime_timeline_id: string } }
+  ).ext.prime_timeline_id
+  const branch = await lore.createBranch(prime, point(yearStart(105)), 'The Emperor Survives')
+  const event = (name: string, year: number, timeline?: string) =>
+    lore.createEntity('event', name, {
+      dimension_id: dimension,
+      ext: {
+        start: point(yearStart(year)),
+        end: { kind: 'instant' },
+        ...(timeline === undefined ? {} : { timeline_id: timeline }),
+      },
+    })
+  const rescue = await event('The Rescue', 106, branch.id)
+  const funeral = await event('The Funeral', 107)
+
+  await page.goto(lore.url(branch.id))
+  await page.getByRole('button', { name: 'Merge into parent…' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Merge “The Emperor Survives” into its parent' })
+  const merged = dialog.getByRole('region', { name: 'Records of the branch' })
+  await expect(merged.getByRole('link', { name: 'The Rescue' })).toBeVisible()
+  await dialog.getByLabel('Choice for The Funeral').selectOption('discard')
+  await dialog.getByRole('button', { name: 'Merge' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page).toHaveURL(new RegExp(`/e/${prime}`))
+
+  const moved = (await lore.entity(rescue.id)) as unknown as { ext: { timeline_id: string } }
+  expect(moved.ext.timeline_id).toBe(prime)
+  const trashed = async (id: string) =>
+    ((await lore.entity(id)) as unknown as { deleted_at: string | null }).deleted_at !== null
+  expect(await trashed(funeral.id)).toBe(true)
+  expect(await trashed(branch.id)).toBe(true)
+})

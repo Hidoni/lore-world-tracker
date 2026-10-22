@@ -16,6 +16,10 @@ export type DiffRecord = Domain<Schemas['DiffRecord']>
 export type OverrideRecordType = 'event' | 'fact' | 'link'
 export type BranchCreate = Schemas['BranchCreate']
 export type TimelineNote = Domain<Schemas['NoteOut']>
+/** A preview of re-parenting or merging a branch, moments as `bigint`. */
+export type BranchProposal = Domain<Schemas['BranchProposalOut']>
+export type BranchRecord = Domain<Schemas['BranchRecord']>
+export type BranchStrategy = NonNullable<Schemas['BranchProposalApply']['default_strategy']>
 
 /**
  * What a branch created, overrode (before/after) and inherits across its branch point (`null`:
@@ -90,6 +94,38 @@ export function useRevertOverride(vault: string) {
   return useMutation({
     mutationFn: ({ recordType, id }: { recordType: OverrideRecordType; id: string }) =>
       mutations.revertOverride(vault, recordType, id),
+    onSuccess: (result) => invalidateAffected(client, vault, result.affected),
+  })
+}
+
+/**
+ * Previews moving a branch under another timeline or merging it into its parent
+ * (`POST /m/branches/timelines/{id}/proposals`, time-model.md §4.7). Errors are the caller's.
+ */
+export function useProposeBranchChange(vault: string) {
+  const mutations = useRequiredMutations()
+  return useMutation({
+    mutationFn: ({ timeline, body }: { timeline: string; body: Schemas['BranchProposalIn'] }) =>
+      mutations.proposeBranchChange(vault, timeline, body),
+    meta: { toast: false },
+  })
+}
+
+/** Applies a branch proposal (a strategy per conflicting record); one undoable changeset. */
+export function useApplyBranchProposal(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      timeline,
+      proposal,
+      body,
+    }: {
+      timeline: string
+      proposal: string
+      body: Schemas['BranchProposalApply']
+    }) => mutations.applyBranchProposal(vault, timeline, proposal, body),
+    meta: { toast: false },
     onSuccess: (result) => invalidateAffected(client, vault, result.affected),
   })
 }

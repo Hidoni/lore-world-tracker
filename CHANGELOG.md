@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Moving and merging branches** (#158): a branch's timeline page can move the branch (with its
+  own branches) under another timeline of its dimension, or merge it into its parent. Both show a
+  preview first. A merge moves the branch's records and its changes to inherited records into the
+  parent, and lets you keep or discard each of the parent's own records after the branch point.
+  The branch's own branches, the entities created in it and its notes move to the parent, and the
+  emptied branch goes to the trash. One undo reverts either change (`time-model.md` §4.7,
+  ADR-0019).
 - **Tabs and split panes** (#160): open several entities, timelines and graphs side by side. The
   main area has tabs and up to four resizable panes, each with its own history.
   Alt-click a link to open it in a new tab, Alt+Shift-click to open it to the right, or use the

@@ -16,6 +16,7 @@ from lore.core.api.deps import (
 from lore.core.consistency.schemas import SuppressIn, request_suppress
 from lore.core.entities.schemas import ID_PATTERN, EntityWriteResult
 from lore.core.modules.spec import VaultContext
+from lore.core.time import branch_ops
 from lore.core.time.branch_reads import (
     BranchDiff,
     NoteIn,
@@ -25,11 +26,16 @@ from lore.core.time.branch_reads import (
     write_note,
 )
 from lore.core.time.branches import create_branch
+from lore.core.time.models import Proposal
 from lore.core.time.overrides import OverrideIn, OverrideResult, revert_override, save_override
 from lore.core.visibility import AUTHOR
 from lore.modules.branches.schemas import (
     RECORD_TYPE_PATTERN,
+    BranchApplied,
     BranchCreate,
+    BranchProposalApply,
+    BranchProposalIn,
+    BranchProposalOut,
     OverrideCreate,
     OverrideOut,
 )
@@ -149,3 +155,69 @@ def get_diff(
     del against
     context = VaultContext(vault, session, registry)
     return branch_diff(context, policy, timeline_id, limit=limit)
+
+
+def _proposal_out(proposal: Proposal) -> BranchProposalOut:
+    impact = {k: v for k, v in proposal.impact.items() if k != "plan"}
+    return BranchProposalOut.model_validate(
+        {
+            "id": proposal.id,
+            "timeline_id": proposal.target_id,
+            "base_revision": proposal.base_revision,
+            "created_at": proposal.created_at,
+            "expires_at": proposal.expires_at,
+            **impact,
+        }
+    )
+
+
+@router.post("/timelines/{timeline_id}/proposals", name="timeline_propose", status_code=201)
+def propose(
+    *,
+    timeline_id: EntityPath,
+    body: BranchProposalIn,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> BranchProposalOut:
+    """Preview moving a branch under another timeline (`reparent`) or merging it into its parent
+    (`merge`, ``time-model.md`` §4.7): the records it moves or changes, the parent's records after
+    the branch point (each kept or discarded on apply), the timelines and entities that move and
+    the branch points pinned. Kept for an hour. ``404`` for a missing or trashed branch, ``422``
+    for a prime or an invalid new parent, ``409 occurrence_key_conflict`` when a series has an
+    occurrence materialized in both timelines."""
+    if body.operation == branch_ops.REPARENT and body.parent_timeline_id is None:
+        raise branch_ops.missing_parent()
+    payload = body.model_dump(mode="json", exclude={"suppress"})
+    context = VaultContext(vault, session, registry)
+    return _proposal_out(branch_ops.preview(context, timeline_id, payload))
+
+
+ProposalPath = Annotated[str, Path(pattern=ID_PATTERN, description="The proposal.")]
+
+
+@router.post("/timelines/{timeline_id}/proposals/{proposal_id}/apply", name="timeline_apply")
+def apply_proposal(
+    *,
+    timeline_id: EntityPath,
+    proposal_id: ProposalPath,
+    body: BranchProposalApply,
+    vault: WritableVaultDep,
+    session: SessionDep,
+    registry: ModuleRegistryDep,
+) -> BranchApplied:
+    """Apply a branch proposal as one changeset (one undo). ``409 proposal_stale`` when the
+    timelines or their records changed since the preview; ``404`` for an expired proposal."""
+    request_suppress(session, body.suppress)
+    context = VaultContext(vault, session, registry)
+    applied = branch_ops.apply(
+        context, timeline_id, proposal_id, body.strategies, body.default_strategy
+    )
+    return BranchApplied(
+        operation=applied.operation,  # type: ignore[arg-type]
+        moved=applied.moved,
+        discarded=applied.discarded,
+        timelines=applied.timelines,
+        pinned=applied.pinned,
+        affected=applied.affected,
+    )

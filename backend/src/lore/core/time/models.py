@@ -210,12 +210,13 @@ class TimeDependency(Base):
 
 class Proposal(IdMixin, Base):
     """An impact preview (``data-model.md`` §5.9): ``kind`` ``calendar`` (``target_id`` = the
-    calendar) or ``recurrence`` (the series event); ``payload`` is the requested change, ``impact``
+    calendar), ``recurrence`` (the series event) or ``branch`` (the branch re-parented or merged,
+    ``time-model.md`` §4.7); ``payload`` is the requested change, ``impact``
     what it does, ``base_revision`` the target's revision it was computed against."""
 
     __tablename__ = "proposals"
 
-    kind: Mapped[str] = mapped_column(String)  # calendar | recurrence
+    kind: Mapped[str] = mapped_column(String)  # calendar | recurrence | branch
     target_id: Mapped[str] = mapped_column(String)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON)
     impact: Mapped[dict[str, Any]] = mapped_column(JSON)
@@ -224,7 +225,7 @@ class Proposal(IdMixin, Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
     __table_args__ = (
-        CheckConstraint("kind IN ('calendar', 'recurrence')", name="kind"),
+        CheckConstraint("kind IN ('calendar', 'recurrence', 'branch')", name="kind"),
         Index("ix_proposals_expires_at", "expires_at"),
     )
 

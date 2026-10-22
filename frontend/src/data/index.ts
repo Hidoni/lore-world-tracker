@@ -183,15 +183,20 @@ export {
 } from './languages'
 export { useGraph, type GraphData, type GraphQuery } from './graph'
 export {
+  useApplyBranchProposal,
   useBranchDiff,
   useBranchDiffs,
   useCreateBranch,
+  useProposeBranchChange,
   useRevertOverride,
   useSaveOverride,
   useSaveTimelineNote,
   useTimelineNote,
   type BranchCreate,
   type BranchDiff,
+  type BranchProposal,
+  type BranchRecord,
+  type BranchStrategy,
   type DiffRecord,
   type OverrideInput,
   type OverrideRecordType,

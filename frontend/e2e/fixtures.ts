@@ -103,6 +103,21 @@ export class Lore {
     return result.fact
   }
 
+  /** A branch of a timeline (the branches module) at `point`. */
+  async createBranch(
+    parentTimelineId: string,
+    point: Record<string, unknown>,
+    name: string,
+  ): Promise<Entity> {
+    const result = await ok<{ entity: Entity }>(
+      await this.request.post(`${this.base}/m/branches/timelines`, {
+        data: { parent_timeline_id: parentTimelineId, branch_point: point, name },
+        headers: HEADERS,
+      }),
+    )
+    return result.entity
+  }
+
   /** The id of the entity named `name` (the quick switcher's first exact match). */
   async findByName(name: string): Promise<string> {
     const result = await ok<{ items: { entity_id: string; name: string }[] }>(

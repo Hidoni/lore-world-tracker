@@ -417,6 +417,17 @@ export interface Mutations {
     timeline: string,
     body: Schemas['NoteIn'],
   ): Promise<D<'NoteOut'>>
+  proposeBranchChange(
+    vault: string,
+    timeline: string,
+    body: Schemas['BranchProposalIn'],
+  ): Promise<D<'BranchProposalOut'>>
+  applyBranchProposal(
+    vault: string,
+    timeline: string,
+    proposal: string,
+    body: Schemas['BranchProposalApply'],
+  ): Promise<D<'BranchApplied'>>
   // The correspondences module.
   createCorrespondence(
     vault: string,

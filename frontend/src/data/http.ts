@@ -1067,6 +1067,26 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
         ),
         'NoteOut',
       ),
+    proposeBranchChange: async (vault, timeline, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/branches/timelines/{timeline_id}/proposals`, {
+            params: { path: { vault_id: vault, timeline_id: timeline } },
+            body,
+          }),
+        ),
+        'BranchProposalOut',
+      ),
+    applyBranchProposal: async (vault, timeline, proposal, body) =>
+      toDomain(
+        await unwrap(
+          client.POST(`${V}/m/branches/timelines/{timeline_id}/proposals/{proposal_id}/apply`, {
+            params: { path: { vault_id: vault, timeline_id: timeline, proposal_id: proposal } },
+            body,
+          }),
+        ),
+        'BranchApplied',
+      ),
     createCorrespondence: async (vault, body) =>
       toDomain(
         await unwrap(client.POST(`${V}/m/correspondences`, { params: path(vault), body })),

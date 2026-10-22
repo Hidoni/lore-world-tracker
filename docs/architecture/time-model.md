@@ -190,7 +190,7 @@ and branches with the branches module (M9, `lore.core.time.branches`, `POST /m/b
 Constraints: a branch point must resolve inside `[0, D]`, and its anchor may only reference
 records visible in the **parent** timeline (otherwise a branch could depend on itself).
 Timelines form a tree per dimension. Deleting a timeline with descendants requires deleting
-(or re-parenting, post-MVP) the descendants first.
+(or re-parenting, §4.7) the descendants first.
 
 ### 4.2 Lineage and cut-offs
 
@@ -329,6 +329,63 @@ extra rich text for an entity ("In this timeline she became a pirate") without f
 page body (M9). One per entity and branch (`GET|PUT /m/branches/notes/{entity}/{timeline}`, #115),
 for entities the branch shows; readers see it filtered like any rich text. Notes go with their
 entity or timeline when either is purged.
+
+### 4.7 Re-parenting and merging branches (#158, ADR-0019)
+
+Both change a branch's place in its dimension's tree through a **proposal** (like calendar edits,
+§7.4): `POST /m/branches/timelines/{id}/proposals {operation, …}` previews the impact and stores it
+for an hour, `POST …/proposals/{pid}/apply` carries it out as one changeset (one undo). The
+preview runs the apply inside a SAVEPOINT (every conflict kept) and rolls it back, so both share
+one semantics. Apply answers `409 proposal_stale` when the plan computed again (which rows move or
+change, which records conflict, which timelines, entities and notes move) differs from the
+preview's, and the changeset runs the consistency engine like any write (`suppress` on apply).
+Implementation: `lore.core.time.branch_ops`.
+
+**Re-parent** (`operation: "reparent"`, `parent_timeline_id`): branch `T` moves under another
+live timeline `Q` of its dimension (not `T`, one of its descendants or its current parent). Its
+branch point keeps its spec and moment (branch points resolve in the dimension, not in a
+timeline), its descendants come along, and from then on it inherits `lineage(Q)` cut at `b(T)`.
+`T` becomes branch-only in `Q`'s lineage when `Q` is a branch (§4.6).
+
+- `T`'s **overrides** whose root it no longer inherits spanning its new cut-off (the root's
+  timeline left its lineage, or the root now starts at or after, or ends at or before, the
+  cut-off) are **dropped**: they would change records `T` doesn't have. Time points anchored to a
+  dropped fact, link or validity override are pinned at their moment first (frozen, §7.3).
+- A branch point (of `T` or any branch of the dimension) anchored to records its parent no longer
+  sees is **pinned** to an `absolute` anchor at its moment (precision and circa kept, §7.4
+  `pin_moment`): a branch point may only depend on its parent (§4.1).
+- What `T`'s own records anchor to keeps resolving; they may now refer to records `T` doesn't
+  show (the preview counts those slots in `hidden_references`).
+
+**Merge** (`operation: "merge"`, decided with #158: combine, with a choice per record): branch `B`
+of `P` with cut-off `c = b(B)` is merged back into `P`, which then holds `B`'s history.
+
+- **Records:** in every time-bound table (§4.5 registration), `B`'s own rows (the trash's too)
+  move to `P`.
+- **`B`'s overrides** of a root `R`, by the row `W` that `P` saw for `R`:
+  - `replace`: `W` is `P`'s own override. `W` is reverted, and `B`'s override moves to `P`.
+  - `apply`: `W` is `R` itself (a record of `P`). `R` takes what the override changed (an
+    event's end and rule; a fact's value and end, through the facts service; a link's role, data
+    and end, through the links service; a validity record's end), and the override is reverted.
+  - `rehome`: `W` is an ancestor's. `B`'s override moves to `P` and becomes `P`'s.
+  - Time points anchored to a reverted fact, link or validity override are pinned first.
+- **Conflicts:** `P`'s own live records starting at or after `c`, which `B` never saw. Each gets
+  a strategy on apply (`strategies: {"<record type>/<row id>": …}`, `default_strategy`): `keep`
+  (the default) or `discard`. Discarding reverts an override, and trashes an event (its entity),
+  fact or link. Other records, such as segments and module records that aren't overrides, can
+  only be kept.
+- **Timelines:** `B`'s child branches move under `P`. `P`'s other branches after `c` (`siblings`
+  in the preview) then inherit the merged records that start before their branch point. Branch
+  points anchored to records their new parent doesn't see are pinned, as for re-parenting.
+- **Entities:** branch-only entities of `B` (§4.6, its child branches among them) become `P`'s
+  (`origin_for(P)`).
+- **Notes:** `B`'s per-timeline notes move to `P` when `P` is a branch without a note on that
+  entity. The others (a prime has no notes) stay with `B`.
+- **The branch:** time points anchored to `B`'s branch point are pinned, then `B`, now empty,
+  goes to the trash (restorable, and undoing the merge brings everything back).
+- Occurrence keys are unique per series and timeline: a merge that would give `P` two
+  materialized occurrences of one key (trashed ones count) is refused with
+  `409 occurrence_key_conflict`. Detach one of them first.
 
 ## 5. Time points and anchors
 
@@ -1046,5 +1103,5 @@ the Portal shows "Concurrently in Dreamrealm: Year 1, Day 1".
 - Per-timeline calendar variants (eras that differ by branch). For now calendars are
   dimension-level, and their anchors resolve in the **prime** timeline.
 - Time zones / local times (a calendar regime offset per location).
-- Branch re-parenting and merging.
+- ~~Branch re-parenting and merging~~: done (§4.7, #158).
 - ~~Log-scale ("cosmic") timeline axis~~: done (#153; chronology-engine.md §12).
