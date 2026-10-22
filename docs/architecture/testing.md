@@ -374,11 +374,15 @@ exactly, like vectors (`validate` errors as a set).
 
 - **Cases.** Random calendars with bounded sizes (2–4 levels, up to two regimes with absolute or
   `local` starts, uniform and sequence templates with named, run and intercalary children, fixed,
-  cycle and rules top patterns, exceptions, eras, an overlay, continuous and reset cycles with
-  exclusions, formats and display options), each `validate`d as is and with random corruptions.
-  On a valid calendar, ops with moments over the whole dimension and near its special moments:
-  conversions (dates read off the calendar, then perturbed), bounds, ordinals, options, cycles,
-  eras, overlays, add/diff, formatting and calendar recurrence rules. Then calendar-free ops:
+  cycle and rules top patterns, exceptions, eras, overlays with rational periods, annual markers
+  (fields read off the calendar or perturbed: slot ids, numbers past the end, wrapping ranges,
+  now and then invalid fields), continuous and reset cycles with exclusions, formats and display
+  options), each `validate`d as is and with random corruptions. On a valid calendar, ops with
+  moments over the whole dimension and near its special moments: conversions (dates read off the
+  calendar, then perturbed), bounds, ordinals, options, cycles, eras, overlays, markers
+  (`marker_range`, `markers_at`), add/diff, formatting, and calendar and overlay recurrence rules
+  (calendar rules with marker filters and marker selectors, with and without `nth`). Then
+  calendar-free ops:
   interval rules, correspondences (`map`, `compose`) and the numeric utilities. Generated
   documents may be invalid on purpose: both engines must report the same errors.
 - **Sizes.** `DIFFERENTIAL_CASES` (default 200 locally, 1,000 in PR CI, 10,000 nightly). PR runs
