@@ -6,11 +6,12 @@ four levels, two regimes, small templates and periods) to keep each engine call 
 moments, years and counts span the full range of big integers.
 
 Calendars are built in two phases. The structure (levels, templates, top patterns, eras,
-overlays) is generated first; cycles are added once that structure compiles, because a continuous
-cycle's anchor names a date, which is read off the compiled calendar with the Python engine. Ops
-take their dates from the Python engine too (``to_fields`` of a random moment, then perturbed), so
-most inputs are valid and reach deep into both engines, while the perturbations exercise the
-error paths. Using one engine to build inputs is fine: both engines then get the same input.
+overlays) is generated first; annual markers and cycles are added once that structure compiles,
+because their dates (a marker's ``from`` and ``to``, a continuous cycle's anchor) are read off the
+compiled calendar with the Python engine. Ops take their dates from the Python engine too
+(``to_fields`` of a random moment, then perturbed), so most inputs are valid and reach deep into
+both engines, while the perturbations exercise the error paths. Using one engine to build inputs
+is fine: both engines then get the same input.
 """
 
 import copy
@@ -207,23 +208,31 @@ def _structure(draw: st.DrawFn) -> Json:
             eras.append(era)
         definition["eras"] = eras
     if draw(st.booleans()):
-        num = draw(st.integers(1, 10**7))
-        den = draw(st.sampled_from([1, 1, 3, 100]))
-        froms = sorted(draw(st.sets(st.integers(1, 15), max_size=3)))
-        phases = [{"name": "Zero", "from": {"num": "0", "den": "1"}}] + [
-            {"name": f"P{f}", "from": _rational(f, 16)} for f in froms
-        ]
-        definition["overlays"] = [
-            {
-                "id": "moon",
-                "name": "Moon",
-                "period": _rational(num, den),
-                "epoch": _absolute(0),
-                "phases": phases,
-            }
-        ]
-        _resolve_absolute(document, "/overlays/0/epoch", draw(moments))
+        overlays = draw(st.sampled_from([["moon"], ["moon"], ["moon", "tide"]]))
+        definition["overlays"] = []
+        for i, overlay_id in enumerate(overlays):
+            definition["overlays"].append(draw(_overlay_definition(overlay_id)))
+            _resolve_absolute(document, f"/overlays/{i}/epoch", draw(moments))
     return document
+
+
+@st.composite
+def _overlay_definition(draw: st.DrawFn, overlay_id: str) -> Json:
+    """An overlay with a rational period: whole, a few base units, or below one (too fast for
+    an overlay rule with a small interval)."""
+    num = draw(st.one_of(*[st.integers(1, 10**7)] * 4, st.integers(1, 10)))
+    den = draw(st.sampled_from([1, 1, 3, 7, 100, 10**6]))
+    froms = sorted(draw(st.sets(st.integers(1, 15), max_size=3)))
+    phases = [{"name": "Zero", "from": {"num": "0", "den": "1"}}] + [
+        {"name": f"P{f}", "from": _rational(f, 16)} for f in froms
+    ]
+    return {
+        "id": overlay_id,
+        "name": overlay_id.title(),
+        "period": _rational(num, den),
+        "epoch": _absolute(0),
+        "phases": phases,
+    }
 
 
 def _rational(num: int, den: int) -> Json:
@@ -285,6 +294,58 @@ def _cycle(draw: st.DrawFn, document: Json, r: int, cycle_id: str) -> Json:
     return cycle
 
 
+# --- annual markers ----------------------------------------------------------------------------
+
+MARKER_IDS = ("spring", "winter", "fair")
+
+
+@st.composite
+def _marker_fields(draw: st.DrawFn, document: Json, levels: Sequence[str], depth: int) -> Json:
+    """``from``/``to`` fields: the ``depth`` levels below the top. Usually read off a date of the
+    calendar, sometimes perturbed (a slot, a number past the end: constrained, or none)."""
+    run = levels[-1 - depth : -1]
+    duration = int(document["context"]["dimension_duration"])
+    found = fields_of(document, draw(st.integers(0, duration)), run[0])
+    fields: Json = {level: found[level] for level in run} if found else {}
+    slots = sorted(
+        {
+            child["id"]
+            for regime in document["definition"]["regimes"]
+            for template in regime["templates"].values()
+            for child in template.get("sequence", [])
+            if "id" in child
+        }
+    )
+    for level in run:
+        if level not in fields or not draw(st.integers(0, 3)):
+            pool = [str(n) for n in (0, 1, 2, 3, 5, 12, 31, 40, 10**6, -1)] + [*slots, "zz"]
+            fields[level] = draw(st.sampled_from(pool))
+    return fields
+
+
+@st.composite
+def _markers(draw: st.DrawFn, document: Json) -> list[Json]:
+    """Up to three markers (wrapping when ``to`` is not after ``from``); now and then one with
+    fields that don't name a run of levels below the top (``marker.invalid_fields``)."""
+    levels = [level["id"] for level in document["definition"]["levels"]]
+    markers: list[Json] = []
+    for marker_id in draw(
+        st.lists(st.sampled_from(MARKER_IDS), min_size=1, max_size=3, unique=True)
+    ):
+        depth = draw(st.integers(1, len(levels) - 1))
+        marker: Json = {"id": marker_id, "name": marker_id.title()}
+        for side in ("from", "to"):
+            marker[side] = draw(_marker_fields(document, levels, depth))
+        if not draw(st.integers(0, 9)):
+            side = draw(st.sampled_from(["from", "to"]))
+            bad = [{levels[-1]: "1"}, {"nope": "1"}]
+            if len(levels) > 3:  # skips a level
+                bad.append({levels[-2]: "1", levels[-4]: "1"})
+            marker[side] = draw(st.sampled_from(bad))
+        markers.append(marker)
+    return markers
+
+
 @st.composite
 def _format(draw: st.DrawFn, definition: Json, cycles: Sequence[str]) -> str:
     """A format pattern of valid tokens and literal text (§3.11)."""
@@ -337,7 +398,15 @@ def _presentation(draw: st.DrawFn, document: Json) -> Json:
 def calendars(draw: st.DrawFn) -> Json:
     """A calendar document ``{definition, context}``, usually (not always) valid."""
     document = draw(_presentation(draw(_structure())))
-    if compile_document(document) is None or not draw(st.integers(0, 3)):
+    if compile_document(document) is None:
+        return document
+    if draw(st.booleans()):
+        markers = draw(_markers(document))  # read off `document` (compiled once, by identity)
+        document = copy.deepcopy(document)
+        document["definition"]["markers"] = markers
+        if compile_document(document) is None:
+            return document
+    if not draw(st.integers(0, 3)):
         return document
     with_cycles = copy.deepcopy(document)
     for r, regime in enumerate(with_cycles["definition"]["regimes"]):
@@ -419,7 +488,8 @@ class Calendar:
         )
         self.eras = [era["id"] for era in definition.get("eras", [])]
         self.regimes = [regime["id"] for regime in definition["regimes"]]
-        self.overlays = definition.get("overlays", [])
+        self.overlays = [overlay["id"] for overlay in definition.get("overlays", [])]
+        self.markers = [marker["id"] for marker in definition.get("markers", [])]
         self.slots = sorted(
             {
                 child["id"]
@@ -564,9 +634,14 @@ def _display_point(draw: st.DrawFn, calendar: Calendar) -> Json | None:
     }
 
 
+def _known(ids: Sequence[str]) -> st.SearchStrategy[str]:
+    """One of ``ids``, and now and then an unknown id (errors)."""
+    return st.sampled_from([*list(ids) * 5, "nope"])
+
+
 @st.composite
 def _overlay(draw: st.DrawFn, calendar: Calendar) -> Json:
-    overlay = draw(st.sampled_from(["moon", "moon", "nope"]))
+    overlay = draw(_known(calendar.overlays))
     t = str(draw(calendar.moments()))
     if draw(st.booleans()):
         return _case("overlay_phase", {"t": t, "overlay": overlay})
@@ -593,6 +668,18 @@ def _parse(draw: st.DrawFn, calendar: Calendar) -> Json:
     elif edit == 4:
         text = "c. " + text
     return _case("parse", {"text": text})
+
+
+@st.composite
+def _marker_range(draw: st.DrawFn, calendar: Calendar) -> Json:
+    """A year near a moment's year (or anywhere), so its range is usually inside the dimension."""
+    found = run_op("to_fields", calendar.document, {"t": str(draw(calendar.moments()))})
+    years = st.integers(-(10**30), 10**30)
+    if "error" not in found:
+        year = int(found["levels"][calendar.levels[-1]]["n"])
+        years = st.one_of(st.integers(year - 2, year + 2), st.integers(year - 2, year + 2), years)
+    marker = draw(_known(calendar.markers))
+    return _case("marker_range", {"marker": marker, "year": str(draw(years))})
 
 
 @st.composite
@@ -639,6 +726,9 @@ def calendar_ops(draw: st.DrawFn, calendar: Calendar) -> Json:
         choices.append(st.builds(lambda t: _case("era_of", {"t": t}), t))
     if calendar.overlays:
         choices.append(_overlay(calendar))
+    if calendar.markers:
+        choices.append(_marker_range(calendar))
+        choices.append(st.builds(lambda t: _case("markers_at", {"t": t}), t))
     return draw(draw(st.sampled_from(choices)))
 
 
@@ -691,6 +781,7 @@ def _values(draw: st.DrawFn, calendar: Calendar, cycle: bool = False) -> list[st
 @st.composite
 def _filter(draw: st.DrawFn, calendar: Calendar, depth: int = 0) -> Json:
     kinds = ["mod", "in"] + (["cycle"] if calendar.cycles else [])
+    kinds += ["marker"] if calendar.markers else []
     kind = draw(st.sampled_from(kinds + (["all", "any", "not"] if depth < 1 else [])))
     if kind == "mod":
         mod = draw(st.sampled_from(MODS))
@@ -703,9 +794,15 @@ def _filter(draw: st.DrawFn, calendar: Calendar, depth: int = 0) -> Json:
     if kind == "cycle":
         cycle = draw(st.sampled_from(calendar.cycles))
         return {"cycle": cycle, "in": draw(_values(calendar, cycle=True))}
+    if kind == "marker":
+        return {"marker": draw(_known(calendar.markers))}
     if kind == "not":
         return {"not": draw(_filter(calendar, depth + 1))}
     return {kind: draw(st.lists(_filter(calendar, depth + 1), min_size=1, max_size=2))}
+
+
+def _nth() -> st.SearchStrategy[list[str]]:
+    return st.lists(st.sampled_from(["1", "2", "-1", "-2", "0"]), min_size=1, max_size=2)
 
 
 @st.composite
@@ -720,20 +817,22 @@ def _selector(draw: st.DrawFn, calendar: Calendar, below: int) -> Json | None:
     path = []
     for position in positions:
         level = calendar.levels[position]
-        kind = draw(
-            st.sampled_from(["values", "values", "all"] + (["cycle"] * bool(calendar.cycles)))
-        )
+        kinds = ["values", "values", "all"] + ["cycle"] * bool(calendar.cycles)
+        kind = draw(st.sampled_from(kinds + ["marker"] * 2 * bool(calendar.markers)))
         if kind == "all":
             path.append({"level": level, "all": True})
+        elif kind == "marker":
+            marker: Json = {"id": draw(_known(calendar.markers))}
+            if draw(st.booleans()):
+                marker["nth"] = draw(_nth())
+            path.append({"level": level, "marker": marker})
         elif kind == "cycle":
             match: Json = {
                 "id": draw(st.sampled_from(calendar.cycles)),
                 "values": draw(_values(calendar, cycle=True)),
             }
             if draw(st.booleans()):
-                match["nth"] = draw(
-                    st.lists(st.sampled_from(["1", "2", "-1", "0"]), min_size=1, max_size=2)
-                )
+                match["nth"] = draw(_nth())
             path.append({"level": level, "cycle": match})
         else:
             path.append({"level": level, "values": draw(_values(calendar))})
@@ -769,9 +868,31 @@ def _calendar_rule(draw: st.DrawFn, calendar: Calendar, resolved: Json) -> Json:
 
 
 @st.composite
+def _overlay_rule(draw: st.DrawFn, calendar: Calendar, resolved: Json) -> Json:
+    """Every ``interval``-th time an overlay reaches a phase (16/16: ``rule.bad_phase``)."""
+    moments = calendar.moments()
+    rule: Json = {
+        "kind": "overlay",
+        "calendar_id": "cal",
+        "overlay": draw(_known(calendar.overlays)),
+        "phase": _rational(draw(st.integers(0, 16)), 16),
+    }
+    if draw(st.booleans()):
+        rule["interval"] = str(draw(st.sampled_from([1, 2, 3, 10**3, 10**9])))
+    rule["limit"] = draw(_limit(moments, resolved))
+    exclusions = draw(_exclusions(moments, resolved))
+    if exclusions:
+        rule["exclusions"] = exclusions
+    return rule
+
+
+@st.composite
 def _recurrence(draw: st.DrawFn, calendar: Calendar) -> Json:
     resolved: Json = {}
-    rule = draw(_calendar_rule(calendar, resolved))
+    if calendar.overlays and draw(st.integers(0, 3)) == 0:
+        rule = draw(_overlay_rule(calendar, resolved))
+    else:
+        rule = draw(_calendar_rule(calendar, resolved))
     context: Json = {
         "rule": rule,
         "series_start": str(draw(calendar.moments())),
