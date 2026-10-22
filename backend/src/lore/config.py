@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("./data")
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=0, le=65535)
+    keep_alive: int = Field(default=75, gt=0)
     read_only: bool = False
     exposed_vaults: CommaList = []
     allowed_hosts: CommaList = ["localhost", "127.0.0.1", "[::1]"]

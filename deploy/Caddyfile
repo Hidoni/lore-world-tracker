@@ -12,5 +12,11 @@ lore.example.com {
 	# 	reader $2a$14$replace.with.the.output.of.caddy.hash-password
 	# }
 
-	reverse_proxy 127.0.0.1:8081
+	reverse_proxy 127.0.0.1:8081 {
+		# Drop idle upstream connections before lore serve does (LORE_KEEP_ALIVE, 75 s by default;
+		# deployment.md §1), so Caddy never reuses one the server just closed.
+		transport http {
+			keepalive 60s
+		}
+	}
 }

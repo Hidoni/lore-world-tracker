@@ -54,7 +54,9 @@ def serve(
     bind_port = port if port is not None else settings.port
     configure_logging(settings.log_level, settings.log_format)
     # Per-vault engines and caches live in-process: never more than one worker. Logging is
-    # configured above (log_config=None), and the access log comes from lore.access.
+    # configured above (log_config=None), and the access log comes from lore.access. Idle
+    # connections stay open longer than clients and proxies keep them (deployment.md §1): with
+    # uvicorn's 5 s default, a client could reuse a connection just as the server closed it.
     if reload:
         uvicorn.run(
             "lore.app:create_app_from_env",
@@ -65,6 +67,7 @@ def serve(
             log_level=settings.log_level,
             log_config=None,
             access_log=False,
+            timeout_keep_alive=settings.keep_alive,
             workers=1,
         )
     else:
@@ -75,6 +78,7 @@ def serve(
             log_level=settings.log_level,
             log_config=None,
             access_log=False,
+            timeout_keep_alive=settings.keep_alive,
             workers=1,
         )
 

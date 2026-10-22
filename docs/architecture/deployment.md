@@ -7,6 +7,7 @@
 | `LORE_DATA_DIR` | `./data` (dev), `/data` (Docker) | root of `vaults/`, `trash/` |
 | `LORE_HOST` | `127.0.0.1` (dev), `0.0.0.0` inside Docker | bind address |
 | `LORE_PORT` | `8000` (dev), `8080` (Docker) | port |
+| `LORE_KEEP_ALIVE` | `75` | seconds an idle HTTP keep-alive connection stays open. Keep it longer than the idle timeout of the clients and reverse proxies in front (nginx upstreams: 60 s; `deploy/Caddyfile` sets 60 s): a client that reuses a connection just as the server closes it gets a reset ("socket hang up"). uvicorn's own default, 5 s, raced with the e2e fixture's requests |
 | `LORE_READ_ONLY` | `false` | reader mode (`visibility-and-sharing.md` §7) |
 | `LORE_EXPOSED_VAULTS` | empty (= all) | comma-separated vault ids/folders to serve |
 | `LORE_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Host header allowlist, ports ignored; `LORE_HOST` is added unless it is a wildcard address (`*` allowed only with `LORE_READ_ONLY=true`) |

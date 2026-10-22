@@ -54,8 +54,18 @@ def test_serve_uses_settings_and_one_worker(monkeypatch: pytest.MonkeyPatch) -> 
         "log_level": "info",
         "log_config": None,
         "access_log": False,
+        "timeout_keep_alive": 75,
         "workers": 1,
     }
+
+
+def test_serve_keep_alive_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _capture_uvicorn(monkeypatch)
+    monkeypatch.setenv("LORE_KEEP_ALIVE", "120")
+    result = runner.invoke(cli.app, ["serve"])
+    assert result.exit_code == 0
+    [_, (_, options)] = calls
+    assert options["timeout_keep_alive"] == 120
 
 
 def test_serve_reload_uses_factory(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,6 +78,7 @@ def test_serve_reload_uses_factory(monkeypatch: pytest.MonkeyPatch) -> None:
     assert options["factory"] is True
     assert options["reload"] is True
     assert options["workers"] == 1
+    assert options["timeout_keep_alive"] == 75
     assert (options["host"], options["port"]) == ("0.0.0.0", 1234)
 
 

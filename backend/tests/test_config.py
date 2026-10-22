@@ -13,6 +13,7 @@ def test_defaults() -> None:
     assert settings.data_dir == Path("./data")
     assert settings.host == "127.0.0.1"
     assert settings.port == 8000
+    assert settings.keep_alive == 75
     assert settings.read_only is False
     assert settings.exposed_vaults == []
     assert settings.allowed_hosts == ["localhost", "127.0.0.1", "[::1]"]
@@ -31,6 +32,7 @@ def test_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
         "LORE_DATA_DIR": str(tmp_path / "data"),
         "LORE_HOST": "0.0.0.0",
         "LORE_PORT": "8080",
+        "LORE_KEEP_ALIVE": "30",
         "LORE_READ_ONLY": "true",
         "LORE_EXPOSED_VAULTS": "alpha, beta,,",
         "LORE_ALLOWED_HOSTS": "*",
@@ -52,6 +54,7 @@ def test_reads_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     assert settings.data_dir == tmp_path / "data"
     assert settings.host == "0.0.0.0"
     assert settings.port == 8080
+    assert settings.keep_alive == 30
     assert settings.read_only is True
     assert settings.exposed_vaults == ["alpha", "beta"]
     assert settings.allowed_hosts == ["*"]
