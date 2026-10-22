@@ -1,7 +1,8 @@
 """The media module's publish contributor (``docs/modules/media.md``, Visibility, backup,
 publish): a published snapshot keeps the items readers may see, with their files and their
-thumbnails made in advance (a reader-side server may not be able to write); the others are
-deleted from it (``ModuleSpec.publish_contributors``, ``lore.core.vaults.publish``)."""
+thumbnails (and the tiles of images shown as tiles) made in advance (a reader-side server may
+not be able to write); the others are deleted from it (``ModuleSpec.publish_contributors``,
+``lore.core.vaults.publish``)."""
 
 import shutil
 from pathlib import Path
@@ -25,18 +26,19 @@ def publish_media(publish: PublishContext) -> None:
 def copy_visible_media(
     context: VaultContext, target: Path, *, source: Path | None = None
 ) -> list[str]:
-    """Copy the reader-visible items' files (and, for raster images, every thumbnail size; for
-    SVGs, the sanitized copy) from ``source`` (default: the context's vault folder) into
-    ``target`` (a vault folder being published) at the same paths; returns their ids."""
+    """Copy the reader-visible items' files (and, for raster images, every thumbnail size and,
+    for those shown as tiles, their tile pyramid; for SVGs, the sanitized copy) from ``source``
+    (default: the context's vault folder) into ``target`` (a vault folder being published) at the
+    same paths; returns their ids."""
     source = source or context.vault.info.path
     service = Media(context, READER)
     rows = context.session.execute(
-        select(MediaItem.id, MediaItem.sha256, MediaItem.mime)
+        select(MediaItem.id, MediaItem.sha256, MediaItem.mime, MediaItem.width, MediaItem.height)
         .where(*service.visible_conditions())
         .order_by(MediaItem.id)
     ).all()
     copied: list[str] = []
-    for media_id, sha256, mime in rows:
+    for media_id, sha256, mime, width, height in rows:
         original = storage.file_path(source, sha256)
         if not original.is_file():
             continue
@@ -46,16 +48,27 @@ def copy_visible_media(
         if mime == storage.SVG:
             _copy_safe_svg(source, target, sha256)
         if mime in storage.RASTER:
-            for width in storage.THUMB_WIDTHS:
-                cached, data = storage.thumbnail(source, sha256, width)
-                out = storage.thumb_path(target, sha256, width)
+            for thumb in storage.THUMB_WIDTHS:
+                cached, data = storage.thumbnail(source, sha256, thumb)
+                out = storage.thumb_path(target, sha256, thumb)
                 out.parent.mkdir(parents=True, exist_ok=True)
                 if cached is not None:
                     shutil.copyfile(cached, out)
                 elif data is not None:
                     out.write_bytes(data)
+            if storage.tiled(width, height):
+                _copy_tiles(source, target, sha256)
         copied.append(media_id)
     return copied
+
+
+def _copy_tiles(source: Path, target: Path, sha256: str) -> None:
+    """The source's pyramid if it has one, else one made in the target (from the copied file)."""
+    made = storage.tiles_path(source, sha256)
+    if made.is_dir():
+        shutil.copytree(made, storage.tiles_path(target, sha256), dirs_exist_ok=True)
+    else:
+        storage.pyramid(target, sha256)
 
 
 def _copy_safe_svg(source: Path, target: Path, sha256: str) -> None:

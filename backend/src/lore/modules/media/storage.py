@@ -8,37 +8,61 @@
   (woff2, woff, ttf, otf: writing systems' script fonts, #155), whose headers must be whole. A file
   whose bytes don't match the name's extension is still judged by its bytes; text files must be
   UTF-8 without NUL bytes.
-- Raster images are decoded with Pillow, which refuses images above ``MAX_PIXELS`` (the
-  decompression-bomb guard), and their dimensions are recorded.
+- Raster images are decoded with libvips (pyvips), streaming, with the loader of their type; images
+  above ``MAX_PIXELS`` are refused before decoding (the decompression-bomb guard), and their
+  dimensions are recorded.
 - Thumbnails (``THUMB_WIDTHS``) are WebP files in ``media/thumbs/<sha256>_<width>.webp``, made on
   first request and regenerable. Where the vault folder can't be written (a read-only server) the
   thumbnail is made in memory each time.
+- Tiles (#162, deep zoom): a raster image's pyramid of ``TILE_SIZE`` px WebP tiles, level ``k``
+  being the image shrunk ``2^k`` times, down to the level where it fits in one tile
+  (``tile_levels``). The whole pyramid is made on the first tile's request (libvips ``dzsave``) in
+  ``media/tiles/<sha256>/<k>/<x>_<y>.webp`` and is regenerable; a read-only server makes the
+  requested tile alone, in memory. Clients tile images whose longer side is above
+  ``TILED_SIDE`` (``tiled``).
 - SVGs must be readable by the sanitizer (``lore.modules.media.svg``) to be stored. Their
   sanitized copy is cached the same way, in ``media/thumbs/<sha256>_safe<svg.VERSION>.svg``.
 """
 
 import hashlib
-import io
 import os
+import shutil
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, cast
 
-from PIL import Image, UnidentifiedImageError
+import pyvips
 
 from lore.modules.media import svg
 
 MEDIA_DIR = "media"
 THUMBS_DIR = "thumbs"
+TILES_DIR = "tiles"
 THUMB_WIDTHS = (160, 480, 1280)
-# The decompression-bomb guard: Pillow refuses to decode images with more pixels than this.
-MAX_PIXELS = 50_000_000
+# The decompression-bomb guard: images with more pixels than this are refused before decoding.
+# libvips decodes them streaming, so memory stays small (a 16k by 16k map is 268 megapixels).
+MAX_PIXELS = 400_000_000
+TILE_SIZE = 256
+# Images whose longer side is above this are shown as tiles: about the largest texture browsers
+# and GPUs (mobile ones especially) take whole.
+TILED_SIDE = 8192
 _CHUNK = 1 << 20
-# Pillow's own guard as a backstop (it raises at twice this); sizes are checked before decoding.
-Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+_UNBOUNDED = 10_000_000  # libvips' largest coordinate: "no limit" for a thumbnail's height
+# Files are content-addressed and read once per use: libvips' operation cache would only hold
+# decoded images in memory.
+pyvips.cache_set_max(0)
 
-RASTER = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"})
+# Each raster type's libvips loader: an image is only ever decoded as the type its bytes say.
+_LOADERS = {
+    "image/png": "pngload_buffer",
+    "image/jpeg": "jpegload_buffer",
+    "image/webp": "webpload_buffer",
+    "image/gif": "gifload_buffer",
+    "image/avif": "heifload_buffer",
+}
+RASTER = frozenset(_LOADERS)
 SVG = "image/svg+xml"
 TEXT = frozenset({"text/plain", "text/markdown"})
 FONTS = frozenset({"font/woff2", "font/woff", "font/ttf", "font/otf"})
@@ -121,7 +145,7 @@ def sniff(data: bytes, filename: str) -> Sniffed:
         _check_font(data, mime)
     if mime not in RASTER:
         return Sniffed(mime)
-    width, height = _decode(data)
+    width, height = _decode(data, mime)
     return Sniffed(mime, width, height)
 
 
@@ -138,18 +162,18 @@ def _check_font(data: bytes, mime: str) -> None:
         raise bad
 
 
-def _decode(data: bytes) -> tuple[int, int]:
+def _decode(data: bytes, mime: str) -> tuple[int, int]:
     """Decode the whole image (not only its header), refusing it before decoding when it has
     more pixels than ``MAX_PIXELS``."""
     try:
-        with Image.open(io.BytesIO(data)) as image:
-            width, height = image.size
-            if width * height > MAX_PIXELS:
-                raise MediaRejectedError("The image is too large (too many pixels).")
-            image.load()
-    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
-        raise MediaRejectedError("The image is too large (too many pixels).") from error
-    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as error:
+        image = pyvips.Operation.call(
+            _LOADERS[mime], data, access="sequential", fail_on="truncated"
+        )
+        width, height = int(image.width), int(image.height)
+        if width * height > MAX_PIXELS:
+            raise MediaRejectedError("The image is too large (too many pixels).")
+        image.avg()  # reads every pixel
+    except pyvips.Error as error:
         raise MediaRejectedError("The image can't be read.") from error
     return width, height
 
@@ -195,25 +219,35 @@ def store(vault_path: Path, sha256: str, data: bytes) -> None:
         _write_atomically(target, data)
 
 
+def tiles_path(vault_path: Path, sha256: str) -> Path:
+    return media_root(vault_path) / TILES_DIR / sha256
+
+
+def tile_path(vault_path: Path, sha256: str, level: int, x: int, y: int) -> Path:
+    return tiles_path(vault_path, sha256) / str(level) / f"{x}_{y}.webp"
+
+
 def remove(vault_path: Path, sha256: str) -> None:
-    """Delete the file and its thumbnails (missing ones are fine)."""
+    """Delete the file, its thumbnails and its tiles (missing ones are fine)."""
     file_path(vault_path, sha256).unlink(missing_ok=True)
     for width in THUMB_WIDTHS:
         thumb_path(vault_path, sha256, width).unlink(missing_ok=True)
     for safe in (media_root(vault_path) / THUMBS_DIR).glob(f"{sha256}_safe*.svg"):
         safe.unlink(missing_ok=True)
+    shutil.rmtree(tiles_path(vault_path, sha256), ignore_errors=True)
+
+
+def _webp(image: pyvips.Image) -> bytes:
+    return cast(bytes, image.webpsave_buffer(Q=82, effort=4))
 
 
 def _render_thumbnail(source: Path, width: int) -> bytes:
-    with Image.open(source) as image:
-        image.seek(0)  # the first frame of an animation
-        frame = image.convert("RGBA" if image.mode in ("RGBA", "LA", "P") else "RGB")
-        if frame.width > width:
-            height = max(1, round(frame.height * width / frame.width))
-            frame = frame.resize((width, height), Image.Resampling.LANCZOS)
-        out = io.BytesIO()
-        frame.save(out, "WEBP", quality=82, method=4)
-        return out.getvalue()
+    # The first frame of an animation, shrunk (never enlarged) to the width; orientation as
+    # stored, like the recorded size.
+    image = pyvips.Image.thumbnail(
+        str(source), width, height=_UNBOUNDED, size="down", no_rotate=True
+    )
+    return _webp(image)
 
 
 def thumbnail(vault_path: Path, sha256: str, width: int) -> tuple[Path | None, bytes | None]:
@@ -226,6 +260,90 @@ def thumbnail(vault_path: Path, sha256: str, width: int) -> tuple[Path | None, b
         _write_atomically(cached, data)
     except OSError:
         return None, data
+    return cached, None
+
+
+def tiled(width: int | None, height: int | None) -> bool:
+    """Whether clients show the image as tiles rather than whole (its longer side is above
+    ``TILED_SIDE``)."""
+    return width is not None and height is not None and max(width, height) > TILED_SIDE
+
+
+def tile_levels(width: int, height: int) -> int:
+    """The coarsest tile level: the image halved (rounding up) this many times fits in one tile.
+    Level ``k`` is ``ceil(width / 2^k)`` by ``ceil(height / 2^k)`` pixels."""
+    side, levels = max(width, height), 0
+    while side > TILE_SIZE:
+        side, levels = (side + 1) // 2, levels + 1
+    return levels
+
+
+def tile_count(width: int, height: int, level: int) -> tuple[int, int]:
+    """How many tiles level ``level`` has across and down."""
+    scale = 1 << level
+    across, down = -(-width // scale), -(-height // scale)
+    return -(-across // TILE_SIZE), -(-down // TILE_SIZE)
+
+
+_tile_locks: dict[str, threading.Lock] = {}
+_tile_locks_lock = threading.Lock()
+
+
+def pyramid(vault_path: Path, sha256: str) -> None:
+    """Make the image's whole tile pyramid (one pass of libvips ``dzsave``, whose levels count
+    up from the one-tile level) into a temporary folder, then rename it into place."""
+    with _tile_locks_lock:
+        lock = _tile_locks.setdefault(sha256, threading.Lock())
+    with lock:
+        target = tiles_path(vault_path, sha256)
+        if target.is_dir():
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(dir=target.parent, prefix=".tiles-"))
+        try:
+            image = pyvips.Image.new_from_file(
+                str(file_path(vault_path, sha256)), access="sequential"
+            )
+            image.dzsave(
+                str(work / "dz"), layout="dz", tile_size=TILE_SIZE, overlap=0,
+                suffix=".webp[Q=82,effort=4]", depth="onetile",
+            )  # fmt: skip
+            built = work / "dz_files"
+            levels = sorted(int(name.name) for name in built.iterdir() if name.name.isdigit())
+            coarsest = levels[-1]
+            pyramid = work / "pyramid"
+            pyramid.mkdir()
+            for level in levels:
+                (built / str(level)).rename(pyramid / str(coarsest - level))
+            pyramid.rename(target)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+
+def _render_tile(source: Path, size: tuple[int, int], level: int, x: int, y: int) -> bytes:
+    """One tile, made alone (from the whole image shrunk to its level)."""
+    scale = 1 << level
+    across, down = -(-size[0] // scale), -(-size[1] // scale)
+    image = pyvips.Image.thumbnail(str(source), across, height=down, size="force", no_rotate=True)
+    left, top = x * TILE_SIZE, y * TILE_SIZE
+    tile = image.crop(left, top, min(TILE_SIZE, across - left), min(TILE_SIZE, down - top))
+    return _webp(tile)
+
+
+def tile(
+    vault_path: Path, sha256: str, *, size: tuple[int, int], level: int, x: int, y: int
+) -> tuple[Path | None, bytes | None]:
+    """A tile of the raster image of ``size`` (the caller checks that it exists): its cached
+    file, or (when the folder can't be written) its bytes. The first request makes the whole
+    pyramid."""
+    cached = tile_path(vault_path, sha256, level, x, y)
+    if cached.is_file():
+        return cached, None
+    if not tiles_path(vault_path, sha256).is_dir():
+        try:
+            pyramid(vault_path, sha256)
+        except OSError:
+            return None, _render_tile(file_path(vault_path, sha256), size, level, x, y)
     return cached, None
 
 
@@ -266,11 +384,14 @@ __all__ = [
     "RASTER",
     "SVG",
     "THUMB_WIDTHS",
+    "TILED_SIDE",
+    "TILE_SIZE",
     "MediaRejectedError",
     "Sniffed",
     "digest",
     "file_path",
     "media_root",
+    "pyramid",
     "read_limited",
     "remove",
     "safe_svg",
@@ -278,4 +399,10 @@ __all__ = [
     "sniff",
     "store",
     "thumbnail",
+    "tile",
+    "tile_count",
+    "tile_levels",
+    "tile_path",
+    "tiled",
+    "tiles_path",
 ]

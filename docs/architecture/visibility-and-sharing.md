@@ -152,12 +152,12 @@ The reader UI may only use these read operations (DataSource methods). The post-
 `links`, `backlinks`, `unlinkedMentions`, `linkTypes`, `calendarPresets`, `timelineWindow`, `eventTree`, `causality`, `occurrences`, `search`, `quickSearch`,
 `graph`, `characterRelationships`, `characterLife`, `characterFamilyTree`, `groupMembers`, `groupLeaders`, `groupTerritory`,
 `groupOrgChart`, `locationTree`, `locationEvents`, `locationResidents`, `speciesMembers`,
-`speciesDescentTree`, `lexicon`, `lexiconEntry`, `lexiconExport`, `languageFamilyTree`, `maps`/`mapDetail`, `entityPins`, `mediaItems`, `mediaItem`, `mediaFile`,
+`speciesDescentTree`, `lexicon`, `lexiconEntry`, `lexiconExport`, `languageFamilyTree`, `maps`/`mapDetail`, `entityPins`, `mediaItems`, `mediaItem`, `mediaFile`, `mediaTile`,
 `gallery`, `correspondences`, `correspondence`, `correspondenceMap` (`mapMoment`), `worldline`, `personalTimeline`, `presence`, `timelines` (tree),
 `timelineDiff` (`branchDiff`), `timelineNotes` (`timelineNote`).
 
-Names are the `DataSource` methods (`frontend/src/data/source.ts`; `lexiconExport` and
-`mediaFile` are URLs the SPA links to). Every other GET route is author-only (`404` for readers:
+Names are the `DataSource` methods (`frontend/src/data/source.ts`; `lexiconExport`,
+`mediaFile` and `mediaTile` are URLs the SPA links to). Every other GET route is author-only (`404` for readers:
 history, trash, consistency, backups, custom field and kind definitions). The audit of #139 lists
 each route's reader status from the leak recipes: a route a reader gets `200` from belongs here.
 

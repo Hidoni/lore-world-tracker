@@ -79,6 +79,7 @@ READER_SURFACE: dict[str, str] = {
     f"{V}/m/media/items": "mediaItems",
     f"{V}/m/media/items/{{media_id}}": "mediaItem",
     f"{V}/m/media/items/{{media_id}}/file": "mediaFile",
+    f"{V}/m/media/items/{{media_id}}/tiles/{{level}}/{{x}}/{{y}}": "mediaTile",
     f"{V}/m/species/descent-tree": "speciesDescentTree",
     f"{V}/m/species/{{species_id}}/members": "speciesMembers",
     f"{V}/m/worldlines/entities/{{entity_id}}/personal-timeline": "personalTimeline",
@@ -778,6 +779,13 @@ def media_file(c: Canary) -> Iterator[Call]:
     for media_id, status in _media_ids(c):
         for size in ("original", "160"):
             yield Call(f"{_v(c)}/m/media/items/{media_id}/file", {"size": size}, status=status)
+
+
+@recipe(f"{V}/m/media/items/{{media_id}}/tiles/{{level}}/{{x}}/{{y}}")
+def media_tile(c: Canary) -> Iterator[Call]:
+    """Tiles (#162) follow their item, like its file."""
+    for media_id, status in _media_ids(c):
+        yield Call(f"{_v(c)}/m/media/items/{media_id}/tiles/0/0/0", status=status)
 
 
 @recipe(f"{V}/m/media/entities/{{entity_id}}/gallery")

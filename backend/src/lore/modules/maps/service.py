@@ -108,6 +108,7 @@ def map_out(row: Map) -> MapRecord:
     return MapRecord(
         id=row.id, location_id=row.location_id, media_id=row.media_id, name=row.name,
         description=row.description, width=row.width, height=row.height,
+        tile_levels=media.tile_levels(row.width, row.height),
         scale=None if row.scale is None else Scale.model_validate(row.scale),
         sort_key=row.sort_key, visibility=row.visibility, revision=row.revision,
         created_at=row.created_at, updated_at=row.updated_at, deleted_at=row.deleted_at,

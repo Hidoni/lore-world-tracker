@@ -266,6 +266,7 @@ export {
   isImage,
   isRaster,
   mediaFileUrl,
+  mediaTileUrl,
   RASTER_TYPES,
   SVG_TYPE,
   useAddToGallery,

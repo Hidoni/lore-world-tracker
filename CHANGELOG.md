@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Deep zoom for large maps** (#162): maps whose image is wider or taller than 8,192 px are
+  drawn as tiles, so they open fast and stay sharp at every zoom. Tiles are made once, on first
+  view (or when publishing), by libvips. Images are now decoded with libvips too, which raises
+  the upload limit from 50 to 400 megapixels (a 16k by 16k map fits).
+
 - **Moving and merging branches** (#158): a branch's timeline page can move the branch (with its
   own branches) under another timeline of its dimension, or merge it into its parent. Both show a
   preview first. A merge moves the branch's records and its changes to inherited records into the

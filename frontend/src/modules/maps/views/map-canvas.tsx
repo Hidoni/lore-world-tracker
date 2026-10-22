@@ -40,6 +40,28 @@ export interface Point {
   y: number
 }
 
+/** A large image's deep-zoom tiles (#162). */
+export interface CanvasTiles {
+  /** A Leaflet URL template with `{level}` (the image shrunk `2^level` times), `{x}` and `{y}`. */
+  url: string
+  /** The coarsest level (the image fits in one tile). */
+  levels: number
+}
+
+/** Tiles are this many image pixels square at their own level. */
+const TILE_SIZE = 256
+
+/**
+ * `CRS.Simple` with the image's top left at the origin of Leaflet's pixel grid (positions are
+ * `[height - y, x]`), so that tiles line up with Leaflet's: at zoom `z`, a pixel of the grid is
+ * `2^-z` image pixels from the image's top left.
+ */
+function imageCrs(height: number): L.CRS {
+  return L.Util.extend({}, L.CRS.Simple, {
+    transformation: new L.Transformation(1, 0, -1, height),
+  })
+}
+
 /** Pins this close together (screen pixels) cluster. */
 const CLUSTER_RADIUS = 40
 
@@ -58,7 +80,8 @@ function markerIcon(marker: CanvasMarker, glyph: string, selected: boolean): L.D
 
 /**
  * A map image drawn with Leaflet (docs/modules/maps.md, UI): `CRS.Simple` with the image as an
- * overlay over its own pixel bounds, pins as kind-icon markers (faded when ghosts) that cluster
+ * overlay over its own pixel bounds (a large image's `tiles` over it, `image` then being a small
+ * copy shown while they load), pins as kind-icon markers (faded when ghosts) that cluster
  * when crowded, a tooltip on hover, `onSelect` on click (a click on the map clears it). Editing
  * (no clustering then): a click on the map places (`onPlace`), pins drag (`onMove`), and entities
  * dragged in (`ENTITY_DRAG_TYPE`) drop (`onDropEntity`). Regions are filled polygons under the
@@ -68,6 +91,7 @@ function markerIcon(marker: CanvasMarker, glyph: string, selected: boolean): L.D
  */
 export default function MapCanvas({
   image,
+  tiles = null,
   width,
   height,
   markers,
@@ -84,6 +108,7 @@ export default function MapCanvas({
   onReshape,
 }: {
   image: string
+  tiles?: CanvasTiles | null
   width: number
   height: number
   markers: readonly CanvasMarker[]
@@ -146,15 +171,29 @@ export default function MapCanvas({
       [0, 0],
       [height, width],
     ]
+    const minZoom = -Math.max(6, tiles?.levels ?? 0)
     const created = L.map(element, {
-      crs: L.CRS.Simple,
-      minZoom: -6,
+      crs: imageCrs(height),
+      minZoom,
       maxZoom: 4,
       zoomSnap: 0.25,
       attributionControl: false,
       maxBounds: L.latLngBounds(bounds).pad(0.5),
     })
     L.imageOverlay(image, bounds).addTo(created)
+    if (tiles !== null) {
+      // Leaflet's zoom `z` ≤ 0 shows level `-z`; closer than the full size, level 0 enlarged.
+      const options: L.TileLayerOptions & { level: (data: { z: number }) => string } = {
+        tileSize: TILE_SIZE,
+        minZoom,
+        minNativeZoom: -tiles.levels,
+        maxNativeZoom: 0,
+        bounds,
+        noWrap: true,
+        level: (data) => String(-data.z),
+      }
+      L.tileLayer(tiles.url, options).addTo(created)
+    }
     created.fitBounds(bounds)
     created.on('click', (event: L.LeafletMouseEvent) => {
       // A marker's click reaches the map too: it selects, it doesn't clear or place.
@@ -186,7 +225,7 @@ export default function MapCanvas({
     }
     // pointOf reads width and height, which are deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [image, width, height])
+  }, [image, tiles?.url, tiles?.levels, width, height])
 
   // Clusters when viewing; single markers when editing (so that each one drags).
   useEffect(() => {

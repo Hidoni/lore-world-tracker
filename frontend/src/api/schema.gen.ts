@@ -1431,6 +1431,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/media/items/{media_id}/tiles/{level}/{x}/{y}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tile
+         * @description A deep-zoom tile of a raster image (#162; ``docs/modules/media.md``): 256 px square
+         *     (smaller at the right and bottom edges), WebP, cached like files (``ETag``: the hash and the
+         *     tile). The first tile requested makes the image's whole pyramid. Tiles the image doesn't have
+         *     are ``404``; files that aren't raster images ``422``.
+         */
+        get: operations["media_tile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/m/media/entities/{entity_id}/gallery": {
         parameters: {
             query?: never;
@@ -5845,6 +5868,11 @@ export interface components {
             width: number;
             /** Height */
             height: number;
+            /**
+             * Tile Levels
+             * @description A large image shown as tiles (#162): its coarsest tile level (`GET /m/media/items/{media_id}/tiles/{level}/{x}/{y}`); null for one shown whole.
+             */
+            tile_levels: number | null;
             scale: components["schemas"]["Scale"] | null;
             /** Sort Key */
             sort_key: string | null;
@@ -5923,6 +5951,11 @@ export interface components {
             width: number;
             /** Height */
             height: number;
+            /**
+             * Tile Levels
+             * @description A large image shown as tiles (#162): its coarsest tile level (`GET /m/media/items/{media_id}/tiles/{level}/{x}/{y}`); null for one shown whole.
+             */
+            tile_levels: number | null;
             scale: components["schemas"]["Scale"] | null;
             /** Sort Key */
             sort_key: string | null;
@@ -6006,6 +6039,11 @@ export interface components {
             width: number | null;
             /** Height */
             height: number | null;
+            /**
+             * Tile Levels
+             * @description An image shown as tiles (#162: its longer side is above 8,192 px): its coarsest tile level (`GET …/tiles/{level}/{x}/{y}`, level 0 being the full size). Null for an image shown whole and for other files.
+             */
+            tile_levels: number | null;
             /** Alt */
             alt: string;
             /** Caption */
@@ -11311,6 +11349,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaItemOut"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    media_tile: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                media_id: string;
+                /** @description The image shrunk 2^level times. */
+                level: number;
+                /** @description The tile's column, from the left. */
+                x: number;
+                /** @description The tile's row, from the top. */
+                y: number;
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tile (WebP). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": unknown;
                 };
             };
             /** @description Problem */

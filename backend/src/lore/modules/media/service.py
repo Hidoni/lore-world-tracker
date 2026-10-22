@@ -59,6 +59,14 @@ def _invalid(path: str, message: str) -> InvalidInputError:
                                                "message": message}])  # fmt: skip
 
 
+def tile_levels(row: MediaItem) -> int | None:
+    """``MediaItemOut.tile_levels``: the coarsest tile level of an image shown as tiles."""
+    width, height = row.width, row.height
+    if row.mime not in storage.RASTER or width is None or height is None:
+        return None
+    return storage.tile_levels(width, height) if storage.tiled(width, height) else None
+
+
 def _display_name(filename: str | None) -> str:
     """The uploaded name, for display: its last path component, without control characters."""
     name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
@@ -113,7 +121,8 @@ class Media:
     def out(self, row: MediaItem, refs: list[MediaRefOut] | None = None) -> MediaItemOut:
         return MediaItemOut(
             id=row.id, sha256=row.sha256, filename=row.filename, mime=row.mime, size=row.size,
-            width=row.width, height=row.height, alt=row.alt, caption=row.caption,
+            width=row.width, height=row.height, tile_levels=tile_levels(row), alt=row.alt,
+            caption=row.caption,
             revision=row.revision, created_at=row.created_at, deleted_at=row.deleted_at,
             refs=refs if refs is not None else self._refs([row.id]).get(row.id, []),
         )  # fmt: skip
@@ -295,6 +304,25 @@ class Media:
         if not path.is_file():
             raise NotFoundError(f"The file of media item {media_id} is missing.")
         cached, data = storage.thumbnail(self.vault_path, row.sha256, width)
+        return ServedFile(row, cached, data, "image/webp", inline=True)
+
+    def tile(self, media_id: str, level: int, x: int, y: int) -> ServedFile:
+        """A tile of a raster image (#162): level ``level`` (the image shrunk ``2^level``
+        times, ``0`` to its ``tile_levels``), column ``x``, row ``y``. Any raster image has
+        tiles; clients use them for the images whose ``tile_levels`` isn't null."""
+        row = self.item(media_id)
+        if row.mime not in storage.RASTER or row.width is None or row.height is None:
+            raise _invalid("media_id", "Only raster images have tiles.")
+        if level > storage.tile_levels(row.width, row.height):
+            raise NotFoundError(f"Media item {media_id} has no tile level {level}.")
+        across, down = storage.tile_count(row.width, row.height, level)
+        if x >= across or y >= down:
+            raise NotFoundError(f"Media item {media_id} has no tile {x}, {y} at level {level}.")
+        if not storage.file_path(self.vault_path, row.sha256).is_file():
+            raise NotFoundError(f"The file of media item {media_id} is missing.")
+        cached, data = storage.tile(
+            self.vault_path, row.sha256, size=(row.width, row.height), level=level, x=x, y=y
+        )
         return ServedFile(row, cached, data, "image/webp", inline=True)
 
     # --- galleries -----------------------------------------------------------------------------
