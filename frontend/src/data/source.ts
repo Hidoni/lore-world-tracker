@@ -9,6 +9,7 @@ type D<Name extends keyof Schemas> = Domain<Schemas[Name]>
 
 export type Meta = Schemas['MetaResponse']
 export type Vault = Schemas['Vault']
+export type InterchangeImportOptions = Query<'import_interchange'>
 export type VaultList = Schemas['VaultList']
 export type Entity = D<'EntityOut'>
 export type EntityPage = D<'EntityPage'>
@@ -216,6 +217,12 @@ export interface Mutations {
   /** Restores a backup zip into a new vault; `onProgress` gets the upload's fraction (0..1). */
   restoreBackup(file: Blob, onProgress?: (fraction: number) => void): Promise<Vault>
   createBackup(vault: string, body: Schemas['BackupCreate']): Promise<Schemas['Backup']>
+  /** Imports an interchange zip (or bare JSON document) into the vault (interchange.md §4). */
+  importInterchange(
+    vault: string,
+    file: Blob,
+    options: InterchangeImportOptions,
+  ): Promise<Schemas['InterchangeImport']>
   /** Publishes a sanitized snapshot into the server's publish directory. */
   publishVault(vault: string): Promise<Schemas['PublishStatus']>
   /** Exports the latest snapshot as a static site (visibility-and-sharing.md §8). */

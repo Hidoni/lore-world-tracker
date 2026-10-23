@@ -96,6 +96,7 @@ class ModuleSpec:
     backup_contributors: tuple[BackupContributor, ...] = ()   # extra files (e.g. media blobs)
     publish_contributors: tuple[PublishContributor, ...] = () # how to sanitize module data in published snapshots
     markdown_contributors: tuple[MarkdownContributor, ...] = () # files and renderers for the Markdown export
+    interchange_tables: tuple[InterchangeTable, ...] = ()       # keys and files of its tables in interchange files
     static_reads: tuple[StaticRead, ...] = ()            # reads a static export records (ADR 0016)
     static_data: StaticData | None = None                # data a static export computes views from
     kind_extensions: tuple[KindExtension, ...] = ()           # `ext` data of a kind (one per kind)
@@ -123,6 +124,10 @@ has deleted what readers can't see, and remove or copy what core can't know abou
 module copies the files of the items readers see from `source` into `target`; maps drop the maps
 readers can't see). A module table with a `visibility` or `deleted_at` column loses its private
 and trashed rows without help, and rows whose references were deleted go with them.
+`interchange_tables` (#149) are `lore.core.interchange.spec.InterchangeTable`s: how a module's
+table travels in interchange files beyond its rows (`interchange.md` §5): `reuse_by_key` (a row
+whose unique key the target vault has is that row) and the `file`/`store` of rows with files
+(media). Every table in `history_tables` is exported without declaring anything.
 `markdown_contributors` (#148) are `(MarkdownExport) -> None` (`lore.core.markdown.export`): the
 enabled modules' contributors run once per Markdown export, before any note is written, with the
 vault read under the export's policy; they copy files into the export (`claim` a path, then

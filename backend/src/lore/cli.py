@@ -14,6 +14,8 @@ from lore.chronology.schema_export import export_schemas
 from lore.config import Settings
 from lore.core.db.migrate import Migrator
 from lore.core.errors import LoreError
+from lore.core.interchange.export import export_interchange
+from lore.core.interchange.importer import import_interchange
 from lore.core.logging import configure_logging
 from lore.core.maintenance import (
     DERIVED_DATA,
@@ -295,6 +297,96 @@ def vault_export_markdown(
     finally:
         manager.close()
     typer.echo(f"exported: {out} ({info.notes} notes, {info.files} files)")
+
+
+@vault_app.command("export-json")
+def vault_export_json(
+    vault: VaultArgument,
+    out: Annotated[Path, typer.Option(help="Zip file to write (must not exist).")],
+    audience: Annotated[
+        str,
+        typer.Option(
+            help="readers: what readers see (no private data); author: everything, private "
+            "content included."
+        ),
+    ] = "readers",
+    dimension: Annotated[
+        str | None,
+        typer.Option(help="Export one dimension (id or exact name) instead of the whole vault."),
+    ] = None,
+) -> None:
+    """Export a vault (or one dimension) as an interchange zip: a versioned JSON document of its
+    records and their media files, for `lore vault import-json` in this app or a later one
+    (interchange.md). Reads a copy of the database: runs next to a server."""
+    if audience not in ("readers", "author"):
+        _fail(ValueError("--audience must be readers or author"))
+    if out.exists():
+        _fail(ValueError(f"{out} exists"))
+    manager = _vault_manager()
+    try:
+        with out.open("xb") as file:
+            info = export_interchange(
+                manager,
+                manager.resolve(vault).id,
+                file,
+                audience="readers" if audience == "readers" else "author",
+                dimension=dimension,
+            )
+    except LoreError as exc:
+        out.unlink(missing_ok=True)
+        _fail(exc)
+    finally:
+        manager.close()
+    typer.echo(
+        f"exported: {out} ({info.entities} entities, {info.rows} records, {info.files} files, "
+        f"{info.references} references)"
+    )
+
+
+@vault_app.command("import-json")
+def vault_import_json(
+    vault: VaultArgument,
+    file: Annotated[
+        Path, typer.Argument(help="Interchange zip or JSON document.", exists=True, dir_okay=False)
+    ],
+    keep_ids: Annotated[
+        bool,
+        typer.Option(help="Keep the file's ids (default: fresh ids, so importing twice copies)."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            help="Replace the vault's records that clash with the file's (after a backup) "
+            "instead of refusing the import."
+        ),
+    ] = False,
+) -> None:
+    """Import an interchange zip into an existing vault, as one changeset (undoable). Refuses
+    the whole import, listing the conflicts, when records clash (unless --overwrite)."""
+    manager = _vault_manager()
+    try:
+        with file.open("rb") as source:
+            report = import_interchange(
+                manager,
+                manager.resolve(vault).id,
+                source,
+                ids="keep" if keep_ids else "remap",
+                on_conflict="overwrite" if overwrite else "fail",
+            )
+    except LoreError as exc:
+        for conflict in (exc.context or {}).get("conflicts", []):
+            typer.echo(f"conflict: {conflict['table']} {conflict['id']}", err=True)
+        _fail(exc)
+    finally:
+        manager.close()
+    created = sum(report.created.values())
+    typer.echo(
+        f"imported: {len(report.entities)} entities ({created} records created, "
+        f"{sum(report.updated.values())} updated, {sum(report.reused.values())} reused, "
+        f"{sum(report.dropped.values())} dropped, {report.files} files)"
+    )
+    for reference in report.references_unmatched:
+        typer.echo(f"unmatched reference: {reference.kind} “{reference.name}”", err=True)
 
 
 @vault_app.command("check")

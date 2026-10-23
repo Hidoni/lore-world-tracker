@@ -1,15 +1,23 @@
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
+  ApiError,
+  interchangeExportUrl,
   markdownExportUrl,
+  useDimensions,
   useExportStaticSite,
+  useImportInterchange,
   useMutations,
   usePublish,
   usePublishStatus,
 } from '@/data'
 
-import { Section } from './shared'
+import { Section, SELECT_CLASS } from './shared'
 
 /**
  * Publishing (visibility-and-sharing.md §4): a sanitized snapshot of the vault, private data
@@ -21,6 +29,8 @@ export function PublishSettings({ vault }: { vault: string }) {
       <PublishSnapshot vault={vault} />
       <StaticSite vault={vault} />
       <MarkdownExport vault={vault} />
+      <InterchangeExport vault={vault} />
+      <InterchangeImport vault={vault} />
     </div>
   )
 }
@@ -156,6 +166,180 @@ function MarkdownExport({ vault }: { vault: string }) {
         “Everything” includes private entities, fields and blocks: keep it to yourself, like a
         backup.
       </p>
+    </Section>
+  )
+}
+
+/**
+ * The interchange export (interchange.md §3): the vault or one dimension as versioned JSON with its
+ * media files, for importing into another vault of this app or a later one.
+ */
+function InterchangeExport({ vault }: { vault: string }) {
+  const editable = useMutations() !== null
+  const dimensions = useDimensions(vault)
+  const [dimension, setDimension] = useState('')
+  if (!editable) return null
+  const only = dimension === '' ? undefined : dimension
+  return (
+    <Section
+      title="Export as JSON"
+      description="A zip of the vault’s records as documented, versioned JSON, with its media files: import it into another vault (below), here or on another server, now or with a later version of Lore. Export the whole vault, or one dimension: the multiversal entities it uses travel as references and are matched by name when imported."
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="interchange-dimension">What to export</Label>
+        <select
+          id="interchange-dimension"
+          className={SELECT_CLASS}
+          value={dimension}
+          onChange={(event) => {
+            setDimension(event.target.value)
+          }}
+        >
+          <option value="">The whole vault</option>
+          {(dimensions.data?.items ?? []).map((item) => (
+            <option key={item.id} value={item.id}>
+              Dimension: {item.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button asChild>
+          <a href={interchangeExportUrl(vault, 'readers', only)} download>
+            Export JSON (readers’ view)
+          </a>
+        </Button>
+        <Button asChild variant="outline">
+          <a href={interchangeExportUrl(vault, 'author', only)} download>
+            Export JSON (everything)
+          </a>
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        “Everything” includes private entities, fields and blocks: keep it to yourself, like a
+        backup.
+      </p>
+    </Section>
+  )
+}
+
+/** The interchange import (interchange.md §4): one changeset, undoable from History. */
+function InterchangeImport({ vault }: { vault: string }) {
+  const editable = useMutations() !== null
+  if (!editable) return null
+  return <InterchangeImportForm vault={vault} />
+}
+
+function InterchangeImportForm({ vault }: { vault: string }) {
+  const importFile = useImportInterchange(vault)
+  const [file, setFile] = useState<File | null>(null)
+  const [keepIds, setKeepIds] = useState(false)
+  const [overwrite, setOverwrite] = useState(false)
+  const report = importFile.data
+  const error = importFile.error
+  const conflicts =
+    error instanceof ApiError && Array.isArray(error.context.conflicts)
+      ? (error.context.conflicts as { table: string; id: string; name?: string }[])
+      : []
+  const total = (counts: Record<string, number>) =>
+    Object.values(counts).reduce((sum, count) => sum + count, 0)
+  return (
+    <Section
+      title="Import JSON"
+      description="Adds the records of a JSON export (zip) to this vault in one change, which History can undo. Records get fresh ids, so importing a file twice makes two copies; keep the file’s ids to move records between your own vaults."
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (file === null) return
+          importFile.mutate({
+            file,
+            options: {
+              ids: keepIds ? 'keep' : 'remap',
+              on_conflict: overwrite ? 'overwrite' : 'fail',
+            },
+          })
+        }}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="interchange-file">JSON export</Label>
+          <Input
+            id="interchange-file"
+            type="file"
+            accept=".zip,application/zip,.json,application/json"
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null)
+              importFile.reset()
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="interchange-keep-ids"
+            checked={keepIds}
+            onCheckedChange={(checked) => {
+              setKeepIds(checked === true)
+              if (checked !== true) setOverwrite(false)
+            }}
+          />
+          <Label htmlFor="interchange-keep-ids">Keep the file’s ids</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="interchange-overwrite"
+            checked={overwrite}
+            disabled={!keepIds}
+            onCheckedChange={(checked) => {
+              setOverwrite(checked === true)
+            }}
+          />
+          <Label htmlFor="interchange-overwrite">
+            Overwrite this vault’s records that differ (a backup is taken first)
+          </Label>
+        </div>
+        <div>
+          <Button type="submit" disabled={file === null || importFile.isPending}>
+            {importFile.isPending ? 'Importing…' : 'Import'}
+          </Button>
+        </div>
+      </form>
+      {error && (
+        <div role="alert" className="flex flex-col gap-1 text-sm text-destructive">
+          <p>{error.message}</p>
+          {conflicts.length > 0 && (
+            <ul className="list-disc pl-5">
+              {conflicts.slice(0, 10).map((conflict) => (
+                <li key={`${conflict.table}/${conflict.id}`}>
+                  {conflict.name ?? conflict.id}{' '}
+                  <span className="opacity-75">({conflict.table})</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {report && (
+        <div role="status" className="flex flex-col gap-1 text-sm">
+          <p>
+            {report.changeset_id === null
+              ? 'Nothing to import: the vault already has every record of the file.'
+              : `Imported ${report.entities} entities (${total(report.created)} records added, ${total(report.updated)} overwritten, ${total(report.reused)} already here).`}
+          </p>
+          {total(report.dropped) > 0 && (
+            <p className="text-muted-foreground">
+              {total(report.dropped)} records were left out: they need records this vault doesn’t
+              have.
+            </p>
+          )}
+          {report.references_unmatched.length > 0 && (
+            <p className="text-muted-foreground">
+              Not found here:{' '}
+              {report.references_unmatched.map((reference) => reference.name).join(', ')}.
+            </p>
+          )}
+        </div>
+      )}
     </Section>
   )
 }

@@ -33,6 +33,7 @@ from lore.core.visibility.filters import VisibilityFilter
 
 if TYPE_CHECKING:
     from lore.core.history.recorder import RecordedChange
+    from lore.core.interchange.spec import InterchangeTable
     from lore.core.maintenance.checks import DerivedDataCheck
     from lore.core.markdown.export import MarkdownExport
     from lore.core.modules.registry import ModuleRegistry
@@ -144,6 +145,8 @@ class ModuleSpec:
     backup_contributors: tuple[BackupContributor, ...] = ()
     publish_contributors: tuple[PublishContributor, ...] = ()
     markdown_contributors: tuple[MarkdownContributor, ...] = ()  # Markdown export (media files)
+    # How its tables travel in interchange documents beyond their rows: keys, files (media)
+    interchange_tables: tuple[InterchangeTable, ...] = ()
     static_reads: tuple[StaticRead, ...] = ()  # reads a static export records (ADR 0016)
     static_data: StaticData | None = None  # data a static export computes views from (#386)
     kind_extensions: tuple[KindExtension, ...] = ()  # ``ext`` data of a kind (one per kind)

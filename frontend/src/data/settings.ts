@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import type { components } from '@/api'
 
+import type { InterchangeImportOptions } from './source'
+
 import { useDataSource, useRequiredMutations } from './context'
 import { keys } from './keys'
 
@@ -78,6 +80,35 @@ export function backupDownloadUrl(vault: string, id: string): string {
  */
 export function markdownExportUrl(vault: string, audience: 'readers' | 'author'): string {
   return `/api/v1/vaults/${encodeURIComponent(vault)}/export/markdown?audience=${audience}`
+}
+
+/**
+ * The interchange zip (interchange.md §1): the vault, or one dimension (its id), as versioned JSON
+ * with its media files, for importing into another vault.
+ */
+export function interchangeExportUrl(
+  vault: string,
+  audience: 'readers' | 'author',
+  dimension?: string,
+): string {
+  const query = new URLSearchParams({ audience })
+  if (dimension !== undefined) query.set('dimension', dimension)
+  return `/api/v1/vaults/${encodeURIComponent(vault)}/export/interchange?${query.toString()}`
+}
+
+/**
+ * Imports an interchange file into the vault (interchange.md §4): one changeset, so every query
+ * of the vault is refreshed. Errors aren't toasted (the publishing page shows them).
+ */
+export function useImportInterchange(vault: string) {
+  const mutations = useRequiredMutations()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ file, options }: { file: Blob; options: InterchangeImportOptions }) =>
+      mutations.importInterchange(vault, file, options),
+    meta: { toast: false },
+    onSuccess: () => client.invalidateQueries({ queryKey: [vault] }),
+  })
 }
 
 /** Restores a backup into a new vault, reporting the upload's progress. */

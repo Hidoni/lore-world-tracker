@@ -94,6 +94,26 @@ is restored; one made by a **newer** version is refused: upgrade the app first.
 To move a world to another machine, restore a backup there, or copy the vault folder into the
 other installation's `data/vaults/` while both apps are stopped.
 
+### Moving part of a world: JSON export and import
+
+A backup always becomes a vault of its own. To bring a world, or **one dimension** of it, into a
+vault that already exists (yours or someone else's), use an interchange file: a zip with a
+versioned JSON document of the records and their media files (`interchange.md`).
+
+- **Export**: **Settings → Publishing → Export as JSON**. Pick the whole vault or one
+  dimension, then download the readers' view (no private content) or everything. From the
+  command line: `lore vault export-json <vault> --out world.zip --audience author
+  [--dimension Aetheria]`. A dimension's file refers to the multiversal entities it uses
+  (characters who travel between worlds, shared languages) without copying them.
+- **Import**: **Import JSON** on the same page: choose the file and click **Import**. By default every record
+  gets a new id, so importing twice gives two copies. Tick **Keep the file’s ids** to move records
+  between your own vaults: records the vault already has unchanged are left alone, and records it
+  has **changed** stop the import with a list of them, unless you also tick **Overwrite** (a
+  backup is taken first). Multiversal entities a dimension refers to are matched by kind and
+  name; links to ones the vault doesn't have are left out, and the result says which.
+- The whole import is one change in **History**: one undo removes it. A file from an older version
+  of the app is upgraded as it is imported; one from a newer version is refused.
+
 ## 6. Upgrade the app
 
 Pull the new version and rebuild:

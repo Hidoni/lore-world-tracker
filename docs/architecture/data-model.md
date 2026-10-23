@@ -530,6 +530,7 @@ does `lore vault reindex`.
 | Rich-text body | `entities.body_schema_version` | `lore.core.richtext.upgrade` (Python) — the frontend only renders the current version |
 | Field values | field type registry version per type | data migrations |
 | Vault backup / export formats | `format_version` in the archive manifest | `lore.core.backup` |
+| Interchange document | `format_version` (envelope); rows in the schema of `schema_revision` | `lore.core.interchange.format.UPGRADERS`; rows by the migrations (`interchange.md` §2.1) |
 
 ## 11. Module tables (summary)
 

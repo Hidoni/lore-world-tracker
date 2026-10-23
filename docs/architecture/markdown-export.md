@@ -2,7 +2,7 @@
 
 A vault as a folder of Markdown notes, one per entity, for [Obsidian](https://obsidian.md) or any
 other Markdown tool (#148, post-MVP). The export is **one-way**: nothing reads it back (a
-round-trip import is out of scope; portable interchange is #149). Code: `lore.core.markdown`
+round-trip import is out of scope; the portable interchange format is `interchange.md`). Code: `lore.core.markdown`
 (`render.py`: rich text and properties as Markdown; `export.py`: the export; `router.py`: the
 download).
 

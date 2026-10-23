@@ -258,6 +258,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/export/interchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Interchange
+         * @description The vault (or one dimension) as an interchange zip: a versioned JSON document of its
+         *     records with their media files, which any vault of this app or a later one imports.
+         */
+        get: operations["export_interchange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/import/interchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interchange
+         * @description Import an interchange zip (or a bare JSON document) into this vault, in one transaction
+         *     recorded as one changeset (undoable) and checked by the consistency engine.
+         */
+        post: operations["import_interchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vault_id}/registry": {
         parameters: {
             query?: never;
@@ -2627,8 +2669,6 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
         };
         Anchor: components["schemas"]["AbsoluteAnchor"] | components["schemas"]["CalendarAnchor"] | components["schemas"]["RelativeAnchor"];
-        /** @enum {string} */
-        Audience: "readers" | "author";
         /**
          * Backlink
          * @description One entity pointing at this one: its incoming links and its mentions.
@@ -2741,6 +2781,11 @@ export interface components {
         };
         /** Body_backups_restore */
         Body_backups_restore: {
+            /** File */
+            file: string;
+        };
+        /** Body_import_interchange */
+        Body_import_interchange: {
             /** File */
             file: string;
         };
@@ -3434,6 +3479,8 @@ export interface components {
             entities: components["schemas"]["ChangedEntity"][];
         };
         Color: string;
+        /** @enum {string} */
+        ConflictMode: "fail" | "overwrite";
         /** ConvertIn */
         ConvertIn: {
             dimension_id: components["schemas"]["EntityId"];
@@ -5150,6 +5197,8 @@ export interface components {
         };
         Icon: string;
         Id: string;
+        /** @enum {string} */
+        IdMode: "remap" | "keep";
         /**
          * ImportIn
          * @description A CSV document (UTF-8 text with a header row) and how its columns map to fields.
@@ -5204,6 +5253,52 @@ export interface components {
              * @enum {string}
              */
             kind: "instant";
+        };
+        /**
+         * InterchangeImport
+         * @description What an import did. Counts are by table: ``created`` rows, ``updated`` (overwritten),
+         *     ``reused`` (the vault's own: the same, or matched by a unique key such as a tag's name),
+         *     ``dropped`` (they needed a record the vault doesn't have).
+         */
+        InterchangeImport: {
+            ids: components["schemas"]["IdMode"];
+            /** Scope */
+            scope: string;
+            /** Entities */
+            entities: number;
+            /** Created */
+            created: {
+                [key: string]: number;
+            };
+            /** Updated */
+            updated: {
+                [key: string]: number;
+            };
+            /** Reused */
+            reused: {
+                [key: string]: number;
+            };
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** References Matched */
+            references_matched: number;
+            /** References Unmatched */
+            references_unmatched: components["schemas"]["InterchangeReference"][];
+            /** Files */
+            files: number;
+            /** Changeset Id */
+            changeset_id: string | null;
+        };
+        /** InterchangeReference */
+        InterchangeReference: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
         };
         JsonObject: {
             [key: string]: unknown;
@@ -8204,6 +8299,10 @@ export interface components {
             worldline: components["schemas"]["Worldline"];
             affected: components["schemas"]["Affected"];
         };
+        /** @enum {string} */
+        lore__core__interchange__format__Audience: "author" | "readers";
+        /** @enum {string} */
+        lore__core__markdown__export__Audience: "readers" | "author";
     };
     responses: never;
     parameters: never;
@@ -8781,7 +8880,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description `readers`: what readers see (no private data); `author`: everything. */
-                audience?: components["schemas"]["Audience"];
+                audience?: components["schemas"]["lore__core__markdown__export__Audience"];
                 /** @description Calendars to show dates in first (per dimension, the first of its calendars listed; by default its default calendar). */
                 calendar?: string[] | null;
                 /** @description Apply reader filtering (preview what readers see). */
@@ -8803,6 +8902,86 @@ export interface operations {
                 };
                 content: {
                     "application/zip": string;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_interchange: {
+        parameters: {
+            query?: {
+                /** @description `readers`: what readers see (no private data); `author`: everything. */
+                audience?: components["schemas"]["lore__core__interchange__format__Audience"];
+                /** @description Export one dimension (its id or exact name): its records, and the multiversal entities they refer to as references. Default: the whole vault. */
+                dimension?: string | null;
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    import_interchange: {
+        parameters: {
+            query?: {
+                /** @description `remap`: fresh ids (importing twice gives two copies); `keep`: the file's ids (to move records between your own vaults). */
+                ids?: components["schemas"]["IdMode"];
+                /** @description Records whose id or unique key the vault has, but different: `fail` refuses the import with a report (`409 interchange_conflict`); `overwrite` replaces the vault's (after a backup). */
+                on_conflict?: components["schemas"]["ConflictMode"];
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_interchange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterchangeImport"];
                 };
             };
             /** @description Problem */

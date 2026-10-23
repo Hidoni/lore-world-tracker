@@ -75,7 +75,9 @@ headers → request context → host check → CORS (optional) → mutation guar
 - Serving: `Content-Type` from the stored record, `X-Content-Type-Options: nosniff`,
   `Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'` on
   media responses (`data:` for the raster images an SVG may embed).
-- Restore/import zips: reject absolute paths, `..`, backslashes, drive letters, symbolic links,
+- Restore/import zips (interchange zips too, `interchange.md` §4: only `lore-interchange.json` and
+  the files its document lists, by safe names; media files must have their item's checksum and
+  type): reject absolute paths, `..`, backslashes, drive letters, symbolic links,
   duplicate entries and files the manifest doesn't list (or that aren't `lore.db`/`media/…`), cap
   the file count and the bytes actually extracted (not the declared sizes), and verify every
   checksum from the manifest. Extraction goes into a staging folder that is removed on any

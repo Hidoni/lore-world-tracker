@@ -547,6 +547,17 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
         }),
       )
     },
+    importInterchange: (vault, file, options) => {
+      const form = new FormData()
+      form.append('file', file)
+      return unwrap(
+        client.POST(`${V}/import/interchange`, {
+          params: { ...path(vault), query: options },
+          body: form as unknown as { file: string },
+          bodySerializer: (body: unknown) => body as FormData,
+        }),
+      )
+    },
     createBackup: (vault, body) =>
       unwrap(client.POST(`${V}/backups`, { params: path(vault), body })),
     publishVault: (vault) => unwrap(client.POST(`${V}/publish`, { params: path(vault) })),
