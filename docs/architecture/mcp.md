@@ -1,6 +1,6 @@
 # MCP: AI assistants and the vault (#150)
 
-> Status: design (ADR 0017). Implementation: #395, #396 (§9).
+> Status: #395 implemented (module, endpoint, token, read tools and resources: `docs/modules/mcp.md`); #396 (writes, settings page, bridge) next (§9).
 
 An opt-in module, `mcp`, exposes a vault through the [Model Context Protocol](https://modelcontextprotocol.io)
 so an assistant (Claude Desktop, Claude Code, any MCP client) can search the world, read

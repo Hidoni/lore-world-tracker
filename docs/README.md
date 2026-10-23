@@ -45,7 +45,7 @@
 [`media`](modules/media.md) · [`maps`](modules/maps.md) ·
 [`custom_fields`](modules/custom_fields.md) · [`graph`](modules/graph.md) ·
 [`branches`](modules/branches.md) · [`correspondences`](modules/correspondences.md) ·
-[`worldlines`](modules/worldlines.md)
+[`worldlines`](modules/worldlines.md) · [`mcp`](modules/mcp.md)
 
 ### Guides
 - [`guides/getting-started.md`](guides/getting-started.md): install, the first vault and dimension, finding your way around

@@ -7,6 +7,7 @@ from fastapi import Depends, Path, Query, Request
 from sqlalchemy.orm import Session
 
 from lore.config import Settings
+from lore.core.api.bearer import ServerToken
 from lore.core.api.middleware import CLIENT_HEADER
 from lore.core.errors import ReadOnlyError
 from lore.core.history.recorder import context as history_context
@@ -24,6 +25,14 @@ def get_settings(request: Request) -> Settings:
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def get_server_token(request: Request) -> ServerToken:
+    token: ServerToken = request.app.state.bearer_token
+    return token
+
+
+ServerTokenDep = Annotated[ServerToken, Depends(get_server_token)]
 
 
 def get_vault_manager(request: Request) -> VaultManager:

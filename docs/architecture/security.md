@@ -20,7 +20,8 @@
 ## 2. HTTP hardening (backend middleware, M0)
 
 Implemented as pure ASGI middlewares in `lore.core.api.middleware` (outermost first: security
-headers → request context → host check → CORS (optional) → mutation guard → body size limit).
+headers → request context → host check → bearer auth (when a module has bearer routes) → read-only
+(read-only servers) → CORS (optional) → mutation guard → body size limit).
 
 - **Host allowlist** (DNS rebinding): the `Host` header (port ignored, case-insensitive, IPv6 as
   `[::1]`) must be in `LORE_ALLOWED_HOSTS` or equal the configured `LORE_HOST` (unless it binds
@@ -30,6 +31,12 @@ headers → request context → host check → CORS (optional) → mutation guar
   `X-Lore-Client: web|cli|test` (`test` for test clients), otherwise `403 missing_client_header`.
   If `Origin` is present it must be an `http(s)` origin whose host is allowed (as above) or one of
   `LORE_CORS_ORIGINS`, otherwise `403 bad_origin` (`Origin: null` is rejected).
+- **Bearer routes** (the MCP endpoint, `ModuleSpec.bearer_routes`, `mcp.md` §4): every method
+  needs `Authorization: Bearer <token>` with the server's token (§5), otherwise `401
+  unauthorized` (`WWW-Authenticate: Bearer`); an `Origin`, when sent, must be allowed as above
+  (`403 bad_origin`). The token replaces `X-Lore-Client` there: `Authorization` is not a simple
+  header, so a cross-origin page can't send it without a preflight, which is never approved. It
+  also lets these routes through a read-only server, where they only read (readers' policy).
 - No CORS middleware unless `LORE_CORS_ORIGINS` is set (development only). It then allows those
   origins, all methods, and the `X-Lore-Client`, `X-Request-Id` and `Content-Type` headers.
 - Headers on every response (including rejections and errors): `X-Content-Type-Options: nosniff`,
@@ -96,5 +103,11 @@ headers → request context → host check → CORS (optional) → mutation guar
 
 ## 5. Secrets
 
-The app stores no secrets in the MVP. Future modules that need API keys read them from env vars or
-a local secrets file outside vaults, never from vault data (vaults get shared and backed up).
+Secrets live outside vaults (vaults get shared and backed up), in env vars or files under
+`<data dir>/secrets/`, never in vault data. The only one so far is the server's bearer token
+(`lore.core.api.bearer`, #395): `LORE_MCP_TOKEN`, else `<data dir>/secrets/mcp-token`, a random
+256-bit value (URL-safe base64) created on first use with mode `0600` in a `0700` folder,
+compared in constant time. Settings → AI access shows and regenerates it (#396); a token set by
+the environment can only be changed there. Without either (a read-only data directory and no
+`LORE_MCP_TOKEN`), nothing authenticates. Future modules that need API keys follow the same
+rule.

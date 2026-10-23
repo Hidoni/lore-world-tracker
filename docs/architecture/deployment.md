@@ -19,6 +19,7 @@
 | `LORE_PUBLISH_DIR` | empty (publishing from the UI disabled) | data-dir root where published snapshots are written (static sites go to its `static/<vault folder>/`) |
 | `LORE_EXPORT_WORKERS` | CPU count, at most 8 | processes a static export records with (`lore vault export-static`, **Export static site**) |
 | `LORE_LOG_LEVEL` / `LORE_LOG_FORMAT` | `info` / `text` | logging (`json` = one JSON object per line, for containers); every record carries the request id |
+| `LORE_MCP_TOKEN` | empty (a token is created in `<data dir>/secrets/mcp-token`) | the bearer token AI assistants send to the MCP endpoint (`mcp.md` §4, `security.md` §5). Set it when the data directory is read-only, or to share one token between servers |
 | `LORE_DEBUG` | `false` | include tracebacks in `internal_error` responses (development only, never in shared deployments) |
 
 Settings are read once at startup with `pydantic-settings` (`lore.config.Settings`). Vault-level

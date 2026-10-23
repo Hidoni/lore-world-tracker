@@ -421,6 +421,9 @@ class _Exporter:
         return properties
 
     def write(self, entity: Entity) -> None:
+        self.sink.write(self.notes[entity.id].path, self.render(entity).encode("utf-8"))
+
+    def render(self, entity: Entity) -> str:
         out = self.entities.to_out(entity)
         kind = self.entities.kinds[entity.kind]
         active = self.entities.kind_fields(kind).active
@@ -456,8 +459,7 @@ class _Exporter:
         links = self._links(entity)
         if links:
             parts.append("## Links\n\n" + "\n".join(links))
-        text = "\n\n".join(parts) + "\n"
-        self.sink.write(self.notes[entity.id].path, text.encode("utf-8"))
+        return "\n\n".join(parts) + "\n"
 
     def _event(
         self,
@@ -616,6 +618,65 @@ class _Exporter:
                     line += f" · in {escape(name)}"
             lines.append(line)
         return lines
+
+
+class _Discard:
+    def write(self, path: str, data: bytes) -> None:
+        pass
+
+    def copy(self, path: str, source: Path) -> None:
+        pass
+
+
+class _OneNote(_Exporter):
+    """Notes rendered one at a time, outside an export: links go through ``link`` (the entity's
+    id and the label: its name unless the text gives one) to entities the policy shows."""
+
+    def __init__(
+        self,
+        context: VaultContext,
+        policy: VisibilityPolicy,
+        link: Callable[[str, str], str],
+        calendars: Sequence[str],
+    ) -> None:
+        super().__init__(context, policy, _Discard(), calendars)
+        self.link = link
+        self._names: dict[str, str | None] = {}
+
+    def link_to(self, entity_id: str | None, label: str | None = None) -> str | None:
+        if entity_id is None:
+            return None
+        if entity_id not in self._names:
+            self._names[entity_id] = self.session.scalar(
+                select(Entity.name).where(
+                    Entity.id == entity_id,
+                    Entity.deleted_at.is_(None),
+                    Entity.kind.in_(self.entities.kinds),
+                    *self.policy.entities(Entity),
+                )
+            )
+        name = self._names[entity_id]
+        return None if name is None else self.link(entity_id, label or name)
+
+
+def entity_note(
+    context: VaultContext,
+    policy: VisibilityPolicy,
+    entity_id: str,
+    link: Callable[[str, str], str],
+    *,
+    calendars: Sequence[str] = (),
+) -> str:
+    """One entity's note as the Markdown export writes it for ``policy`` (properties, body,
+    rich-text fields, facts, links), its links to other entities made by ``link(id, label)``.
+    ``404`` for an entity the policy hides or that is in the trash. Module content renders as in
+    an export (media as ``_media/`` embeds, which the export would hold)."""
+    exporter = _OneNote(context, policy, link, calendars)
+    entity = exporter.entities.load_visible(entity_id)
+    if entity.deleted_at is not None or entity.kind not in exporter.entities.kinds:
+        raise NotFoundError(f"No entity {entity_id}.")
+    exporter.contribute()
+    return exporter.render(entity)
 
 
 def export_markdown(

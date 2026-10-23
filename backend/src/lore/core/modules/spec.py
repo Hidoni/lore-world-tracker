@@ -135,6 +135,10 @@ class ModuleSpec:
     # How history treats each model's table (every one must be listed; derived=True: not recorded)
     history_tables: tuple[HistoryTable, ...] = ()
     routers: tuple[APIRouter, ...] = ()  # mounted at /api/v1/vaults/{vault_id}/m/<id>/
+    # Paths of its routes (under ``m/<id>``, ``""`` for ``m/<id>`` itself) that authenticate with
+    # the server's bearer token instead of ``X-Lore-Client`` (``lore.core.api.bearer``: the MCP
+    # endpoint). They pass a read-only server, so they must never write there.
+    bearer_routes: tuple[str, ...] = ()
     slot_providers: tuple[SlotProvider, ...] = ()
     timeline_tables: tuple[TimelineTableSpec, ...] = ()
     search_contributors: tuple[SearchContributor, ...] = ()

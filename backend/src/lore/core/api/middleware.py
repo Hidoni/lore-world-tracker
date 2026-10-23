@@ -8,11 +8,14 @@ Pure ASGI middlewares, outermost first:
    ``internal_error`` problem for unexpected exceptions (so even those responses carry the id and
    the security headers).
 3. ``HostCheckMiddleware``: ``Host`` allowlist against DNS rebinding.
-4. ``ReadOnlyMiddleware``, only on a read-only server (``LORE_READ_ONLY``): every method but
+4. ``BearerAuthMiddleware``, only when a module declares bearer routes (the MCP endpoint):
+   those routes need the server's bearer token (``401`` otherwise) and an allowed ``Origin``, if
+   sent; the token stands in for ``X-Lore-Client`` and lets them through a read-only server.
+5. ``ReadOnlyMiddleware``, only on a read-only server (``LORE_READ_ONLY``): every method but
    GET/HEAD/OPTIONS is ``403 read_only`` before routing (``visibility-and-sharing.md`` §7).
-5. ``CORSMiddleware``, only when ``LORE_CORS_ORIGINS`` is set (development).
-6. ``MutationGuardMiddleware``: CSRF guard (``X-Lore-Client`` header + ``Origin`` check).
-7. ``BodySizeLimitMiddleware``: request bodies are capped at ``MAX_JSON_BODY_BYTES``.
+6. ``CORSMiddleware``, only when ``LORE_CORS_ORIGINS`` is set (development).
+7. ``MutationGuardMiddleware``: CSRF guard (``X-Lore-Client`` header + ``Origin`` check).
+8. ``BodySizeLimitMiddleware``: request bodies are capped at ``MAX_JSON_BODY_BYTES``.
 """
 
 import logging
@@ -27,6 +30,7 @@ from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from lore.config import Settings
+from lore.core.api.bearer import ServerToken
 from lore.core.api.errors import internal_error_response, problem_response
 from lore.core.logging import request_id_var
 
@@ -76,6 +80,30 @@ def allowed_hosts(settings: Settings) -> frozenset[str]:
 
 def _is_api_path(path: str) -> bool:
     return path == "/api" or path.startswith("/api/")
+
+
+def _bearer_authenticated(scope: Scope) -> bool:
+    """Whether ``BearerAuthMiddleware`` let the request in with the server's token."""
+    return bool(scope.get("state", {}).get("bearer"))
+
+
+def origin_allowed(origin: str, hosts: frozenset[str], cors_origins: frozenset[str]) -> bool:
+    """An ``http(s)`` origin whose host is allowed (``*``: any), or one of ``cors_origins``."""
+    if origin.rstrip("/") in cors_origins:
+        return True
+    parts = urlsplit(origin)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        return False
+    return "*" in hosts or normalize_host(parts.hostname) in hosts
+
+
+def _bad_origin() -> ASGIApp:
+    return problem_response(
+        status=403,
+        code="bad_origin",
+        title="Bad origin",
+        detail="The Origin header does not match an allowed host.",
+    )
 
 
 class RequestContextMiddleware:
@@ -184,7 +212,11 @@ class ReadOnlyMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["method"] in SAFE_METHODS:
+        if (
+            scope["type"] != "http"
+            or scope["method"] in SAFE_METHODS
+            or _bearer_authenticated(scope)
+        ):
             await self.app(scope, receive, send)
             return
         response = problem_response(
@@ -204,19 +236,14 @@ class MutationGuardMiddleware:
     ) -> None:
         self.app = app
         self.hosts = frozenset(hosts)
-        self.allow_any = "*" in self.hosts
         self.cors_origins = frozenset(origin.rstrip("/") for origin in cors_origins)
 
-    def _origin_allowed(self, origin: str) -> bool:
-        if origin.rstrip("/") in self.cors_origins:
-            return True
-        parts = urlsplit(origin)
-        if parts.scheme not in {"http", "https"} or not parts.hostname:
-            return False
-        return self.allow_any or normalize_host(parts.hostname) in self.hosts
-
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["method"] in SAFE_METHODS:
+        if (
+            scope["type"] != "http"
+            or scope["method"] in SAFE_METHODS
+            or _bearer_authenticated(scope)
+        ):
             await self.app(scope, receive, send)
             return
         headers = Headers(scope=scope)
@@ -230,15 +257,54 @@ class MutationGuardMiddleware:
             await response(scope, receive, send)
             return
         origin = headers.get("origin")
-        if origin is not None and not self._origin_allowed(origin):
+        if origin is not None and not origin_allowed(origin, self.hosts, self.cors_origins):
+            await _bad_origin()(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+class BearerAuthMiddleware:
+    """The routes matching ``paths`` (every method) need ``Authorization: Bearer <token>`` with
+    the server's token, else ``401``, and an allowed ``Origin`` when one is sent (the MCP
+    specification asks servers to check it), else ``403 bad_origin``. ``Authorization`` isn't a
+    simple header, so a cross-origin page can't send it without a preflight, which is never
+    approved: the token stands in for ``X-Lore-Client`` (``mcp.md`` §4)."""
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        paths: re.Pattern[str],
+        token: ServerToken,
+        hosts: Iterable[str],
+        cors_origins: Iterable[str] = (),
+    ) -> None:
+        self.app = app
+        self.paths = paths
+        self.token = token
+        self.hosts = frozenset(hosts)
+        self.cors_origins = frozenset(origin.rstrip("/") for origin in cors_origins)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not self.paths.fullmatch(scope["path"]):
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        origin = headers.get("origin")
+        if origin is not None and not origin_allowed(origin, self.hosts, self.cors_origins):
+            await _bad_origin()(scope, receive, send)
+            return
+        if not self.token.matches_header(headers.get("authorization")):
             response = problem_response(
-                status=403,
-                code="bad_origin",
-                title="Bad origin",
-                detail="The Origin header does not match an allowed host.",
+                status=401,
+                code="unauthorized",
+                title="Unauthorized",
+                detail="Send the server's token: Authorization: Bearer <token>.",
+                headers={"WWW-Authenticate": "Bearer"},
             )
             await response(scope, receive, send)
             return
+        scope.setdefault("state", {})["bearer"] = True
         await self.app(scope, receive, send)
 
 

@@ -1,17 +1,24 @@
 """Module and registry routes (``docs/architecture/api.md`` §2, Vaults & settings)."""
 
 from dataclasses import asdict
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Path
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.orm import Session
 
 from lore.core.api.deps import ModuleRegistryDep, SessionDep, VaultDep
 from lore.core.errors import ReadOnlyError
 from lore.core.links.catalog import LinkTypeCatalog, link_type_out
 from lore.core.links.schemas import LinkTypeOut
 from lore.core.modules.registry import ModuleRegistry, RegisteredKind
-from lore.core.modules.service import enabled_modules, set_module_enabled
+from lore.core.modules.service import (
+    ModuleChange,
+    enabled_modules,
+    set_module_enabled,
+    set_module_settings,
+    settings_of,
+)
 from lore.core.modules.spec import VaultContext
 
 router = APIRouter(prefix="/vaults/{vault_id}")
@@ -26,6 +33,9 @@ class ModuleState(BaseModel):
     depends_on: list[str]
     default_enabled: bool
     enabled: bool
+    settings: dict[str, Any] | None = Field(
+        default=None, description="The module's settings in this vault (null: it has none)."
+    )
 
 
 class FieldOptionOut(BaseModel):
@@ -125,8 +135,11 @@ class Registry(BaseModel):
 class ModuleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool
+    enabled: bool | None = None
     cascade: bool = False
+    settings: dict[str, Any] | None = Field(
+        default=None, description="Settings to change (merged into the current ones)."
+    )
 
 
 class ModuleUpdateResponse(BaseModel):
@@ -135,18 +148,24 @@ class ModuleUpdateResponse(BaseModel):
     modules: list[ModuleState]
 
 
-def _module_states(registry: ModuleRegistry, enabled: frozenset[str]) -> list[ModuleState]:
-    return [
-        ModuleState(
-            id=module.id,
-            name=module.name,
-            description=module.description,
-            depends_on=list(module.depends_on),
-            default_enabled=module.default_enabled,
-            enabled=module.id in enabled,
+def _module_states(
+    session: Session, registry: ModuleRegistry, enabled: frozenset[str]
+) -> list[ModuleState]:
+    states: list[ModuleState] = []
+    for module in registry.modules:
+        settings = settings_of(session, registry, module.id)
+        states.append(
+            ModuleState(
+                id=module.id,
+                name=module.name,
+                description=module.description,
+                depends_on=list(module.depends_on),
+                default_enabled=module.default_enabled,
+                enabled=module.id in enabled,
+                settings=None if settings is None else settings.model_dump(mode="json"),
+            )
         )
-        for module in registry.modules
-    ]
+    return states
 
 
 def _kind_out(kind: RegisteredKind) -> KindOut:
@@ -167,7 +186,7 @@ def get_registry(session: SessionDep, registry: ModuleRegistryDep) -> Registry:
         link_types=[
             link_type_out(info) for info in LinkTypeCatalog(session, registry, enabled).offered()
         ],
-        modules=_module_states(registry, enabled),
+        modules=_module_states(session, registry, enabled),
         consistency_rules=[RuleOut.model_validate(asdict(r)) for r in registry.rules_for(enabled)],
         referenceable_slots=[
             TimeSlotsOut(record_type=record_type, module=owner, slots=slots)
@@ -185,17 +204,22 @@ def update_module(
     registry: ModuleRegistryDep,
 ) -> ModuleUpdateResponse:
     """Enable (also enables dependencies) or disable (``409 module_has_dependents`` while
-    dependents are enabled, unless ``cascade``) a module for this vault. Data is never deleted."""
+    dependents are enabled, unless ``cascade``) a module for this vault, and change its
+    ``settings`` (merged; ``422`` when invalid). Data is never deleted."""
     if vault.read_only:
         raise ReadOnlyError("Modules can't be changed on a read-only server.")
-    change = set_module_enabled(
-        VaultContext(vault, session, registry),
-        module_id,
-        enabled=body.enabled,
-        cascade=body.cascade,
-    )
+    if body.settings is not None:
+        set_module_settings(session, registry, module_id, body.settings)
+    change = ModuleChange(enabled=[], disabled=[])
+    if body.enabled is not None:
+        change = set_module_enabled(
+            VaultContext(vault, session, registry),
+            module_id,
+            enabled=body.enabled,
+            cascade=body.cascade,
+        )
     return ModuleUpdateResponse(
         enabled=change.enabled,
         disabled=change.disabled,
-        modules=_module_states(registry, enabled_modules(session, registry)),
+        modules=_module_states(session, registry, enabled_modules(session, registry)),
     )
