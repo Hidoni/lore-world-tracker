@@ -141,6 +141,11 @@ canary ids. The suite:
 4. Runs the same assertions against a **published snapshot** of the fixture, served in read-only
    mode (reader mode `published` in `test_leaks.py`).
 
+5. Calls every **MCP tool and resource** (`test_mcp_leaks.py`, `mcp.md` §8) with the module's
+   `access = readers`, on a read-only server and on a published snapshot, with the same byte
+   scan, and checks that `access = author` reaches the private content. The MCP endpoint is a
+   POST route outside the OpenAPI document and the static-export contract (§6).
+
 These tests run in CI on every PR that touches the backend.
 
 ## 6. Reader-facing read surface (static-export contract)

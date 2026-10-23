@@ -9,6 +9,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **AI assistants over MCP** (#395): a new module, off by default, serves a vault to Claude
+  Desktop, Claude Code or any Model Context Protocol client from the Lore server itself, at
+  `/api/v1/vaults/{v}/m/mcp`. Assistants can list dimensions, search, read an entity (as
+  Markdown, and its state at a moment), list entities, list the events between two dates and
+  convert dates, with dates given as moments or in any calendar; every entity is also a
+  resource. They see what readers see unless you set the module's access to `author`. Clients
+  authenticate with the server's token (`<data dir>/secrets/mcp-token` or `LORE_MCP_TOKEN`).
+  Modules can now have settings, changed through `PATCH …/modules/{id}` (`docs/modules/mcp.md`).
+
 - **JSON export and import** (#149): a vault, or one dimension of it, as a versioned JSON
   document (with its media files, in a zip) that any vault of this app or a later one imports.
   Imports give records fresh ids by default (so a world can be copied into another vault), or

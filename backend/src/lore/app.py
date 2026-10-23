@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 
 import gc
+import re
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,6 +14,7 @@ from fastapi.routing import APIRoute
 from lore import __version__
 from lore.config import Settings
 from lore.core.api import system
+from lore.core.api.bearer import ServerToken
 from lore.core.api.deps import require_module
 from lore.core.api.errors import (
     PROBLEM_RESPONSES,
@@ -22,6 +24,7 @@ from lore.core.api.errors import (
 from lore.core.api.middleware import (
     CLIENT_HEADER,
     REQUEST_ID_HEADER,
+    BearerAuthMiddleware,
     BodySizeLimitMiddleware,
     HostCheckMiddleware,
     MutationGuardMiddleware,
@@ -114,6 +117,10 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     )
     app.state.scheduler = None if settings.read_only else MaintenanceScheduler(app.state.vaults)
     app.state.static_exporter = _export_static
+    app.state.bearer_token = ServerToken.of_data_dir(
+        settings.data_dir,
+        None if settings.mcp_token is None else settings.mcp_token.get_secret_value(),
+    )
     install_error_handlers(app)
 
     api = APIRouter(prefix=API_BASE_PATH, responses=PROBLEM_RESPONSES)
@@ -169,6 +176,16 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     return app
 
 
+def bearer_paths(modules: Sequence[ModuleSpec]) -> re.Pattern[str] | None:
+    """The request paths of the modules' bearer routes (``ModuleSpec.bearer_routes``)."""
+    paths = [
+        f"{API_BASE_PATH}/vaults/[^/]+/m/{re.escape(module.id)}{re.escape(route)}"
+        for module in modules
+        for route in module.bearer_routes
+    ]
+    return re.compile("|".join(paths)) if paths else None
+
+
 def install_middleware(app: FastAPI, settings: Settings) -> None:
     """Add the middleware stack (``lore.core.api.middleware``). The last one added runs first."""
     hosts = allowed_hosts(settings)
@@ -184,6 +201,15 @@ def install_middleware(app: FastAPI, settings: Settings) -> None:
         )
     if settings.read_only:
         app.add_middleware(ReadOnlyMiddleware)
+    paths = bearer_paths(app.state.registry.modules)
+    if paths is not None:
+        app.add_middleware(
+            BearerAuthMiddleware,
+            paths=paths,
+            token=app.state.bearer_token,
+            hosts=hosts,
+            cors_origins=settings.cors_origins,
+        )
     app.add_middleware(HostCheckMiddleware, hosts=hosts)
     app.add_middleware(RequestContextMiddleware, debug=settings.debug)
     app.add_middleware(SecurityHeadersMiddleware)

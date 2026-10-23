@@ -86,6 +86,7 @@ class ModuleSpec:
     models: tuple[type, ...] = ()                             # ORM classes of the module's tables ("<id>_…")
     history_tables: tuple[HistoryTable, ...] = ()            # how history treats each table (all must be listed)
     routers: tuple[APIRouter, ...] = ()
+    bearer_routes: tuple[str, ...] = ()                       # route paths that take the bearer token (mcp)
     slot_providers: tuple[SlotProvider, ...] = ()             # module records with time slots
     timeline_tables: tuple[TimelineTableSpec, ...] = ()       # module tables readable through TimelineView
     search_contributors: tuple[SearchContributor, ...] = ()
@@ -104,7 +105,7 @@ class ModuleSpec:
     derived_hooks: tuple[DerivedHook, ...] = ()               # rebuild derived rows on every changeset
     maintenance_tasks: tuple[MaintenanceTask, ...] = ()       # daily, per open vault (author mode)
     derived_checks: tuple[DerivedDataCheck, ...] = ()         # extra `lore vault check`/`reindex` checks
-    settings_model: type[BaseModel] | None = None
+    settings_model: type[BaseModel] | None = None              # the module's per-vault settings (§4)
     on_enable: Callable[[VaultContext], None] | None = None
     on_disable: Callable[[VaultContext], None] | None = None
 ```
@@ -286,7 +287,18 @@ Implementation (`core/modules/`, `core/registry/`, #60):
   `default_enabled` later never changes existing vaults**. Read-only servers never write; they
   fall back to `default_enabled` for a missing entry. A module is **effectively** enabled only if
   every dependency is too.
-- `PATCH /api/v1/vaults/{v}/modules/{id} {enabled}`:
+- A module's **settings** (`settings_model`, a Pydantic model whose defaults are the defaults) are
+  stored in `vault_meta.settings.modules.<id>.settings` and read with
+  `lore.core.modules.service.module_settings` (stored values the model no longer accepts fall back
+  to the defaults). `PATCH …/modules/{id} {settings}` merges the members sent (`422`, paths
+  `settings.<key>`, when the result is invalid or the module has no settings model); every module
+  state in the registry and in PATCH responses carries its `settings` (null without a model).
+  Settings are kept while the module is off.
+- `bearer_routes` (#395): paths of the module's routes (under `m/<id>`; `""` is `m/<id>` itself)
+  that authenticate with the server's bearer token instead of `X-Lore-Client`
+  (`BearerAuthMiddleware`, `security.md` §2). They pass read-only servers, so they must not write
+  there. The mcp module's endpoint is the only one.
+- `PATCH /api/v1/vaults/{v}/modules/{id} {enabled?, cascade?, settings?}`:
   - enabling a module also enables its dependencies;
   - disabling a module with enabled dependents fails with `409 module_has_dependents`
     (`context.dependents`) unless `cascade: true`, which disables them too;

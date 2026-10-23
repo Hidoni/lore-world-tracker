@@ -13,9 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
-from lore.core.errors import ConflictError, NotFoundError
+from lore.core.errors import ConflictError, ErrorItem, InvalidInputError, NotFoundError
 from lore.core.history.recorder import RecordedChange
 from lore.core.modules.registry import ModuleRegistry
 from lore.core.modules.spec import VaultContext
@@ -144,3 +145,62 @@ def set_module_enabled(
 
         scan(context)
     return change
+
+
+# --- settings (ModuleSpec.settings_model) -----------------------------------------------------
+
+
+def module_settings[T: BaseModel](session: Session, module_id: str, model: type[T]) -> T:
+    """A module's settings in this vault: the stored ones over the model's defaults. Stored
+    values the model no longer accepts (from an older release) fall back to the defaults."""
+    entry = _settings(session).get("modules", {}).get(module_id)
+    stored = entry.get("settings") if isinstance(entry, dict) else None
+    try:
+        return model.model_validate(stored if isinstance(stored, dict) else {})
+    except ValidationError:
+        return model()
+
+
+def settings_of(session: Session, registry: ModuleRegistry, module_id: str) -> BaseModel | None:
+    """``module_settings`` of a registered module, ``None`` for one without settings."""
+    module = registry.get(module_id)
+    if module is None:
+        raise ModuleNotFoundError(f"No module {module_id!r}.")
+    if module.settings_model is None:
+        return None
+    return module_settings(session, module_id, module.settings_model)
+
+
+def set_module_settings(
+    session: Session, registry: ModuleRegistry, module_id: str, changes: dict[str, Any]
+) -> BaseModel:
+    """Merge ``changes`` into a module's settings (``422`` when the result isn't valid, or the
+    module has none)."""
+    current = settings_of(session, registry, module_id)
+    module = registry.get(module_id)
+    if current is None or module is None or module.settings_model is None:
+        raise InvalidInputError(
+            f"The {module_id!r} module has no settings.",
+            errors=[{"path": "settings", "code": "invalid_value", "message": "No settings."}],
+        )
+    try:
+        updated = module.settings_model.model_validate(
+            {**current.model_dump(mode="json"), **changes}
+        )
+    except ValidationError as error:
+        items: list[ErrorItem] = [
+            {
+                "path": ".".join(["settings", *(str(part) for part in item["loc"])]),
+                "code": "invalid_value",
+                "message": item["msg"],
+            }
+            for item in error.errors()
+        ]
+        raise InvalidInputError(f"Invalid settings for {module_id!r}.", errors=items) from None
+    settings = _settings(session)
+    modules = {key: dict(value) for key, value in settings.get("modules", {}).items()}
+    entry = modules.get(module_id, {"enabled": module.default_enabled})
+    modules[module_id] = {**entry, "settings": updated.model_dump(mode="json")}
+    set_meta(session, "settings", {**settings, "modules": modules})
+    session.flush()
+    return updated

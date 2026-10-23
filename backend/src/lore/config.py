@@ -6,7 +6,7 @@ The variables and their defaults are specified in ``docs/architecture/deployment
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 type CommaList = Annotated[list[str], NoDecode]
@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     log_level: Literal["critical", "error", "warning", "info", "debug"] = "info"
     log_format: Literal["text", "json"] = "text"
     debug: bool = False
+    mcp_token: SecretStr | None = None
 
     @field_validator("exposed_vaults", "allowed_hosts", "cors_origins", mode="before")
     @classmethod
@@ -56,6 +57,13 @@ class Settings(BaseSettings):
     @field_validator("static_dir", "spec_dir", "publish_dir", mode="before")
     @classmethod
     def _empty_path_is_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("mcp_token", mode="before")
+    @classmethod
+    def _empty_token_is_none(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
         return value

@@ -333,7 +333,8 @@ export interface paths {
         /**
          * Update
          * @description Enable (also enables dependencies) or disable (``409 module_has_dependents`` while
-         *     dependents are enabled, unless ``cascade``) a module for this vault. Data is never deleted.
+         *     dependents are enabled, unless ``cascade``) a module for this vault, and change its
+         *     ``settings`` (merged; ``422`` when invalid). Data is never deleted.
          */
         patch: operations["modules_update"];
         trace?: never;
@@ -6259,16 +6260,30 @@ export interface components {
             default_enabled: boolean;
             /** Enabled */
             enabled: boolean;
+            /**
+             * Settings
+             * @description The module's settings in this vault (null: it has none).
+             */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ModuleUpdate */
         ModuleUpdate: {
             /** Enabled */
-            enabled: boolean;
+            enabled?: boolean | null;
             /**
              * Cascade
              * @default false
              */
             cascade?: boolean;
+            /**
+             * Settings
+             * @description Settings to change (merged into the current ones).
+             */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ModuleUpdateResponse */
         ModuleUpdateResponse: {

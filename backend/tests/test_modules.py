@@ -303,6 +303,7 @@ def test_registry_endpoint(client: TestClient) -> None:
         "depends_on": ["base"],
         "default_enabled": True,
         "enabled": True,
+        "settings": {"greeting": "hello"},
     }
     assert states(client, vault) == {"base": True, "sample": True, "addon": True, "optional": False}
     kinds = {k["key"]: k for k in registry["kinds"]}
