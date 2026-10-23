@@ -176,6 +176,13 @@ def markdown_export(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/export/markdown", {"audience": "readers"}, status=404)
 
 
+@recipe(f"{V}/export/interchange")
+def interchange_export(c: Canary) -> Iterator[Call]:
+    # Author-only, whatever the audience asked for (readers' exports are made by the author).
+    yield Call(f"{_v(c)}/export/interchange", status=404)
+    yield Call(f"{_v(c)}/export/interchange", {"audience": "readers"}, status=404)
+
+
 @recipe(f"{V}/backups/{{backup_id}}/download")
 def backup_download(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/backups/{c.backup}/download", status=404)

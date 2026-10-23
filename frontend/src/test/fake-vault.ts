@@ -1670,6 +1670,39 @@ export function serveVault(
       staticExportedAt = '2026-10-16T12:05:00Z'
       return HttpResponse.json(publishStatus())
     }),
+    http.post('*/api/v1/vaults/v1/import/interchange', ({ request }) => {
+      // (The multipart body doesn't reach MSW under jsdom: the options are in the query.)
+      const query = Object.fromEntries(new URL(request.url).searchParams)
+      writes.push({ method: 'POST', path: '/import/interchange', body: query })
+      if (query.ids === 'keep' && query.on_conflict !== 'overwrite')
+        return HttpResponse.json(
+          {
+            type: 'about:blank',
+            status: 409,
+            code: 'interchange_conflict',
+            title: 'Import conflicts',
+            detail: '1 record(s) of the file clash with the vault’s; nothing was imported.',
+            context: {
+              count: 1,
+              conflicts: [{ table: 'entities', id: 'e1', reason: 'id', name: 'Mira' }],
+            },
+          },
+          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+        )
+      return HttpResponse.json({
+        ids: query.ids ?? 'remap',
+        scope: 'vault',
+        entities: 3,
+        created: { entities: 3, links: 2 },
+        updated: { entities: query.on_conflict === 'overwrite' ? 1 : 0 },
+        reused: { tags: 1 },
+        dropped: {},
+        references_matched: 0,
+        references_unmatched: [{ id: 'x1', kind: 'language', name: 'Common Trade' }],
+        files: 0,
+        changeset_id: 'c1',
+      })
+    }),
     http.post('*/api/v1/vaults/restore', () => {
       // (jsdom's XHR uploads reach MSW without their multipart body: failures are counted.)
       writes.push({ method: 'POST', path: '/vaults/restore', body: null })

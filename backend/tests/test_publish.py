@@ -186,7 +186,7 @@ def test_the_leak_gate_refuses_a_snapshot_with_private_data(
     with make_client(tmp_path / "data", with_real_modules(), publish_dir=out) as client:
         api = Api(client)
         _world(api)
-        monkeypatch.setattr(publish, "_sanitize", lambda _context: None)  # a broken sanitizer
+        monkeypatch.setattr(publish, "sanitize", lambda _context: None)  # a broken sanitizer
         refused = client.post(f"{api.base}/publish", headers=HEADERS)
         assert (refused.status_code, refused.json()["code"]) == (409, "publish_failed")
         assert refused.json()["context"]["problems"]

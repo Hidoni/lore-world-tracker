@@ -8,6 +8,7 @@ from lore.core.modules import ModuleSpec, StaticRead, VaultContext
 from lore.modules.media.checks import MEDIA_CHECK
 from lore.modules.media.fields import MEDIA_FIELD_TYPE
 from lore.modules.media.gc import collect_task
+from lore.modules.media.interchange import MEDIA_ITEMS
 from lore.modules.media.markdown import export_media
 from lore.modules.media.models import MediaGalleryItem, MediaItem, MediaRef
 from lore.modules.media.publish import publish_media
@@ -52,6 +53,7 @@ MODULE = ModuleSpec(
     derived_checks=(MEDIA_CHECK,),
     publish_contributors=(publish_media,),
     markdown_contributors=(export_media,),
+    interchange_tables=(MEDIA_ITEMS,),
     on_enable=rebuild_on_enable,
     static_reads=(
         StaticRead("items", paged=500),

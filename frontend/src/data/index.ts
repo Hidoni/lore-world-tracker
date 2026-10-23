@@ -103,6 +103,7 @@ export type {
   Fact,
   EntityPage,
   EntityWriteResult,
+  InterchangeImportOptions,
   Meta,
   Mutations,
   Query,
@@ -111,6 +112,7 @@ export type {
 } from './source'
 export {
   backupDownloadUrl,
+  interchangeExportUrl,
   markdownExportUrl,
   useBackups,
   useCreateBackup,
@@ -119,6 +121,7 @@ export {
   useExportStaticSite,
   usePublish,
   usePublishStatus,
+  useImportInterchange,
   useRestoreBackup,
   useSetModule,
   useSettings,

@@ -75,6 +75,9 @@ regenerable. Tiles of large images (#162): `media/tiles/<sha256>/<level>/<x>_<y>
 - Backups include `media/` when requested. Publish copies only reader-visible items (and
   regenerates thumbnails lazily on the reader side, which then needs a writable cache dir).
   Published snapshots include pre-generated thumbnails.
+- Interchange files (`interchange.md` §5): items carry their files (`files/media_items/<id>`);
+  an imported item whose content hash the vault has is that vault's item, and an imported file
+  must have its item's checksum and type (`lore.modules.media.interchange`).
 
 ## Consistency rules
 

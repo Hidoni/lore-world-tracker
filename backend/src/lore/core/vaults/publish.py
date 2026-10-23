@@ -120,8 +120,8 @@ def publish_vault(manager: VaultManager, vault_id: str, out: Path) -> VaultInfo:
             registry = staged.module_registry
             assert registry is not None
             with opened.write_sessions.begin() as session:
-                _sanitize(PublishContext(VaultContext(opened, session, registry), info.path,
-                                         folder))  # fmt: skip
+                sanitize(PublishContext(VaultContext(opened, session, registry), info.path,
+                                        folder))  # fmt: skip
             from lore.core.maintenance.service import reindex_vault  # noqa: PLC0415
 
             reindex_vault(opened, registry)
@@ -175,7 +175,9 @@ def last_published(out: Path, info: VaultInfo) -> VaultManifest | None:
 # --- the sanitizer -------------------------------------------------------------------------------
 
 
-def _sanitize(publish: PublishContext) -> None:
+def sanitize(publish: PublishContext) -> None:
+    """Steps 1-6 of the module docstring, in the snapshot's transaction (also used by the
+    readers' interchange export, ``lore.core.interchange.export``)."""
     from lore.core.consistency.engine import record_only  # noqa: PLC0415 (import cycle)
 
     context = publish.context

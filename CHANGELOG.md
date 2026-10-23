@@ -9,6 +9,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **JSON export and import** (#149): a vault, or one dimension of it, as a versioned JSON
+  document (with its media files, in a zip) that any vault of this app or a later one imports.
+  Imports give records fresh ids by default (so a world can be copied into another vault), or
+  keep them to move records between your own vaults; clashing records stop the import with a
+  report unless you choose to overwrite them. A dimension's file refers to the multiversal
+  entities it uses, matched by kind and name on import. Settings → Publishing,
+  `lore vault export-json` / `import-json`, and `GET …/export/interchange` /
+  `POST …/import/interchange` (`interchange.md`).
 - **Deep zoom for large maps** (#162): maps whose image is wider or taller than 8,192 px are
   drawn as tiles, so they open fast and stay sharp at every zoom. Tiles are made once, on first
   view (or when publishing), by libvips. Images are now decoded with libvips too, which raises

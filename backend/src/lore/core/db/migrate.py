@@ -155,15 +155,26 @@ class Migrator:
             engine.dispose()
 
     def upgrade(
-        self, path: Path, target: str = "head", *, attributes: Mapping[str, Any] | None = None
+        self,
+        path: Path,
+        target: str = "head",
+        *,
+        attributes: Mapping[str, Any] | None = None,
+        check_foreign_keys: bool = True,
     ) -> None:
         """Upgrade ``path`` to ``target`` in one transaction. ``attributes`` reach migrations as
-        ``context.config.attributes`` (the vault's identity for seeding ``vault_meta``)."""
+        ``context.config.attributes`` (the vault's identity for seeding ``vault_meta``).
+        ``check_foreign_keys=False`` is for scratch databases holding part of a vault (an
+        interchange document's rows refer to records they don't hold)."""
         engine = for_writing(create_vault_engine(path, foreign_keys=False, pool=NullPool))
         try:
             with _ALEMBIC, engine.connect() as connection, connection.begin():
                 command.upgrade(self.config(connection, attributes), target)
-                violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                violations = (
+                    connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                    if check_foreign_keys
+                    else []
+                )
                 if violations:
                     raise MigrationError(
                         f"The migration left {len(violations)} foreign key violation(s), "

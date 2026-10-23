@@ -224,6 +224,8 @@ lore vault reindex <vault> | optimize <vault> [--vacuum] | backup <vault> [--no-
 lore vault compact-history <vault> --older-than N [--dry-run]
 lore vault refine-base-unit <vault> --dimension D --factor K [--unit s,p,abbr] [--dry-run]
 lore vault restore <zip> | publish <vault> --out DIR
+lore vault export-json <vault> --out FILE [--audience readers|author] [--dimension D]
+lore vault import-json <vault> FILE [--keep-ids] [--overwrite]           # interchange.md
 lore db revision -m "msg" [--autogenerate]     # wraps alembic with the programmatic config (uses a scratch DB)
 lore db check                                    # empty autogenerate diff + single head
 ```
@@ -365,6 +367,7 @@ by data migrations, so at runtime all documents are at the current version. API 
 
 ## 6. Moving between machines
 
-A vault folder (or a backup zip) is fully portable. Copy it into another installation's
+A vault folder (or a backup zip) is fully portable. To move part of a world (one dimension), or
+to merge a world into an existing vault, use an interchange file (`interchange.md`). Copy it into another installation's
 `vaults/` directory, or restore the zip. An older app refuses newer vaults (§3.3). A newer app
 upgrades older vaults automatically after taking a backup.

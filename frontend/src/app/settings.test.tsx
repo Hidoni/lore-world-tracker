@@ -280,6 +280,46 @@ describe('publishing settings', () => {
       '/api/v1/vaults/v1/export/markdown?audience=author',
     )
   })
+
+  it('links the JSON exports, whole or one dimension', async () => {
+    serveVault()
+    await renderApp('/v/v1/settings/publishing')
+    const readers = await screen.findByRole('link', { name: 'Export JSON (readers’ view)' })
+    expect(readers).toHaveAttribute('href', '/api/v1/vaults/v1/export/interchange?audience=readers')
+    const select = screen.getByLabelText('What to export')
+    const option = await within(select).findByRole('option', { name: /^Dimension: / })
+    await userEvent.selectOptions(select, option)
+    expect(screen.getByRole('link', { name: 'Export JSON (everything)' })).toHaveAttribute(
+      'href',
+      `/api/v1/vaults/v1/export/interchange?audience=author&dimension=${option.getAttribute('value') ?? ''}`,
+    )
+  })
+
+  it('imports a JSON export and shows conflicts', async () => {
+    const writes = serveVault()
+    await renderApp('/v/v1/settings/publishing')
+    await userEvent.upload(
+      await screen.findByLabelText('JSON export'),
+      new File(['zip'], 'atlas-lore.zip', { type: 'application/zip' }),
+    )
+    expect(screen.getByLabelText(/^Overwrite/)).toBeDisabled()
+    await userEvent.click(screen.getByLabelText('Keep the file’s ids'))
+    await userEvent.click(screen.getByRole('button', { name: 'Import' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('nothing was imported')
+    expect(alert).toHaveTextContent('Mira (entities)')
+    await userEvent.click(screen.getByLabelText(/^Overwrite/))
+    await userEvent.click(screen.getByRole('button', { name: 'Import' }))
+    const report = (await screen.findByText(/^Imported 3 entities/)).closest('[role="status"]')
+    expect(report).toHaveTextContent(
+      'Imported 3 entities (5 records added, 1 overwritten, 1 already here).',
+    )
+    expect(report).toHaveTextContent('Not found here: Common Trade.')
+    expect(writes.at(-1)).toMatchObject({
+      path: '/import/interchange',
+      body: { ids: 'keep', on_conflict: 'overwrite' },
+    })
+  })
 })
 
 describe('module settings pages', () => {

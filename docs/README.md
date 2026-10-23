@@ -31,6 +31,7 @@
 - [`architecture/consistency.md`](architecture/consistency.md): rule engine and catalog
 - [`architecture/visibility-and-sharing.md`](architecture/visibility-and-sharing.md): visibility, read-only mode, publishing, leak tests
 - [`architecture/markdown-export.md`](architecture/markdown-export.md): the Markdown / Obsidian export
+- [`architecture/interchange.md`](architecture/interchange.md): the portable JSON export and import (a vault or one dimension)
 - [`architecture/mcp.md`](architecture/mcp.md): the MCP module, AI assistants reading (and optionally writing) a vault (design)
 - [`architecture/security.md`](architecture/security.md): threat model and mitigations
 - [`architecture/testing.md`](architecture/testing.md): test strategy, CI, performance budgets

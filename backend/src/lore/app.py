@@ -36,6 +36,7 @@ from lore.core.db import ensure_sqlite_capabilities
 from lore.core.entities import router as entities_router
 from lore.core.facts import router as facts_router
 from lore.core.history import router as history_router
+from lore.core.interchange import router as interchange_router
 from lore.core.links import router as links_router
 from lore.core.logging import configure_logging
 from lore.core.markdown import router as markdown_router
@@ -122,6 +123,8 @@ def create_app(settings: Settings, modules: Sequence[ModuleSpec] | None = None) 
     api.include_router(backups_router.settings_router)
     api.include_router(publish_router.router)
     api.include_router(markdown_router.router)
+    api.include_router(interchange_router.router)
+    api.include_router(interchange_router.import_router)
     api.include_router(modules_router.router)
     api.include_router(entities_router.router)
     api.include_router(entities_router.tree_router)
