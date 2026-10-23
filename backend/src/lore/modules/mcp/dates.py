@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 
 from lore.chronology.calendar import CompiledCalendar, DateError, format_absolute, format_date
 from lore.chronology.calendar.compiled import is_number
-from lore.chronology.schema import CalendarAnchor, TimePoint
+from lore.chronology.schema import AbsoluteAnchor, CalendarAnchor, TimePoint
 from lore.core.entities.models import Entity
 from lore.core.errors import ConflictError, InvalidInputError, NotFoundError
 from lore.core.modules.spec import VaultContext
@@ -79,8 +79,20 @@ class Dates:
 
     def resolve(self, value: DateIn, *, dimension_id: str | None, path: str) -> Resolved:
         """A date argument as a moment (``422 validation_error`` when it isn't one)."""
+        return self.point(value, dimension_id=dimension_id, path=path)[1]
+
+    def point(
+        self, value: DateIn, *, dimension_id: str | None, path: str
+    ) -> tuple[TimePoint, Resolved]:
+        """A date argument as the time point a write stores (a calendar date stays a calendar
+        anchor, a moment is an absolute one) and its moment."""
         if isinstance(value, CalendarDate):
             return self._calendar_date(value, dimension_id, path)
+        resolved = self._moment(value, dimension_id, path)
+        anchor = AbsoluteAnchor(kind="absolute", t=str(resolved.t))
+        return TimePoint(anchor=anchor, precision=BASE), resolved
+
+    def _moment(self, value: str, dimension_id: str | None, path: str) -> Resolved:
         if value == PRESENT:
             if dimension_id is None:
                 raise _invalid(path, '"present" needs a dimension (or a timeline).')
@@ -118,7 +130,9 @@ class Dates:
             raise ConflictError(f"Several calendars are named {name!r}: pass its id.")
         return found[0]
 
-    def _calendar_date(self, value: CalendarDate, dimension_id: str | None, path: str) -> Resolved:
+    def _calendar_date(
+        self, value: CalendarDate, dimension_id: str | None, path: str
+    ) -> tuple[TimePoint, Resolved]:
         row = self.calendar(value.calendar, dimension_id)
         try:
             compiled = lens(self.context, row.dimension_id, row.entity_id)
@@ -143,7 +157,7 @@ class Dates:
         if resolution.t is None or resolution.problem is not None:
             message = resolution.problem.message if resolution.problem else "Not a date."
             raise _invalid(path, message)
-        return Resolved(resolution.t, row.dimension_id)
+        return point, Resolved(resolution.t, row.dimension_id)
 
     @staticmethod
     def _fields(

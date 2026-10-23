@@ -213,3 +213,9 @@ Add fields to any kind, and kinds of your own ("Artifact", "Spell", "Ship").
 
 **Branches** (alternate timelines), **Correspondences** (time across dimensions) and
 **Worldlines** (time travel) have a guide of their own: [advanced-time.md](advanced-time.md).
+
+## AI assistants
+
+**AI assistants (MCP)** serves the vault to Claude Desktop, Claude Code and other MCP clients,
+off until you turn it on: what they may see and change, the token and the client configurations
+are in **Settings → AI access**. Guide: [ai-assistants.md](ai-assistants.md).

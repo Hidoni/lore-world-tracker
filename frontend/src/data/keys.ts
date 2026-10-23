@@ -10,6 +10,7 @@ export const keys = {
   settings: (vault: string) => [vault, 'settings'] as const,
   registry: (vault: string) => [vault, 'registry'] as const,
   backups: (vault: string) => [vault, 'backups'] as const,
+  mcpToken: (vault: string) => [vault, 'mcp-token'] as const,
   publish: (vault: string) => [vault, 'publish'] as const,
   entities: (vault: string, params?: object) => [vault, 'entities', params ?? {}] as const,
   entity: (vault: string, id: string, params?: object) =>

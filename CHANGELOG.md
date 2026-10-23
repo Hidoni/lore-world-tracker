@@ -17,6 +17,15 @@ All notable changes to this project are documented here. The format follows
   resource. They see what readers see unless you set the module's access to `author`. Clients
   authenticate with the server's token (`<data dir>/secrets/mcp-token` or `LORE_MCP_TOKEN`).
   Modules can now have settings, changed through `PATCH …/modules/{id}` (`docs/modules/mcp.md`).
+- **AI assistants can make changes, and connecting them is easy** (#396): with the module's
+  access set to everything and writes turned on, assistants can create and edit entities (bodies
+  written in Markdown), add and remove links, set facts, create events (dated in any calendar or
+  relative to another event) and undo their last change. Each change is one entry in Recent
+  changes from "AI assistant", named after the tool and the client, and can be undone;
+  consistency rules refuse bad changes with the findings. **Settings → AI access** sets what
+  assistants may see and do, shows, copies and regenerates the token, and gives ready-made
+  configurations for Claude Code and Claude Desktop, which runs the new `lore mcp-bridge` (stdio
+  to the server). Guide: `docs/guides/ai-assistants.md`.
 
 - **JSON export and import** (#149): a vault, or one dimension of it, as a versioned JSON
   document (with its media files, in a zip) that any vault of this app or a later one imports.

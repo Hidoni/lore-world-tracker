@@ -9,6 +9,7 @@ import groups from './groups'
 import languages from './languages'
 import locations from './locations'
 import maps from './maps'
+import mcp from './mcp'
 import media from './media'
 import misc from './misc'
 import scripts from './scripts'
@@ -33,4 +34,5 @@ export const moduleDefinitions: readonly ModuleDefinition[] = [
   maps,
   scripts,
   customFields,
+  mcp,
 ]

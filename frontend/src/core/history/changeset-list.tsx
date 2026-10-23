@@ -24,6 +24,7 @@ export const ORIGIN_LABEL: Record<string, string> = {
   ui: 'App',
   api: 'API',
   cli: 'CLI',
+  mcp: 'AI assistant',
   import: 'Import',
   migration: 'Migration',
   system: 'System',

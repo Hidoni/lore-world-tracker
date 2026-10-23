@@ -1158,6 +1158,9 @@ export function createHttpMutations(client: ApiClient = defaultClient): Mutation
           body,
         }),
       ),
+    mcpToken: (vault) => unwrap(client.GET(`${V}/m/mcp/token`, { params: path(vault) })),
+    regenerateMcpToken: (vault) =>
+      unwrap(client.POST(`${V}/m/mcp/token/regenerate`, { params: path(vault) })),
   }
 }
 

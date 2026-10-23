@@ -5,7 +5,16 @@ import { cn } from '@/lib/utils'
 import { ChangesetList, ORIGIN_LABEL } from './changeset-list'
 
 type Origin =
-  'ui' | 'api' | 'cli' | 'import' | 'migration' | 'system' | 'undo' | 'compaction' | 'refinement'
+  | 'ui'
+  | 'api'
+  | 'cli'
+  | 'mcp'
+  | 'import'
+  | 'migration'
+  | 'system'
+  | 'undo'
+  | 'compaction'
+  | 'refinement'
 const ORIGINS = Object.keys(ORIGIN_LABEL) as Origin[]
 
 /** An entity's history tab: the changesets touching it, newest first, with diffs and undo. */

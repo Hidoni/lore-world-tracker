@@ -53,7 +53,8 @@ class Arguments(BaseModel):
 
 @dataclass
 class Reads:
-    """What a tool call reads with: the vault (a read transaction) and the call's policy."""
+    """What a tool call works with: the vault (a read transaction, or a write transaction for
+    the write tools) and the call's policy."""
 
     context: VaultContext
     policy: VisibilityPolicy
@@ -109,6 +110,21 @@ class Reads:
             listed = ", ".join(f"{c.name} ({c.kind}, {c.id})" for c in named[:10])
             raise ConflictError(
                 f"Several entities are named {ref!r}: {listed}. Pass an id.",
+                context={"ids": [c.id for c in named]},
+            )
+        return self.visible(named[0].id)
+
+    def find_kind(self, ref: str, kind: str) -> Entity:
+        """``find`` among the entities of ``kind``."""
+        if self._is_id(ref):
+            return self.visible(ref, kind)
+        candidates = self.queries().list_entities(kinds=[kind], q=ref.strip(), limit=MAX_LIMIT)
+        named = [c for c in candidates.items if c.name.casefold() == ref.strip().casefold()]
+        if not named:
+            return self.visible(self.find(ref).id, kind)
+        if len(named) > 1:
+            raise ConflictError(
+                f"Several {kind}s are named {ref!r}: pass an id.",
                 context={"ids": [c.id for c in named]},
             )
         return self.visible(named[0].id)
@@ -599,6 +615,7 @@ class Tool:
     description: str
     arguments: type[Arguments]
     run: Callable[[Reads, Any], dict[str, Any]]
+    writes: bool = False  # runs in a write transaction (mcp.md §5, Writing)
 
 
 READ_TOOLS: tuple[Tool, ...] = (

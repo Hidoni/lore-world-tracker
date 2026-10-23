@@ -68,17 +68,17 @@ class Mcp:
         result: dict[str, Any] = answer["result"]
         return result
 
-    def tool(self, name: str, **arguments: Any) -> ToolResult:
+    def tool(self, name: str, /, **arguments: Any) -> ToolResult:
         result = self.result("tools/call", {"name": name, "arguments": arguments})
         return ToolResult(bool(result.get("isError")), result["content"][0]["text"])
 
-    def ok(self, name: str, **arguments: Any) -> Any:
+    def ok(self, name: str, /, **arguments: Any) -> Any:
         """A tool's result; the test fails when the tool answers with an error."""
         answer = self.tool(name, **arguments)
         assert not answer.is_error, answer.text
         return answer.data
 
-    def failed(self, name: str, code: str, **arguments: Any) -> dict[str, Any]:
+    def failed(self, name: str, code: str, /, **arguments: Any) -> dict[str, Any]:
         """A tool error (a problem) with ``code``."""
         answer = self.tool(name, **arguments)
         assert answer.is_error, answer.text

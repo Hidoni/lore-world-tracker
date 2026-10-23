@@ -1,6 +1,6 @@
 # MCP: AI assistants and the vault (#150)
 
-> Status: #395 implemented (module, endpoint, token, read tools and resources: `docs/modules/mcp.md`); #396 (writes, settings page, bridge) next (§9).
+> Status: implemented (#395: module, endpoint, token, read tools and resources; #396: write tools, settings page, bridge, guide). Behavior: `docs/modules/mcp.md`; guide: `docs/guides/ai-assistants.md`.
 
 An opt-in module, `mcp`, exposes a vault through the [Model Context Protocol](https://modelcontextprotocol.io)
 so an assistant (Claude Desktop, Claude Code, any MCP client) can search the world, read
@@ -87,16 +87,21 @@ date in the dimension's default calendar.
 | Tool | What it does |
 |---|---|
 | `create_entity` | Kind, name, dimension, parent, fields, tags, body (Markdown in, rich text stored). |
-| `update_entity` | The same fields, with the entity's `revision` (optimistic concurrency, `409 conflict` on a stale one). |
+| `update_entity` | The same fields, with the entity's `revision` (optimistic concurrency, `409 revision_conflict` on a stale one). |
 | `add_link` / `remove_link` | A link of a registered type, with optional validity and role. |
 | `set_fact` | A temporal value of a field (`core.exists` included) over a validity. |
 | `create_event` | An event with anchors (absolute, calendar or relative to another event). |
 | `undo_last` | Undoes the last changeset the MCP endpoint made, if nothing has changed it since. |
+| `describe_schema` | The kinds (with their fields) and link types the write tools use (listed with them). |
 
 Each write is one request, one transaction, one changeset (rule 6): `origin = "mcp"`, the label
-naming the tool and the client (`clientInfo.name` from the MCP handshake). The consistency
-engine runs first; a refusal comes back as a tool error with the findings, so the assistant can
-correct itself. No tool deletes entities (trash and purge stay in the app).
+naming the tool and the client (`clientInfo.name` when the request carries it, else the
+`User-Agent`'s product: the stateless transport keeps no handshake, and `lore mcp-bridge` sends
+the client's `clientInfo.name` as its `User-Agent`). Such changesets are never merged into an
+earlier one, so `undo_last` undoes exactly one call. The consistency engine runs first; a refusal
+comes back as a tool error with the findings, so the assistant can correct itself (there is no
+"save anyway": suppressing a finding stays the author's). No tool deletes entities (trash and
+purge stay in the app); `remove_link` moves a link to the trash.
 
 **Resources.** Each entity is also a resource, `lore://{vault}/entities/{id}`, as Markdown (the
 readers' or the author's export, by `access`), so clients can attach entities as context.
@@ -131,7 +136,7 @@ Rate limits are unnecessary on a single-user local server; result caps keep answ
 
 ## 9. Implementation issues
 
-1. #395: the module, endpoint, token auth, settings and the read tools and resources (with the leak
-   tests and the client test).
-2. #396: write tools, `undo_last`, origin `mcp` in History and its filter, the AI access settings page
+1. #395 (done): the module, endpoint, token auth, settings and the read tools and resources (with
+   the leak tests and the client test).
+2. #396 (done): write tools, `undo_last`, origin `mcp` in History and its filter, the AI access settings page
    (token, client snippets), the stdio bridge and the user guide.
