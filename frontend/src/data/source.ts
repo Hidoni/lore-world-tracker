@@ -457,4 +457,8 @@ export interface Mutations {
     entity: string,
     body: Schemas['TimeTravelIn'],
   ): Promise<D<'TimeTravelResult'>>
+  // The mcp module (docs/modules/mcp.md): the server's token, shown to the author only.
+  mcpToken(vault: string): Promise<Schemas['McpToken']>
+  /** A new token: assistants configured with the old one stop working. */
+  regenerateMcpToken(vault: string): Promise<Schemas['McpToken']>
 }

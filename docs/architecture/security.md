@@ -107,7 +107,8 @@ Secrets live outside vaults (vaults get shared and backed up), in env vars or fi
 `<data dir>/secrets/`, never in vault data. The only one so far is the server's bearer token
 (`lore.core.api.bearer`, #395): `LORE_MCP_TOKEN`, else `<data dir>/secrets/mcp-token`, a random
 256-bit value (URL-safe base64) created on first use with mode `0600` in a `0700` folder,
-compared in constant time. Settings → AI access shows and regenerates it (#396); a token set by
+compared in constant time. Settings → AI access shows and regenerates it (#396: `GET|POST
+…/m/mcp/token[/regenerate]`, author-only, regular API auth: the routes aren't bearer routes); a token set by
 the environment can only be changed there. Without either (a read-only data directory and no
 `LORE_MCP_TOKEN`), nothing authenticates. Future modules that need API keys follow the same
 rule.

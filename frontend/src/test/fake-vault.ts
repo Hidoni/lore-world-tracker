@@ -303,6 +303,7 @@ export interface ModuleStateRow {
   depends_on: string[]
   default_enabled: boolean
   enabled: boolean
+  settings?: Record<string, unknown> | null
 }
 
 export interface BackupRow {
@@ -1713,13 +1714,20 @@ export function serveVault(
       return HttpResponse.json(makeVault('v9', 'Atlas (restored)'), { status: 201 })
     }),
     http.patch('*/api/v1/vaults/v1/modules/:id', async ({ request, params }) => {
-      const body = (await record(request)) as { enabled: boolean; cascade?: boolean }
+      const body = (await record(request)) as {
+        enabled?: boolean
+        cascade?: boolean
+        settings?: Record<string, unknown>
+      }
       const states = moduleStates ?? []
       const target = states.find((state) => state.id === params.id)
       if (!target) return problem(404, 'module_not_found', 'Not found', 'No such module.')
       const enabled: string[] = []
       const disabled: string[] = []
-      if (body.enabled) {
+      if (body.settings) target.settings = { ...target.settings, ...body.settings }
+      if (body.enabled === undefined) {
+        // Settings only.
+      } else if (body.enabled) {
         const on = (state: ModuleStateRow) => {
           for (const dependency of state.depends_on) {
             const found = states.find((candidate) => candidate.id === dependency)

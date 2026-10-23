@@ -230,6 +230,7 @@ export {
   type Worldline,
   type WorldlineSegment,
 } from './worldlines'
+export { useMcpToken, useRegenerateMcpToken } from './mcp'
 export { useSpeciesDescentTree, useSpeciesMembers, type DescentTree } from './species'
 export {
   useCreateMap,

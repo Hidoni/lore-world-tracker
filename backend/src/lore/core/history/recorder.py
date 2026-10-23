@@ -59,6 +59,8 @@ class HistoryContext:
     summary: str | None = None
     reverts_changeset_id: str | None = None
     changeset_id: str | None = None  # set when the changeset is written
+    label: str | None = None  # who made it, appended to the summary ("MCP create_entity, …")
+    merge: bool = True  # False: never merged into the previous changeset (one per request)
 
 
 @dataclass
@@ -334,7 +336,7 @@ def _write(session: Session, changes: list[_Pending]) -> None:
             session.delete(previous)
             return
         previous.updated_at = now
-        previous.summary = ctx.summary or summarize(session, changes)
+        previous.summary = _summary(session, ctx, changes)
         changeset = previous
         session.execute(delete(Change).where(Change.changeset_id == previous.id))
         session.flush()
@@ -343,7 +345,7 @@ def _write(session: Session, changes: list[_Pending]) -> None:
             created_at=now,
             updated_at=now,
             origin=ctx.origin,
-            summary=ctx.summary or summarize(session, changes),
+            summary=_summary(session, ctx, changes),
             request_id=ctx.request_id,
             reverts_changeset_id=ctx.reverts_changeset_id,
         )
@@ -378,6 +380,7 @@ def _merge_target(
 ) -> Changeset | None:
     if (
         ctx.origin == UNDO
+        or not ctx.merge
         or ctx.reverts_changeset_id
         or len(entities) != 1
         or not _is_edit(changes)
@@ -450,6 +453,11 @@ def _links_summary(changes: Sequence[_Pending]) -> str:
     )
     verb = "Added" if ops == {"insert"} else "Removed" if trashed else "Changed"
     return f"{verb} {len(changes)} link{'s' if len(changes) != 1 else ''}"
+
+
+def _summary(session: Session, ctx: HistoryContext, changes: Sequence[_Pending]) -> str:
+    summary = ctx.summary or summarize(session, changes)
+    return f"{summary} ({ctx.label})" if ctx.label else summary
 
 
 def summarize(session: Session, changes: Sequence[_Pending]) -> str:

@@ -384,7 +384,7 @@ Mentions of the entity itself and of missing entities aren't recorded (decided 2
 
 ## 7. History: changesets
 
-- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'import'|'migration'|'system'|'undo'|'compaction'|'refinement'),
+- `changesets(id PK, created_at, origin ('ui'|'api'|'cli'|'mcp'|'import'|'migration'|'system'|'undo'|'compaction'|'refinement'),
   summary, request_id, reverts_changeset_id NULL, reverted_by_changeset_id NULL)`.
 - `changes(id INTEGER PK, changeset_id → changesets, table_name, row_id, op ('insert'|'update'|'delete'),
   before JSON NULL, after JSON NULL)`.
@@ -401,13 +401,17 @@ not recorded** (decided 2026-10-04). Code that writes with bulk Core statements 
 `history.record_bulk(session, table, rows_before, rows_after)`. The net changes of a transaction
 (first `before`, last `after` per row; unchanged rows dropped) are written at commit; a
 transaction without changes writes no changeset. `origin` comes from the request's
-`X-Lore-Client` (`web` → `ui`, `cli` → `cli`, otherwise `api`; `system` outside requests); the
-summary is set by the service (`history.describe`) or generated ("Created misc “Ana”").
+`X-Lore-Client` (`web` → `ui`, `cli` → `cli`, otherwise `api`; `system` outside requests;
+`mcp` for the MCP module's write tools, `docs/modules/mcp.md`); the summary is set by the service
+(`history.describe`) or generated ("Created misc “Ana”"), followed by the context's `label` when
+one is set (who made it: "Created misc “Ana” (MCP create_entity, claude-code)").
 
 **Merging** (decided 2026-10-04): consecutive saves of one entity by the same client within 2
 minutes, with nothing recorded in between, merge into the previous changeset (its `updated_at`
 moves), so an autosave burst is one history entry and one undo. Only plain edits of a single
-entity merge (no creation, trash, restore, purge, kind change, link to another entity or undo).
+entity merge (no creation, trash, restore, purge, kind change, link to another entity or undo),
+and never changesets whose context says `merge = False` (the MCP write tools: one tool call, one
+changeset, one undo).
 
 **Undo** (`POST /changes/{id}/revert`) inverts the changes in reverse order **only if** every
 affected row still equals its `after` snapshot, ignoring `revision` and `updated_at`. Otherwise it

@@ -521,6 +521,11 @@ def trash(c: Canary) -> Iterator[Call]:
     yield Call(f"{_v(c)}/trash", status=404)
 
 
+@recipe(f"{V}/m/mcp/token")
+def mcp_token(c: Canary) -> Iterator[Call]:
+    yield Call(f"{_v(c)}/m/mcp/token", status=404)  # the server's secret: author-only
+
+
 # --- history -------------------------------------------------------------------------------------
 
 

@@ -56,6 +56,7 @@
 - [`guides/modules.md`](guides/modules.md): what each module adds, graphs, maps, custom kinds and fields
 - [`guides/sharing.md`](guides/sharing.md): share a world with readers: visibility, preview, publish, the reader instance
 - [`guides/backups.md`](guides/backups.md): back up, restore, upgrade, keep a vault healthy
+- [`guides/ai-assistants.md`](guides/ai-assistants.md): connect Claude Desktop, Claude Code or another MCP client to a vault, what they can see and change
 
 ### Decisions
 - [`adr/README.md`](adr/README.md): architecture decision records

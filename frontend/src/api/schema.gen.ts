@@ -2599,6 +2599,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vault_id}/m/mcp/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Token
+         * @description The server's bearer token for MCP clients (author-only).
+         */
+        get: operations["mcp_token"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vault_id}/m/mcp/token/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Token
+         * @description A new token: clients with the old one get ``401`` (``409 token_from_environment`` when
+         *     ``LORE_MCP_TOKEN`` sets it).
+         */
+        post: operations["mcp_regenerate_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6108,6 +6149,20 @@ export interface components {
             result_t: MomentString | null;
             /** Defined */
             defined: boolean;
+        };
+        /** McpToken */
+        McpToken: {
+            /**
+             * Token
+             * @description The server's token (null: it can't be read or made).
+             */
+            token: string | null;
+            /**
+             * Source
+             * @description `environment`: `LORE_MCP_TOKEN` sets it (it can't be regenerated here); `file`: the data directory's `secrets/mcp-token`.
+             * @enum {string}
+             */
+            source: "environment" | "file";
         };
         /** MediaItemList */
         MediaItemList: {
@@ -10156,7 +10211,7 @@ export interface operations {
                 cursor?: string | null;
                 limit?: number;
                 /** @description Only changesets of these origins (repeatable). */
-                origin?: ("ui" | "api" | "cli" | "import" | "migration" | "system" | "undo" | "compaction" | "refinement")[] | null;
+                origin?: ("ui" | "api" | "cli" | "mcp" | "import" | "migration" | "system" | "undo" | "compaction" | "refinement")[] | null;
                 /** @description Apply reader filtering (preview what readers see). */
                 as_reader?: boolean;
             };
@@ -14221,6 +14276,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConvertKindResult"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    mcp_token: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpToken"];
+                };
+            };
+            /** @description Problem */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    mcp_regenerate_token: {
+        parameters: {
+            query?: {
+                /** @description Apply reader filtering (preview what readers see). */
+                as_reader?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Vault id (UUID). */
+                vault_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpToken"];
                 };
             };
             /** @description Problem */

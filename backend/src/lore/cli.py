@@ -1,6 +1,7 @@
 """The ``lore`` command line."""
 
 import json
+import sys
 from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
@@ -83,6 +84,29 @@ def serve(
             timeout_keep_alive=settings.keep_alive,
             workers=1,
         )
+
+
+@app.command("mcp-bridge")
+def mcp_bridge(
+    vault: Annotated[str, typer.Option(help="The vault's id.")],
+    url: Annotated[
+        str | None,
+        typer.Option(help="The Lore server (default: http://127.0.0.1:LORE_PORT)."),
+    ] = None,
+) -> None:
+    """Serve a vault's MCP endpoint over stdio, for clients that start local servers (Claude
+    Desktop). The token: LORE_MCP_TOKEN, else the server's (LORE_DATA_DIR/secrets/mcp-token)."""
+    from lore.modules.mcp.bridge import Bridge, BridgeError, endpoint_url, token_of  # noqa: PLC0415
+
+    settings = Settings()
+    secret = settings.mcp_token.get_secret_value() if settings.mcp_token else None
+    try:
+        token = token_of(settings.data_dir, secret)
+    except BridgeError as exc:
+        _fail(exc)
+    server = url or f"http://127.0.0.1:{settings.port}"
+    bridge = Bridge(endpoint_url(server, vault), token, sys.stderr)
+    bridge.run(sys.stdin.buffer, sys.stdout.buffer)
 
 
 @app.command()
