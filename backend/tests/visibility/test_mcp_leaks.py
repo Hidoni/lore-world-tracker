@@ -3,6 +3,7 @@ readers``, on a read-only server and on a published snapshot, no canary string o
 any result, snippet, error or resource (the leak suite's byte scan); with ``access = author``,
 the private content is there."""
 
+import shutil
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -81,15 +82,29 @@ def _answers(canary: Canary, mcp: Mcp) -> Iterator[tuple[Request, str]]:
 
 
 @pytest.fixture(scope="module")
-def canary(tmp_path_factory: pytest.TempPathFactory) -> Canary:
+def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Canary, Path]:
+    """The canary vault with the module on (``access = readers``), and a copy of its data
+    directory with ``access = author``, made before any reader opens the vault."""
     canary = build_canary_vault(tmp_path_factory.mktemp("mcp-canary"))
-    with leak_client(canary.data_dir) as client:
+    author_dir = tmp_path_factory.mktemp("mcp-author") / "data"
+    _enable(canary.data_dir, canary.vault, "readers")
+    shutil.copytree(canary.data_dir, author_dir)
+    _enable(author_dir, canary.vault, "author")
+    return canary, author_dir
+
+
+def _enable(data_dir: Path, vault_id: str, access: str) -> None:
+    with leak_client(data_dir) as client:
         response = client.patch(
-            f"/api/v1/vaults/{canary.vault}/modules/mcp",
-            json={"enabled": True, "settings": {"access": "readers"}},
+            f"/api/v1/vaults/{vault_id}/modules/mcp",
+            json={"enabled": True, "settings": {"access": access}},
         )
         assert response.status_code == 200, response.json()
-    return canary
+
+
+@pytest.fixture(scope="module")
+def canary(built: tuple[Canary, Path]) -> Canary:
+    return built[0]
 
 
 @pytest.fixture(scope="module", params=["readers", "read_only", "published"])
@@ -136,26 +151,16 @@ def test_readers_get_answers(reader: Mcp, canary: Canary) -> None:
     reader.failed("get_entity", "not_found", entity=sorted(canary.hidden_ids)[0])
 
 
-def test_authors_see_the_private_content(canary: Canary) -> None:
+def test_authors_see_the_private_content(built: tuple[Canary, Path]) -> None:
     """The positive control: with ``access = author`` the same calls reach private content."""
-    with leak_client(canary.data_dir) as client:
-        base = f"/api/v1/vaults/{canary.vault}"
-        patched = client.patch(f"{base}/modules/mcp", json={"settings": {"access": "author"}})
-        assert patched.status_code == 200, patched.json()
-        try:
-            client.headers.pop("X-Lore-Client")
-            mcp = Mcp(client, canary.vault)
-            seen = "\n".join(text for _, text in _answers(canary, mcp))
-        finally:
-            client.headers["X-Lore-Client"] = "test"
-            restored = client.patch(f"{base}/modules/mcp", json={"settings": {"access": "readers"}})
-            assert restored.status_code == 200
+    canary, author_dir = built
+    with leak_client(author_dir) as client:
+        client.headers.pop("X-Lore-Client")
+        seen = "\n".join(text for _, text in _answers(canary, Mcp(client, canary.vault)))
     found = [needle for needle in canary.strings if needle in seen]
     assert len(found) >= len(canary.strings) // 2, found
     assert any(hidden in seen for hidden in canary.hidden_ids)
 
 
-def test_the_requests_are_many(canary: Canary) -> None:
-    with leak_client(canary.data_dir) as client:
-        client.headers.pop("X-Lore-Client")
-        assert sum(1 for _ in _requests(canary, Mcp(client, canary.vault))) > 200
+def test_the_requests_are_many(reader: Mcp, canary: Canary) -> None:
+    assert sum(1 for _ in _requests(canary, reader)) > 200
