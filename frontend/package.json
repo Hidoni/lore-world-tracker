@@ -20,8 +20,8 @@
     "@hookform/resolvers": "^6.0.0",
     "@lore/chronology": "*",
     "@tanstack/react-query": "^5.104.5",
-    "@tanstack/react-router": "^1.170.45",
-    "@tanstack/react-virtual": "^3.14.21",
+    "@tanstack/react-router": "^1.170.46",
+    "@tanstack/react-virtual": "^3.14.22",
     "@tiptap/core": "^3.32.0",
     "@tiptap/extension-link": "^3.32.0",
     "@tiptap/extension-list": "^3.32.0",
@@ -46,12 +46,12 @@
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-hook-form": "^7.90.0",
+    "react-hook-form": "^7.91.0",
     "relatives-tree": "^3.2.2",
     "sigma": "^4.0.3",
     "sonner": "^2.0.8",
     "zod": "^4.6.7",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
