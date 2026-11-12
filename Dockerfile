@@ -14,7 +14,7 @@ COPY frontend ./frontend
 RUN npm run build --workspace frontend
 
 # --- runtime ---------------------------------------------------------------
-FROM python:3.14-slim AS app
+FROM python:3.15-slim AS app
 COPY --from=ghcr.io/astral-sh/uv:0.11.17 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
